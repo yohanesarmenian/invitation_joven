@@ -1,0 +1,9 @@
+{
+  "extends": "@wedding-invitation/tsconfig/base.json",
+  "files": [],
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true
+  }
+}

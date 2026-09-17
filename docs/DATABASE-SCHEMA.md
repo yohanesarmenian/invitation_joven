@@ -1,0 +1,505 @@
+# Database Schema
+
+This document describes the conceptual PostgreSQL schema. Do not create a Prisma schema in Phase 0 documentation.
+
+## Modeling Decisions
+
+### Attendance ownership
+
+These concepts are separate and must not be treated as competing sources of truth:
+
+- `InvitationEvent`: which events the household is allowed to attend.
+- `RSVPEventSelection`: whether the household plans to attend one event and how many household attendees are expected at that event.
+- `RSVPAttendee`: current attendee composition for the RSVP overall.
+- `CheckinRecord`: actual confirmed household attendance for one event.
+
+Event counts may differ from the RSVP attendee total. Example: RSVPAttendee total quantity is 4, Holy Matrimony expected count is 2, and Reception expected count is 4. This is valid.
+
+MVP does not add an attendee-to-event join table. The product needs household event intent, expected total per event, total adult/child composition for the RSVP, and actual checked-in total per event. It does not currently require knowing exactly which named person attends which event.
+
+### RSVP attendee model
+
+The schema uses an `RSVPAttendee` table for current RSVP state, not history.
+
+Allowed `attendee_type` values:
+
+- `NAMED_INVITEE`
+- `PLUS_ONE`
+- `ADDITIONAL_CHILD`
+
+Known spouse and known child are normal named Invitees. Dynamic attendees are not forced into permanent Invitee records.
+
+### Public identifiers
+
+Primary keys are PostgreSQL UUIDs. For MVP, API DTOs may expose UUID identifiers for non-secret resources that the client must reference. Sequential identifiers are not used. Credential hashes, credential versions, session hashes, password hashes, and admin-only fields are never public DTO fields.
+
+### Import audit
+
+`GuestImportBatch` records successful committed import provenance. Preview is not a committed batch. Failed-attempt persistence, if desired later, must occur outside the rolled-back domain transaction.
+
+## ERD
+
+```mermaid
+erDiagram
+  AdminUser ||--o{ AdminSession : owns
+  Invitation ||--o{ Invitee : contains
+  Invitation ||--o{ InvitationEvent : eligible_for
+  Event ||--o{ InvitationEvent : assigned_to
+  Invitation ||--o| RSVP : has
+  RSVP ||--o{ RSVPEventSelection : selects
+  Event ||--o{ RSVPEventSelection : selected_for
+  RSVP ||--o{ RSVPAttendee : has_current_composition
+  Invitee ||--o{ RSVPAttendee : may_reference
+  Invitation ||--o{ GuestMessage : receives
+  Invitation ||--o{ CheckinPass : has_pass_history
+  Invitation ||--o{ CheckinRecord : has_attendance
+  CheckinPass ||--o{ CheckinRecord : may_validate
+  Event ||--o{ CheckinRecord : for_event
+  AdminUser ||--o{ CheckinRecord : confirms
+  AdminUser ||--o{ GuestImportBatch : commits
+```
+
+## Entities
+
+### AdminUser
+
+Purpose: Stores OWNER login identity.
+
+- Primary key: `id uuid`.
+- Important fields:
+  - `email citext or varchar`: unique login email.
+  - `password_hash text`: Argon2id hash.
+  - `role varchar`: MVP value `OWNER`; future extension path may allow `ADMIN`.
+  - `status varchar`: `ACTIVE`, `DISABLED`.
+  - `created_at timestamptz`.
+  - `updated_at timestamptz`.
+  - `last_login_at timestamptz null`.
+- Constraints/indexes:
+  - Unique `email`.
+  - Check role in allowed values.
+  - Check status in allowed values.
+- Sensitive fields: `password_hash`.
+- Deletion: not normally deleted; disable if needed.
+
+### AdminSession
+
+Purpose: Server-managed opaque admin sessions.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `admin_user_id uuid -> AdminUser.id`.
+- Important fields:
+  - `session_token_hash text`: unique hash of cookie token.
+  - `csrf_token_hash text`: hash of CSRF token if persisted server-side.
+  - `expires_at timestamptz`.
+  - `revoked_at timestamptz null`.
+  - `created_at timestamptz`.
+  - `last_seen_at timestamptz null`.
+  - `user_agent text null`.
+  - `ip_address inet null`.
+- Constraints/indexes:
+  - Unique `session_token_hash`.
+  - Index `admin_user_id`.
+  - Index `expires_at`.
+  - Active session lookup by `session_token_hash`.
+- Sensitive fields: token hashes, IP address.
+- Lifecycle: created at login, updated on use, revoked on logout or security action, expired by time.
+
+### Invitation
+
+Purpose: Represents one household/group invitation.
+
+- Primary key: `id uuid`.
+- Important fields:
+  - `display_name text`: household label.
+  - `greeting_name text null`: name used in public greeting.
+  - `public_token_version integer not null default 1`.
+  - `public_token_hash text`: unique hash of current derived public invitation credential.
+  - `status varchar`: `ACTIVE`, `ARCHIVED`.
+  - `rsvp_deadline_at timestamptz null`: unresolved until content/date confirmation.
+  - `allow_plus_one boolean`.
+  - `max_additional_children integer`.
+  - `first_opened_at timestamptz null`.
+  - `last_opened_at timestamptz null`.
+  - `open_count integer not null default 0`.
+  - `notes text null`: admin-only notes.
+  - `created_at timestamptz`.
+  - `updated_at timestamptz`.
+  - `archived_at timestamptz null`.
+- Constraints/indexes:
+  - Unique `public_token_hash`.
+  - Index `status`.
+  - Check `public_token_version >= 1`.
+  - Check `max_additional_children >= 0`.
+  - Check `open_count >= 0`.
+  - If `status = ARCHIVED`, `archived_at` should be set by application transaction.
+- Sensitive fields: `public_token_hash`.
+- Credential behavior:
+  - Public credential is derived from server secret, invitation namespace, `id`, and `public_token_version`.
+  - Regeneration increments `public_token_version`, stores new `public_token_hash`, and invalidates old credential immediately.
+- Deletion/archive:
+  - Normal admin behavior is archive only.
+  - Public access, RSVP, messages, QR validation, and check-in are denied while archived.
+  - Exceptional destructive deletion is operational, not MVP product behavior.
+
+### Invitee
+
+Purpose: Named person known before RSVP.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `invitation_id uuid -> Invitation.id`.
+- Important fields:
+  - `full_name text`.
+  - `display_order integer`.
+  - `category varchar`: `ADULT`, `CHILD`.
+  - `label text null`: optional display/helper label such as primary guest, spouse, or family member.
+  - `created_at timestamptz`.
+  - `updated_at timestamptz`.
+- Constraints/indexes:
+  - Index `invitation_id`.
+  - Unique `(invitation_id, display_order)`.
+  - Check `display_order >= 0`.
+  - Check category in `ADULT`, `CHILD`.
+- Deletion: avoid deleting if referenced by current or historical RSVP/check-in context; prefer inactive/archive extension if needed later.
+
+### Event
+
+Purpose: Defines wedding events without hard-coded UI labels.
+
+- Primary key: `id uuid`.
+- Important fields:
+  - `slug text`: e.g. `holy-matrimony`, `reception`.
+  - `name text`.
+  - `description text null`.
+  - `starts_at timestamptz null`.
+  - `ends_at timestamptz null`.
+  - `venue_name text null`.
+  - `address text null`.
+  - `google_maps_url text null`.
+  - `display_order integer`.
+  - `is_active boolean`.
+  - `created_at timestamptz`.
+  - `updated_at timestamptz`.
+- Constraints/indexes:
+  - Unique `slug`.
+  - Unique `display_order`.
+  - Check `display_order >= 0`.
+- Lifecycle: seeded/managed by OWNER in future if needed; MVP requires at least Holy Matrimony and Wedding Reception.
+
+### InvitationEvent
+
+Purpose: Authoritative invitation-event eligibility.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `invitation_id uuid -> Invitation.id`.
+  - `event_id uuid -> Event.id`.
+- Important fields:
+  - `created_at timestamptz`.
+- Constraints/indexes:
+  - Unique `(invitation_id, event_id)`.
+  - Index `event_id`.
+- Invariant: guests may RSVP only to events present in this table for their invitation.
+- Mutation rule: changes that can affect existing RSVP/check-in state must follow the shared Invitation row lock order.
+
+### RSVP
+
+Purpose: Household RSVP lifecycle.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `invitation_id uuid -> Invitation.id`.
+  - `submitted_by_admin_user_id uuid null -> AdminUser.id`.
+- Important fields:
+  - `status varchar`: `PENDING`, `ACCEPTED`, `DECLINED`.
+  - `version integer not null default 1`.
+  - `dietary_notes text null`.
+  - `guest_note text null`: optional RSVP note separate from GuestMessage.
+  - `submitted_at timestamptz null`.
+  - `last_updated_at timestamptz`.
+  - `admin_override_reason text null`.
+  - `created_at timestamptz`.
+- Constraints/indexes:
+  - Unique `invitation_id`.
+  - Index `status`.
+  - Check `version >= 1`.
+- Lifecycle:
+  - Initial persisted version is `1`.
+  - Every successful RSVP mutation increments `version`.
+  - Public mutation must provide `expectedVersion`; mismatch is `409 RSVP_VERSION_CONFLICT`.
+  - Public/admin updates replace or reconcile current event selections and attendee rows in the same transaction.
+
+### RSVPEventSelection
+
+Purpose: Records event-specific attendance decision and expected count for an RSVP.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `rsvp_id uuid -> RSVP.id`.
+  - `event_id uuid -> Event.id`.
+- Important fields:
+  - `attending boolean`.
+  - `expected_attendee_count integer`.
+  - `created_at timestamptz`.
+  - `updated_at timestamptz`.
+- Constraints/indexes:
+  - Unique `(rsvp_id, event_id)`.
+  - Check `expected_attendee_count >= 0`.
+- Application invariants:
+  - `event_id` must be eligible through `InvitationEvent` for the RSVP invitation.
+  - If `attending = false`, `expected_attendee_count = 0`.
+  - If `attending = true`, `expected_attendee_count >= 1`.
+  - If `attending = true`, `expected_attendee_count <= total quantity represented by RSVPAttendee`.
+  - If RSVP status is `DECLINED`, all selections must have `attending = false` and count `0`.
+
+### RSVPAttendee
+
+Purpose: Current attendee composition for the RSVP overall.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `rsvp_id uuid -> RSVP.id`.
+  - `invitee_id uuid null -> Invitee.id`.
+- Important fields:
+  - `attendee_type varchar`: `NAMED_INVITEE`, `PLUS_ONE`, `ADDITIONAL_CHILD`.
+  - `display_name text null`: optional for plus-one if later requested; not required for MVP count-only additional children.
+  - `quantity integer`.
+  - `created_at timestamptz`.
+  - `updated_at timestamptz`.
+- Constraints/indexes:
+  - Index `rsvp_id`.
+  - Index `invitee_id`.
+  - Check `quantity > 0`.
+  - Unique `(rsvp_id, invitee_id)` where `invitee_id is not null`.
+  - Partial unique index for at most one `PLUS_ONE` row per RSVP where practical.
+- Database constraints where practical:
+  - `NAMED_INVITEE` requires `invitee_id is not null`.
+  - `NAMED_INVITEE` requires `quantity = 1`.
+  - `PLUS_ONE` requires `invitee_id is null`.
+  - `PLUS_ONE` requires `quantity = 1`.
+  - `ADDITIONAL_CHILD` requires `invitee_id is null`.
+- Application transaction invariants:
+  - Referenced Invitee must belong to the same Invitation as the RSVP.
+  - `PLUS_ONE` allowed only when `Invitation.allow_plus_one = true`.
+  - At most one `PLUS_ONE` attendee row per RSVP for MVP.
+  - Total `ADDITIONAL_CHILD` quantity must not exceed `Invitation.max_additional_children`.
+  - Known child Invitees do not consume `max_additional_children` unless a future product decision changes that rule.
+  - Event expected counts must be less than or equal to total RSVPAttendee quantity.
+- Prisma note: partial unique indexes and multi-column conditional checks may require customized PostgreSQL migration SQL if Prisma declarative schema cannot express them.
+
+### GuestMessage
+
+Purpose: Guest wishes/messages associated with an active invitation.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `invitation_id uuid -> Invitation.id`.
+- Important fields:
+  - `author_name text null`.
+  - `message text`.
+  - `created_at timestamptz`.
+  - `is_hidden boolean`: admin moderation flag if needed.
+- Constraints/indexes:
+  - Index `invitation_id`.
+  - Index `created_at`.
+- Deletion: keep by default; hiding/moderation preferred over deletion.
+- Archive rule: public submission denied when invitation is archived; existing messages remain visible to OWNER.
+
+### CheckinPass
+
+Purpose: Household QR/check-in credential lifecycle.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `invitation_id uuid -> Invitation.id`.
+  - `rsvp_id uuid -> RSVP.id`.
+- Important fields:
+  - `token_hash text`: unique hash of current derived check-in credential.
+  - `credential_version integer not null default 1`.
+  - `status varchar`: `ACTIVE`, `REVOKED`, `EXPIRED`.
+  - `issued_at timestamptz`.
+  - `revoked_at timestamptz null`.
+  - `revocation_reason text null`.
+  - `expires_at timestamptz null`.
+  - `created_at timestamptz`.
+- Constraints/indexes:
+  - Unique `token_hash`.
+  - Index `invitation_id`.
+  - Index `rsvp_id`.
+  - Check `credential_version >= 1`.
+  - Partial unique index: one active pass per invitation where `status = ACTIVE`.
+- Sensitive fields: `token_hash`.
+- Credential behavior:
+  - Credential is derived from server secret, check-in namespace, `id`, and `credential_version`.
+  - Plaintext credential/QR payload is not persisted.
+- Lifecycle:
+  - Issued when RSVP becomes accepted.
+  - Normally retained on accepted-to-accepted detail updates.
+  - Revoked when RSVP becomes declined.
+  - Revoked passes are immutable and never reactivated.
+
+### CheckinRecord
+
+Purpose: Successfully confirmed household attendance for one invitation and one event.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `invitation_id uuid -> Invitation.id`.
+  - `event_id uuid -> Event.id`.
+  - `checkin_pass_id uuid null -> CheckinPass.id`.
+  - `confirmed_by_admin_user_id uuid -> AdminUser.id`.
+- Important fields:
+  - `method varchar`: `QR`, `MANUAL`.
+  - `attendee_count integer`.
+  - `checked_in_at timestamptz`.
+  - `created_at timestamptz`.
+  - `note text null`.
+- Constraints/indexes:
+  - Unique `(invitation_id, event_id)`.
+  - Index `event_id`.
+  - Index `checkin_pass_id`.
+  - Index `checked_in_at`.
+  - Check `attendee_count >= 1`.
+  - If `method = QR`, `checkin_pass_id` must be non-null where practical.
+  - If `method = MANUAL`, `checkin_pass_id` may be null.
+- Application invariants:
+  - Confirmation requires active invitation, accepted RSVP, eligible event, and selected event attendance.
+  - QR confirmation additionally requires active CheckinPass.
+  - `attendee_count <= RSVPEventSelection.expected_attendee_count` for MVP.
+  - Duplicate confirmation for the same invitation/event returns deterministic conflict.
+- Non-goal: invalid, revoked, duplicate, or rejected scan attempts are not persisted as CheckinRecord rows in MVP.
+
+### GuestImportBatch
+
+Purpose: Audit successful committed guest imports.
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `committed_by_admin_user_id uuid -> AdminUser.id`.
+- Important fields:
+  - `source_filename text`.
+  - `source_format varchar`: `CSV`, `XLSX`.
+  - `status varchar`: `COMMITTED`.
+  - `row_count integer`.
+  - `created_invitation_count integer`.
+  - `created_invitee_count integer`.
+  - `warning_count integer`.
+  - `error_count integer`.
+  - `summary jsonb`.
+  - `committed_at timestamptz`.
+- Constraints/indexes:
+  - Check counts are non-negative.
+  - Index `committed_at`.
+- Lifecycle:
+  - Created only as part of a successful import commit.
+  - Preview is not a GuestImportBatch.
+  - Failed-attempt persistence, if desired later, must be outside the rolled-back domain transaction.
+
+## Key Invariants and Enforcement
+
+| Invariant | Enforcement |
+|---|---|
+| Invitation token hash is unique | Database unique constraint |
+| Invitation credential version is positive | Database check |
+| Check-in token hash is unique | Database unique constraint |
+| CheckinPass credential version is positive | Database check |
+| Admin session token hash is unique | Database unique constraint |
+| One active check-in pass per invitation | Partial unique index plus transaction |
+| Revoked pass cannot become active again | Application service rule |
+| Only accepted RSVP can have active pass | RSVP transaction/application rule |
+| Declined RSVP cannot leave active pass | RSVP transaction/application rule |
+| RSVP version increments on every mutation | RSVP transaction/application rule |
+| Stale RSVP expectedVersion is rejected | RSVP transaction/application rule |
+| RSVP event must be eligible | Application transaction validation against InvitationEvent |
+| If event attending is false, expected count is 0 | API/application validation |
+| If event attending is true, expected count is 1..RSVPAttendee total | API/application validation |
+| RSVPAttendee quantity is positive | Database check |
+| Named invitee row references an Invitee and quantity is 1 | Database check where practical plus application validation |
+| Referenced Invitee belongs to same Invitation | Application transaction validation |
+| Plus-one requires null invitee and quantity 1 | Database check where practical |
+| Plus-one permission | Application transaction validation |
+| Additional child requires null invitee and positive quantity | Database check where practical |
+| Additional child allowance | Application transaction validation |
+| Duplicate named invitee in same RSVP is prevented | Partial unique index |
+| At most one PLUS_ONE row per RSVP | Partial unique index where practical plus application validation |
+| Duplicate confirmed check-in cannot create two attendance records | Unique `(invitation_id, event_id)` plus transaction |
+| CheckinRecord attendee_count is at least 1 | Database check |
+| CheckinRecord attendee_count does not exceed expected event count | Application transaction validation |
+| Archived invitation denies public access, RSVP, messages, QR validation, and check-in | API/application validation |
+| Archived invitation historical data remains intact | Product rule plus FK/delete policy |
+
+Cross-table business rules require transactional application logic. Do not claim PostgreSQL check constraints can enforce event eligibility, RSVP/pass consistency, or companion permissions alone.
+
+## Transaction Boundaries
+
+### Shared lock order
+
+Every invitation-scoped state-changing operation that can conflict must:
+
+1. Begin transaction.
+2. Select the target `Invitation` row `FOR UPDATE`.
+3. Reload and revalidate dependent current state.
+4. Apply the domain transition.
+5. Commit.
+
+Use this for public RSVP mutation, OWNER RSVP override, event eligibility changes that can affect RSVP/check-in, check-in confirmation, invitation archive, and credential regeneration/rotation.
+
+### RSVP update
+
+One transaction must:
+
+1. Lock Invitation row `FOR UPDATE`.
+2. Validate invitation is active and RSVP deadline/update policy.
+3. Load current RSVP and compare `expectedVersion` for public mutations.
+4. Validate event eligibility.
+5. Validate attendee rows and event counts.
+6. Upsert/update RSVP.
+7. Replace/reconcile current RSVPAttendee rows.
+8. Replace/reconcile RSVPEventSelection rows.
+9. Create, retain, or revoke CheckinPass according to status transition.
+10. Increment RSVP version.
+11. Commit only when final state is internally consistent.
+
+Historical attendee composition before the edit does not need to be retained for MVP. Old revoked CheckinPass rows and confirmed CheckinRecord rows remain historical facts.
+
+### Check-in validation
+
+QR validation is read-only. It resolves credential hash and validates current state but does not lock as a reservation and does not create CheckinRecord.
+
+### Check-in confirmation
+
+One transaction must:
+
+1. Lock Invitation row `FOR UPDATE`.
+2. Load current RSVP/event/pass state.
+3. Revalidate active invitation, accepted RSVP, event eligibility, selected event attendance, active pass when QR is used, and attendee count.
+4. Check existing CheckinRecord for `(invitation_id, event_id)`.
+5. Insert CheckinRecord.
+6. Commit.
+
+Concurrent confirmations are guarded finally by unique `(invitation_id, event_id)`.
+
+### Guest import commit
+
+MVP commit is all-or-nothing for selected valid rows. The transaction creates invitations, invitees, invitation events, default RSVP state where used, invitation credential version/hash initialization, and successful import batch provenance. If any selected row fails commit, rollback the full selected import.
+
+## Query Patterns
+
+- Public invitation lookup by public credential hash.
+- Open aggregate update by Invitation row on valid active public load.
+- Admin invitation list filtered by status, RSVP status, event eligibility, and search.
+- RSVP detail by invitation.
+- Active pass lookup by check-in credential hash.
+- Confirmed check-in history by event and invitation.
+- Dashboard counts by invitation status, RSVP status, expected attendee counts, and CheckinRecord status.
+- CSV export queries for invitations, RSVP, dietary notes, and check-in.
+
+## Migration Principles
+
+- Migrations must be reviewed with the Database Schema document.
+- Avoid destructive migrations without explicit data preservation plan.
+- Add nullable columns before backfilling where needed.
+- Protect credential hash uniqueness before production credential generation.
+- Use custom PostgreSQL migration SQL for partial indexes/conditional constraints that Prisma cannot express declaratively.
+- Preserve archived invitation history.

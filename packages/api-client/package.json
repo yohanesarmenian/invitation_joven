@@ -1,0 +1,16 @@
+{
+  "name": "@wedding-invitation/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0 --no-error-on-unmatched-pattern",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@wedding-invitation/eslint-config": "workspace:*",
+    "@wedding-invitation/tsconfig": "workspace:*"
+  }
+}
