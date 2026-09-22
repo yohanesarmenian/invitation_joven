@@ -2,16 +2,17 @@ import {
   Controller,
   Get,
   Inject,
-  Logger,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service.js";
+import { AppLogger } from "../logging/app-logger.js";
 
 @Controller("health")
 export class HealthController {
-  private readonly logger = new Logger(HealthController.name);
-
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AppLogger) private readonly logger: AppLogger,
+  ) {}
 
   @Get()
   async getHealth() {
@@ -25,15 +26,16 @@ export class HealthController {
       };
     } catch (error) {
       this.logger.error(
+        {
+          database: "unavailable",
+          error: {
+            name: error instanceof Error ? error.name : "UnknownError",
+          },
+        },
         "Database health check failed",
-        error instanceof Error ? error.stack : undefined,
       );
 
-      throw new ServiceUnavailableException({
-        status: "error",
-        api: "ok",
-        database: "unavailable",
-      });
+      throw new ServiceUnavailableException();
     }
   }
 }
