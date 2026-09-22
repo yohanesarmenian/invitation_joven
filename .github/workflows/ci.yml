@@ -59,6 +59,12 @@ jobs:
       - name: Check migration status
         run: pnpm db:status
 
+      - name: Generate OpenAPI and API client
+        run: pnpm api:contract:generate
+
+      - name: Check generated API contract
+        run: git diff --exit-code -- apps/api/openapi.json packages/api-client/src/generated/schema.ts
+
       - name: Lint
         run: pnpm lint
 

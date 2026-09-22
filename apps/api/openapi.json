@@ -1,0 +1,279 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/public/invitations/{publicCredential}": {
+      "get": {
+        "operationId": "PublicInvitationController_retrievePublicInvitation",
+        "parameters": [
+          {
+            "name": "publicCredential",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "maxLength": 43,
+              "minLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicInvitationResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invitation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Retrieve a public invitation",
+        "tags": [
+          "Public Invitations"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Wedding Invitation API",
+    "description": "Backend API contract for the wedding invitation system.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "PublicInvitationEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "venueName": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "googleMapsUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "startsAt",
+          "venueName",
+          "address",
+          "googleMapsUrl"
+        ]
+      },
+      "PublicInvitationInviteeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "ADULT",
+              "CHILD"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "category"
+        ]
+      },
+      "PublicInvitationRulesDto": {
+        "type": "object",
+        "properties": {
+          "allowPlusOne": {
+            "type": "boolean"
+          },
+          "maxAdditionalChildren": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "allowPlusOne",
+          "maxAdditionalChildren"
+        ]
+      },
+      "PublicInvitationRsvpDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "version": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ]
+      },
+      "PublicInvitationDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "greetingName": {
+            "type": "string",
+            "nullable": true
+          },
+          "rsvpDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicInvitationEventDto"
+            }
+          },
+          "invitees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicInvitationInviteeDto"
+            }
+          },
+          "rules": {
+            "$ref": "#/components/schemas/PublicInvitationRulesDto"
+          },
+          "rsvp": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicInvitationRsvpDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "displayName",
+          "greetingName",
+          "rsvpDeadlineAt",
+          "events",
+          "invitees",
+          "rules",
+          "rsvp"
+        ]
+      },
+      "PublicInvitationResponseDto": {
+        "type": "object",
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/PublicInvitationDto"
+          }
+        },
+        "required": [
+          "invitation"
+        ]
+      },
+      "ApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "details"
+        ]
+      },
+      "ApiErrorEnvelopeDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDto"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "error",
+          "requestId",
+          "timestamp"
+        ]
+      }
+    }
+  }
+}
