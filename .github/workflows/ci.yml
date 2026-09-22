@@ -26,6 +26,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://invitation_ci:invitation_ci_password@localhost:5432/invitation_ci?schema=public
+      # Public deterministic fixture for CI/test only; not a production secret.
+      CREDENTIAL_SECRET: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8
 
     steps:
       - name: Checkout
