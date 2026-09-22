@@ -93,4 +93,56 @@ describe("ApiExceptionFilter", () => {
       timestamp: expect.any(String),
     });
   });
+
+  it.each([
+    "/api/public/invitations/SUPER-SECRET-CREDENTIAL?token=QUERY-SECRET",
+    "/api/public/checkin/SUPER-SECRET-CREDENTIAL?token=QUERY-SECRET",
+    "/i/SUPER-SECRET-CREDENTIAL?token=QUERY-SECRET",
+    "/c/SUPER-SECRET-CREDENTIAL?token=QUERY-SECRET",
+  ])("sanitizes unmatched credential route responses for %s", async (url) => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url,
+      headers: {
+        "x-request-id": "req-credential404",
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: "NOT_FOUND",
+        message: "Resource not found",
+        details: null,
+      },
+      requestId: "req-credential404",
+      timestamp: expect.any(String),
+    });
+    expect(response.body).not.toContain("SUPER-SECRET-CREDENTIAL");
+    expect(response.body).not.toContain("QUERY-SECRET");
+    expect(response.body).not.toContain(url);
+    expect(response.body).not.toContain(
+      "Cannot GET /api/public/invitations/SUPER-SECRET-CREDENTIAL",
+    );
+  });
+
+  it("returns a generic envelope for ordinary unmatched routes", async () => {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/completely-unknown-route",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "NOT_FOUND",
+        message: "Resource not found",
+        details: null,
+      },
+      requestId: expect.any(String),
+      timestamp: expect.any(String),
+    });
+    expect(response.body).not.toContain("Cannot GET");
+    expect(response.body).not.toContain("/completely-unknown-route");
+  });
 });

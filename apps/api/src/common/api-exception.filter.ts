@@ -56,13 +56,17 @@ const STATUS_MESSAGES: Partial<Record<HttpStatus, string>> = {
   [HttpStatus.BAD_REQUEST]: "Bad request",
   [HttpStatus.UNAUTHORIZED]: "Unauthorized",
   [HttpStatus.FORBIDDEN]: "Forbidden",
-  [HttpStatus.NOT_FOUND]: "Not found",
+  [HttpStatus.NOT_FOUND]: "Resource not found",
   [HttpStatus.CONFLICT]: "Conflict",
   [HttpStatus.UNPROCESSABLE_ENTITY]: "Unprocessable entity",
   [HttpStatus.TOO_MANY_REQUESTS]: "Too many requests",
   [HttpStatus.INTERNAL_SERVER_ERROR]: "Internal server error",
   [HttpStatus.SERVICE_UNAVAILABLE]: "Service unavailable",
 };
+
+const FRAMEWORK_ROUTE_NOT_FOUND_PATTERN =
+  /^Cannot (GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS) \//;
+const URL_LIKE_SEGMENT_PATTERN = /\/[^\s"'<>]*/g;
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
@@ -139,8 +143,12 @@ export class ApiExceptionFilter implements ExceptionFilter {
       return STATUS_MESSAGES[status] ?? "Internal server error";
     }
 
+    if (status === HttpStatus.NOT_FOUND) {
+      return STATUS_MESSAGES[HttpStatus.NOT_FOUND] ?? "Resource not found";
+    }
+
     if (typeof responseBody?.message === "string") {
-      return responseBody.message;
+      return this.sanitizeResponseMessage(responseBody.message);
     }
 
     if (Array.isArray(responseBody?.message)) {
@@ -148,10 +156,20 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
 
     if (typeof response === "string") {
-      return response;
+      return this.sanitizeResponseMessage(response);
     }
 
     return STATUS_MESSAGES[status] ?? "Internal server error";
+  }
+
+  private sanitizeResponseMessage(message: string): string {
+    if (FRAMEWORK_ROUTE_NOT_FOUND_PATTERN.test(message)) {
+      return STATUS_MESSAGES[HttpStatus.NOT_FOUND] ?? "Resource not found";
+    }
+
+    return message.replace(URL_LIKE_SEGMENT_PATTERN, (url) => {
+      return sanitizeRequestUrl(url) ?? url;
+    });
   }
 
   private getDetails(details: unknown): ErrorDetails {
