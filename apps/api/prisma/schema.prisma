@@ -1,0 +1,325 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AdminRole {
+  OWNER
+
+  @@map("admin_role")
+}
+
+enum AdminUserStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("admin_user_status")
+}
+
+enum InvitationStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("invitation_status")
+}
+
+enum InviteeCategory {
+  ADULT
+  CHILD
+
+  @@map("invitee_category")
+}
+
+enum RSVPStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+
+  @@map("rsvp_status")
+}
+
+enum RSVPAttendeeType {
+  NAMED_INVITEE
+  PLUS_ONE
+  ADDITIONAL_CHILD
+
+  @@map("rsvp_attendee_type")
+}
+
+enum CheckinPassStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+
+  @@map("checkin_pass_status")
+}
+
+enum CheckinMethod {
+  QR
+  MANUAL
+
+  @@map("checkin_method")
+}
+
+enum GuestImportSourceFormat {
+  CSV
+  XLSX
+
+  @@map("guest_import_source_format")
+}
+
+enum GuestImportStatus {
+  COMMITTED
+
+  @@map("guest_import_status")
+}
+
+model AdminUser {
+  id             String             @id @default(uuid()) @db.Uuid
+  email          String             @unique
+  passwordHash   String             @map("password_hash")
+  role           AdminRole          @default(OWNER)
+  status         AdminUserStatus    @default(ACTIVE)
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastLoginAt    DateTime?          @map("last_login_at") @db.Timestamptz(6)
+  sessions       AdminSession[]
+  submittedRSVPs RSVP[]             @relation("RSVPSubmittedBy")
+  checkinRecords CheckinRecord[]    @relation("CheckinConfirmedBy")
+  importBatches  GuestImportBatch[] @relation("ImportCommittedBy")
+
+  @@map("admin_users")
+}
+
+model AdminSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  adminUserId      String    @map("admin_user_id") @db.Uuid
+  sessionTokenHash String    @unique @map("session_token_hash")
+  csrfTokenHash    String?   @map("csrf_token_hash")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt       DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  userAgent        String?   @map("user_agent")
+  ipAddress        String?   @map("ip_address") @db.Inet
+  adminUser        AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  @@index([adminUserId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+model Invitation {
+  id                    String            @id @default(uuid()) @db.Uuid
+  displayName           String            @map("display_name")
+  greetingName          String?           @map("greeting_name")
+  publicTokenVersion    Int               @default(1) @map("public_token_version")
+  publicTokenHash       String            @unique @map("public_token_hash")
+  status                InvitationStatus  @default(ACTIVE)
+  rsvpDeadlineAt        DateTime?         @map("rsvp_deadline_at") @db.Timestamptz(6)
+  allowPlusOne          Boolean           @default(false) @map("allow_plus_one")
+  maxAdditionalChildren Int               @default(0) @map("max_additional_children")
+  firstOpenedAt         DateTime?         @map("first_opened_at") @db.Timestamptz(6)
+  lastOpenedAt          DateTime?         @map("last_opened_at") @db.Timestamptz(6)
+  openCount             Int               @default(0) @map("open_count")
+  notes                 String?
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  archivedAt            DateTime?         @map("archived_at") @db.Timestamptz(6)
+  invitees              Invitee[]
+  invitationEvents      InvitationEvent[]
+  rsvp                  RSVP?
+  guestMessages         GuestMessage[]
+  checkinPasses         CheckinPass[]
+  checkinRecords        CheckinRecord[]
+
+  @@index([status])
+  @@map("invitations")
+}
+
+model Invitee {
+  id            String         @id @default(uuid()) @db.Uuid
+  invitationId  String         @map("invitation_id") @db.Uuid
+  fullName      String         @map("full_name")
+  displayOrder  Int            @map("display_order")
+  category      InviteeCategory
+  label         String?
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  invitation    Invitation     @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  rsvpAttendees RSVPAttendee[]
+
+  @@unique([invitationId, displayOrder])
+  @@index([invitationId])
+  @@map("invitees")
+}
+
+model Event {
+  id                  String               @id @default(uuid()) @db.Uuid
+  slug                String               @unique
+  name                String
+  description         String?
+  startsAt            DateTime?            @map("starts_at") @db.Timestamptz(6)
+  endsAt              DateTime?            @map("ends_at") @db.Timestamptz(6)
+  venueName           String?              @map("venue_name")
+  address             String?
+  googleMapsUrl       String?              @map("google_maps_url")
+  displayOrder        Int                  @unique @map("display_order")
+  isActive            Boolean              @default(true) @map("is_active")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  invitationEvents    InvitationEvent[]
+  rsvpEventSelections RSVPEventSelection[]
+  checkinRecords      CheckinRecord[]
+
+  @@map("events")
+}
+
+model InvitationEvent {
+  id           String     @id @default(uuid()) @db.Uuid
+  invitationId String     @map("invitation_id") @db.Uuid
+  eventId      String     @map("event_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@unique([invitationId, eventId])
+  @@index([eventId])
+  @@map("invitation_events")
+}
+
+model RSVP {
+  id                     String                @id @default(uuid()) @db.Uuid
+  invitationId           String                @unique @map("invitation_id") @db.Uuid
+  submittedByAdminUserId String?               @map("submitted_by_admin_user_id") @db.Uuid
+  status                 RSVPStatus            @default(PENDING)
+  version                Int                   @default(1)
+  dietaryNotes           String?               @map("dietary_notes")
+  guestNote              String?               @map("guest_note")
+  submittedAt            DateTime?             @map("submitted_at") @db.Timestamptz(6)
+  lastUpdatedAt          DateTime              @default(now()) @map("last_updated_at") @db.Timestamptz(6)
+  adminOverrideReason    String?               @map("admin_override_reason")
+  createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  invitation             Invitation            @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  submittedByAdminUser   AdminUser?            @relation("RSVPSubmittedBy", fields: [submittedByAdminUserId], references: [id], onDelete: Restrict)
+  eventSelections        RSVPEventSelection[]
+  attendees              RSVPAttendee[]
+  checkinPasses          CheckinPass[]
+
+  @@index([status])
+  @@map("rsvps")
+}
+
+model RSVPEventSelection {
+  id                    String   @id @default(uuid()) @db.Uuid
+  rsvpId                String   @map("rsvp_id") @db.Uuid
+  eventId               String   @map("event_id") @db.Uuid
+  attending             Boolean
+  expectedAttendeeCount Int      @map("expected_attendee_count")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  rsvp                  RSVP     @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  event                 Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  @@unique([rsvpId, eventId])
+  @@map("rsvp_event_selections")
+}
+
+model RSVPAttendee {
+  id           String           @id @default(uuid()) @db.Uuid
+  rsvpId       String           @map("rsvp_id") @db.Uuid
+  inviteeId    String?          @map("invitee_id") @db.Uuid
+  attendeeType RSVPAttendeeType @map("attendee_type")
+  displayName  String?          @map("display_name")
+  quantity     Int
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  rsvp         RSVP             @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  invitee      Invitee?         @relation(fields: [inviteeId], references: [id], onDelete: Restrict)
+
+  @@index([rsvpId])
+  @@index([inviteeId])
+  @@map("rsvp_attendees")
+}
+
+model GuestMessage {
+  id           String     @id @default(uuid()) @db.Uuid
+  invitationId String     @map("invitation_id") @db.Uuid
+  authorName   String?    @map("author_name")
+  message      String
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  isHidden     Boolean    @default(false) @map("is_hidden")
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+
+  @@index([invitationId])
+  @@index([createdAt])
+  @@map("guest_messages")
+}
+
+model CheckinPass {
+  id                 String            @id @default(uuid()) @db.Uuid
+  invitationId       String            @map("invitation_id") @db.Uuid
+  rsvpId             String            @map("rsvp_id") @db.Uuid
+  tokenHash          String            @unique @map("token_hash")
+  credentialVersion  Int               @default(1) @map("credential_version")
+  status             CheckinPassStatus @default(ACTIVE)
+  issuedAt           DateTime          @default(now()) @map("issued_at") @db.Timestamptz(6)
+  revokedAt          DateTime?         @map("revoked_at") @db.Timestamptz(6)
+  revocationReason   String?           @map("revocation_reason")
+  expiresAt          DateTime?         @map("expires_at") @db.Timestamptz(6)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  invitation         Invitation        @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  rsvp               RSVP              @relation(fields: [rsvpId], references: [id], onDelete: Restrict)
+  checkinRecords     CheckinRecord[]
+
+  @@index([invitationId])
+  @@index([rsvpId])
+  @@map("checkin_passes")
+}
+
+model CheckinRecord {
+  id                     String        @id @default(uuid()) @db.Uuid
+  invitationId           String        @map("invitation_id") @db.Uuid
+  eventId                String        @map("event_id") @db.Uuid
+  checkinPassId          String?       @map("checkin_pass_id") @db.Uuid
+  confirmedByAdminUserId String        @map("confirmed_by_admin_user_id") @db.Uuid
+  method                 CheckinMethod
+  attendeeCount          Int           @map("attendee_count")
+  checkedInAt            DateTime      @default(now()) @map("checked_in_at") @db.Timestamptz(6)
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  note                   String?
+  invitation             Invitation    @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  event                  Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  checkinPass            CheckinPass?  @relation(fields: [checkinPassId], references: [id], onDelete: Restrict)
+  confirmedByAdminUser   AdminUser     @relation("CheckinConfirmedBy", fields: [confirmedByAdminUserId], references: [id], onDelete: Restrict)
+
+  @@unique([invitationId, eventId])
+  @@index([eventId])
+  @@index([checkinPassId])
+  @@index([checkedInAt])
+  @@map("checkin_records")
+}
+
+model GuestImportBatch {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  committedByAdminUserId String                  @map("committed_by_admin_user_id") @db.Uuid
+  sourceFilename         String                  @map("source_filename")
+  sourceFormat           GuestImportSourceFormat @map("source_format")
+  status                 GuestImportStatus       @default(COMMITTED)
+  rowCount               Int                     @map("row_count")
+  createdInvitationCount Int                     @map("created_invitation_count")
+  createdInviteeCount    Int                     @map("created_invitee_count")
+  warningCount           Int                     @map("warning_count")
+  errorCount             Int                     @map("error_count")
+  summary                Json
+  committedAt            DateTime                @default(now()) @map("committed_at") @db.Timestamptz(6)
+  committedByAdminUser   AdminUser               @relation("ImportCommittedBy", fields: [committedByAdminUserId], references: [id], onDelete: Restrict)
+
+  @@index([committedAt])
+  @@map("guest_import_batches")
+}

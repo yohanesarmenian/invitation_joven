@@ -3,6 +3,7 @@ node_modules/
 
 # build outputs
 .next/
+apps/api/src/generated/prisma/
 dist/
 build/
 coverage/

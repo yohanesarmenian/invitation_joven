@@ -9,6 +9,23 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: invitation_ci
+          POSTGRES_USER: invitation_ci
+          POSTGRES_PASSWORD: invitation_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U invitation_ci -d invitation_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://invitation_ci:invitation_ci_password@localhost:5432/invitation_ci?schema=public
 
     steps:
       - name: Checkout
@@ -27,6 +44,18 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm db:generate
+
+      - name: Validate Prisma schema
+        run: pnpm db:validate
+
+      - name: Deploy database migrations
+        run: pnpm db:migrate:deploy
+
+      - name: Check migration status
+        run: pnpm db:status
 
       - name: Lint
         run: pnpm lint

@@ -5,10 +5,15 @@
   "packageManager": "pnpm@12.4.2",
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build",
+    "build": "pnpm db:generate && turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "typecheck": "pnpm db:generate && turbo run typecheck",
+    "test": "pnpm db:generate && turbo run test",
+    "db:generate": "pnpm --filter api db:generate",
+    "db:validate": "pnpm --filter api db:validate",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:migrate:deploy": "pnpm --filter api db:migrate:deploy",
+    "db:status": "pnpm --filter api db:status",
     "format": "prettier --check .",
     "format:write": "prettier --write ."
   },

@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: invitation-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: invitation_dev
+      POSTGRES_USER: invitation_dev
+      POSTGRES_PASSWORD: invitation_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - invitation_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invitation_dev -d invitation_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  invitation_postgres_data:
