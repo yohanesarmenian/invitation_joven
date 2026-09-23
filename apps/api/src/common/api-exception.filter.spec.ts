@@ -51,13 +51,16 @@ describe("ApiExceptionFilter", () => {
   });
 
   it("returns a sanitized common envelope for unexpected errors", async () => {
-    const response = await app.getHttpAdapter().getInstance().inject({
-      method: "GET",
-      url: "/test-errors/unexpected",
-      headers: {
-        "x-request-id": "req-12345678",
-      },
-    });
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "GET",
+        url: "/test-errors/unexpected",
+        headers: {
+          "x-request-id": "req-12345678",
+        },
+      });
 
     expect(response.statusCode).toBe(500);
     expect(response.json()).toEqual({
@@ -95,18 +98,20 @@ describe("ApiExceptionFilter", () => {
   });
 
   it.each([
-    "/api/public/invitations/SUPER-SECRET-CREDENTIAL?token=QUERY-SECRET",
     "/api/public/checkin/SUPER-SECRET-CREDENTIAL?token=QUERY-SECRET",
     "/i/SUPER-SECRET-CREDENTIAL?token=QUERY-SECRET",
     "/c/SUPER-SECRET-CREDENTIAL?token=QUERY-SECRET",
   ])("sanitizes unmatched credential route responses for %s", async (url) => {
-    const response = await app.getHttpAdapter().getInstance().inject({
-      method: "GET",
-      url,
-      headers: {
-        "x-request-id": "req-credential404",
-      },
-    });
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "GET",
+        url,
+        headers: {
+          "x-request-id": "req-credential404",
+        },
+      });
 
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({

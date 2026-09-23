@@ -44,7 +44,7 @@ Required error codes:
 
 | Code | Status | Meaning |
 |---|---:|---|
-| `INVITATION_NOT_AVAILABLE` | 404 | Public credential is unknown, archived, or otherwise unavailable. Do not reveal which. |
+| `INVITATION_NOT_AVAILABLE` | 404 | Public credential is malformed, unknown, stale, archived, or otherwise unavailable. Do not reveal which. |
 | `RSVP_VERSION_CONFLICT` | 409 | Submitted `expectedVersion` does not match current RSVP version. |
 | `EVENT_NOT_ALLOWED` | 422 | Invitation is not eligible for the selected event. |
 | `EVENT_NOT_SELECTED` | 422 | RSVP does not select attendance for the event. |
@@ -61,6 +61,8 @@ Public APIs must not expose credential hashes, credential versions, password/ses
 
 Resource IDs in request/response examples are UUID primary keys unless otherwise noted. UUIDs are acceptable for MVP because they are random and non-sequential. Credential strings, token hashes, and credential versions are never public resource identifiers.
 
+For public invitation retrieval, exposing `events[].id` and `invitees[].id` is intentional because later RSVP mutations require `eventId` and `inviteeId`. These IDs belong only to the resolved invitation's public projection. Public responses must not expose `Invitation.id`, `RSVP.id`, `CheckinPass.id`, credential versions, credential hashes, audit IDs, admin notes, or other invitations unless another locked contract explicitly requires them.
+
 ## Public Endpoints
 
 ### Retrieve invitation
@@ -71,10 +73,14 @@ Authentication: public credential in path.
 
 Behavior:
 
-- Resolve credential hash.
+- Validate public credential format and resolve credential hash.
 - Require Invitation `ACTIVE`.
-- Update `first_opened_at`, `last_opened_at`, and `open_count` for valid active loads.
+- Update `first_opened_at`, `last_opened_at`, and `open_count` transactionally for valid active loads.
 - Return only public invitation data.
+- Events must be reached through `InvitationEvent`; never return all Event rows.
+- Event output is ordered by `Event.display_order ASC`; `displayOrder` itself is not exposed.
+- Invitee output is ordered by `Invitee.display_order ASC`; do not rely on database natural ordering.
+- RSVP state/version represent persisted RSVP state only. Do not synthesize an RSVP row.
 
 Response:
 
@@ -82,16 +88,17 @@ Response:
 {
   "invitation": {
     "displayName": "John & Jane Smith Family",
-    "greetingName": "John & Jane",
+    "greetingName": null,
+    "rsvpDeadlineAt": null,
     "events": [
       {
         "id": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
         "slug": "holy-matrimony",
         "name": "Holy Matrimony",
-        "startsAt": "2027-01-09T00:00:00.000Z",
-        "venueName": "Venue",
-        "address": "Address",
-        "googleMapsUrl": "https://maps.google.com/..."
+        "startsAt": null,
+        "venueName": null,
+        "address": null,
+        "googleMapsUrl": null
       }
     ],
     "invitees": [
@@ -103,20 +110,55 @@ Response:
     ],
     "rules": {
       "allowPlusOne": false,
-      "maxAdditionalChildren": 2
+      "maxAdditionalChildren": 0
     },
-    "rsvp": {
-      "status": "PENDING",
-      "version": 1,
-      "deadlineAt": null
-    }
+    "rsvp": null
   }
 }
 ```
 
+If an RSVP row exists, `rsvp` contains persisted RSVP state only:
+
+```json
+{
+  "rsvp": {
+    "status": "PENDING",
+    "version": 1
+  }
+}
+```
+
+If no RSVP row exists, `rsvp` is `null`. The `rsvpDeadlineAt` field belongs to the invitation because the authoritative database field is `Invitation.rsvp_deadline_at`.
+
+Nullable fields:
+
+- `invitation.greetingName`
+- `invitation.rsvpDeadlineAt`
+- `invitation.events[].startsAt`
+- `invitation.events[].venueName`
+- `invitation.events[].address`
+- `invitation.events[].googleMapsUrl`
+- `invitation.rsvp`
+
 Errors:
 
-- `404 INVITATION_NOT_AVAILABLE` for unknown credential, archived invitation, or otherwise unavailable invitation.
+- `404 INVITATION_NOT_AVAILABLE` for malformed credential, unknown credential, stale credential, archived invitation, or otherwise unavailable invitation.
+
+Unavailable response:
+
+```json
+{
+  "error": {
+    "code": "INVITATION_NOT_AVAILABLE",
+    "message": "Resource not found",
+    "details": null
+  },
+  "requestId": "...",
+  "timestamp": "..."
+}
+```
+
+Do not reveal which unavailable case occurred. Never place the public credential in `error.message`, `error.details`, response metadata, or logs.
 
 No separate MVP open-tracking endpoint is required; open aggregates update during valid active invitation retrieval.
 

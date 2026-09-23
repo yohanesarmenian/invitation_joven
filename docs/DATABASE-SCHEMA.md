@@ -136,7 +136,10 @@ Purpose: Represents one household/group invitation.
 - Sensitive fields: `public_token_hash`.
 - Credential behavior:
   - Public credential is derived from server secret, invitation namespace, `id`, and `public_token_version`.
+  - `id` is canonicalized to lowercase UUID form for derivation.
+  - The current stored `public_token_hash` is the lowercase hexadecimal SHA-256 hash of the 43-character public credential string.
   - Regeneration increments `public_token_version`, stores new `public_token_hash`, and invalidates old credential immediately.
+  - Plaintext public credentials are not stored.
 - Deletion/archive:
   - Normal admin behavior is archive only.
   - Public access, RSVP, messages, QR validation, and check-in are denied while archived.
@@ -444,6 +447,67 @@ Every invitation-scoped state-changing operation that can conflict must:
 5. Commit.
 
 Use this for public RSVP mutation, OWNER RSVP override, event eligibility changes that can affect RSVP/check-in, check-in confirmation, invitation archive, and credential regeneration/rotation.
+
+### Public invitation retrieval and open tracking
+
+This section documents transactional behavior only. It does not alter the database schema and requires no migration.
+
+Valid public invitation retrieval is not a pure read because it mutates:
+
+- `first_opened_at`
+- `last_opened_at`
+- `open_count`
+
+The operation follows the Invitation-first lock discipline:
+
+1. Validate and hash the inbound public credential outside the database transaction.
+2. Start a Prisma interactive transaction.
+3. Lock the matching Invitation row with a narrow parameterized query equivalent to:
+
+   ```sql
+   SELECT id, status
+   FROM invitations
+   WHERE public_token_hash = $1
+   FOR UPDATE;
+   ```
+
+4. If no row exists, return generic `INVITATION_NOT_AVAILABLE`.
+5. If status is not `ACTIVE`, return the same generic unavailable response.
+6. Update aggregates atomically with a parameterized statement equivalent to:
+
+   ```sql
+   UPDATE invitations
+   SET
+     first_opened_at = COALESCE(first_opened_at, CURRENT_TIMESTAMP),
+     last_opened_at = CURRENT_TIMESTAMP,
+     open_count = open_count + 1,
+     updated_at = CURRENT_TIMESTAMP
+   WHERE id = $1::uuid
+     AND status = 'ACTIVE'
+   RETURNING
+     first_opened_at,
+     last_opened_at,
+     open_count;
+   ```
+
+7. Exactly one row must be updated.
+8. Within the same transaction, read the public projection: Invitation public fields, eligible InvitationEvent/Event rows, Invitees, and optional RSVP.
+9. Commit and map the already-read data to the public DTO.
+
+Concurrency requirements:
+
+- `open_count` increments atomically; concurrent loads must not lose increments.
+- `first_opened_at` is assigned once via `COALESCE`.
+- `last_opened_at` updates on every valid load.
+- All public projection reads happen in the same transaction as the open update.
+- PostgreSQL `READ COMMITTED` is sufficient when all conflicting invitation-scoped writers follow Invitation-first locking.
+
+Archive/public-open race behavior:
+
+- If public retrieval gets the Invitation lock first, it validates `ACTIVE`, records one open, reads and returns the active projection, and archive waits.
+- If archive commits first, later public retrieval sees `ARCHIVED`, records no open, and returns `INVITATION_NOT_AVAILABLE`.
+
+Open aggregates are persisted reporting data, not best-effort telemetry. If the aggregate update or projection read fails, the transaction rolls back and the request fails.
 
 ### RSVP update
 

@@ -14,6 +14,9 @@
     "db:migrate": "pnpm --filter api db:migrate",
     "db:migrate:deploy": "pnpm --filter api db:migrate:deploy",
     "db:status": "pnpm --filter api db:status",
+    "api:openapi": "pnpm --filter api openapi:generate",
+    "api-client:generate": "pnpm --filter @wedding-invitation/api-client generate",
+    "api:contract:generate": "pnpm api:openapi && pnpm api-client:generate",
     "format": "prettier --check .",
     "format:write": "prettier --write ."
   },

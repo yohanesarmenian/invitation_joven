@@ -69,13 +69,31 @@ Do not begin Phase 1 until Phase 0 documentation corrections are accepted. This 
 - Objective: Implement active public invitation retrieval and privacy boundaries.
 - Prerequisite: Phase 2.
 - Tasks:
-  - Add deterministic invitation credential derivation/hash lookup.
-  - Add active-only public invitation access.
-  - Add generic `INVITATION_NOT_AVAILABLE` response for unknown/archived/unavailable credentials.
-  - Add open aggregate updates on valid active invitation load.
-  - Add event eligibility read model.
-  - Add public invitation response DTOs.
-  - Generate/update OpenAPI and API client.
+  - Slice 0 - Documentation lock:
+    - Lock credential wire format, lookup hash, nullable RSVP response, deadline location, public DTO privacy, open-tracking transaction semantics, and implementation slice gates.
+  - Slice 1 - Credential infrastructure:
+    - Scope: credential secret provider, canonical input construction, HMAC derivation, lookup hashing, and compatibility/golden tests.
+    - Proposed commit: `feat(api): implement deterministic invitation credentials`.
+    - Executor: Codex 5.5.
+    - Review: Sol security review.
+  - Slice 2 - Public DTO contract:
+    - Scope: DTO types, nullable RSVP, `rsvpDeadlineAt`, privacy mapper, and deterministic ordering contract.
+    - Proposed commit: `feat(api): define public invitation response`.
+    - Executor: Codex 5.5.
+    - Review: Sol contract review.
+  - Slice 3 - Transactional retrieval:
+    - Scope: hash lookup, Invitation `FOR UPDATE`, `ACTIVE` policy, atomic open aggregates, projection reads, and concurrency tests.
+    - Proposed commit: `feat(api): add transactional public invitation retrieval`.
+    - Executor: Codex 5.5.
+    - Review: Sol concurrency review required.
+  - Slice 4 - Endpoint + OpenAPI/API client:
+    - Scope: controller, exact public error behavior, OpenAPI DTO/decorators, client generation/update, and endpoint integration tests.
+    - Proposed commit: `feat(api): expose public invitation endpoint`.
+    - Executor: Codex 5.5.
+    - Review: Sol privacy review.
+  - Slice 5 - Final security/concurrency/privacy audit:
+    - Executor: Sol.
+    - Coverage: credential leakage, archive/privacy behavior, open concurrency, DTO privacy, logs, API contract, and phase scope.
 - Expected files/modules: invitations, events, public API, security, api-client.
 - Acceptance criteria:
   - Valid active credential retrieves only own invitation data.

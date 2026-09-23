@@ -5,12 +5,17 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "generate": "openapi-typescript ../../apps/api/openapi.json -o src/generated/schema.ts",
     "lint": "eslint . --max-warnings=0 --no-error-on-unmatched-pattern",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
     "@wedding-invitation/eslint-config": "workspace:*",
-    "@wedding-invitation/tsconfig": "workspace:*"
+    "@wedding-invitation/tsconfig": "workspace:*",
+    "openapi-typescript": "^7.13.0"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
   }
 }
