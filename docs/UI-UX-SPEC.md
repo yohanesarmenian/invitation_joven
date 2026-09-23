@@ -30,6 +30,132 @@ Known Figma screens/states:
    - "Message Sent!".
    - Back to Invitation.
 
+Verified Figma node references:
+
+| State | Node | Reference size |
+| --- | --- | --- |
+| Closed invitation | `7:2` | 412 x 917 |
+| Opened cover | `14:7` | 412 x 917 |
+| Long invitation | `17:18` | 412 x 3610 |
+| Registered | `81:42` | 412 x 917 |
+| Message confirmation | `82:113` | later-phase reference |
+
+Phase 4 implements only `closed page`, `opened page`, `long page`, loading,
+unavailable, and generic unexpected-error states. `Registered` is a later
+RSVP/QR confirmation reference state. `message confirmation` is a later guest
+message reference state.
+
+## Phase 4 Public Frontend Contract
+
+Phase 4 route: `/i/[publicCredential]`.
+
+Credential handling:
+
+- The credential comes only from the route segment.
+- It is case-sensitive and must not be normalized.
+- It must not be stored in `localStorage`, `sessionStorage`, analytics payloads,
+  visible error UI, or custom frontend logs.
+- It must not be copied into client-visible diagnostic messages.
+
+Data flow:
+
+```text
+Browser request /i/[publicCredential]
+  -> invitation-web route
+  -> server-side invitation retrieval boundary
+  -> generated packages/api-client
+  -> GET /api/public/invitations/{publicCredential}
+  -> PublicInvitationResponse
+  -> public frontend presentation
+```
+
+Phase 3 remains the only source of public invitation data. The frontend must not
+access PostgreSQL, reproduce credential hashing, inspect credential versions,
+infer archived/stale state, query guests by name, or expose other invitation
+data.
+
+Preferred rendering split:
+
+- Server-side responsibilities: receive the route credential, call the Phase 3
+  public API through the generated API client, obtain `PublicInvitationResponse`,
+  map expected unavailable responses to one generic guest-facing unavailable UI,
+  and provide invitation data to the presentation tree.
+- Client-side responsibilities: local visual state only, including closed
+  envelope, envelope/open transition, opened-cover transition, optional
+  scroll/reveal behavior if approved, and reduced-motion handling.
+- Client components must not duplicate invitation retrieval unless a later
+  technical review documents a concrete need.
+- Do not introduce TanStack Query for Phase 4 read-only retrieval unless later
+  implementation proves it necessary.
+
+Server-side API base environment contract:
+
+- Variable: `INVITATION_API_BASE_URL`.
+- Exposure: server-only. Do not prefix with `NEXT_PUBLIC_`.
+- Expected local value: conceptually `http://localhost:4000`.
+- The value contains only the API origin/base URL and never a credential.
+- Missing value is a runtime configuration error for invitation retrieval. The
+  guest UI should fail closed to the generic unexpected-error state without
+  exposing server internals.
+- Build should not require the API to be live.
+
+Unavailable and error UX:
+
+- `404 INVITATION_NOT_AVAILABLE` maps to one privacy-preserving unavailable
+  state for malformed, unknown, stale, archived, and otherwise unavailable
+  credentials.
+- Do not display copy such as "invalid credential", "archived", "expired",
+  "old link", "guest not found", or technical error codes to guests.
+- Exact final unavailable copy is content pending.
+- Unexpected API, network, or server failures use a separate generic
+  technical-failure state. Exact final copy is content pending.
+- A route-level App Router `loading.tsx` boundary is appropriate for Phase 4.
+  Loading UI should fit the invitation visual language, avoid credential text,
+  avoid major layout shift where practical, and not fake invitation content.
+
+Phase 4 visible data classification:
+
+| Area | Field/source | Phase 4 handling |
+| --- | --- | --- |
+| Guest | `greetingName`, `displayName` | API-backed dynamic content for greeting/household copy; prefer `greetingName` where present and fall back to `displayName` where design needs a guest label. |
+| Events | `name`, `startsAt`, `venueName`, `address`, `googleMapsUrl` | API-backed dynamic event content. Preserve API order. Render maps link only when `googleMapsUrl` is present. |
+| Rules | `allowPlusOne`, `maxAdditionalChildren` | Later RSVP behavior data. Do not expose as raw rules unless required by read-only explanatory RSVP layout. |
+| RSVP | `status`, `version` | Later RSVP/update behavior data. May inform read-only copy only if a later Phase 4 slice explicitly needs it; do not create working RSVP state. |
+| Deadline | `rsvpDeadlineAt` | API-backed dynamic deadline when shown. Do not hard-code the conflicting Figma RSVP deadline as application truth. |
+| Wedding content | names, parent names, quote, closing, credits | Fixed design/content reference, content pending until approved. |
+| RSVP controls | accept/decline, event choices, attendee choices, dietary fields, send confirmation | Later-phase interaction. Phase 4 must not create working form state, persistence, submission, confirmation, or QR display. |
+| Guest message controls | message input and send message | Later Phase 7 interaction. No POST, fake submit, local persistence, or success overlay in Phase 4. |
+
+Event rendering contract:
+
+- Phase 3 sends eligible events in display order; Phase 4 must preserve that
+  order.
+- Do not reorder events by name.
+- Do not hard-code event IDs.
+- Do not assume exactly two events at the component contract level.
+- Figma contains specific visual treatments for Holy Matrimony and Wedding
+  Reception. Until slug-specific variants are explicitly documented, use generic
+  event presentation with Figma-compatible styling and the API-provided event
+  content.
+- Do not synthesize Google Maps URLs from addresses and do not use frontend
+  geocoding.
+
+Deferred controls:
+
+- Parking Guide behavior is unresolved. Phase 4 must not implement a functional
+  Parking Guide action, link, modal, PDF, image, or map destination. The control
+  is blocked/deferred unless a later approved slice supplies behavior; avoid a
+  deceptively actionable button.
+- RSVP and dietary controls are not functional in Phase 4. If retained for
+  visual structure, they must be presentation-only and clearly non-interactive.
+  If that would mislead guests, defer the actual controls to Phase 5 and retain
+  only layout/copy scaffolding.
+- Guest message controls are not functional in Phase 4. If retained for visual
+  structure, they must be presentation-only and clearly non-interactive. The
+  message confirmation state belongs to Phase 7.
+- No Phase 4 route/component should navigate to or implement the `Registered`
+  state.
+
 ## Public Flow
 
 ```text
@@ -47,6 +173,11 @@ Main Invitation
   -> Message Sent overlay
   -> Back to Invitation
 ```
+
+The full public flow above describes the MVP direction across phases. Phase 4
+implements only the read-only invitation experience through the long invitation
+page. RSVP submission, QR confirmation, guest message submission, and their
+confirmation states belong to later phases.
 
 The church Google Maps control contains an additional prototype interaction that appears unintended. Production should treat normal click-to-Google-Maps behavior as the meaningful requirement.
 
@@ -112,6 +243,11 @@ Do not merge dress-code swatches into the normal UI theme. Treat them as semanti
 - On larger screens, keep the invitation as a centered narrow editorial experience.
 - Initial max invitation content width: approximately 480 px.
 - Do not turn the public invitation into a wide desktop dashboard.
+- Production CSS should use fluid behavior such as `width: 100%` and an
+  approximately `480px` max width rather than one breakpoint per reference
+  width.
+- On desktop viewports, the surrounding viewport/background may frame the
+  invitation, but the invitation content itself remains narrow and centered.
 
 ## Animation Intent
 
@@ -120,6 +256,16 @@ Do not merge dress-code swatches into the normal UI theme. Treat them as semanti
 - Motion should enhance the wedding experience without blocking content access.
 - Respect reduced-motion preferences.
 - Final envelope animation depends on separated production assets.
+- Phase 4 starts in the closed-envelope state.
+- The open action must be an explicit accessible user action.
+- The state model is local in-memory UI state. Do not persist envelope state in
+  `localStorage` or `sessionStorage`.
+- Animation must never gate access to fetched invitation data.
+- Native CSS transitions are sufficient for initial Phase 4 implementation.
+  Motion for React remains an allowed stack direction if later approved assets
+  require coordinated transforms, but it is not required yet.
+- Reduced-motion users must be able to open the invitation, reach all content,
+  and use links without elaborate animation.
 
 ## RSVP Interaction Semantics
 
@@ -183,6 +329,9 @@ Admin:
 ## Accessibility
 
 - Envelope open action must be keyboard accessible.
+- Envelope open action must use real button semantics so Enter/Space work
+  naturally.
+- Focus states must be visible.
 - Buttons and controls require accessible names.
 - Semantic radio behavior for RSVP accept/decline.
 - Color swatches need text labels; do not rely on color alone.
@@ -190,6 +339,20 @@ Admin:
 - QR confirmation should include text fallback.
 - Motion should respect `prefers-reduced-motion`.
 - Contrast must be verified during implementation.
+- Meaningful images require alt text. Pure decorative images should use empty
+  alt text or CSS decoration.
+- Deferred controls must not appear deceptively actionable.
+
+## Image Performance
+
+- Use Next Image where appropriate.
+- Provide responsive sizes.
+- Avoid loading the entire gallery at maximum resolution immediately.
+- The opened-cover hero may use priority loading only if it is the first
+  meaningful image after interaction.
+- Decorative elements should avoid excessive network and JavaScript cost.
+- Fixed wedding assets remain bundled with `apps/invitation-web` for MVP. Do
+  not introduce S3, R2, CMS, or dynamic upload infrastructure for Phase 4.
 
 ## Asset Inventory Categories
 
@@ -217,15 +380,81 @@ public/assets/
 
 Do not assume flattened Figma images are already suitable as separated animation assets. Asset extraction/preparation is a dedicated implementation task.
 
+Phase 4 asset classification:
+
+| Asset category | Status |
+| --- | --- |
+| Bride image | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Groom image | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Pre-wedding gallery images | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Floral watercolor decoration | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Leaves | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Rings illustration/icon | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Calendar artwork | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Decorative objects | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Couple/opened-page hero image | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Envelope visuals | Available in Figma only; separated production cuts missing from repo; blocks final envelope animation fidelity. |
+| Wax seal | Available in Figma only; missing from repo; approval/export required for final fidelity. |
+
+Do not download Figma assets, create AI replacements, or commit font/image files
+without approval and licensing clearance.
+
+## Font Contract
+
+| Font | Design use | Phase 4 status |
+| --- | --- | --- |
+| Spectral | Primary editorial/content typography | Available through Google Fonts; usable through `next/font/google`. |
+| Luxurious Script | Bride, Groom, Holy Matrimony, Wedding Reception, display closing text | Available through Google Fonts; usable through `next/font/google`. |
+| Parisienne | `Jo & Venta` display title | Available through Google Fonts; usable through `next/font/google`. |
+| TikTok Sans | Supporting/UI content | Publicly released under the SIL Open Font License with a Google Fonts download path; usable when available through the selected font loading path. |
+| Albert Sans | Action buttons such as View in Google Maps and Parking Guide | Available through Google Fonts; usable through `next/font/google`. |
+
+Do not copy fonts from a local system or container. Non-Google/custom fonts
+require an approved licensed local source before use. Exact replacements must be
+documented; do not silently substitute unrelated decorative fonts.
+
+Fallbacks:
+
+- Editorial serif fallback: `Georgia`, `Times New Roman`, serif.
+- Script fallback: approved decorative fallback only if the target design font
+  cannot be loaded; otherwise use a plain serif fallback rather than a random
+  decorative substitute.
+- Sans fallback: system UI stack.
+
+## Phase 4 Dependency Decisions
+
+- Motion: not required yet. Use native CSS transitions for the initial
+  closed/opened/long-page interaction. Revisit Motion for React only if approved
+  separated assets require coordinated transforms that CSS cannot reasonably
+  provide.
+- Playwright: required before Phase 4 completion because the roadmap requires
+  screenshots at target widths and the development rules require Playwright
+  coverage when public critical UI exists. It does not need to be installed in
+  Slice 0.
+- React Hook Form, Zod, TanStack Query, and QR libraries are not required for
+  Phase 4 read-only retrieval.
+
 ## Public Privacy
 
 The public UI may display household greeting, invited names needed for RSVP, eligible event details, RSVP status, and active QR after acceptance. It must not expose internal IDs, token hashes, admin notes, other invitations, or searchable guest data.
 
 Archived invitations use the same public unavailable state as unknown credentials. The UI must not reveal whether a link was once valid.
 
+For Phase 4, the public UI consumes only the Phase 3 public DTO. It must never
+expose `Invitation.id`, `publicTokenHash`, `publicTokenVersion`, `openCount`,
+`firstOpenedAt`, `lastOpenedAt`, admin notes, other guests, or other invitation
+data. Event and invitee UUIDs may be present inside the approved public DTO, but
+Phase 4 should render them only if a visible UI requirement needs them; normal
+read-only presentation should not display raw UUIDs.
+
 ## Unresolved UI Items
 
-- Wedding date / RSVP deadline conflict: BLOCKING CONTENT CONFIRMATION REQUIRED.
-- Parking Guide behavior: unresolved; do not choose image/modal/PDF/map/page without approval.
-- Final production copy and image set: unresolved.
+- Wedding date / RSVP deadline conflict: blocks final content and later RSVP
+  deadline validation; does not block Phase 4 structure. Do not hard-code the
+  conflicting Figma RSVP deadline as application truth.
+- Parking Guide behavior: unresolved; do not choose image/modal/PDF/map/page
+  without approval. Blocks only a Parking Guide action.
+- Final production copy and image set: unresolved. Blocks final visual/content
+  fidelity, not basic Phase 4 structure when approved placeholders or existing
+  reference copy are used.
 - Declined RSVP confirmation copy/state: production state required but exact design unresolved.

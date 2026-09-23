@@ -43,6 +43,29 @@ Do not create this structure until Phase 1 after final Phase 0 documentation loc
 - Submit RSVP with `expectedVersion`.
 - Display RSVP confirmation and backend-derived active QR payload.
 
+Phase 4 read-only frontend contract:
+
+- Public route: `/i/[publicCredential]`.
+- The route credential is case-sensitive and must not be normalized, stored in
+  browser storage, sent to analytics, copied into visible error UI, or logged by
+  custom frontend code.
+- Retrieval is server-side by default: the route receives the credential, uses
+  the generated `packages/api-client`, calls
+  `GET /api/public/invitations/{publicCredential}`, and passes the
+  `PublicInvitationResponse` to presentation components.
+- Use the server-only environment variable `INVITATION_API_BASE_URL` for the API
+  origin/base URL. It must not be prefixed with `NEXT_PUBLIC_` and must not
+  contain credentials. Local development value is conceptually
+  `http://localhost:4000`.
+- Client components are limited to local visual state such as envelope/opened
+  transitions, reveal behavior, and reduced-motion handling. Avoid duplicate
+  client-side invitation fetching and do not introduce TanStack Query for Phase 4
+  unless a later technical review documents a need.
+- Phase 4 maps `INVITATION_NOT_AVAILABLE` to one generic unavailable UI and does
+  not infer whether a credential was malformed, unknown, stale, or archived.
+- Phase 4 does not implement RSVP submission, QR confirmation, or guest message
+  submission.
+
 ### admin-web
 
 - Provide OWNER login.

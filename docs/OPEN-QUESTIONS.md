@@ -21,7 +21,7 @@ Resolved by Phase 0D and no longer open:
 - Question: Figma displays wedding date as `Saturday, 09 January 2027` and RSVP deadline as `25 December 2027`. Which value is correct?
 - Why it matters: RSVP deadline after the wedding date is chronologically inconsistent.
 - Impacted components/documents: PRD, UI/UX Spec, API validation, RSVP deadline configuration, public invitation copy.
-- Blocking phase: Phase 5 RSVP deadline validation and final public content. BLOCKING CONTENT CONFIRMATION REQUIRED before hard-coding production dates or deadline behavior.
+- Blocking phase: Phase 5 RSVP deadline validation and final public content. BLOCKING CONTENT CONFIRMATION REQUIRED before hard-coding production dates or deadline behavior. Phase 4 structure may proceed, but Phase 4 must not make the conflicting Figma RSVP deadline authoritative application truth.
 - Possible choices: Confirm wedding date, confirm RSVP deadline, or provide revised final copy.
 - Status: Unresolved.
 
@@ -31,6 +31,7 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: Public API validation, UI disabled/error states, and OWNER override behavior depend on this rule.
 - Impacted components/documents: PRD, API Contract, UI/UX Spec, RSVP implementation.
 - Blocking phase: Phase 5 before final RSVP mutation behavior ships.
+- Phase 4 impact: non-blocking for read-only frontend structure because Phase 4 does not submit RSVP.
 - Possible choices: public updates blocked after deadline; grace period; OWNER override only.
 - Status: Unresolved.
 
@@ -49,6 +50,7 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: Figma contains the control but not the production behavior.
 - Impacted components/documents: UI/UX Spec, Public Invitation API if dynamic content is needed, asset planning.
 - Blocking phase: Phase 4 only if Parking Guide is implemented then; otherwise before the parking feature ships.
+- Phase 4 impact: blocks only a functional Parking Guide action. Phase 4 must not invent a link, modal, PDF, image, map destination, or separate page.
 - Possible choices: image, modal, PDF/document, map destination, separate page.
 - Status: Unresolved.
 
@@ -58,6 +60,7 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: Implementation must not fabricate final wedding content.
 - Impacted components/documents: UI/UX Spec, public invitation frontend.
 - Blocking phase: Phase 4 for final content lock; not a repository foundation blocker.
+- Phase 4 impact: blocks final content/polish, not the route, data flow, or read-only structure. Preserve design content as reference and mark final copy as pending where needed.
 - Possible choices: Use finalized owner-provided copy or preserve Figma copy after explicit approval.
 - Status: Unresolved.
 
@@ -67,6 +70,7 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: Figma-flattened artwork may not map directly to responsive animation assets.
 - Impacted components/documents: UI/UX Spec, public invitation frontend, asset pipeline.
 - Blocking phase: Phase 4 for final visual implementation; placeholder implementation may proceed only if explicitly approved.
+- Phase 4 impact: blocks visual fidelity and may block final high-fidelity envelope animation. Does not block Slice 1 retrieval shell.
 - Possible choices: export separated assets from Figma, provide production image set, or simplify animation with approved static layers.
 - Status: Unresolved.
 
@@ -76,6 +80,7 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: Message API behavior and frontend retry UX depend on this rule.
 - Impacted components/documents: API Contract, messages module, UI/UX Spec.
 - Blocking phase: Phase 7 before guest message endpoint ships.
+- Phase 4 impact: non-blocking. Phase 4 must not implement message submission or the message confirmation state.
 - Possible choices: client idempotency key, simple retry warning, allow duplicates with admin moderation.
 - Status: Unresolved.
 
@@ -85,6 +90,7 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: Regeneration increments credential version and invalidates old links; ambiguous retries could rotate more than intended.
 - Impacted components/documents: API Contract, invitation service, admin UI.
 - Blocking phase: Before regenerate endpoint ships, likely Phase 8.
+- Phase 4 impact: non-blocking.
 - Possible choices: explicit idempotency key; confirm modal plus response recovery; no automatic retry by client.
 - Status: Unresolved.
 
@@ -94,6 +100,7 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: Preview storage, commit safety, and admin retry behavior depend on this.
 - Impacted components/documents: API Contract, imports module, admin import UI.
 - Blocking phase: Phase 9 before import implementation.
+- Phase 4 impact: non-blocking.
 - Possible choices: short-lived persisted preview; signed temporary preview token; idempotency key on commit.
 - Status: Unresolved.
 
@@ -103,6 +110,7 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: MVP CheckinRecord is a confirmed attendance fact; correction semantics need an audit-safe design if required.
 - Impacted components/documents: PRD, Database Schema, API Contract, Admin UI.
 - Blocking phase: Not blocking base Phase 10 check-in; blocking any correction feature.
+- Phase 4 impact: non-blocking.
 - Possible choices: append-only correction record, admin-only void/reissue flow, no correction in MVP.
 - Status: Unresolved.
 
@@ -112,5 +120,6 @@ Resolved by Phase 0D and no longer open:
 - Why it matters: Minimum reporting metrics are confirmed, but export grouping affects API and UI.
 - Impacted components/documents: PRD, API Contract, Admin UI.
 - Blocking phase: Phase 11 before report export implementation.
+- Phase 4 impact: non-blocking.
 - Possible choices: one summary CSV, invitations CSV, RSVP CSV, check-in CSV, dietary CSV.
 - Status: Unresolved.

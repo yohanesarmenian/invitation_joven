@@ -108,11 +108,46 @@ Do not begin Phase 1 until Phase 0 documentation corrections are accepted. This 
 - Objective: Build the public invitation visual experience without RSVP submission.
 - Prerequisite: Phase 3.
 - Tasks:
-  - Create Next.js invitation app.
-  - Implement closed envelope, opened cover, and long-page layout.
-  - Apply typography, colors, responsive width, and asset categories.
-  - Add loading/not-found/unavailable/error states.
-  - Integrate public invitation retrieval.
+  - Slice 0 - Frontend contract lock:
+    - Scope: public route, server/client data flow, Figma node references,
+      unavailable/error/loading UX, responsive contract, deferred interactions,
+      asset/font policy, dependency decisions, and slice blockers.
+    - Proposed commit: `docs: lock phase 4 public frontend contract`.
+    - Executor: Codex 5.5.
+    - Review: Sol privacy/data-flow review if requested.
+  - Slice 1 - Public route + API retrieval shell:
+    - Scope: `/i/[publicCredential]` route, server-side retrieval using generated
+      API client, `INVITATION_API_BASE_URL`, loading, generic unavailable state,
+      generic unexpected-error state, and no duplicate client fetching.
+    - Proposed commit: `feat(web): add public invitation route`.
+    - Executor: Codex 5.5.
+    - Review: Sol privacy review.
+  - Slice 2 - Read-only long invitation layout:
+    - Scope: render `PublicInvitationResponse` into the locked section order,
+      preserve event order, handle nullable fields, avoid raw UUID display unless
+      visually required, and keep RSVP/message areas non-functional.
+    - Proposed commit: `feat(web): render public invitation content`.
+    - Executor: Codex 5.5.
+    - Review: Codex.
+  - Slice 3 - Envelope/open cover interaction:
+    - Scope: closed envelope, accessible open control, opened cover transition,
+      transition/reveal to long content, local in-memory UI state, and
+      reduced-motion behavior.
+    - Proposed commit: `feat(web): add invitation opening flow`.
+    - Executor: Codex 5.5.
+    - Review: Codex.
+  - Slice 4 - Approved assets/fonts/visual fidelity:
+    - Scope: approved exported assets, font loading, palette, spacing, desktop
+      framing, and Figma-recognizable visual polish.
+    - Proposed commit: `style(web): align invitation visuals with figma`.
+    - Executor: Codex 5.5.
+    - Review: Sol or owner visual audit if fidelity-sensitive.
+  - Slice 5 - Verification hardening:
+    - Scope: tests, responsive screenshots, accessibility checks, visual/manual
+      QA gates, and final Phase 4 audit.
+    - Proposed commit: `test(web): cover public invitation frontend`.
+    - Executor: Codex 5.5.
+    - Review: Sol final privacy/UI audit.
 - Expected files/modules: `apps/invitation-web`.
 - Acceptance criteria:
   - Mobile widths render without overlap.
@@ -122,6 +157,15 @@ Do not begin Phase 1 until Phase 0 documentation corrections are accepted. This 
 - Test/verification: Playwright screenshots at target widths, accessibility checks.
 - Non-goals: final assets if not provided, RSVP submit, QR scanner.
 - Completion gate: public read-only invitation works.
+- Slice blockers:
+  - Slice 1 does not depend on final visual assets.
+  - Slice 2 can proceed with approved/current content structure but must not
+    resolve final copy or date/deadline conflicts by assumption.
+  - Slice 3 may be partially blocked by final separated envelope cuts/assets if
+    high-fidelity animation is required; a simpler accessible structure can
+    proceed if approved.
+  - Slice 4 is blocked by approved final assets and font availability/licensing.
+  - Slice 5 depends on prior slices.
 
 ## Phase 5 - RSVP and CheckinPass Lifecycle
 
