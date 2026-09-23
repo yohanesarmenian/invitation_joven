@@ -22,6 +22,13 @@ const dressCodeSwatches = [
   { label: "Fresh teal", color: "#02ACA1" },
 ];
 
+const invitationEventTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  hourCycle: "h23",
+  minute: "2-digit",
+  timeZone: "Asia/Jakarta",
+});
+
 export function PublicInvitationLongPage({
   invitation,
 }: {
@@ -131,14 +138,14 @@ function EventSection({
   event: DisplayInvitationEvent;
   index: number;
 }) {
-  const dateLabel = formatIsoDatePortion(event.startsAt);
+  const timeLabel = formatInvitationEventTime(event.startsAt);
   const titleId = `event-title-${index + 1}`;
 
   return (
     <section className="event-card" aria-labelledby={titleId}>
       <div className="event-time-block">
-        {dateLabel ? (
-          <time dateTime={event.startsAt ?? undefined}>{dateLabel}</time>
+        {timeLabel ? (
+          <time dateTime={event.startsAt ?? undefined}>{timeLabel}</time>
         ) : (
           <span aria-hidden="true" />
         )}
@@ -262,4 +269,25 @@ function formatIsoDatePortion(value: string | null): string | null {
   }
 
   return isoDate;
+}
+
+function formatInvitationEventTime(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const parts = invitationEventTimeFormatter.formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  const minute = parts.find((part) => part.type === "minute")?.value;
+
+  if (hour === undefined || minute === undefined) {
+    return null;
+  }
+
+  return `${hour}.${minute}`;
 }

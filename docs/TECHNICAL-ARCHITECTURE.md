@@ -61,6 +61,10 @@ Phase 4 read-only frontend contract:
   transitions, reveal behavior, and reduced-motion handling. Avoid duplicate
   client-side invitation fetching and do not introduce TanStack Query for Phase 4
   unless a later technical review documents a need.
+- Public invitation event timestamps remain backend-owned ISO date-time values.
+  `invitation-web` owns guest-facing venue-local presentation for event cards:
+  render `startsAt` in `Asia/Jakarta` using `HH.mm` 24-hour format without
+  relying on process, server, browser, or workstation local timezone settings.
 - Phase 4 maps `INVITATION_NOT_AVAILABLE` to one generic unavailable UI and does
   not infer whether a credential was malformed, unknown, stale, or archived.
 - Phase 4 does not implement RSVP submission, QR confirmation, or guest message

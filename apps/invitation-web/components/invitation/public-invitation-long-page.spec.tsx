@@ -18,7 +18,7 @@ function renderInvitation(
         id: "22222222-2222-4222-8222-222222222222",
         name: "Zulu Reception",
         slug: "z-reception",
-        startsAt: "2027-01-09T12:00:00.000Z",
+        startsAt: "2027-01-09T05:00:00.000Z",
         venueName: "Reception Venue",
       },
       {
@@ -27,7 +27,7 @@ function renderInvitation(
         id: "11111111-1111-4111-8111-111111111111",
         name: "Alpha Holy Matrimony",
         slug: "a-holy-matrimony",
-        startsAt: "2027-01-09T08:00:00.000Z",
+        startsAt: "2027-01-09T01:00:00.000Z",
         venueName: "Chapel Venue",
       },
     ],
@@ -88,6 +88,68 @@ describe("PublicInvitationLongPage", () => {
     );
   });
 
+  it("renders Holy Matrimony startsAt as Asia/Jakarta HH.mm event time", () => {
+    const html = renderInvitation({
+      events: [
+        {
+          address: "Church address",
+          googleMapsUrl: null,
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Holy Matrimony",
+          slug: "holy-matrimony",
+          startsAt: "2027-01-09T01:00:00.000Z",
+          venueName: "Church",
+        },
+      ],
+    });
+
+    expect(html).toContain(
+      '<time dateTime="2027-01-09T01:00:00.000Z">08.00</time>',
+    );
+    expect(html).not.toContain(">2027-01-09</time>");
+  });
+
+  it("renders reception startsAt as Asia/Jakarta HH.mm event time", () => {
+    const html = renderInvitation({
+      events: [
+        {
+          address: "Reception address",
+          googleMapsUrl: null,
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Wedding Reception",
+          slug: "wedding-reception",
+          startsAt: "2027-01-09T05:00:00.000Z",
+          venueName: "Reception Venue",
+        },
+      ],
+    });
+
+    expect(html).toContain(
+      '<time dateTime="2027-01-09T05:00:00.000Z">12.00</time>',
+    );
+  });
+
+  it("uses explicit Asia/Jakarta conversion across UTC date boundaries", () => {
+    const html = renderInvitation({
+      events: [
+        {
+          address: null,
+          googleMapsUrl: null,
+          id: "55555555-5555-4555-8555-555555555555",
+          name: "Boundary Event",
+          slug: "boundary-event",
+          startsAt: "2027-01-08T18:30:00.000Z",
+          venueName: null,
+        },
+      ],
+    });
+
+    expect(html).toContain(
+      '<time dateTime="2027-01-08T18:30:00.000Z">01.30</time>',
+    );
+    expect(html).not.toContain(">18.30</time>");
+  });
+
   it("handles nullable event fields without broken text or map links", () => {
     const html = renderInvitation({
       events: [
@@ -109,6 +171,7 @@ describe("PublicInvitationLongPage", () => {
     expect(html).not.toContain("undefined");
     expect(html).not.toContain("View in Google Maps");
     expect(html).not.toContain("href=");
+    expect(html).not.toContain("<time");
   });
 
   it("renders map links only when googleMapsUrl is present", () => {

@@ -118,7 +118,7 @@ Phase 4 visible data classification:
 | Area | Field/source | Phase 4 handling |
 | --- | --- | --- |
 | Guest | `greetingName`, `displayName` | API-backed dynamic content for greeting/household copy; prefer `greetingName` where present and fall back to `displayName` where design needs a guest label. |
-| Events | `name`, `startsAt`, `venueName`, `address`, `googleMapsUrl` | API-backed dynamic event content. Preserve API order. Render maps link only when `googleMapsUrl` is present. |
+| Events | `name`, `startsAt`, `venueName`, `address`, `googleMapsUrl` | API-backed dynamic event content. Preserve API order. Render event time from `startsAt` in Asia/Jakarta as `HH.mm`. Render maps link only when `googleMapsUrl` is present. |
 | Rules | `allowPlusOne`, `maxAdditionalChildren` | Later RSVP behavior data. Do not expose as raw rules unless required by read-only explanatory RSVP layout. |
 | RSVP | `status`, `version` | Later RSVP/update behavior data. May inform read-only copy only if a later Phase 4 slice explicitly needs it; do not create working RSVP state. |
 | Deadline | `rsvpDeadlineAt` | API-backed dynamic deadline when shown. Do not hard-code the conflicting Figma RSVP deadline as application truth. |
@@ -137,6 +137,12 @@ Event rendering contract:
   Reception. Until slug-specific variants are explicitly documented, use generic
   event presentation with Figma-compatible styling and the API-provided event
   content.
+- Event card time display is a frontend presentation concern. The API returns
+  ISO date-time strings for `startsAt`; invitation-web renders those timestamps
+  as venue-local Asia/Jakarta time in `HH.mm` 24-hour format, matching the
+  current Figma time structure such as `08.00` and `12.00`.
+- Do not rely on the server, browser, or developer workstation timezone for
+  event time display.
 - Do not synthesize Google Maps URLs from addresses and do not use frontend
   geocoding.
 
