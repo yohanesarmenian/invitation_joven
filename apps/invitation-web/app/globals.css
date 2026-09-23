@@ -8,3 +8,359 @@
 body {
   margin: 0;
 }
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+}
+
+.public-invitation-page {
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: #1e2952;
+  color: #1e2952;
+}
+
+.public-invitation-surface {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow-x: hidden;
+  background: #fff5e1;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+}
+
+.invitation-section {
+  padding: 48px 24px;
+}
+
+.invitation-header {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.section-kicker {
+  margin: 0;
+  color: #6d7991;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.invitation-header h1,
+.couple-copy h3,
+.wedding-date-section h2,
+.event-card h3,
+.dress-code-section h2,
+.rsvp-information-section h2,
+.gallery-section h2,
+.quote-section h2,
+.guest-message-section h2,
+.closing-copy {
+  margin: 0;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.invitation-header h1 {
+  font-size: 2.5rem;
+}
+
+.invitation-header p,
+.rsvp-information-section p,
+.guest-message-section p,
+.invitation-footer p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.couple-section {
+  display: grid;
+  gap: 28px;
+}
+
+.couple-profile {
+  display: grid;
+  grid-template-columns: minmax(116px, 0.92fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+}
+
+.couple-media-slot {
+  aspect-ratio: 136 / 186;
+  min-height: 172px;
+  border: 1px solid rgba(30, 41, 82, 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, rgba(255, 179, 154, 0.24), rgba(255, 245, 225, 0)),
+    #f5f5f5;
+}
+
+.couple-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.couple-copy h3,
+.closing-copy {
+  font-size: 2.25rem;
+  font-weight: 500;
+}
+
+.wedding-date-section {
+  text-align: center;
+}
+
+.wedding-date-section h2 {
+  margin-top: 10px;
+  font-size: 1.5rem;
+}
+
+.events-section h2,
+.dress-code-section h2,
+.rsvp-information-section h2,
+.gallery-section h2,
+.quote-section h2,
+.guest-message-section h2 {
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.event-list {
+  display: grid;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.event-card {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(0, 1.2fr);
+  gap: 18px;
+  align-items: start;
+  padding: 24px 0;
+  border-top: 1px solid rgba(30, 41, 82, 0.18);
+}
+
+.event-time-block time {
+  display: block;
+  color: #1e2952;
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.event-detail-block {
+  display: grid;
+  gap: 10px;
+}
+
+.event-card h3 {
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.event-venue,
+.event-card address {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.event-venue {
+  font-weight: 700;
+}
+
+.event-card address {
+  font-style: normal;
+}
+
+.event-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  margin-top: 8px;
+}
+
+.map-link {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  padding: 0 16px;
+  background: #11256e;
+  color: #fff5e1;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.parking-guide-note {
+  color: #6d7991;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: 0.82rem;
+}
+
+.dress-code-section,
+.rsvp-information-section,
+.quote-section,
+.guest-message-section,
+.invitation-footer {
+  display: grid;
+  gap: 18px;
+  text-align: center;
+}
+
+.dress-swatch-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  padding: 0;
+  margin: 4px 0 0;
+  list-style: none;
+}
+
+.dress-swatch-list li {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 56px;
+  color: #1e2952;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: 0.72rem;
+}
+
+.dress-swatch {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(30, 41, 82, 0.18);
+  border-radius: 999px;
+}
+
+.deadline-copy {
+  color: #6d7991;
+  font-weight: 700;
+}
+
+.gallery-mosaic {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-areas:
+    "large small"
+    "large medium"
+    "tall medium";
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.gallery-frame {
+  min-height: 140px;
+  border: 1px solid rgba(30, 41, 82, 0.18);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(109, 121, 145, 0.18), rgba(255, 245, 225, 0)),
+    #f5f5f5;
+}
+
+.gallery-frame-large {
+  grid-area: large;
+  min-height: 258px;
+}
+
+.gallery-frame-small {
+  grid-area: small;
+  min-height: 162px;
+}
+
+.gallery-frame-medium {
+  grid-area: medium;
+  min-height: 275px;
+}
+
+.gallery-frame-tall {
+  grid-area: tall;
+  min-height: 205px;
+}
+
+.quote-section blockquote {
+  margin: 0;
+  padding: 0;
+}
+
+.quote-section blockquote p {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+
+.quote-section cite {
+  display: block;
+  margin-top: 8px;
+  color: #6d7991;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: 0.85rem;
+  font-style: normal;
+}
+
+.invitation-footer {
+  padding-bottom: 64px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 360px) {
+  .invitation-section {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .couple-profile,
+  .event-card {
+    grid-template-columns: 1fr;
+  }
+
+  .event-time-block time {
+    font-size: 1.45rem;
+  }
+}

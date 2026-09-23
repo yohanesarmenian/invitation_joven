@@ -1,4 +1,8 @@
 import { notFound } from "next/navigation";
+import {
+  PublicInvitationLongPage,
+  type PublicInvitationLongPageModel,
+} from "@/components/invitation/public-invitation-long-page";
 import { retrievePublicInvitation } from "@/src/server/public-invitation";
 
 export const dynamic = "force-dynamic";
@@ -19,14 +23,18 @@ export default async function PublicInvitationPage({
     notFound();
   }
 
-  const guestName =
-    result.data.invitation.greetingName ?? result.data.invitation.displayName;
+  const invitation: PublicInvitationLongPageModel = {
+    displayName: result.data.invitation.displayName,
+    events: result.data.invitation.events.map((event) => ({
+      address: event.address,
+      googleMapsUrl: event.googleMapsUrl,
+      name: event.name,
+      startsAt: event.startsAt,
+      venueName: event.venueName,
+    })),
+    greetingName: result.data.invitation.greetingName,
+    rsvpDeadlineAt: result.data.invitation.rsvpDeadlineAt,
+  };
 
-  return (
-    <main aria-labelledby="invitation-shell-title">
-      <p>You are invited</p>
-      <h1 id="invitation-shell-title">{guestName}</h1>
-      <p>The full invitation experience will appear here soon.</p>
-    </main>
-  );
+  return <PublicInvitationLongPage invitation={invitation} />;
 }
