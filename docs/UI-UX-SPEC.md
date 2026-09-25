@@ -168,7 +168,7 @@ Deferred controls:
 Closed Envelope
   -> click/tap
 Opened Cover
-  -> automatic or click transition
+  -> click/tap
 Main Invitation
   -> RSVP
   -> Submit
@@ -186,6 +186,59 @@ page. RSVP submission, QR confirmation, guest message submission, and their
 confirmation states belong to later phases.
 
 The church Google Maps control contains an additional prototype interaction that appears unintended. Production should treat normal click-to-Google-Maps behavior as the meaningful requirement.
+
+## Phase 4 Slice 3 Opening Interaction Contract
+
+Locked three-stage opening flow:
+
+```text
+closed -> opened -> content
+```
+
+- Initial stage: `closed`.
+- `closed -> opened`: explicit user tap/click on the closed envelope.
+- `opened -> content`: a second explicit user tap/click on the opened cover.
+- The opened cover is a real distinct user-visible stage, not an invisible
+  transition frame.
+- No automatic timer, autoplay, scroll-triggered transition, or route
+  navigation advances the stage.
+- No persistence: opening state is local in-memory client UI state only. It is
+  not stored in `localStorage`, `sessionStorage`, cookies, query params, hash,
+  or the backend. Refresh/reload returns to `closed`. The URL is unchanged.
+- State transitions are forward-only in Slice 3: `closed -> opened`,
+  `opened -> content`, `content -> content`.
+
+Closed cover:
+
+- Does not show the guest name (closed-cover guest copy is not source-locked).
+- Does not invent visible CTA text; the envelope itself is the control.
+- Accessible name: `Open invitation`.
+
+Opened cover:
+
+- Visible reference title: `The Wedding of Jo & Venta` (already documented
+  opened-cover reference copy).
+- The opened cover itself is the second interactive control.
+- Accessible name: `View invitation`.
+- No additional visible CTA button is added.
+
+Placeholder authorization (Slice 3 only):
+
+- Structural CSS placeholders are approved: navy envelope body, CSS envelope
+  flap, simple paper/card geometry, basic shadows/borders, plain wax-seal
+  circle, and a neutral opened-cover media placeholder.
+- Not allowed: invented monogram, invented wax artwork, stock photography,
+  AI-generated imagery, fake wedding photos, invented flower illustration, or
+  fake decorative artwork. Final visual assets remain Slice 4.
+
+Animation:
+
+- Native CSS transitions only. Motion for React is not required.
+- Approximate transition duration: 400-600ms, ease-out.
+- No timer-based state changes.
+- `prefers-reduced-motion: reduce` keeps the three-stage state machine but
+  renders visual transitions effectively instant; it does not skip the opened
+  stage or auto-advance.
 
 ## Main Invitation Section Order
 
@@ -258,7 +311,8 @@ Do not merge dress-code swatches into the normal UI theme. Treat them as semanti
 ## Animation Intent
 
 - Closed envelope should feel like the invitation is being opened.
-- Opened cover may transition automatically or by click/tap into the main invitation.
+- Opened cover transitions into the main invitation by an explicit second
+  click/tap; automatic transition is not used.
 - Motion should enhance the wedding experience without blocking content access.
 - Respect reduced-motion preferences.
 - Final envelope animation depends on separated production assets.

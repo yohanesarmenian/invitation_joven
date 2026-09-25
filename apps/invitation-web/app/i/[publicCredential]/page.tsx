@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { InvitationOpeningFlow } from "@/components/invitation/invitation-opening-flow";
 import {
   PublicInvitationLongPage,
   type PublicInvitationLongPageModel,
@@ -36,5 +37,9 @@ export default async function PublicInvitationPage({
     rsvpDeadlineAt: result.data.invitation.rsvpDeadlineAt,
   };
 
-  return <PublicInvitationLongPage invitation={invitation} />;
+  return (
+    <InvitationOpeningFlow>
+      <PublicInvitationLongPage invitation={invitation} />
+    </InvitationOpeningFlow>
+  );
 }
