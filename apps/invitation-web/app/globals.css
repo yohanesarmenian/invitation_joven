@@ -34,7 +34,7 @@ body {
     serif;
 }
 
-.public-invitation-surface a {
+.public-invitation-surface :where(a) {
   color: inherit;
 }
 
