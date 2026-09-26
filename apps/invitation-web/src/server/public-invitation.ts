@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   createInvitationApiClient,
   type ApiErrorEnvelope,
@@ -76,6 +78,12 @@ export function getInvitationApiBaseUrl(
     );
   }
 
+  if (url.search !== "" || url.hash !== "") {
+    throw new InvitationApiConfigurationError(
+      `${INVITATION_API_BASE_URL} must not include a query string or fragment.`,
+    );
+  }
+
   return url.toString().replace(/\/$/, "");
 }
 
@@ -130,17 +138,93 @@ function isApiErrorEnvelope(value: unknown): value is ApiErrorEnvelope {
   return typeof value.error.code === "string";
 }
 
+// Structural guard for the public success payload. It validates shape only:
+// no transformation, no date parsing, no URL parsing, no enum beyond the
+// contract's own unions. Unknown extra properties are permitted.
 function isPublicInvitationResponse(
   value: unknown,
 ): value is PublicInvitationResponse {
+  if (!isRecord(value) || !isRecord(value.invitation)) {
+    return false;
+  }
+
+  const { invitation } = value;
+
   return (
-    isRecord(value) &&
-    isRecord(value.invitation) &&
-    typeof value.invitation.displayName === "string" &&
-    Array.isArray(value.invitation.events) &&
-    Array.isArray(value.invitation.invitees) &&
-    isRecord(value.invitation.rules)
+    typeof invitation.displayName === "string" &&
+    isNullableString(invitation.greetingName) &&
+    isNullableString(invitation.rsvpDeadlineAt) &&
+    Array.isArray(invitation.events) &&
+    invitation.events.every(isPublicInvitationEvent) &&
+    Array.isArray(invitation.invitees) &&
+    invitation.invitees.every(isPublicInvitationInvitee) &&
+    isPublicInvitationRules(invitation.rules) &&
+    isPublicInvitationRsvp(invitation.rsvp)
   );
+}
+
+function isPublicInvitationEvent(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.slug === "string" &&
+    typeof value.name === "string" &&
+    isNullableString(value.startsAt) &&
+    isNullableString(value.venueName) &&
+    isNullableString(value.address) &&
+    isNullableString(value.googleMapsUrl)
+  );
+}
+
+function isPublicInvitationInvitee(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.fullName === "string" &&
+    (value.category === "ADULT" || value.category === "CHILD")
+  );
+}
+
+function isPublicInvitationRules(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.allowPlusOne === "boolean" &&
+    typeof value.maxAdditionalChildren === "number" &&
+    Number.isFinite(value.maxAdditionalChildren) &&
+    value.maxAdditionalChildren >= 0
+  );
+}
+
+function isPublicInvitationRsvp(value: unknown): boolean {
+  if (value === null) {
+    return true;
+  }
+
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    (value.status === "PENDING" ||
+      value.status === "ACCEPTED" ||
+      value.status === "DECLINED") &&
+    typeof value.version === "number" &&
+    Number.isFinite(value.version) &&
+    value.version >= 1
+  );
+}
+
+function isNullableString(value: unknown): boolean {
+  return value === null || typeof value === "string";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
