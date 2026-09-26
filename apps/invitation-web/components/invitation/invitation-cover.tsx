@@ -36,7 +36,8 @@ export function OpenedCoverStage({
       >
         <span className="invitation-opened-media" aria-hidden="true" />
         <span className="invitation-opened-title">
-          The Wedding of Jo &amp; Venta
+          <span className="invitation-opened-kicker">The Wedding of</span>
+          <span className="invitation-opened-names">Jo &amp; Venta</span>
         </span>
       </button>
     </div>

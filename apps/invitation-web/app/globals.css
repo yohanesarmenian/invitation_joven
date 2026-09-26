@@ -29,6 +29,7 @@ body {
   overflow-x: hidden;
   background: #fff5e1;
   font-family:
+    var(--font-spectral),
     Georgia,
     "Times New Roman",
     serif;
@@ -55,6 +56,7 @@ body {
   margin: 0;
   color: #6d7991;
   font-family:
+    var(--font-tiktok-sans),
     Arial,
     Helvetica,
     sans-serif;
@@ -124,6 +126,16 @@ body {
   font-weight: 500;
 }
 
+.closing-copy {
+  font-family:
+    var(--font-luxurious-script),
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
 .wedding-date-section {
   text-align: center;
 }
@@ -172,8 +184,14 @@ body {
 }
 
 .event-card h3 {
+  font-family:
+    var(--font-luxurious-script),
+    Georgia,
+    "Times New Roman",
+    serif;
   font-size: 2rem;
-  font-weight: 500;
+  font-weight: 400;
+  line-height: 1.2;
 }
 
 .event-venue,
@@ -208,6 +226,7 @@ body {
   background: #11256e;
   color: #fff5e1;
   font-family:
+    var(--font-albert-sans),
     Arial,
     Helvetica,
     sans-serif;
@@ -219,6 +238,7 @@ body {
 .parking-guide-note {
   color: #6d7991;
   font-family:
+    var(--font-tiktok-sans),
     Arial,
     Helvetica,
     sans-serif;
@@ -252,6 +272,7 @@ body {
   min-width: 56px;
   color: #1e2952;
   font-family:
+    var(--font-tiktok-sans),
     Arial,
     Helvetica,
     sans-serif;
@@ -326,6 +347,7 @@ body {
   margin-top: 8px;
   color: #6d7991;
   font-family:
+    var(--font-tiktok-sans),
     Arial,
     Helvetica,
     sans-serif;
@@ -480,16 +502,36 @@ body {
 }
 
 .invitation-opened-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   margin: 0;
-  max-width: 320px;
+  max-width: 100%;
+  text-align: center;
+}
+
+.invitation-opened-kicker {
   font-family:
+    var(--font-spectral),
     Georgia,
     "Times New Roman",
     serif;
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 8vw, 2.5rem);
   line-height: 1.2;
-  text-align: center;
   color: #fff5e1;
+}
+
+.invitation-opened-names {
+  font-family:
+    var(--font-parisienne),
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: clamp(2.5rem, 12vw, 4rem);
+  line-height: 1.1;
+  color: #fff5e1;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
 }
 
 .invitation-opening-content {

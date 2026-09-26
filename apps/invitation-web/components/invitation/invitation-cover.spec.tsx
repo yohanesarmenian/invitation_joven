@@ -25,8 +25,21 @@ describe("invitation cover markup", () => {
     expect(html).toContain("<button");
     expect(html).toContain('type="button"');
     expect(html).toContain('aria-label="View invitation"');
-    expect(html).toContain("The Wedding of Jo &amp; Venta");
+    expect(html).toContain("The Wedding of");
+    expect(html).toContain("Jo &amp; Venta");
+    expect(html).toContain("invitation-opened-kicker");
+    expect(html).toContain("invitation-opened-names");
     expect(html).toContain("invitation-opened-media");
+  });
+
+  it("does not embed an image or remote media URL in the opened cover", () => {
+    const html = renderToStaticMarkup(
+      createElement(OpenedCoverStage, { onView: () => {} }),
+    );
+
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("http");
+    expect(html).not.toContain("url(");
   });
 
   it("shows no guest name on the closed cover", () => {

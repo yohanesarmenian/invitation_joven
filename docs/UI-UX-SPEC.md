@@ -222,14 +222,19 @@ Opened cover:
 - Accessible name: `View invitation`.
 - No additional visible CTA button is added.
 
-Placeholder authorization (Slice 3 only):
+Placeholder authorization (Slice 3 through Slice 4A, temporary):
 
-- Structural CSS placeholders are approved: navy envelope body, CSS envelope
-  flap, simple paper/card geometry, basic shadows/borders, plain wax-seal
-  circle, and a neutral opened-cover media placeholder.
-- Not allowed: invented monogram, invented wax artwork, stock photography,
-  AI-generated imagery, fake wedding photos, invented flower illustration, or
-  fake decorative artwork. Final visual assets remain Slice 4.
+- Structural CSS placeholders are approved to remain through Slice 4A as
+  temporary incomplete fidelity: navy envelope body, CSS envelope flap,
+  simple paper/card geometry, basic shadows/borders, plain wax-seal circle,
+  neutral opened-cover media placeholder, and the Bride/Groom/gallery
+  structural image slots.
+- They are NOT approved final assets. Slice 4B remains responsible for
+  owner-approved final imagery/assets.
+- Not allowed during 4A: invented monogram, invented wax artwork, stock
+  photography, AI-generated imagery, fake wedding photos, invented flower
+  illustration, or fake decorative artwork. No new placeholder artwork may be
+  invented during 4A.
 
 Animation:
 
@@ -480,6 +485,26 @@ Fallbacks:
   cannot be loaded; otherwise use a plain serif fallback rather than a random
   decorative substitute.
 - Sans fallback: system UI stack.
+
+## Phase 4 Slice 4A Font Loading
+
+The five source-backed families are loaded through `next/font/google` with
+`display: "swap"`, exposing CSS variables consumed by scoped invitation
+selectors:
+
+| Family | Variable | Weights |
+| --- | --- | --- |
+| Spectral | `--font-spectral` | 400, 700 |
+| Luxurious Script | `--font-luxurious-script` | 400 |
+| Parisienne | `--font-parisienne` | 400 |
+| TikTok Sans | `--font-tiktok-sans` | 300, 400, 700 |
+| Albert Sans | `--font-albert-sans` | 400 |
+
+- Fonts are route-scoped to the public invitation route via a route layout;
+  they are not applied globally to `body`.
+- No remote `<link>` stylesheet, no font binaries, no font npm package.
+- TikTok Sans is loaded (verified `TikTok_Sans` export supports normal style,
+  weights 300–900; italic is not supported and is not requested).
 
 ## Phase 4 Dependency Decisions
 
