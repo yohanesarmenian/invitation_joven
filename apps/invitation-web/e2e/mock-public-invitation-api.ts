@@ -7,8 +7,11 @@ const MOCK_HOST = "127.0.0.1";
 const MOCK_PORT = Number(process.env.INVITATION_MOCK_API_PORT ?? 4010);
 const PUBLIC_INVITATION_PATH_PREFIX = "/api/public/invitations/";
 
-// Test-only credential. Not a secret, not derived from CREDENTIAL_SECRET.
+// Test-only credentials. Not secrets, not derived from CREDENTIAL_SECRET.
+// The per-mode credential selects the mock response; everything else succeeds.
 export const TEST_PUBLIC_CREDENTIAL = "A".repeat(43);
+export const TEST_UNAVAILABLE_CREDENTIAL = "B".repeat(43);
+export const TEST_MALFORMED_CREDENTIAL = "C".repeat(43);
 
 const publicInvitationFixture: PublicInvitationResponse = {
   invitation: {
@@ -50,6 +53,27 @@ const publicInvitationFixture: PublicInvitationResponse = {
   },
 };
 
+// Mirrors the real public error envelope for an unavailable invitation. Carries
+// no credential, no archive/expiry reason, and no invitation data.
+const unavailableEnvelope = {
+  error: {
+    code: "INVITATION_NOT_AVAILABLE",
+    message: "Resource not found",
+    details: null,
+  },
+  requestId: "mock-request-id",
+  timestamp: "2027-01-01T00:00:00.000Z",
+};
+
+// Structurally plausible but contract-violating: `events` must be an array, so
+// the 5A runtime guard rejects this 200 and the error boundary must render.
+const malformedInvitationFixture = {
+  invitation: {
+    ...publicInvitationFixture.invitation,
+    events: "not-an-array",
+  },
+};
+
 // Counts public invitation retrievals only; control endpoints never increment.
 let publicInvitationRequestCount = 0;
 
@@ -88,6 +112,21 @@ const server = createServer((request, response) => {
     pathname.startsWith(PUBLIC_INVITATION_PATH_PREFIX)
   ) {
     publicInvitationRequestCount += 1;
+
+    const publicCredential = pathname.slice(
+      PUBLIC_INVITATION_PATH_PREFIX.length,
+    );
+
+    if (publicCredential === TEST_UNAVAILABLE_CREDENTIAL) {
+      sendJson(response, 404, unavailableEnvelope);
+      return;
+    }
+
+    if (publicCredential === TEST_MALFORMED_CREDENTIAL) {
+      sendJson(response, 200, malformedInvitationFixture);
+      return;
+    }
+
     sendJson(response, 200, publicInvitationFixture);
     return;
   }
