@@ -15,32 +15,30 @@ export type PublicInvitationLongPageModel = {
   rsvpDeadlineAt: PublicInvitation["rsvpDeadlineAt"];
 };
 
-// 4B0 development fixtures. These local mock assets stand in for the
-// owner-approved photographs and are expected to be replaced in 4B1.
 // `sizes` values are derived from the current CSS column widths.
-const MOCK_BRIDE = "/assets/mock/bride.svg";
-const MOCK_GROOM = "/assets/mock/groom.svg";
-const MOCK_COUPLE_SIZES =
-  "(min-width: 480px) 198px, (max-width: 360px) 285px, 40vw";
+const BRIDE_PHOTO = "/assets/photos/bride.png";
+const GROOM_PHOTO = "/assets/photos/groom.png";
+const COUPLE_PHOTO_SIZES =
+  "(min-width: 480px) 215px, (max-width: 360px) calc(100vw - 38px), 43vw";
 
 const galleryFrames = [
   {
-    src: "/assets/mock/gallery-01.svg",
+    src: "/assets/photos/gallery-01.png",
     variant: "gallery-frame-large",
     sizes: "(min-width: 480px) 241px, 50vw",
   },
   {
-    src: "/assets/mock/gallery-02.svg",
+    src: "/assets/photos/gallery-02.png",
     variant: "gallery-frame-small",
     sizes: "(min-width: 480px) 178px, 37vw",
   },
   {
-    src: "/assets/mock/gallery-03.svg",
+    src: "/assets/photos/gallery-03.png",
     variant: "gallery-frame-medium",
     sizes: "(min-width: 480px) 178px, 37vw",
   },
   {
-    src: "/assets/mock/gallery-04.svg",
+    src: "/assets/photos/gallery-04.png",
     variant: "gallery-frame-tall",
     sizes: "(min-width: 480px) 241px, 50vw",
   },
@@ -153,11 +151,10 @@ function CoupleProfile({
   const media = (
     <div className="couple-media-slot" aria-hidden="true">
       <Image
-        src={role === "Bride" ? MOCK_BRIDE : MOCK_GROOM}
+        src={role === "Bride" ? BRIDE_PHOTO : GROOM_PHOTO}
         alt=""
         fill
-        sizes={MOCK_COUPLE_SIZES}
-        unoptimized
+        sizes={COUPLE_PHOTO_SIZES}
       />
     </div>
   );
@@ -307,7 +304,6 @@ function GallerySection() {
               alt=""
               fill
               sizes={frame.sizes}
-              unoptimized
             />
           </div>
         ))}

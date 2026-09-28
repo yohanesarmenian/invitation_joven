@@ -248,37 +248,48 @@ describe("PublicInvitationLongPage", () => {
     expect(html).not.toContain("lastOpenedAt");
   });
 
-  it("renders the 4B0 mock Bride and Groom from local assets", () => {
-    const html = renderInvitation();
+  it("renders the real Bride and Groom from canonical local assets", () => {
+    const html = renderInvitation().replace(
+      /(?:src|srcSet)="[^"]*"/g,
+      decodeURIComponent,
+    );
 
-    expect(html).toContain('src="/assets/mock/bride.svg"');
-    expect(html).toContain('src="/assets/mock/groom.svg"');
-    expect(html.indexOf("/assets/mock/bride.svg")).toBeLessThan(
-      html.indexOf("/assets/mock/groom.svg"),
+    expect(html).toContain("/assets/photos/bride.png");
+    expect(html).toContain("/assets/photos/groom.png");
+    expect(html.indexOf("/assets/photos/bride.png")).toBeLessThan(
+      html.indexOf("/assets/photos/groom.png"),
     );
   });
 
-  it("renders all four 4B0 mock gallery assets in the mosaic", () => {
-    const html = renderInvitation();
+  it("renders all four real gallery assets in the approved order", () => {
+    const html = renderInvitation().replace(
+      /(?:src|srcSet)="[^"]*"/g,
+      decodeURIComponent,
+    );
+    const gallery = html.slice(html.indexOf('class="gallery-mosaic"'));
+    const images = gallery.match(/<img[^>]*>/g) ?? [];
+    const assets = ["gallery-01", "gallery-02", "gallery-03", "gallery-04"];
 
-    for (const asset of [
-      "gallery-01",
-      "gallery-02",
-      "gallery-03",
-      "gallery-04",
-    ]) {
-      expect(html).toContain(`src="/assets/mock/${asset}.svg"`);
-    }
+    expect(images).toHaveLength(4);
+    assets.forEach((asset, index) => {
+      expect(images[index]).toContain(`/assets/photos/${asset}.png`);
+    });
   });
 
-  it("keeps every installed image on a local mock path and decorative", () => {
-    const html = renderInvitation();
+  it("keeps all six real photos local, responsive, and decorative", () => {
+    const html = renderInvitation().replace(
+      /(?:src|srcSet)="[^"]*"/g,
+      decodeURIComponent,
+    );
     const images = html.match(/<img[^>]*>/g) ?? [];
 
     expect(images).toHaveLength(6);
 
     for (const image of images) {
-      expect(image).toMatch(/src="\/assets\/mock\/[a-z0-9-]+\.svg"/);
+      expect(image).toMatch(/\/assets\/photos\/[a-z0-9-]+\.png/);
+      expect(image).not.toContain("/assets/mock/");
+      expect(image).toContain('srcSet="');
+      expect(image).toContain('sizes="');
       expect(image).toContain('alt=""');
       expect(image).not.toContain("http");
       expect(image).toContain('data-nimg="fill"');
@@ -302,16 +313,19 @@ describe("PublicInvitationLongPage", () => {
   });
 
   it("orders the Bride before the Groom and keeps both image roles matched", () => {
-    const html = renderInvitation();
+    const html = renderInvitation().replace(
+      /(?:src|srcSet)="[^"]*"/g,
+      decodeURIComponent,
+    );
 
     expect(html.indexOf('id="bride-title"')).toBeLessThan(
       html.indexOf('id="groom-title"'),
     );
     expect(html.indexOf('class="couple-media-slot"')).toBeLessThan(
-      html.indexOf("/assets/mock/bride.svg"),
+      html.indexOf("/assets/photos/bride.png"),
     );
-    expect(html.indexOf("/assets/mock/bride.svg")).toBeLessThan(
-      html.indexOf("/assets/mock/groom.svg"),
+    expect(html.indexOf("/assets/photos/bride.png")).toBeLessThan(
+      html.indexOf("/assets/photos/groom.png"),
     );
   });
 

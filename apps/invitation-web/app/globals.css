@@ -111,9 +111,7 @@ body {
   overflow: hidden;
   border: 1px solid rgba(30, 41, 82, 0.18);
   border-radius: 20px;
-  background:
-    linear-gradient(145deg, rgba(255, 179, 154, 0.24), rgba(255, 245, 225, 0)),
-    #f5f5f5;
+  background: #fff5e1;
 }
 
 .couple-copy {
@@ -413,6 +411,16 @@ body {
 .couple-media-slot img,
 .gallery-frame img {
   object-fit: cover;
+}
+
+/* The sideways export needs its full width to keep both people visible. */
+.gallery-frame-medium img {
+  object-fit: contain;
+}
+
+/* Retain the faces present at the top of the approved close-up. */
+.gallery-frame-tall img {
+  object-position: center top;
 }
 
 .quote-section blockquote {
