@@ -170,6 +170,12 @@ function probeProcess(pid: number): ProcessState {
 /**
  * Fails closed: a lock we cannot read or cannot prove dead is treated as live,
  * because guessing wrong here would mean two runs mutating the same rows.
+ *
+ * An existing lock is never removed here, not even a provably stale one. A
+ * reclaimer that unlinks before recreating races any other reclaimer: both read
+ * the same dead pid, the second one's unlink then deletes the first one's
+ * brand-new lock, and both end up believing they own the shared fixture. The
+ * stale lock is left for the operator to remove.
  */
 export function acquireSmokeLock(): void {
   if (createSmokeLock()) {
@@ -180,7 +186,7 @@ export function acquireSmokeLock(): void {
 
   if (existing === null) {
     throw new Error(
-      `Smoke lock ${SMOKE_LOCK_FILE} exists but is unreadable. Confirm no real backend smoke is running, then delete that file.`,
+      `Smoke lock ${SMOKE_LOCK_FILE} exists but is unreadable. Confirm no real backend smoke is running, then delete that file and retry.`,
     );
   }
 
@@ -188,13 +194,12 @@ export function acquireSmokeLock(): void {
     throw new Error(ALREADY_RUNNING);
   }
 
-  // The previous owner is gone, so the lock is stale. Remove it and claim
-  // once: a second failure means another run won the race.
-  rmSync(SMOKE_LOCK_FILE, { force: true });
-
-  if (!createSmokeLock()) {
-    throw new Error(ALREADY_RUNNING);
-  }
+  // The owner is gone, so the lock is stale - and it still stays on disk. The
+  // pid may have been recycled, and only the operator can confirm that no smoke
+  // run is active before the file is removed.
+  throw new Error(
+    `A stale real-backend-smoke lock was detected at ${SMOKE_LOCK_FILE}. Confirm no smoke run is active, remove the stale lock file, and retry.`,
+  );
 }
 
 export function releaseSmokeLock(): void {
