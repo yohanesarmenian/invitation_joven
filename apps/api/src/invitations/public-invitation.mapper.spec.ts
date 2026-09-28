@@ -73,6 +73,37 @@ const richProjection = {
   },
 } as const;
 
+function mapSingleEvent(googleMapsUrl: string | null) {
+  const response = mapPublicInvitationResponse({
+    displayName: "Guest",
+    greetingName: null,
+    rsvpDeadlineAt: null,
+    events: [
+      {
+        id: "event",
+        slug: "event",
+        name: "Event",
+        startsAt: null,
+        venueName: null,
+        address: null,
+        googleMapsUrl,
+      },
+    ],
+    invitees: [],
+    allowPlusOne: false,
+    maxAdditionalChildren: 0,
+    rsvp: null,
+  });
+
+  const [event] = response.invitation.events;
+
+  if (!event) {
+    throw new Error("Expected the mapper to emit one event.");
+  }
+
+  return event;
+}
+
 describe("mapPublicInvitationResponse", () => {
   it("maps the exact public response and serializes dates as ISO strings", () => {
     const response = mapPublicInvitationResponse(richProjection);
@@ -215,5 +246,73 @@ describe("mapPublicInvitationResponse", () => {
     expect(serialized).not.toContain("private editorial copy");
     expect(serialized).not.toContain("Primary contact");
     expect(serialized).not.toContain("private response notes");
+  });
+});
+
+describe("mapPublicInvitationResponse googleMapsUrl safety", () => {
+  const cases: ReadonlyArray<
+    readonly [label: string, input: string | null, expected: string | null]
+  > = [
+    [
+      "keeps an absolute https URL",
+      "https://maps.example/reception",
+      "https://maps.example/reception",
+    ],
+    [
+      "keeps an absolute http URL",
+      "http://maps.example/reception",
+      "http://maps.example/reception",
+    ],
+    ["keeps null", null, null],
+    ["drops an empty string", "", null],
+    ["drops a whitespace-only string", "   ", null],
+    ["drops javascript:", "javascript:alert(1)", null],
+    ["drops data:", "data:text/html,<script>alert(1)</script>", null],
+    ["drops file:", "file:///C:/secrets.txt", null],
+    ["drops a relative path", "/relative/path", null],
+    ["drops a malformed string", "not a url", null],
+    ["drops mailto:", "mailto:guest@example.test", null],
+    ["drops ftp:", "ftp://maps.example/reception", null],
+    ["drops tel:", "tel:+62000000000", null],
+    ["drops a custom scheme", "googlemaps://maps.example/reception", null],
+    [
+      "normalizes an uppercase HTTP(S) scheme",
+      "HTTPS://maps.example.test/x",
+      new URL("HTTPS://maps.example.test/x").href,
+    ],
+  ];
+
+  for (const [label, input, expected] of cases) {
+    it(label, () => {
+      expect(mapSingleEvent(input).googleMapsUrl).toBe(expected);
+    });
+  }
+
+  it("omits only the unsafe map URL and leaves the rest of the event intact", () => {
+    const event = mapSingleEvent("javascript:alert(1)");
+
+    expect(event).toEqual({
+      id: "event",
+      slug: "event",
+      name: "Event",
+      startsAt: null,
+      venueName: null,
+      address: null,
+      googleMapsUrl: null,
+    });
+  });
+
+  it("keeps a valid map URL while leaving the rest of the event intact", () => {
+    const event = mapSingleEvent("https://maps.example.test/foo");
+
+    expect(event).toEqual({
+      id: "event",
+      slug: "event",
+      name: "Event",
+      startsAt: null,
+      venueName: null,
+      address: null,
+      googleMapsUrl: "https://maps.example.test/foo",
+    });
   });
 });

@@ -41,6 +41,29 @@ function toIsoDate(value: Date | null): string | null {
 }
 
 /**
+ * Legacy rows can hold any TEXT in `googleMapsUrl`. Anything that is not an
+ * absolute HTTP(S) URL is omitted from public output instead of failing the
+ * invitation, so an unsafe stored value becomes `null` rather than a public href.
+ */
+function toSafeMapUrl(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  let url: URL;
+
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return null;
+  }
+
+  return url.protocol === "http:" || url.protocol === "https:"
+    ? url.href
+    : null;
+}
+
+/**
  * Maps an already ordered retrieval projection to the public response contract.
  * Slice 3 owns ordering events and invitees by display order before this boundary.
  */
@@ -59,7 +82,7 @@ export function mapPublicInvitationResponse(
         startsAt: toIsoDate(event.startsAt),
         venueName: event.venueName,
         address: event.address,
-        googleMapsUrl: event.googleMapsUrl,
+        googleMapsUrl: toSafeMapUrl(event.googleMapsUrl),
       })),
       invitees: projection.invitees.map((invitee) => ({
         id: invitee.id,
