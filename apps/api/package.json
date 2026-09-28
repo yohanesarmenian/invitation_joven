@@ -8,7 +8,7 @@
     "start:dev": "tsx watch src/main.ts",
     "build": "pnpm db:generate && tsc -p tsconfig.build.json",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "pnpm db:generate && tsc -p tsconfig.json --noEmit",
+    "typecheck": "pnpm db:generate && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
     "test": "pnpm db:generate && vitest run",
     "openapi:generate": "tsx src/generate-openapi.ts",
     "db:generate": "prisma generate",
