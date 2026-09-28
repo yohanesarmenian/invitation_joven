@@ -496,13 +496,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 24px;
+  background: #1e2952;
 }
 
 .invitation-envelope-button {
   display: block;
-  width: 100%;
-  max-width: 320px;
+  width: min(100%, calc(100vh * 412 / 917));
+  width: min(100%, calc(100dvh * 412 / 917));
   padding: 0;
   border: 0;
   background: transparent;
@@ -511,43 +511,31 @@ body {
 }
 
 .invitation-envelope-button:focus-visible {
-  outline: 3px solid #ffb39a;
-  outline-offset: 8px;
-  border-radius: 14px;
+  outline: none;
+}
+
+/* Keep keyboard focus above both exported artwork layers. */
+.invitation-envelope-button:focus-visible .invitation-envelope::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 3px solid #fff5e1;
+  pointer-events: none;
 }
 
 .invitation-envelope {
   position: relative;
   display: block;
-  aspect-ratio: 1.5 / 1;
-  border-radius: 12px;
-  background: #1e2952;
-  box-shadow: 0 20px 44px rgba(17, 37, 110, 0.28);
+  aspect-ratio: 412 / 917;
 }
 
-.invitation-envelope-flap {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 58%;
-  border-radius: 12px 12px 0 0;
-  background: #2a3a72;
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
-  transition: transform 500ms ease-out;
-  transform-origin: top center;
+.invitation-envelope-layer {
+  object-fit: contain;
 }
 
-.invitation-envelope-seal {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  background: #ffb39a;
-  box-shadow: 0 4px 14px rgba(17, 37, 110, 0.3);
-  transform: translate(-50%, -32%);
+.invitation-envelope-layer-front {
+  z-index: 1;
 }
 
 .invitation-opened-stage {
@@ -643,10 +631,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .invitation-envelope-flap {
-    transition: none;
-  }
-
   .invitation-opened-stage,
   .invitation-opening-content {
     animation: none;

@@ -13,8 +13,31 @@ describe("invitation cover markup", () => {
     expect(html).toContain('type="button"');
     expect(html).toContain('aria-label="Open invitation"');
     expect(html).toContain("invitation-envelope");
-    expect(html).toContain("invitation-envelope-flap");
-    expect(html).toContain("invitation-envelope-seal");
+    expect(html).not.toContain('class="invitation-envelope-flap"');
+    expect(html).not.toContain('class="invitation-envelope-seal"');
+  });
+
+  it("renders both approved envelope layers in order as decorative responsive images", () => {
+    const html = renderToStaticMarkup(
+      createElement(ClosedEnvelopeCover, { onOpen: () => {} }),
+    );
+    const images = html.match(/<img[^>]*>/g) ?? [];
+    const assets = ["envelope-base.png", "envelope-flap-seal.png"];
+
+    expect(images).toHaveLength(2);
+    expect(html).toContain('aria-hidden="true"');
+    assets.forEach((asset, index) => {
+      const image = images[index]!.replace(
+        /(?:src|srcSet)="[^"]*"/g,
+        decodeURIComponent,
+      );
+      expect(image).toContain(`/assets/envelope/${asset}`);
+      expect(image).toContain('alt=""');
+      expect(image).toContain('data-nimg="fill"');
+      expect(image).toContain('srcSet="');
+      expect(image).toContain('sizes="');
+      expect(image).not.toContain("http");
+    });
   });
 
   it("renders the opened cover as a real accessible button with the reference title", () => {

@@ -6,6 +6,8 @@ import type { Ref } from "react";
 const MOCK_HERO = "/assets/mock/hero.svg";
 const MOCK_HERO_SIZES = "(min-width: 388px) 340px, calc(100vw - 48px)";
 
+const ENVELOPE_SIZES = "(min-width: 480px) 480px, 100vw";
+
 export function ClosedEnvelopeCover({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="invitation-closed-stage">
@@ -16,8 +18,22 @@ export function ClosedEnvelopeCover({ onOpen }: { onOpen: () => void }) {
         onClick={onOpen}
       >
         <span className="invitation-envelope" aria-hidden="true">
-          <span className="invitation-envelope-flap" />
-          <span className="invitation-envelope-seal" />
+          <Image
+            src="/assets/envelope/envelope-base.png"
+            alt=""
+            fill
+            sizes={ENVELOPE_SIZES}
+            loading="eager"
+            className="invitation-envelope-layer"
+          />
+          <Image
+            src="/assets/envelope/envelope-flap-seal.png"
+            alt=""
+            fill
+            sizes={ENVELOPE_SIZES}
+            loading="eager"
+            className="invitation-envelope-layer invitation-envelope-layer-front"
+          />
         </span>
       </button>
     </div>
