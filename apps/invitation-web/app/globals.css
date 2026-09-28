@@ -72,7 +72,6 @@ body {
 .dress-code-section h2,
 .rsvp-information-section h2,
 .gallery-section h2,
-.quote-section h2,
 .guest-message-section h2,
 .closing-copy {
   margin: 0;
@@ -128,6 +127,18 @@ body {
   font-weight: 500;
 }
 
+.couple-nickname {
+  margin: 0;
+  color: #6d7991;
+  font-family:
+    var(--font-tiktok-sans),
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0;
+}
+
 .closing-copy {
   font-family:
     var(--font-luxurious-script),
@@ -144,14 +155,35 @@ body {
 
 .wedding-date-section h2 {
   margin-top: 10px;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
+}
+
+/* Phase 4 Slice 4B2-A — divider-delimited date block. The ornament slot stays
+   empty until a source asset exists (4C1), so the block is spacing only. */
+.wedding-date-divider {
+  width: 56px;
+  height: 1px;
+  margin: 14px auto;
+  background: rgba(30, 41, 82, 0.28);
+}
+
+.wedding-date-day {
+  margin: 0;
+  color: #6d7991;
+  font-family:
+    var(--font-tiktok-sans),
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .events-section h2,
 .dress-code-section h2,
 .rsvp-information-section h2,
 .gallery-section h2,
-.quote-section h2,
 .guest-message-section h2 {
   font-size: 2rem;
   font-weight: 500;
@@ -237,7 +269,15 @@ body {
   text-decoration: none;
 }
 
+/* Dashed outline reads as a status badge, not a control: parking still has no
+   destination, so nothing here may look clickable. */
 .parking-guide-note {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px dashed rgba(30, 41, 82, 0.3);
+  border-radius: 9px;
   color: #6d7991;
   font-family:
     var(--font-tiktok-sans),
@@ -333,6 +373,37 @@ body {
 .gallery-frame-tall {
   grid-area: tall;
   min-height: 205px;
+}
+
+/* Phase 4 Slice 4B2-A — scripture sits with the gallery, separate from the
+   McCandless quote, which keeps its own `.quote-section` treatment. */
+.gallery-scripture {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.gallery-scripture blockquote {
+  margin: 0;
+  padding: 0;
+}
+
+.gallery-scripture blockquote p {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+.gallery-scripture cite {
+  display: block;
+  margin-top: 8px;
+  color: #6d7991;
+  font-family:
+    var(--font-tiktok-sans),
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: 0.85rem;
+  font-style: normal;
 }
 
 /* Phase 4 Slice 4B0 — installed media. `next/image` with `fill` positions the

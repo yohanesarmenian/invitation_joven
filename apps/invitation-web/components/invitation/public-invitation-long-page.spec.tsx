@@ -43,7 +43,7 @@ function renderInvitation(
       status: "PENDING",
       version: 9,
     },
-    rsvpDeadlineAt: "2027-01-01T00:00:00.000Z",
+    rsvpDeadlineAt: "2026-12-25T00:00:00.000Z",
     rules: {
       allowPlusOne: true,
       maxAdditionalChildren: 2,
@@ -61,14 +61,17 @@ describe("PublicInvitationLongPage", () => {
     const html = renderInvitation();
     const orderedText = [
       "Example Guests",
-      "Bride",
-      "Groom",
-      "Saturday, 09 January 2027",
+      '<h3 id="bride-title">Angelina Desandra Adventa</h3>',
+      '<h3 id="groom-title">Yohanes Armenian Putra</h3>',
+      "Saturday",
+      "09 January 2027",
       "Wedding Events",
       "Dress Code",
       "RSVP &amp; Dietary Information",
+      "Kindly reply by 25 December 2026.",
       "Pre-wedding Gallery",
-      "Scripture &amp; Words",
+      "1 John 4:19",
+      "Happiness is only real when shared",
       "Leave a Message",
       "See you at the Wedding!",
       "Handcrafted with love by Angelina &amp; Yohanes",
@@ -198,13 +201,13 @@ describe("PublicInvitationLongPage", () => {
 
   it("renders RSVP deadline only from API data", () => {
     const withDeadline = renderInvitation({
-      rsvpDeadlineAt: "2027-12-25T00:00:00.000Z",
+      rsvpDeadlineAt: "2026-12-25T00:00:00.000Z",
     });
     const withoutDeadline = renderInvitation({ rsvpDeadlineAt: null });
 
-    expect(withDeadline).toContain("2027-12-25");
+    expect(withDeadline).toContain("Kindly reply by 25 December 2026.");
     expect(withoutDeadline).not.toContain("Kindly reply by");
-    expect(withoutDeadline).not.toContain("25 December 2027");
+    expect(withoutDeadline).not.toContain("25 December 2026");
   });
 
   it("does not render functional RSVP or message controls", () => {
@@ -214,6 +217,15 @@ describe("PublicInvitationLongPage", () => {
     expect(html).not.toContain("<input");
     expect(html).not.toContain("<select");
     expect(html).not.toContain("<textarea");
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain('type="checkbox"');
+    expect(html).not.toContain('type="radio"');
+    expect(html).not.toContain('role="checkbox"');
+    expect(html).not.toContain('role="radio"');
+    expect(html).not.toContain('role="textbox"');
+    expect(html).not.toContain("Joyfully Accept");
+    expect(html).not.toContain("Regretfully Decline");
+    expect(html).not.toContain("Bring someone special");
     expect(html).not.toContain("Send Confirmation");
     expect(html).not.toContain("Send Message");
   });
@@ -271,5 +283,62 @@ describe("PublicInvitationLongPage", () => {
       expect(image).not.toContain("http");
       expect(image).toContain('data-nimg="fill"');
     }
+  });
+
+  it("maps the Bride role to Angelina Desandra Adventa with the Venta nickname", () => {
+    const html = renderInvitation();
+
+    expect(html).toContain(
+      '<h3 id="bride-title">Angelina Desandra Adventa</h3>',
+    );
+    expect(html).toContain('<p class="couple-nickname">Venta</p>');
+  });
+
+  it("maps the Groom role to Yohanes Armenian Putra with the Jo nickname", () => {
+    const html = renderInvitation();
+
+    expect(html).toContain('<h3 id="groom-title">Yohanes Armenian Putra</h3>');
+    expect(html).toContain('<p class="couple-nickname">Jo</p>');
+  });
+
+  it("orders the Bride before the Groom and keeps both image roles matched", () => {
+    const html = renderInvitation();
+
+    expect(html.indexOf('id="bride-title"')).toBeLessThan(
+      html.indexOf('id="groom-title"'),
+    );
+    expect(html.indexOf('class="couple-media-slot"')).toBeLessThan(
+      html.indexOf("/assets/mock/bride.svg"),
+    );
+    expect(html.indexOf("/assets/mock/bride.svg")).toBeLessThan(
+      html.indexOf("/assets/mock/groom.svg"),
+    );
+  });
+
+  it("keeps the wedding date above the events with a day and date hierarchy", () => {
+    const html = renderInvitation();
+
+    expect(html).toContain('<p class="wedding-date-day">Saturday</p>');
+    expect(html).toContain('<h2 id="wedding-date-title">09 January 2027</h2>');
+    expect(html.indexOf('id="wedding-date-title"')).toBeLessThan(
+      html.indexOf("Wedding Events"),
+    );
+  });
+
+  it("keeps 1 John 4:19 and the McCandless quote as separate blocks", () => {
+    const html = renderInvitation();
+    const scriptureIndex = html.indexOf("1 John 4:19");
+    const quoteIndex = html.indexOf("Happiness is only real when shared");
+
+    expect(html).not.toContain("Scripture &amp; Words");
+    expect(scriptureIndex).toBeGreaterThan(html.indexOf("Pre-wedding Gallery"));
+    expect(scriptureIndex).toBeLessThan(quoteIndex);
+    expect(html).toContain("<cite>1 John 4:19</cite>");
+    expect(html).toContain("<cite>Christopher McCandless</cite>");
+
+    // Separate <blockquote> elements, not one merged quote block.
+    const between = html.slice(scriptureIndex, quoteIndex);
+    expect(between).toContain("</blockquote>");
+    expect(between).toContain("<blockquote>");
   });
 });

@@ -17,7 +17,8 @@ const publicInvitationFixture: PublicInvitationResponse = {
   invitation: {
     displayName: "Test Household",
     greetingName: "Test Guest",
-    rsvpDeadlineAt: null,
+    // 4B2-A development baseline: the owner-approved temporary deadline.
+    rsvpDeadlineAt: "2026-12-25T00:00:00.000Z",
     events: [
       {
         id: "event-test-1",

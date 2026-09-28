@@ -46,6 +46,21 @@ const galleryFrames = [
   },
 ];
 
+// 4B2-A re-baseline. Owner-approved couple names and the wedding date are
+// static invitation copy; the RSVP deadline is NOT hardcoded here because the
+// public DTO already supplies it.
+const BRIDE = {
+  name: "Angelina Desandra Adventa",
+  nickname: "Venta",
+} as const;
+const GROOM = {
+  name: "Yohanes Armenian Putra",
+  nickname: "Jo",
+} as const;
+
+const WEDDING_DAY = "Saturday";
+const WEDDING_DATE = "09 January 2027";
+
 const dressCodeSwatches = [
   { label: "Deep navy", color: "#11256E" },
   { label: "Soft blue", color: "#6082FF" },
@@ -78,7 +93,7 @@ export function PublicInvitationLongPage({
         <DressCodeSection />
         <RsvpInformationSection deadline={invitation.rsvpDeadlineAt} />
         <GallerySection />
-        <QuoteSection />
+        <McCandlessQuoteSection />
         <GuestMessageSection />
         <ClosingSection />
       </article>
@@ -105,8 +120,20 @@ function CoupleSection() {
       <h2 id="couple-title" className="visually-hidden">
         Bride and Groom
       </h2>
-      <CoupleProfile role="Bride" name="Jo" mediaSide="left" />
-      <CoupleProfile role="Groom" name="Venta" mediaSide="right" />
+      {/* Family/parent copy is deferred: no owner-approved text exists in the
+          repository yet, and titles must not be inferred from names. */}
+      <CoupleProfile
+        role="Bride"
+        name={BRIDE.name}
+        nickname={BRIDE.nickname}
+        mediaSide="left"
+      />
+      <CoupleProfile
+        role="Groom"
+        name={GROOM.name}
+        nickname={GROOM.nickname}
+        mediaSide="right"
+      />
     </section>
   );
 }
@@ -114,10 +141,12 @@ function CoupleSection() {
 function CoupleProfile({
   role,
   name,
+  nickname,
   mediaSide,
 }: {
   role: string;
   name: string;
+  nickname: string;
   mediaSide: "left" | "right";
 }) {
   const titleId = `${role.toLowerCase()}-title`;
@@ -136,6 +165,7 @@ function CoupleProfile({
     <div className="couple-copy">
       <p className="section-kicker">{role}</p>
       <h3 id={titleId}>{name}</h3>
+      <p className="couple-nickname">{nickname}</p>
     </div>
   );
 
@@ -151,7 +181,12 @@ function WeddingDateSection() {
   return (
     <section className="invitation-section wedding-date-section" aria-labelledby="wedding-date-title">
       <p className="section-kicker">Wedding Date</p>
-      <h2 id="wedding-date-title">Saturday, 09 January 2027</h2>
+      {/* Divider-delimited date block. Deliberately asset-free: the layout
+          reserves the visual room a calendar ornament will occupy in 4C1. */}
+      <div className="wedding-date-divider" aria-hidden="true" />
+      <p className="wedding-date-day">{WEDDING_DAY}</p>
+      <h2 id="wedding-date-title">{WEDDING_DATE}</h2>
+      <div className="wedding-date-divider" aria-hidden="true" />
     </section>
   );
 }
@@ -207,6 +242,8 @@ function EventSection({
               View in Google Maps
             </a>
           ) : null}
+          {/* Non-interactive badge on purpose: the parking guide still has no
+              destination, and a disabled control would imply otherwise. */}
           <span className="parking-guide-note">Parking guide deferred</span>
         </div>
       </div>
@@ -237,14 +274,18 @@ function DressCodeSection() {
 }
 
 function RsvpInformationSection({ deadline }: { deadline: string | null }) {
-  const deadlineLabel = formatIsoDatePortion(deadline);
+  const deadlineLabel = formatDeadlineLabel(deadline);
 
   return (
     <section className="invitation-section rsvp-information-section" aria-labelledby="rsvp-title">
       <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
+      {/* Read-only on purpose: the Phase 4 contract has no RSVP mutation, so
+          the future fields are described in text rather than rendered as
+          controls that would look operable. */}
       <p>
-        RSVP and dietary details will be handled in a later step. This section
-        is currently read-only.
+        Attendance confirmation, events attended, companion details, and
+        dietary preferences will be handled in a later step. This section is
+        currently read-only.
       </p>
       {deadlineLabel ? <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p> : null}
     </section>
@@ -271,18 +312,21 @@ function GallerySection() {
           </div>
         ))}
       </div>
+      {/* Scripture belongs with the gallery in the updated baseline, not under
+          an invented combined "scripture and words" heading. */}
+      <div className="gallery-scripture">
+        <blockquote>
+          <p>We love because he first loved us.</p>
+          <cite>1 John 4:19</cite>
+        </blockquote>
+      </div>
     </section>
   );
 }
 
-function QuoteSection() {
+function McCandlessQuoteSection() {
   return (
-    <section className="invitation-section quote-section" aria-labelledby="quote-title">
-      <h2 id="quote-title">Scripture &amp; Words</h2>
-      <blockquote>
-        <p>We love because He first loved us.</p>
-        <cite>1 John 4:19</cite>
-      </blockquote>
+    <section className="invitation-section quote-section">
       <blockquote>
         <p>Happiness is only real when shared</p>
         <cite>Christopher McCandless</cite>
@@ -310,17 +354,51 @@ function ClosingSection() {
   );
 }
 
-function formatIsoDatePortion(value: string | null): string | null {
+const deadlineMonths = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+/**
+ * Renders the deadline's ISO date portion as `25 December 2026`. String-only on
+ * purpose: the deadline is displayed as the calendar date the API sent, without
+ * introducing a second time zone rule next to the event-time one.
+ */
+function formatDeadlineLabel(value: string | null): string | null {
   if (value === null) {
     return null;
   }
 
-  const isoDate = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
-  if (isoDate === null) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (match === null) {
     return null;
   }
 
-  return isoDate;
+  const [, year, month, day] = match;
+  const monthName = deadlineMonths[Number(month) - 1];
+
+  if (
+    year === undefined ||
+    day === undefined ||
+    monthName === undefined ||
+    Number(month) < 1 ||
+    Number(month) > 12
+  ) {
+    return null;
+  }
+
+  return `${Number(day)} ${monthName} ${year}`;
 }
 
 function formatInvitationEventTime(value: string | null): string | null {
