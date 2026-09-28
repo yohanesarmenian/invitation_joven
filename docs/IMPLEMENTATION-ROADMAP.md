@@ -333,6 +333,7 @@ Do not begin Phase 1 until Phase 0 documentation corrections are accepted. This 
   - Dockerize apps.
   - Add GitHub Actions.
   - Prepare VPS/Coolify-style deployment.
+  - Before deployment: verify reverse-proxy access logs redact or exclude credential-bearing public URLs (`/i/*`, `/api/public/invitations/*`); see `DEPLOYMENT-SECURITY.md`.
   - Final content/assets verification.
 - Expected files/modules: CI, Docker, deployment config, tests.
 - Acceptance criteria:
