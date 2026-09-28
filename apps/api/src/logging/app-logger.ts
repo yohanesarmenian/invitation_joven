@@ -1,4 +1,4 @@
-import { Injectable, type LoggerService } from "@nestjs/common";
+import { Injectable, Optional, type LoggerService } from "@nestjs/common";
 import pino, { type Logger as PinoLogger } from "pino";
 import { pinoRedactOptions } from "./redaction.js";
 
@@ -20,7 +20,7 @@ const isProduction = process.env.NODE_ENV === "production";
 export class AppLogger implements LoggerService {
   private readonly logger: PinoLogger;
 
-  constructor(logger?: PinoLogger) {
+  constructor(@Optional() logger?: PinoLogger) {
     this.logger =
       logger ??
       pino({
