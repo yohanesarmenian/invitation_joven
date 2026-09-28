@@ -106,8 +106,10 @@ body {
 }
 
 .couple-media-slot {
+  position: relative;
   aspect-ratio: 136 / 186;
   min-height: 172px;
+  overflow: hidden;
   border: 1px solid rgba(30, 41, 82, 0.18);
   border-radius: 20px;
   background:
@@ -303,7 +305,9 @@ body {
 }
 
 .gallery-frame {
+  position: relative;
   min-height: 140px;
+  overflow: hidden;
   border: 1px solid rgba(30, 41, 82, 0.18);
   border-radius: 18px;
   background:
@@ -329,6 +333,15 @@ body {
 .gallery-frame-tall {
   grid-area: tall;
   min-height: 205px;
+}
+
+/* Phase 4 Slice 4B0 — installed media. `next/image` with `fill` positions the
+   image absolutely but leaves `object-fit` at its CSS initial value, so the
+   crop is owned here. The wrappers above stay the layout authority. */
+.invitation-opened-media img,
+.couple-media-slot img,
+.gallery-frame img {
+  object-fit: cover;
 }
 
 .quote-section blockquote {
@@ -491,9 +504,11 @@ body {
 }
 
 .invitation-opened-media {
+  position: relative;
   width: 100%;
   max-width: 340px;
   aspect-ratio: 3 / 4;
+  overflow: hidden;
   border: 1px solid rgba(255, 245, 225, 0.24);
   border-radius: 16px;
   background:

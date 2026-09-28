@@ -235,4 +235,41 @@ describe("PublicInvitationLongPage", () => {
     expect(html).not.toContain("firstOpenedAt");
     expect(html).not.toContain("lastOpenedAt");
   });
+
+  it("renders the 4B0 mock Bride and Groom from local assets", () => {
+    const html = renderInvitation();
+
+    expect(html).toContain('src="/assets/mock/bride.svg"');
+    expect(html).toContain('src="/assets/mock/groom.svg"');
+    expect(html.indexOf("/assets/mock/bride.svg")).toBeLessThan(
+      html.indexOf("/assets/mock/groom.svg"),
+    );
+  });
+
+  it("renders all four 4B0 mock gallery assets in the mosaic", () => {
+    const html = renderInvitation();
+
+    for (const asset of [
+      "gallery-01",
+      "gallery-02",
+      "gallery-03",
+      "gallery-04",
+    ]) {
+      expect(html).toContain(`src="/assets/mock/${asset}.svg"`);
+    }
+  });
+
+  it("keeps every installed image on a local mock path and decorative", () => {
+    const html = renderInvitation();
+    const images = html.match(/<img[^>]*>/g) ?? [];
+
+    expect(images).toHaveLength(6);
+
+    for (const image of images) {
+      expect(image).toMatch(/src="\/assets\/mock\/[a-z0-9-]+\.svg"/);
+      expect(image).toContain('alt=""');
+      expect(image).not.toContain("http");
+      expect(image).toContain('data-nimg="fill"');
+    }
+  });
 });

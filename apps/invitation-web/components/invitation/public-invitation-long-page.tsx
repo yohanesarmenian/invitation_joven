@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { PublicInvitationResponse } from "../../../../packages/api-client/src/index";
 
 type PublicInvitation = PublicInvitationResponse["invitation"];
@@ -13,6 +14,37 @@ export type PublicInvitationLongPageModel = {
   greetingName: PublicInvitation["greetingName"];
   rsvpDeadlineAt: PublicInvitation["rsvpDeadlineAt"];
 };
+
+// 4B0 development fixtures. These local mock assets stand in for the
+// owner-approved photographs and are expected to be replaced in 4B1.
+// `sizes` values are derived from the current CSS column widths.
+const MOCK_BRIDE = "/assets/mock/bride.svg";
+const MOCK_GROOM = "/assets/mock/groom.svg";
+const MOCK_COUPLE_SIZES =
+  "(min-width: 480px) 198px, (max-width: 360px) 285px, 40vw";
+
+const galleryFrames = [
+  {
+    src: "/assets/mock/gallery-01.svg",
+    variant: "gallery-frame-large",
+    sizes: "(min-width: 480px) 241px, 50vw",
+  },
+  {
+    src: "/assets/mock/gallery-02.svg",
+    variant: "gallery-frame-small",
+    sizes: "(min-width: 480px) 178px, 37vw",
+  },
+  {
+    src: "/assets/mock/gallery-03.svg",
+    variant: "gallery-frame-medium",
+    sizes: "(min-width: 480px) 178px, 37vw",
+  },
+  {
+    src: "/assets/mock/gallery-04.svg",
+    variant: "gallery-frame-tall",
+    sizes: "(min-width: 480px) 241px, 50vw",
+  },
+];
 
 const dressCodeSwatches = [
   { label: "Deep navy", color: "#11256E" },
@@ -89,7 +121,17 @@ function CoupleProfile({
   mediaSide: "left" | "right";
 }) {
   const titleId = `${role.toLowerCase()}-title`;
-  const media = <div className="couple-media-slot" aria-hidden="true" />;
+  const media = (
+    <div className="couple-media-slot" aria-hidden="true">
+      <Image
+        src={role === "Bride" ? MOCK_BRIDE : MOCK_GROOM}
+        alt=""
+        fill
+        sizes={MOCK_COUPLE_SIZES}
+        unoptimized
+      />
+    </div>
+  );
   const copy = (
     <div className="couple-copy">
       <p className="section-kicker">{role}</p>
@@ -214,10 +256,20 @@ function GallerySection() {
     <section className="invitation-section gallery-section" aria-labelledby="gallery-title">
       <h2 id="gallery-title">Pre-wedding Gallery</h2>
       <div className="gallery-mosaic" aria-hidden="true">
-        <div className="gallery-frame gallery-frame-large" />
-        <div className="gallery-frame gallery-frame-small" />
-        <div className="gallery-frame gallery-frame-medium" />
-        <div className="gallery-frame gallery-frame-tall" />
+        {galleryFrames.map((frame) => (
+          <div
+            key={frame.src}
+            className={`gallery-frame ${frame.variant}`}
+          >
+            <Image
+              src={frame.src}
+              alt=""
+              fill
+              sizes={frame.sizes}
+              unoptimized
+            />
+          </div>
+        ))}
       </div>
     </section>
   );
