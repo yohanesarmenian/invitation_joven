@@ -10,6 +10,7 @@
     "typecheck": "pnpm db:generate && turbo run typecheck",
     "test": "pnpm db:generate && turbo run test",
     "test:e2e": "playwright test --config=apps/invitation-web/playwright.config.ts",
+    "test:e2e:real": "pnpm --filter api build && playwright test --config=apps/invitation-web/playwright.real.config.ts",
     "db:generate": "pnpm --filter api db:generate",
     "db:validate": "pnpm --filter api db:validate",
     "db:migrate": "pnpm --filter api db:migrate",
