@@ -44,6 +44,39 @@ const galleryFrames = [
   },
 ];
 
+const decorativeAssets = {
+  corner: { file: "hydrangea-corner.png", width: 166, height: 171 },
+  cluster: { file: "hydrangea-cluster.png", width: 616, height: 524 },
+  leaves: { file: "groom-leaves.svg", width: 138, height: 138 },
+  calendar: { file: "calendar.svg", width: 59, height: 52 },
+  rings: { file: "rings.svg", width: 88, height: 58 },
+  ornament: { file: "small-ornament.svg", width: 78, height: 37 },
+} as const;
+
+function Decoration({
+  asset,
+  className,
+  sizes,
+}: {
+  asset: keyof typeof decorativeAssets;
+  className: string;
+  sizes: string;
+}) {
+  const source = decorativeAssets[asset];
+
+  return (
+    <span className={`invitation-decoration ${className}`} aria-hidden="true">
+      <Image
+        src={`/assets/decorative/${source.file}`}
+        alt=""
+        width={source.width}
+        height={source.height}
+        sizes={sizes}
+      />
+    </span>
+  );
+}
+
 // 4B2-A re-baseline. Owner-approved couple names and the wedding date are
 // static invitation copy; the RSVP deadline is NOT hardcoded here because the
 // public DTO already supplies it.
@@ -102,6 +135,11 @@ export function PublicInvitationLongPage({
 function InvitationHeader({ guestName }: { guestName: string }) {
   return (
     <header className="invitation-section invitation-header">
+      <Decoration
+        asset="corner"
+        className="decoration-top"
+        sizes="(min-width: 412px) 140px, 34vw"
+      />
       <p className="section-kicker">Dear</p>
       <h1 id="invitation-title">{guestName}</h1>
       <p>
@@ -177,9 +215,13 @@ function CoupleProfile({
 function WeddingDateSection() {
   return (
     <section className="invitation-section wedding-date-section" aria-labelledby="wedding-date-title">
+      <Decoration
+        asset="leaves"
+        className="decoration-groom-leaves"
+        sizes="(min-width: 412px) 137px, 33vw"
+      />
+      <Decoration asset="calendar" className="decoration-calendar" sizes="59px" />
       <p className="section-kicker">Wedding Date</p>
-      {/* Divider-delimited date block. Deliberately asset-free: the layout
-          reserves the visual room a calendar ornament will occupy in 4C1. */}
       <div className="wedding-date-divider" aria-hidden="true" />
       <p className="wedding-date-day">{WEDDING_DAY}</p>
       <h2 id="wedding-date-title">{WEDDING_DATE}</h2>
@@ -218,6 +260,15 @@ function EventSection({
   return (
     <section className="event-card" aria-labelledby={titleId}>
       <div className="event-time-block">
+        <Decoration
+          asset="rings"
+          className={
+            index === 0
+              ? "decoration-rings"
+              : "decoration-rings decoration-rings-small"
+          }
+          sizes={index === 0 ? "88px" : "68px"}
+        />
         {timeLabel ? (
           <time dateTime={event.startsAt ?? undefined}>{timeLabel}</time>
         ) : (
@@ -244,6 +295,9 @@ function EventSection({
           <span className="parking-guide-note">Parking guide deferred</span>
         </div>
       </div>
+      {index === 0 ? (
+        <Decoration asset="ornament" className="decoration-event" sizes="78px" />
+      ) : null}
     </section>
   );
 }
@@ -251,6 +305,11 @@ function EventSection({
 function DressCodeSection() {
   return (
     <section className="invitation-section dress-code-section" aria-labelledby="dress-code-title">
+      <Decoration
+        asset="corner"
+        className="decoration-dress-right"
+        sizes="(min-width: 412px) 64px, 16vw"
+      />
       <p className="section-kicker">Fine Attire</p>
       <h2 id="dress-code-title">Dress Code</h2>
       <p>Formal / Modern / National / Batik</p>
@@ -275,6 +334,11 @@ function RsvpInformationSection({ deadline }: { deadline: string | null }) {
 
   return (
     <section className="invitation-section rsvp-information-section" aria-labelledby="rsvp-title">
+      <Decoration
+        asset="cluster"
+        className="decoration-rsvp-left"
+        sizes="(min-width: 412px) 126px, 31vw"
+      />
       <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
       {/* Read-only on purpose: the Phase 4 contract has no RSVP mutation, so
           the future fields are described in text rather than rendered as
@@ -285,6 +349,23 @@ function RsvpInformationSection({ deadline }: { deadline: string | null }) {
         currently read-only.
       </p>
       {deadlineLabel ? <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p> : null}
+      <div className="rsvp-decoration-band" aria-hidden="true">
+        <Decoration
+          asset="cluster"
+          className="decoration-rsvp-main"
+          sizes="(min-width: 412px) 128px, 31vw"
+        />
+        <Decoration
+          asset="corner"
+          className="decoration-rsvp-small-a"
+          sizes="47px"
+        />
+        <Decoration
+          asset="corner"
+          className="decoration-rsvp-small-b"
+          sizes="66px"
+        />
+      </div>
     </section>
   );
 }
@@ -311,6 +392,11 @@ function GallerySection() {
       {/* Scripture belongs with the gallery in the updated baseline, not under
           an invented combined "scripture and words" heading. */}
       <div className="gallery-scripture">
+        <Decoration
+          asset="corner"
+          className="decoration-gallery"
+          sizes="(min-width: 412px) 102px, 25vw"
+        />
         <blockquote>
           <p>We love because he first loved us.</p>
           <cite>1 John 4:19</cite>
@@ -327,6 +413,11 @@ function McCandlessQuoteSection() {
         <p>Happiness is only real when shared</p>
         <cite>Christopher McCandless</cite>
       </blockquote>
+      <Decoration
+        asset="cluster"
+        className="decoration-lower"
+        sizes="(min-width: 412px) 144px, 35vw"
+      />
     </section>
   );
 }
@@ -343,6 +434,7 @@ function GuestMessageSection() {
 function ClosingSection() {
   return (
     <footer className="invitation-section invitation-footer">
+      <Decoration asset="ornament" className="decoration-closing" sizes="78px" />
       <p className="closing-copy">See you at the Wedding!</p>
       <p>Handcrafted with love by Angelina &amp; Yohanes</p>
       <p>100% human made, no AI.</p>

@@ -156,8 +156,7 @@ body {
   font-size: 1.75rem;
 }
 
-/* Phase 4 Slice 4B2-A — divider-delimited date block. The ornament slot stays
-   empty until a source asset exists (4C1), so the block is spacing only. */
+/* The semantic date and simple divider rules remain independent of artwork. */
 .wedding-date-divider {
   width: 56px;
   height: 1px;
@@ -449,6 +448,144 @@ body {
 
 .invitation-footer {
   padding-bottom: 64px;
+}
+
+/* 4C2: section-owned decoration follows the Figma footprints, not global Y
+   coordinates. In-flow ornaments reserve space; edge motifs stay off copy. */
+.invitation-decoration {
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.invitation-decoration img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.invitation-header,
+.wedding-date-section,
+.dress-code-section,
+.rsvp-information-section,
+.gallery-scripture {
+  position: relative;
+}
+
+.decoration-top {
+  position: absolute;
+  top: -28px;
+  right: -19px;
+  width: min(34vw, 140px);
+  transform: scaleX(-1);
+}
+
+.wedding-date-section {
+  padding-top: 100px;
+}
+
+.decoration-groom-leaves {
+  position: absolute;
+  top: -18px;
+  right: max(-78px, -19vw);
+  width: min(33vw, 137px);
+}
+
+.decoration-calendar {
+  width: 59px;
+  margin: 0 auto 12px;
+}
+
+.decoration-rings {
+  width: 88px;
+  margin-bottom: 12px;
+}
+
+.decoration-rings-small {
+  width: 68px;
+}
+
+.decoration-event {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: 78px;
+  margin-top: 8px;
+}
+
+.decoration-dress-right {
+  position: absolute;
+  top: 10px;
+  right: -3px;
+  width: min(16vw, 64px);
+  transform: scaleX(-1);
+}
+
+.rsvp-information-section {
+  padding-top: 100px;
+}
+
+.decoration-rsvp-left {
+  position: absolute;
+  top: -20px;
+  left: -37px;
+  width: min(31vw, 126px);
+  transform: scaleX(-1);
+}
+
+.rsvp-decoration-band {
+  position: relative;
+  height: 128px;
+  pointer-events: none;
+}
+
+.decoration-rsvp-main {
+  position: absolute;
+  top: 6px;
+  left: 14%;
+  width: min(31vw, 128px);
+}
+
+.decoration-rsvp-small-a {
+  position: absolute;
+  top: 0;
+  right: -18px;
+  width: 47px;
+  transform: scaleX(-1);
+}
+
+.decoration-rsvp-small-b {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 66px;
+  transform: rotate(12deg);
+}
+
+.gallery-scripture {
+  padding-top: 96px;
+}
+
+.decoration-gallery {
+  position: absolute;
+  top: -18px;
+  right: max(-83px, -20vw);
+  width: min(25vw, 102px);
+  transform: scaleX(-1);
+}
+
+.decoration-lower {
+  justify-self: center;
+  width: min(35vw, 144px);
+}
+
+.decoration-lower img {
+  max-height: 104px;
+}
+
+.decoration-closing {
+  justify-self: center;
+  width: 78px;
 }
 
 .visually-hidden {

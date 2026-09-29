@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="78" height="37" viewBox="0 0 78 37" fill="none">
+  <!-- Shared local botanical ornament for Figma objects 57:220 and 57:227. -->
+  <g stroke="#6D7991" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 23C18 23 29 17 36 13M42 13C49 17 60 23 71 23"/>
+    <g fill="#6D7991" fill-opacity=".16">
+      <path d="M16 22C10 19 11 13 12 11C18 13 20 18 16 22Z"/>
+      <path d="M24 19C20 13 23 8 25 6C29 12 28 16 24 19Z"/>
+      <path d="M25 19C25 25 19 28 15 27C15 22 19 20 25 19Z"/>
+      <path d="M62 22C68 19 67 13 66 11C60 13 58 18 62 22Z"/>
+      <path d="M54 19C58 13 55 8 53 6C49 12 50 16 54 19Z"/>
+      <path d="M53 19C53 25 59 28 63 27C63 22 59 20 53 19Z"/>
+    </g>
+    <path d="M39 10L43 15L39 20L35 15Z" fill="#FFB39A" fill-opacity=".45"/>
+  </g>
+</svg>

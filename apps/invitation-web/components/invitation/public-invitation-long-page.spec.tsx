@@ -267,7 +267,9 @@ describe("PublicInvitationLongPage", () => {
       decodeURIComponent,
     );
     const gallery = html.slice(html.indexOf('class="gallery-mosaic"'));
-    const images = gallery.match(/<img[^>]*>/g) ?? [];
+    const images = (gallery.match(/<img[^>]*>/g) ?? []).filter((image) =>
+      image.includes("/assets/photos/"),
+    );
     const assets = ["gallery-01", "gallery-02", "gallery-03", "gallery-04"];
 
     expect(images).toHaveLength(4);
@@ -281,7 +283,9 @@ describe("PublicInvitationLongPage", () => {
       /(?:src|srcSet)="[^"]*"/g,
       decodeURIComponent,
     );
-    const images = html.match(/<img[^>]*>/g) ?? [];
+    const images = (html.match(/<img[^>]*>/g) ?? []).filter((image) =>
+      image.includes("/assets/photos/"),
+    );
 
     expect(images).toHaveLength(6);
 
@@ -303,6 +307,49 @@ describe("PublicInvitationLongPage", () => {
       '<h3 id="bride-title">Angelina Desandra Adventa</h3>',
     );
     expect(html).toContain('<p class="couple-nickname">Venta</p>');
+  });
+
+  it("renders the local floral sources and shared ornaments as decoration", () => {
+    const html = renderInvitation().replace(
+      /(?:src|srcSet)="[^"]*"/g,
+      decodeURIComponent,
+    );
+    const decorations = (html.match(/<img[^>]*>/g) ?? []).filter((image) =>
+      image.includes("/assets/decorative/"),
+    );
+
+    for (const asset of [
+      "hydrangea-corner.png",
+      "hydrangea-cluster.png",
+      "groom-leaves.svg",
+      "calendar.svg",
+      "rings.svg",
+      "small-ornament.svg",
+    ]) {
+      expect(decorations.some((image) => image.includes(asset))).toBe(true);
+    }
+    for (const image of decorations) {
+      expect(image).toContain('alt=""');
+      expect(image).not.toContain("http");
+    }
+    const wrappers =
+      html.match(/<span class="invitation-decoration [^>]*>/g) ?? [];
+    expect(wrappers).toHaveLength(decorations.length);
+    for (const wrapper of wrappers) {
+      expect(wrapper).toContain('aria-hidden="true"');
+      expect(wrapper).not.toContain("tabindex");
+    }
+    expect(
+      decorations.filter((image) => image.includes("rings.svg")),
+    ).toHaveLength(2);
+    expect(
+      decorations.filter((image) => image.includes("small-ornament.svg")),
+    ).toHaveLength(2);
+    expect(html).toContain('<h2 id="wedding-date-title">09 January 2027</h2>');
+    expect(html).toContain(
+      '<p class="closing-copy">See you at the Wedding!</p>',
+    );
+    expect(html).toContain("100% human made, no AI.");
   });
 
   it("maps the Groom role to Yohanes Armenian Putra with the Jo nickname", () => {
