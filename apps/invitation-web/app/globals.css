@@ -86,7 +86,7 @@ body {
 .invitation-header p,
 .rsvp-information-section p,
 .guest-message-section p,
-.invitation-footer p {
+.invitation-footer p:not(.closing-copy) {
   margin: 0;
   font-size: 1rem;
   line-height: 1.7;
@@ -323,6 +323,18 @@ body {
   height: 34px;
   border: 1px solid rgba(30, 41, 82, 0.18);
   border-radius: 999px;
+}
+
+@media (max-width: 400px) {
+  .dress-swatch-list {
+    width: min(100%, 240px);
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .dress-swatch-list li {
+    flex: 0 0 68px;
+  }
 }
 
 .deadline-copy {
