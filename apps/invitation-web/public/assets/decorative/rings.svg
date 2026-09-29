@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="88" height="58" viewBox="0 0 88 58" fill="none">
+  <!-- Shared local wedding-rings approximation for Figma 44:73 and 44:84. -->
+  <g stroke="#6D7991" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="33" cy="33" rx="18" ry="18" transform="rotate(-18 33 33)"/>
+    <ellipse cx="55" cy="34" rx="18" ry="18" transform="rotate(18 55 34)"/>
+    <path d="M26 15L24 9L29 4H37L42 9L40 15M24 9H42M29 4L33 15L37 4"/>
+    <path d="M16 7L14 3M48 8L52 4M9 19H4" stroke-opacity=".5"/>
+  </g>
+  <path d="M26 9H40L33 15Z" fill="#FFB39A" fill-opacity=".35"/>
+</svg>

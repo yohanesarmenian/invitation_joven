@@ -26,6 +26,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://invitation_ci:invitation_ci_password@localhost:5432/invitation_ci?schema=public
+      # Public deterministic fixture for CI/test only; not a production secret.
+      CREDENTIAL_SECRET: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8
 
     steps:
       - name: Checkout
@@ -56,6 +58,12 @@ jobs:
 
       - name: Check migration status
         run: pnpm db:status
+
+      - name: Generate OpenAPI and API client
+        run: pnpm api:contract:generate
+
+      - name: Check generated API contract
+        run: git diff --exit-code -- apps/api/openapi.json packages/api-client/src/generated/schema.ts
 
       - name: Lint
         run: pnpm lint

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="138" height="138" viewBox="0 0 138 138" fill="none">
+  <!-- Locally authored approximation of the leaf footprint at Figma 57:219. -->
+  <g stroke="#6D7991" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 128C43 96 69 65 113 13M55 86C76 81 96 72 124 56" stroke-width="1.5"/>
+    <g fill="#6D7991" fill-opacity=".18" stroke-opacity=".55">
+      <path d="M36 106C13 99 14 79 17 65C36 70 43 87 36 106Z"/>
+      <path d="M48 92C51 69 34 55 30 49C20 72 26 89 48 92Z"/>
+      <path d="M63 72C67 52 56 36 49 29C38 50 45 67 63 72Z"/>
+      <path d="M80 52C79 29 89 16 103 7C106 31 96 45 80 52Z"/>
+      <path d="M96 34C117 34 128 22 131 10C111 8 100 17 96 34Z"/>
+      <path d="M70 82C77 65 96 58 105 63C99 78 86 87 70 82Z"/>
+      <path d="M94 72C110 84 123 80 134 69C119 58 106 59 94 72Z"/>
+      <path d="M39 103C57 111 70 102 80 88C61 83 46 88 39 103Z"/>
+    </g>
+  </g>
+</svg>

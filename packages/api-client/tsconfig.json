@@ -1,6 +1,6 @@
 {
   "extends": "@wedding-invitation/tsconfig/base.json",
-  "files": [],
+  "include": ["src/**/*.ts"],
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",

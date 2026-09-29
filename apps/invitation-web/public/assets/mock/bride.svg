@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 272 372">
+  <!-- 4B0 development fixture. Not a production asset. -->
+  <rect width="272" height="372" fill="#e8e8e8" />
+  <rect x="8" y="8" width="256" height="356" fill="none" stroke="#9b9a99" stroke-width="4" stroke-dasharray="16 12" />
+  <line x1="8" y1="8" x2="264" y2="364" stroke="#c9c9c9" stroke-width="3" />
+  <line x1="264" y1="8" x2="8" y2="364" stroke="#c9c9c9" stroke-width="3" />
+  <text x="136" y="176" text-anchor="middle" font-family="monospace" font-size="22" font-weight="bold" fill="#4a4a4a">MOCK BRIDE</text>
+  <text x="136" y="228" text-anchor="middle" font-family="monospace" font-size="11" fill="#6d6d6d">4B0 DEV FIXTURE</text>
+  <text x="136" y="264" text-anchor="middle" font-family="monospace" font-size="11" fill="#6d6d6d">NOT AN OWNER ASSET</text>
+</svg>

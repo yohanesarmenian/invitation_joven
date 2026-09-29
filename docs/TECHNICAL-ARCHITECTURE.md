@@ -43,6 +43,33 @@ Do not create this structure until Phase 1 after final Phase 0 documentation loc
 - Submit RSVP with `expectedVersion`.
 - Display RSVP confirmation and backend-derived active QR payload.
 
+Phase 4 read-only frontend contract:
+
+- Public route: `/i/[publicCredential]`.
+- The route credential is case-sensitive and must not be normalized, stored in
+  browser storage, sent to analytics, copied into visible error UI, or logged by
+  custom frontend code.
+- Retrieval is server-side by default: the route receives the credential, uses
+  the generated `packages/api-client`, calls
+  `GET /api/public/invitations/{publicCredential}`, and passes the
+  `PublicInvitationResponse` to presentation components.
+- Use the server-only environment variable `INVITATION_API_BASE_URL` for the API
+  origin/base URL. It must not be prefixed with `NEXT_PUBLIC_` and must not
+  contain credentials. Local development value is conceptually
+  `http://localhost:4000`.
+- Client components are limited to local visual state such as envelope/opened
+  transitions, reveal behavior, and reduced-motion handling. Avoid duplicate
+  client-side invitation fetching and do not introduce TanStack Query for Phase 4
+  unless a later technical review documents a need.
+- Public invitation event timestamps remain backend-owned ISO date-time values.
+  `invitation-web` owns guest-facing venue-local presentation for event cards:
+  render `startsAt` in `Asia/Jakarta` using `HH.mm` 24-hour format without
+  relying on process, server, browser, or workstation local timezone settings.
+- Phase 4 maps `INVITATION_NOT_AVAILABLE` to one generic unavailable UI and does
+  not infer whether a credential was malformed, unknown, stale, or archived.
+- Phase 4 does not implement RSVP submission, QR confirmation, or guest message
+  submission.
+
 ### admin-web
 
 - Provide OWNER login.
@@ -120,42 +147,105 @@ Final implementation must specify production same-site/origin topology, cookie a
 
 Public invitation and check-in credentials are deterministic server-derived bearer credentials.
 
-Conceptual derivation:
+The Phase 3 public invitation credential format is a stable compatibility contract. Changing the canonical input format, output encoding, or lookup hash after credentials have been issued requires an explicit compatibility or migration decision.
 
-```text
-credential = Base64URL(
-  HMAC-SHA256(
-    server credential secret,
-    namespace + stable record id + credential version
-  )
-)
-```
+### Credential namespaces
 
 Use separate namespaces for at least:
 
 - `invitation`.
-- `checkin`.
+- `check-in`.
 
-Separate derived keys/secrets per namespace are preferred if straightforward during implementation.
+The invitation namespace is exactly `invitation`. The check-in namespace is exactly `check-in`.
+
+### Public invitation derivation contract
+
+Public invitation credentials use:
+
+- Stable record id: `Invitation.id`.
+- UUID canonical form: lowercase standard 8-4-4-4-12 representation, for example `01234567-89ab-4def-8123-456789abcdef`.
+- Credential version: `Invitation.public_token_version`.
+- Version canonical form: positive decimal integer with no leading zeroes.
+
+The canonical HMAC input is the following component sequence encoded as UTF-8 bytes:
+
+```text
+v1<NUL>invitation<NUL><canonical-uuid><NUL><version>
+```
+
+Where:
+
+- `v1` is literal ASCII and is part of the permanent derivation contract.
+- `invitation` is literal ASCII.
+- `<NUL>` means one zero byte, `0x00`; it does not mean the two characters `\` and `0`.
+- UUID is lowercase canonical form.
+- Version is canonical decimal integer.
+
+Use HMAC-SHA-256 from Node built-in `crypto`. The raw HMAC result is 32 bytes. Encode the raw result as RFC 4648 Base64URL without padding. The public credential is exactly 43 ASCII characters, matches `[A-Za-z0-9_-]{43}`, is case-sensitive, has no `=` padding, and is safe in a URL path without percent encoding.
+
+### Lookup hash contract
+
+Persist only a lookup hash for public credentials:
+
+```text
+public_token_hash = lowercaseHex(SHA-256(UTF8(publicCredential)))
+```
+
+`publicCredential` is exactly the 43-character Base64URL credential string. The lookup hash is 64 lowercase hexadecimal characters and is stored in `Invitation.public_token_hash`. The existing PostgreSQL `text` column is sufficient. Plaintext public credentials must never be persisted.
+
+Inbound public credential processing:
+
+1. Receive the route path credential.
+2. Validate exactly `[A-Za-z0-9_-]{43}`.
+3. Malformed values collapse to the generic unavailable behavior.
+4. Calculate `SHA-256(UTF8(publicCredential))`.
+5. Encode lowercase hex.
+6. Query `Invitation.public_token_hash`.
+7. Lock the matched Invitation row according to the public retrieval transaction contract.
+8. Require `Invitation.status = ACTIVE`.
+9. Project only the approved public fields.
+
+Do not try to derive an inbound credential; the caller does not provide the Invitation id or credential version. Do not retrieve candidate rows and compare credentials in application memory. Constant-time application comparison is not required for this indexed equality lookup.
+
+When credential regeneration is implemented later, `public_token_version` increments, a new deterministic credential is derived, and `public_token_hash` is replaced. Old credentials stop resolving naturally. Malformed, unknown, stale, archived, and otherwise unavailable credentials must remain publicly indistinguishable.
 
 ### Server credential secret
 
-- Comes from deployment environment/secret manager.
-- Never committed.
-- Never logged.
-- Sufficiently random.
+- Comes from `CREDENTIAL_SECRET`.
+- Canonical environment representation is unpadded Base64URL.
+- The decoded value must be exactly 32 bytes.
+- Missing, padded, malformed Base64URL, or incorrectly sized values fail application startup.
+- No fallback, hard-coded, or committed secret is allowed.
+- The source value and decoded bytes must never be logged.
 - Production secret differs from development/test.
 - Changing it invalidates derivability of existing credentials unless a planned regeneration/migration process exists.
 - MVP treats credential-secret rotation as an operational maintenance concern, not a multi-key rotation feature.
+- Tests may inject deterministic test secret material. CI/integration environments may provide an explicitly non-production deterministic test secret.
+- No key ring, key identifier, multi-secret rotation framework, or namespace-specific subkey derivation is required in Phase 3; namespace separation in the canonical input is sufficient for the current application.
 
 ### Public invitation credential
 
-- Derived from server secret, invitation namespace, `Invitation.id`, and `public_token_version`.
+- Derived from `CREDENTIAL_SECRET`, invitation namespace, `Invitation.id`, and `public_token_version` using the contract above.
 - Lookup uses stored `public_token_hash`.
 - Admin regenerate link locks Invitation, increments `public_token_version`, derives new credential, stores new hash, and returns the new URL.
 - Admin copy current URL can re-derive the current credential over protected OWNER API.
 - Plaintext public credential is not persisted.
 - Must not be logged.
+
+### Compatibility vector
+
+The following public test vector freezes the Phase 3 credential contract. It is not a production secret.
+
+- Secret Base64URL: `AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8`
+- Decoded secret: bytes `0x00` through `0x1f`
+- Namespace: `invitation`
+- Stable UUID: `01234567-89ab-4def-8123-456789abcdef`
+- Version: `1`
+- Canonical input hex: `763100696e7669746174696f6e0030313233343536372d383961622d346465662d383132332d3435363738396162636465660031`
+- Expected credential: `GqcxcwGaB27NYCErZeJhqWufpfVeSA-jFQkfG-qYBRE`
+- Expected lookup hash: `725ce76a6b049c6dffaf1624b045fb34961ac04039921692c24e16dee757aebd`
+
+Compatibility and security tests must freeze the exact vector, 43-character Base64URL output, uppercase UUID canonicalization, namespace/id/version/secret changes altering output, malformed UUID rejection, invalid version rejection, invalid namespace rejection, malformed or missing secret startup failure, stale credential rejection, archive privacy, and absence of raw credentials or hashes from logs and errors.
 
 ### Check-in credential
 
@@ -208,6 +298,65 @@ Every state-changing operation that can conflict for one invitation must:
 5. Commit.
 
 Use this rule for public RSVP mutation, OWNER RSVP override, event eligibility changes that can affect RSVP/check-in, check-in confirmation, invitation archive where relevant, and pass or invitation credential regeneration/rotation where relevant. Do not introduce Redis or distributed locks for MVP.
+
+### Public invitation retrieval and open tracking
+
+Valid public invitation retrieval is not a pure read. It mutates `first_opened_at`, `last_opened_at`, and `open_count`, so it follows the Invitation-first lock discipline.
+
+Exact sequence:
+
+1. Validate and hash the inbound public credential outside the database transaction.
+2. Start a Prisma interactive transaction.
+3. Lock the matching Invitation row using a narrow parameterized query equivalent to:
+
+   ```sql
+   SELECT id, status
+   FROM invitations
+   WHERE public_token_hash = $1
+   FOR UPDATE;
+   ```
+
+4. If no row exists, return generic `INVITATION_NOT_AVAILABLE`.
+5. If current status is not `ACTIVE`, return the same generic unavailable result.
+6. Perform one atomic parameterized update equivalent to:
+
+   ```sql
+   UPDATE invitations
+   SET
+     first_opened_at = COALESCE(first_opened_at, CURRENT_TIMESTAMP),
+     last_opened_at = CURRENT_TIMESTAMP,
+     open_count = open_count + 1,
+     updated_at = CURRENT_TIMESTAMP
+   WHERE id = $1::uuid
+     AND status = 'ACTIVE'
+   RETURNING
+     first_opened_at,
+     last_opened_at,
+     open_count;
+   ```
+
+7. Exactly one row must be updated.
+8. Within the same transaction, read the approved public projection: Invitation public fields, InvitationEvent/Event rows, Invitees, and optional RSVP.
+9. Commit.
+10. Map the already-read data to the public DTO.
+
+Properties:
+
+- `open_count` increments atomically.
+- Concurrent valid loads cannot lose increments.
+- `first_opened_at` is assigned once via `COALESCE`.
+- `last_opened_at` changes on every valid load.
+- The first valid load produces `open_count = 1`, `first_opened_at = current transaction timestamp`, and `last_opened_at = current transaction timestamp`.
+- All projection reads belong inside the same transaction.
+- PostgreSQL `READ COMMITTED` is sufficient when all conflicting invitation-scoped writers follow Invitation-first locking.
+- No `InvitationOpen` table, IP tracking, or user-agent tracking is required.
+
+Archive/open race behavior is linearized by the Invitation lock:
+
+- If public retrieval acquires the Invitation lock first, it validates `ACTIVE`, records one valid open, reads and returns the active projection, and archive waits.
+- If archive commits first, later public retrieval sees `ARCHIVED`, records no open, and returns `INVITATION_NOT_AVAILABLE`.
+
+Open tracking is persisted domain/reporting data, not best-effort telemetry. If the aggregate update or public projection read fails, the transaction rolls back and the request fails; do not return a successful invitation response after a failed open-tracking transaction.
 
 ## Check-in Architecture
 
