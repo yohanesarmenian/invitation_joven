@@ -1,5 +1,9 @@
 import { createServer, type ServerResponse } from "node:http";
-import type { PublicInvitationResponse } from "../../../packages/api-client/src/index";
+import type {
+  PublicInvitationResponse,
+  PublicRsvpReadResponse,
+  SubmitPublicRsvpRequest,
+} from "../../../packages/api-client/src/index";
 
 // Test-only harness. Not production API configuration: the real API uses port
 // 4000 and is never started by this suite.
@@ -77,6 +81,16 @@ const malformedInvitationFixture = {
 
 // Counts public invitation retrievals only; control endpoints never increment.
 let publicInvitationRequestCount = 0;
+let rsvpState: PublicRsvpReadResponse["rsvp"] = null;
+let rsvpRequests: SubmitPublicRsvpRequest[] = [];
+let rsvpRules = publicInvitationFixture.invitation.rules;
+let rsvpDelayMs = 0;
+let rsvpFailure: {
+  status: number;
+  code: string;
+  method: "GET" | "PUT";
+} | null = null;
+let nextRsvpVersion: number | null = null;
 
 function sendJson(
   response: ServerResponse,
@@ -87,7 +101,7 @@ function sendJson(
   response.end(JSON.stringify(body));
 }
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   const { pathname } = new URL(request.url ?? "/", `http://${MOCK_HOST}`);
 
   if (request.method === "GET" && pathname === "/__health") {
@@ -103,9 +117,111 @@ const server = createServer((request, response) => {
 
   if (request.method === "POST" && pathname === "/__reset") {
     publicInvitationRequestCount = 0;
+    rsvpState = null;
+    rsvpRequests = [];
+    rsvpRules = publicInvitationFixture.invitation.rules;
+    rsvpDelayMs = 0;
+    rsvpFailure = null;
+    nextRsvpVersion = null;
     response.writeHead(204);
     response.end();
     return;
+  }
+
+  // Test-only RSVP controls; never part of the application or real backend.
+  if (request.method === "POST" && pathname === "/__rsvp-fixture") {
+    let json = "";
+    for await (const chunk of request) json += String(chunk);
+    const fixture = JSON.parse(json) as {
+      rsvp?: PublicRsvpReadResponse["rsvp"];
+      rules?: PublicInvitationResponse["invitation"]["rules"];
+      delayMs?: number;
+      failure?: typeof rsvpFailure;
+      nextVersion?: number;
+    };
+    if (fixture.rsvp !== undefined) rsvpState = fixture.rsvp;
+    if (fixture.rules) rsvpRules = fixture.rules;
+    rsvpDelayMs = fixture.delayMs ?? 0;
+    rsvpFailure = fixture.failure ?? null;
+    nextRsvpVersion = fixture.nextVersion ?? null;
+    sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/__rsvp-state") {
+    sendJson(response, 200, { rsvp: rsvpState, requests: rsvpRequests });
+    return;
+  }
+
+  if (
+    pathname.startsWith(PUBLIC_INVITATION_PATH_PREFIX) &&
+    pathname.endsWith("/rsvp")
+  ) {
+    if (request.method === "GET") {
+      if (rsvpFailure?.method === "GET") {
+        sendJson(response, rsvpFailure.status, {
+          error: {
+            code: rsvpFailure.code,
+            message: "Mock read failure",
+            details: null,
+          },
+        });
+      } else {
+        sendJson(response, 200, { rsvp: rsvpState, checkinPass: null });
+      }
+      return;
+    }
+    if (request.method === "PUT") {
+      let json = "";
+      for await (const chunk of request) json += String(chunk);
+      const body = JSON.parse(json) as SubmitPublicRsvpRequest;
+      rsvpRequests.push(body);
+      if (rsvpDelayMs)
+        await new Promise((resolve) => setTimeout(resolve, rsvpDelayMs));
+      if (rsvpFailure?.method === "PUT") {
+        sendJson(response, rsvpFailure.status, {
+          error: {
+            code: rsvpFailure.code,
+            message: "Mock mutation failure",
+            details: null,
+          },
+        });
+        return;
+      }
+      if (body.expectedVersion !== (rsvpState?.version ?? null)) {
+        sendJson(response, 409, {
+          error: {
+            code: "RSVP_VERSION_CONFLICT",
+            message: "Mock conflict",
+            details: null,
+          },
+        });
+        return;
+      }
+      rsvpState = {
+        status: body.status,
+        version: nextRsvpVersion ?? (rsvpState?.version ?? 0) + 1,
+        eventSelections: body.eventSelections,
+        attendees: body.attendees.map((attendee) => ({
+          ...attendee,
+          inviteeId: attendee.inviteeId ?? null,
+        })),
+        dietaryNotes: body.dietaryNotes?.trim() || null,
+        attendeeQuantityTotal: body.attendees.reduce(
+          (sum, attendee) => sum + attendee.quantity,
+          0,
+        ),
+      };
+      nextRsvpVersion = null;
+      sendJson(response, 200, {
+        rsvp: rsvpState,
+        checkinPass:
+          body.status === "ACCEPTED"
+            ? { status: "ACTIVE", issuedAt: "2026-09-29T00:00:00Z" }
+            : null,
+      });
+      return;
+    }
   }
 
   if (
@@ -128,7 +244,9 @@ const server = createServer((request, response) => {
       return;
     }
 
-    sendJson(response, 200, publicInvitationFixture);
+    sendJson(response, 200, {
+      invitation: { ...publicInvitationFixture.invitation, rules: rsvpRules },
+    });
     return;
   }
 

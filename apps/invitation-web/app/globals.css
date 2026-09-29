@@ -342,6 +342,133 @@ body {
   font-weight: 700;
 }
 
+.public-rsvp-form {
+  min-width: 0;
+  text-align: left;
+}
+
+.public-rsvp-form .rsvp-fields,
+.public-rsvp-form .rsvp-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.public-rsvp-form .rsvp-fields {
+  display: grid;
+  gap: 28px;
+}
+
+.public-rsvp-form .rsvp-group legend {
+  width: 100%;
+  padding: 0 0 10px;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.public-rsvp-form .rsvp-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 0;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.public-rsvp-form input[type="radio"],
+.public-rsvp-form input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: #1e2952;
+}
+
+.public-rsvp-form .rsvp-event {
+  padding: 8px 0 14px;
+  border-bottom: 1px solid rgba(30, 41, 82, 0.2);
+}
+
+.public-rsvp-form .rsvp-count {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.public-rsvp-form .rsvp-count small {
+  display: block;
+}
+
+.public-rsvp-form input[type="number"],
+.public-rsvp-form textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px;
+  border: 1px solid rgba(30, 41, 82, 0.55);
+  border-radius: 6px;
+  background: #fffaef;
+  color: #1e2952;
+  font: inherit;
+  font-size: 1rem;
+}
+
+.public-rsvp-form .rsvp-dietary {
+  display: grid;
+  gap: 8px;
+}
+
+.public-rsvp-form textarea {
+  resize: vertical;
+}
+
+.public-rsvp-form .rsvp-dietary p {
+  text-align: right;
+  font-size: 0.875rem;
+}
+
+.public-rsvp-form .rsvp-submit {
+  min-height: 48px;
+  width: 100%;
+  padding: 12px 20px;
+  border: 1px solid #1e2952;
+  border-radius: 999px;
+  background: #1e2952;
+  color: #fff5e1;
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.public-rsvp-form :disabled {
+  cursor: default;
+}
+
+.public-rsvp-form button:disabled {
+  opacity: 0.65;
+}
+
+.public-rsvp-form :is(input, textarea, button, [tabindex]):focus-visible {
+  outline: 3px solid #6082ff;
+  outline-offset: 3px;
+}
+
+.public-rsvp-form .rsvp-error {
+  margin-top: 14px;
+  padding: 10px;
+  border-left: 3px solid #963f31;
+  color: #7b3025;
+}
+
+.public-rsvp-form [role="status"]:not(:empty) {
+  margin-top: 14px;
+  text-align: center;
+}
+
 .gallery-mosaic {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;

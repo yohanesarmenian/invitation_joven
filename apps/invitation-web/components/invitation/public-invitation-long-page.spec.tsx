@@ -52,7 +52,10 @@ function renderInvitation(
   } satisfies PublicInvitationResponse["invitation"];
 
   return renderToStaticMarkup(
-    createElement(PublicInvitationLongPage, { invitation: baseInvitation }),
+    createElement(PublicInvitationLongPage, {
+      invitation: baseInvitation,
+      rsvpForm: createElement("div", { "data-rsvp-slot": true }, "RSVP form"),
+    }),
   );
 }
 
@@ -69,6 +72,7 @@ describe("PublicInvitationLongPage", () => {
       "Dress Code",
       "RSVP &amp; Dietary Information",
       "Kindly reply by 25 December 2026.",
+      "RSVP form",
       "Pre-wedding Gallery",
       "1 John 4:19",
       "Happiness is only real when shared",
@@ -210,9 +214,10 @@ describe("PublicInvitationLongPage", () => {
     expect(withoutDeadline).not.toContain("25 December 2026");
   });
 
-  it("does not render functional RSVP or message controls", () => {
+  it("leaves controls to the supplied RSVP slot and keeps guest messages inactive", () => {
     const html = renderInvitation();
 
+    expect(html).toContain('data-rsvp-slot="true"');
     expect(html).not.toContain("<form");
     expect(html).not.toContain("<input");
     expect(html).not.toContain("<select");

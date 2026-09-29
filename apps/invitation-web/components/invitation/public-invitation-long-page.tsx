@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 import type { PublicInvitationResponse } from "../../../../packages/api-client/src/index";
 
 type PublicInvitation = PublicInvitationResponse["invitation"];
@@ -109,8 +110,10 @@ const invitationEventTimeFormatter = new Intl.DateTimeFormat("en-GB", {
 
 export function PublicInvitationLongPage({
   invitation,
+  rsvpForm,
 }: {
   invitation: PublicInvitationLongPageModel;
+  rsvpForm: ReactNode;
 }) {
   const guestName = invitation.greetingName ?? invitation.displayName;
 
@@ -122,7 +125,9 @@ export function PublicInvitationLongPage({
         <WeddingDateSection />
         <EventsSection events={invitation.events} />
         <DressCodeSection />
-        <RsvpInformationSection deadline={invitation.rsvpDeadlineAt} />
+        <RsvpInformationSection deadline={invitation.rsvpDeadlineAt}>
+          {rsvpForm}
+        </RsvpInformationSection>
         <GallerySection />
         <McCandlessQuoteSection />
         <GuestMessageSection />
@@ -329,7 +334,13 @@ function DressCodeSection() {
   );
 }
 
-function RsvpInformationSection({ deadline }: { deadline: string | null }) {
+function RsvpInformationSection({
+  deadline,
+  children,
+}: {
+  deadline: string | null;
+  children: ReactNode;
+}) {
   const deadlineLabel = formatDeadlineLabel(deadline);
 
   return (
@@ -340,15 +351,8 @@ function RsvpInformationSection({ deadline }: { deadline: string | null }) {
         sizes="(min-width: 412px) 126px, 31vw"
       />
       <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
-      {/* Read-only on purpose: the Phase 4 contract has no RSVP mutation, so
-          the future fields are described in text rather than rendered as
-          controls that would look operable. */}
-      <p>
-        Attendance confirmation, events attended, companion details, and
-        dietary preferences will be handled in a later step. This section is
-        currently read-only.
-      </p>
       {deadlineLabel ? <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p> : null}
+      {children}
       <div className="rsvp-decoration-band" aria-hidden="true">
         <Decoration
           asset="cluster"
