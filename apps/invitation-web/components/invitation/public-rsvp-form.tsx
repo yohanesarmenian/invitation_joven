@@ -8,6 +8,13 @@ import type {
 } from "../../../../packages/api-client/src/index";
 import type { RsvpFailure, RsvpResult } from "../../src/rsvp/result";
 import {
+  rsvpFailureNotice,
+  rsvpLoadFailureNotice,
+  rsvpSuccessNotice,
+  type RsvpNotice,
+} from "../../src/rsvp/notice";
+import { RsvpResultNotice } from "./rsvp-result-notice";
+import {
   attendeeTotal,
   createRsvpDraft,
   normalizeEventCounts,
@@ -23,12 +30,14 @@ export type PublicRsvpFormProps = {
   submitAction: (
     request: SubmitPublicRsvpRequest,
   ) => Promise<RsvpResult<PublicRsvpMutationResponse>>;
+  reloadAction: () => Promise<RsvpResult<PublicRsvpReadResponse>>;
 };
 
 export function PublicRsvpForm({
   invitation,
   initialResult,
   submitAction,
+  reloadAction,
 }: PublicRsvpFormProps) {
   const id = useId();
   const [canonical, setCanonical] = useState(
@@ -37,39 +46,125 @@ export function PublicRsvpForm({
   const [draft, setDraft] = useState(() =>
     createRsvpDraft(invitation, canonical),
   );
-  const [pending, setPending] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(initialResult.status === "success");
+  const [operation, setOperation] = useState<"submit" | "reload" | null>(null);
+  const [feedback, setFeedback] = useState<"saved" | "reloaded" | null>(null);
   const [validation, setValidation] = useState<string | null>(null);
-  const [failure, setFailure] = useState<RsvpFailure | null>(null);
+  const [failure, setFailure] = useState<{
+    error: RsvpFailure;
+    source: "submit" | "reload";
+  } | null>(
+    initialResult.status === "error"
+      ? { error: initialResult.error, source: "reload" }
+      : null,
+  );
+  // A failed reload must not remove a conflict's submission lock.
+  const [lock, setLock] = useState<
+    "conflict" | "closed" | "unavailable" | null
+  >(null);
   const inFlight = useRef(false);
-  const errorRef = useRef<HTMLParagraphElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+  const attendanceRef = useRef<HTMLFieldSetElement>(null);
+  const attendeesRef = useRef<HTMLFieldSetElement>(null);
+  const eventsRef = useRef<HTMLFieldSetElement>(null);
   const total = attendeeTotal(draft);
-  const errorMessage =
-    validation ??
-    (failure ? "We couldn’t save your response. Please try again." : null);
+  const pending = operation !== null;
+  const terminal = lock === "closed" || lock === "unavailable";
+  const notice: RsvpNotice | null = validation
+    ? {
+        tone: "error",
+        title: "Please review your response",
+        message: validation,
+        recovery: "none",
+      }
+    : failure
+      ? failure.source === "reload"
+        ? rsvpLoadFailureNotice(failure.error, loaded)
+        : rsvpFailureNotice(failure.error)
+      : null;
+  const submitBlocked =
+    pending || !loaded || lock !== null || notice?.recovery === "correct";
+  const savedNotice =
+    feedback === "saved" &&
+    (canonical?.status === "ACCEPTED" || canonical?.status === "DECLINED")
+      ? rsvpSuccessNotice(canonical.status)
+      : null;
 
   useEffect(() => {
-    if (errorMessage) errorRef.current?.focus();
-  }, [errorMessage]);
+    if (failure || validation) errorRef.current?.focus();
+    else if (feedback === "reloaded") statusRef.current?.focus();
+  }, [failure, validation, feedback]);
 
   function edit(next: RsvpDraft, compositionChanged = false) {
+    if (inFlight.current || terminal) return;
     setDraft(compositionChanged ? normalizeEventCounts(next) : next);
     setValidation(null);
-    setFailure(null);
-    setSaved(false);
+    if (lock === null) setFailure(null);
+    setFeedback(null);
+  }
+
+  function recordFailure(error: RsvpFailure, source: "submit" | "reload") {
+    setFailure({ error, source });
+    if (error.kind !== "api") return;
+    if (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT")
+      setLock("conflict");
+    if (error.httpStatus === 422 && error.code === "RSVP_DEADLINE_PASSED")
+      setLock("closed");
+    if (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
+      setLock("unavailable");
+  }
+
+  async function reload() {
+    if (inFlight.current || lock === "closed") return;
+    inFlight.current = true;
+    setOperation("reload");
+    setFeedback(null);
+    setValidation(null);
+    try {
+      const result = await reloadAction();
+      if (result.status === "error") recordFailure(result.error, "reload");
+      else {
+        setCanonical(result.data.rsvp);
+        setDraft(createRsvpDraft(invitation, result.data.rsvp));
+        setLoaded(true);
+        setLock(null);
+        setFailure(null);
+        setFeedback("reloaded");
+      }
+    } catch {
+      recordFailure(
+        { kind: "network", httpStatus: null, code: null },
+        "reload",
+      );
+    } finally {
+      inFlight.current = false;
+      setOperation(null);
+    }
+  }
+
+  function review() {
+    const section = notice?.section;
+    const target =
+      section === "events"
+        ? eventsRef
+        : section === "attendees"
+          ? attendeesRef
+          : attendanceRef;
+    (target.current ?? attendanceRef.current)?.focus();
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlight.current || initialResult.status !== "success") return;
+    if (inFlight.current || submitBlocked) return;
     const invalid = validateRsvpDraft(draft, invitation);
     if (invalid) {
       setValidation(invalid);
       return;
     }
     inFlight.current = true;
-    setPending(true);
-    setSaved(false);
+    setOperation("submit");
+    setFeedback(null);
     setValidation(null);
     setFailure(null);
     try {
@@ -77,25 +172,68 @@ export function PublicRsvpForm({
         toRsvpRequest(draft, canonical?.version ?? null),
       );
       if (result.status === "error") {
-        setFailure(result.error);
+        recordFailure(result.error, "submit");
       } else {
         setCanonical(result.data.rsvp);
         setDraft(createRsvpDraft(invitation, result.data.rsvp));
-        setSaved(true);
+        setFeedback("saved");
       }
     } catch {
-      setFailure({ kind: "network", httpStatus: null, code: null });
+      recordFailure(
+        { kind: "network", httpStatus: null, code: null },
+        "submit",
+      );
     } finally {
       inFlight.current = false;
-      setPending(false);
+      setOperation(null);
     }
   }
 
-  if (initialResult.status === "error") {
+  const errorNotice = notice ? (
+    <RsvpResultNotice
+      notice={notice}
+      id={`${id}-error`}
+      noticeRef={errorRef}
+      pending={pending}
+      onReload={reload}
+      onReview={review}
+    />
+  ) : null;
+  const statusNotice = (
+    <div
+      role="status"
+      aria-atomic="true"
+      ref={statusRef}
+      tabIndex={-1}
+      className={
+        savedNotice || feedback === "reloaded"
+          ? "rsvp-notice rsvp-notice-success"
+          : undefined
+      }
+    >
+      {savedNotice ? (
+        <>
+          <h3>{savedNotice.title}</h3>
+          <p>{savedNotice.message}</p>
+        </>
+      ) : pending ? (
+        operation === "reload" ? (
+          "Loading the latest RSVP…"
+        ) : (
+          "Saving your response…"
+        )
+      ) : feedback === "reloaded" ? (
+        "The latest RSVP has been loaded. Please review it before responding."
+      ) : null}
+    </div>
+  );
+
+  if (!loaded) {
     return (
-      <p role="alert">
-        We couldn’t load your RSVP. Please reload the invitation to try again.
-      </p>
+      <div className="public-rsvp-form" aria-busy={pending}>
+        {errorNotice}
+        {statusNotice}
+      </div>
     );
   }
 
@@ -103,16 +241,20 @@ export function PublicRsvpForm({
     <form
       className="public-rsvp-form"
       aria-label="Your RSVP"
-      aria-describedby={errorMessage ? `${id}-error` : undefined}
+      aria-describedby={notice ? `${id}-error` : undefined}
       aria-busy={pending}
       onSubmit={submit}
       noValidate
     >
-      <fieldset disabled={pending} className="rsvp-fields">
+      {errorNotice}
+      {statusNotice}
+      <fieldset disabled={pending || terminal} className="rsvp-fields">
         <legend className="visually-hidden">Your RSVP</legend>
         <fieldset
           className="rsvp-group"
-          aria-describedby={errorMessage ? `${id}-error` : undefined}
+          ref={attendanceRef}
+          tabIndex={-1}
+          aria-describedby={notice ? `${id}-error` : undefined}
         >
           <legend>Will you join us?</legend>
           {(
@@ -134,7 +276,12 @@ export function PublicRsvpForm({
         </fieldset>
         {draft.status === "ACCEPTED" ? (
           <>
-            <fieldset className="rsvp-group" aria-describedby={`${id}-total`}>
+            <fieldset
+              className="rsvp-group"
+              ref={attendeesRef}
+              tabIndex={-1}
+              aria-describedby={`${id}-total${notice?.section === "attendees" ? ` ${id}-error` : ""}`}
+            >
               <legend>Who will be joining us?</legend>
               {invitation.invitees.map((invitee) => (
                 <label className="rsvp-choice" key={invitee.id}>
@@ -207,7 +354,9 @@ export function PublicRsvpForm({
             </fieldset>
             <fieldset
               className="rsvp-group"
-              aria-describedby={`${id}-events-help`}
+              ref={eventsRef}
+              tabIndex={-1}
+              aria-describedby={`${id}-events-help${notice?.section === "events" ? ` ${id}-error` : ""}`}
             >
               <legend>Which events will you attend?</legend>
               <p id={`${id}-events-help`}>
@@ -302,28 +451,14 @@ export function PublicRsvpForm({
             </div>
           </>
         ) : null}
-        <button className="rsvp-submit" type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Send RSVP"}
+        <button className="rsvp-submit" type="submit" disabled={submitBlocked}>
+          {operation === "submit"
+            ? "Saving…"
+            : notice?.recovery === "retry"
+              ? "Try again"
+              : "Send RSVP"}
         </button>
       </fieldset>
-      {errorMessage ? (
-        <p
-          id={`${id}-error`}
-          className="rsvp-error"
-          role="alert"
-          tabIndex={-1}
-          ref={errorRef}
-        >
-          {errorMessage}
-        </p>
-      ) : null}
-      <p role="status">
-        {saved
-          ? "Your response has been saved."
-          : pending
-            ? "Saving your response…"
-            : ""}
-      </p>
     </form>
   );
 }

@@ -457,16 +457,53 @@ body {
   outline-offset: 3px;
 }
 
-.public-rsvp-form .rsvp-error {
-  margin-top: 14px;
-  padding: 10px;
-  border-left: 3px solid #963f31;
-  color: #7b3025;
+.public-rsvp-form .rsvp-notice {
+  margin-bottom: 24px;
+  padding: 18px;
+  border: 1px solid rgba(30, 41, 82, 0.3);
+  border-radius: 8px;
+  background: #fffaef;
+  overflow-wrap: anywhere;
 }
 
-.public-rsvp-form [role="status"]:not(:empty) {
+.public-rsvp-form .rsvp-notice h3 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.public-rsvp-form .rsvp-notice-success {
+  border-top: 3px solid #536a56;
+}
+
+.public-rsvp-form .rsvp-notice-conflict {
+  border-top: 3px solid #967640;
+}
+
+.public-rsvp-form .rsvp-notice-closed {
+  border-top: 3px solid #6d7991;
+}
+
+.public-rsvp-form .rsvp-notice-error {
+  border-top: 3px solid #1e2952;
+}
+
+.public-rsvp-form .rsvp-notice-action {
+  min-height: 48px;
+  max-width: 100%;
   margin-top: 14px;
-  text-align: center;
+  padding: 10px 16px;
+  border: 1px solid #1e2952;
+  border-radius: 999px;
+  color: #1e2952;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.public-rsvp-form [role="status"]:not(:empty):not(.rsvp-notice) {
+  margin-bottom: 14px;
 }
 
 .gallery-mosaic {
