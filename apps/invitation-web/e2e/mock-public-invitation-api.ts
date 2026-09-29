@@ -91,6 +91,9 @@ let rsvpFailure: {
   method: "GET" | "PUT";
 } | null = null;
 let nextRsvpVersion: number | null = null;
+let rsvpReadCount = 0;
+let dropRsvpResponse = false;
+let rsvpDeadlineAt = publicInvitationFixture.invitation.rsvpDeadlineAt;
 
 function sendJson(
   response: ServerResponse,
@@ -123,6 +126,9 @@ const server = createServer(async (request, response) => {
     rsvpDelayMs = 0;
     rsvpFailure = null;
     nextRsvpVersion = null;
+    rsvpReadCount = 0;
+    dropRsvpResponse = false;
+    rsvpDeadlineAt = publicInvitationFixture.invitation.rsvpDeadlineAt;
     response.writeHead(204);
     response.end();
     return;
@@ -138,18 +144,26 @@ const server = createServer(async (request, response) => {
       delayMs?: number;
       failure?: typeof rsvpFailure;
       nextVersion?: number;
+      dropResponse?: boolean;
+      deadline?: string | null;
     };
     if (fixture.rsvp !== undefined) rsvpState = fixture.rsvp;
     if (fixture.rules) rsvpRules = fixture.rules;
     rsvpDelayMs = fixture.delayMs ?? 0;
     rsvpFailure = fixture.failure ?? null;
     nextRsvpVersion = fixture.nextVersion ?? null;
+    dropRsvpResponse = fixture.dropResponse ?? false;
+    if (fixture.deadline !== undefined) rsvpDeadlineAt = fixture.deadline;
     sendJson(response, 200, { ok: true });
     return;
   }
 
   if (request.method === "GET" && pathname === "/__rsvp-state") {
-    sendJson(response, 200, { rsvp: rsvpState, requests: rsvpRequests });
+    sendJson(response, 200, {
+      rsvp: rsvpState,
+      requests: rsvpRequests,
+      reads: rsvpReadCount,
+    });
     return;
   }
 
@@ -158,6 +172,7 @@ const server = createServer(async (request, response) => {
     pathname.endsWith("/rsvp")
   ) {
     if (request.method === "GET") {
+      rsvpReadCount += 1;
       if (rsvpFailure?.method === "GET") {
         sendJson(response, rsvpFailure.status, {
           error: {
@@ -213,6 +228,11 @@ const server = createServer(async (request, response) => {
         ),
       };
       nextRsvpVersion = null;
+      // Simulates a committed save whose response is lost in transit.
+      if (dropRsvpResponse) {
+        response.destroy();
+        return;
+      }
       sendJson(response, 200, {
         rsvp: rsvpState,
         checkinPass:
@@ -245,7 +265,11 @@ const server = createServer(async (request, response) => {
     }
 
     sendJson(response, 200, {
-      invitation: { ...publicInvitationFixture.invitation, rules: rsvpRules },
+      invitation: {
+        ...publicInvitationFixture.invitation,
+        rules: rsvpRules,
+        rsvpDeadlineAt,
+      },
     });
     return;
   }

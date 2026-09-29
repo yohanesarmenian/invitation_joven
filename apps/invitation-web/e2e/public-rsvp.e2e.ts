@@ -3,11 +3,13 @@ import {
   test,
   type APIRequestContext,
   type Page,
+  type TestInfo,
 } from "@playwright/test";
 import type { SubmitPublicRsvpRequest } from "../../../packages/api-client/src/index";
 
 const MOCK = "http://127.0.0.1:4010";
 const PATH = `/i/${"A".repeat(43)}`;
+const browserErrors = new WeakMap<Page, string[]>();
 const accepted = {
   status: "ACCEPTED",
   version: 7,
@@ -50,9 +52,64 @@ async function accept(page: Page) {
     .check();
 }
 
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, page }) => {
+  const errors: string[] = [];
+  browserErrors.set(page, errors);
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
   expect((await request.post(`${MOCK}/__reset`)).status()).toBe(204);
 });
+
+test.afterEach(async ({ page }) => {
+  expect(browserErrors.get(page)).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+async function noticeScreenshot(page: Page, info: TestInfo, name: string) {
+  const notice = page.locator(".rsvp-notice");
+  await expect(notice).toHaveCount(1);
+  await page.evaluate(() => document.fonts.ready);
+  const layout = await notice.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return {
+      clipped:
+        box.left < 0 ||
+        box.right > innerWidth ||
+        element.scrollWidth > element.clientWidth + 1,
+      smallActions: [...element.querySelectorAll("button")].some(
+        (button) => button.getBoundingClientRect().height < 44,
+      ),
+      overlaps: [
+        ...document.querySelectorAll(
+          ".rsvp-information-section .invitation-decoration",
+        ),
+      ].some((art) => {
+        const rect = art.getBoundingClientRect();
+        return (
+          rect.left < box.right &&
+          rect.right > box.left &&
+          rect.top < box.bottom &&
+          rect.bottom > box.top
+        );
+      }),
+    };
+  });
+  expect(layout).toEqual({
+    clipped: false,
+    smallActions: false,
+    overlaps: false,
+  });
+  await notice.screenshot({
+    path: info.outputPath(`${name}.png`),
+    animations: "disabled",
+  });
+}
 
 for (const width of [320, 375, 412, 768, 1280]) {
   test(`RSVP create, edit and decline at ${width}px`, async ({
@@ -144,8 +201,8 @@ for (const width of [320, 375, 412, 768, 1280]) {
       animations: "disabled",
     });
     await page.getByRole("button", { name: "Send RSVP" }).click();
-    await expect(page.getByRole("status")).toHaveText(
-      "Your response has been saved.",
+    await expect(page.getByRole("status")).toContainText(
+      "Your acceptance has been saved.",
     );
     expect((await submissions(request))[0]).toEqual({
       expectedVersion: null,
@@ -162,13 +219,18 @@ for (const width of [320, 375, 412, 768, 1280]) {
       dietaryNotes: "No seafood",
     });
     await expect(dietary).toHaveValue("No seafood");
+    await expect(page.getByRole("status")).toContainText(
+      "before the reply deadline",
+    );
+    await noticeScreenshot(page, testInfo, `accepted-${width}`);
     await page
       .getByRole("checkbox", { name: "Reception Test", exact: true })
       .uncheck();
     await dietary.fill("");
+    await expect(page.getByRole("status")).not.toContainText("saved");
     await page.getByRole("button", { name: "Send RSVP" }).click();
-    await expect(page.getByRole("status")).toHaveText(
-      "Your response has been saved.",
+    await expect(page.getByRole("status")).toContainText(
+      "Your acceptance has been saved.",
     );
     const update = (await submissions(request))[1]!;
     expect(update.expectedVersion).toBe(42);
@@ -198,8 +260,8 @@ for (const width of [320, 375, 412, 768, 1280]) {
     ).toHaveValue("2");
     await page.getByRole("radio", { name: "Regretfully Decline" }).check();
     await page.getByRole("button", { name: "Send RSVP" }).click();
-    await expect(page.getByRole("status")).toHaveText(
-      "Your response has been saved.",
+    await expect(page.getByRole("status")).toContainText(
+      "Your response has been saved as not attending.",
     );
     expect((await submissions(request))[2]).toEqual({
       expectedVersion: 43,
@@ -208,6 +270,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
       eventSelections: [],
       dietaryNotes: null,
     });
+    await noticeScreenshot(page, testInfo, `declined-${width}`);
     await page.getByRole("radio", { name: "Joyfully Accept" }).check();
     await expect(page.getByText("Total attending: 0")).toBeVisible();
     await expect(dietary).toHaveValue("");
@@ -230,7 +293,7 @@ test("validates required choice, people, events and counts; normalizes compositi
   await send.click();
   await expect(
     page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toHaveText("Please choose whether you can join us.");
+  ).toContainText("Please choose whether you can join us.");
   await expect(
     page.locator(".rsvp-information-section").getByRole("alert"),
   ).toBeFocused();
@@ -267,6 +330,263 @@ test("validates required choice, people, events and counts; normalizes compositi
   await expect(count).toHaveValue("1");
 });
 
+for (const width of [320, 375, 412, 1280]) {
+  test(`conflict reload and deadline notices at ${width}px`, async ({
+    page,
+    request,
+  }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await configure(request, {
+      rsvp: accepted,
+      deadline: "2031-11-08T16:59:59Z",
+    });
+    await open(page);
+    const dietary = page.getByRole("textbox");
+    const send = page.getByRole("button", { name: "Send RSVP" });
+    const alert = page.locator(".rsvp-information-section").getByRole("alert");
+    await dietary.fill("My unsaved changes");
+    await configure(request, {
+      rsvp: { ...accepted, version: 23, dietaryNotes: "Saved elsewhere" },
+    });
+    await send.click();
+    await expect(alert).toContainText("has been updated since you opened");
+    await expect(alert).toBeFocused();
+    await expect(dietary).toHaveValue("My unsaved changes");
+    await expect(send).toBeDisabled();
+    await noticeScreenshot(page, info, `conflict-${width}`);
+    await dietary.fill("Keep this draft until I reload");
+    await expect(send).toBeDisabled();
+    await page
+      .getByRole("form")
+      .evaluate((form) =>
+        form.dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        ),
+      );
+    expect(await submissions(request)).toHaveLength(1);
+
+    // A failed GET must retain both the draft and the conflict lock.
+    await configure(request, {
+      failure: { status: 503, code: "UNEXPECTED", method: "GET" },
+    });
+    const reload = page.getByRole("button", { name: "Reload latest RSVP" });
+    await reload.focus();
+    await page.keyboard.press("Enter");
+    await expect(alert).toContainText("details couldn’t be loaded");
+    await expect(alert).toBeFocused();
+    await expect(dietary).toHaveValue("Keep this draft until I reload");
+    await expect(send).toBeDisabled();
+    expect(await submissions(request)).toHaveLength(1);
+
+    await configure(request, {});
+    await reload.click();
+    await expect(page.getByRole("status")).toContainText(
+      "latest RSVP has been loaded",
+    );
+    await expect(page.getByRole("status")).toBeFocused();
+    await expect(dietary).toHaveValue("Saved elsewhere");
+    await expect(send).toBeEnabled();
+    expect((await (await request.get(`${MOCK}/__count`)).json()).count).toBe(1);
+    await dietary.fill("My reviewed response");
+    await send.click();
+    await expect(page.getByRole("status")).toContainText(
+      "acceptance has been saved",
+    );
+    expect((await submissions(request))[1]!.expectedVersion).toBe(23);
+
+    await configure(request, {
+      failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PUT" },
+    });
+    await send.click();
+    await expect(alert).toContainText("RSVP is closed");
+    await expect(alert).toBeFocused();
+    await expect(
+      page.getByText("Kindly reply by 8 November 2031."),
+    ).toBeVisible();
+    await expect(send).toBeDisabled();
+    await expect(dietary).toBeDisabled();
+    await expect(dietary).toHaveValue("My reviewed response");
+    await expect(
+      page.getByRole("button", { name: /Try again|Reload latest RSVP/ }),
+    ).toHaveCount(0);
+    await noticeScreenshot(page, info, `deadline-${width}`);
+    await page
+      .getByRole("form")
+      .evaluate((form) =>
+        form.dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        ),
+      );
+    expect(await submissions(request)).toHaveLength(3);
+    await expect(page.getByText("See you at the Wedding!")).toBeAttached();
+  });
+}
+
+test("temporary server failure keeps the version and draft for an explicit retry", async ({
+  page,
+  request,
+}, info) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await configure(request, {
+    rsvp: accepted,
+    failure: { status: 500, code: "INTERNAL_SERVER_ERROR", method: "PUT" },
+  });
+  await open(page);
+  await page.getByRole("textbox").fill("Keep my dietary notes");
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  const alert = page.locator(".rsvp-information-section").getByRole("alert");
+  await expect(alert).toContainText("Your changes are still here");
+  await expect(alert).toBeFocused();
+  await expect(page.getByRole("textbox")).toHaveValue("Keep my dietary notes");
+  expect(await submissions(request)).toHaveLength(1);
+  await noticeScreenshot(page, info, "temporary-failure");
+  await configure(request, {});
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "acceptance has been saved",
+  );
+  expect(
+    (await submissions(request)).map((body) => body.expectedVersion),
+  ).toEqual([7, 7]);
+});
+
+test("a lost save response retries the original version and recovers from conflict", async ({
+  page,
+  request,
+}) => {
+  await configure(request, { rsvp: accepted, dropResponse: true });
+  await open(page);
+  await page.getByRole("textbox").fill("Saved but response lost");
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  const alert = page.locator(".rsvp-information-section").getByRole("alert");
+  await expect(alert).toContainText("Something went wrong while saving");
+  await expect(page.getByRole("textbox")).toHaveValue(
+    "Saved but response lost",
+  );
+  expect(await submissions(request)).toHaveLength(1);
+  await configure(request, {});
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(alert).toContainText("has been updated since you opened");
+  expect(
+    (await submissions(request)).map((body) => body.expectedVersion),
+  ).toEqual([7, 7]);
+  await page.getByRole("button", { name: "Reload latest RSVP" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "latest RSVP has been loaded",
+  );
+  await expect(page.getByRole("textbox")).toHaveValue(
+    "Saved but response lost",
+  );
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "acceptance has been saved",
+  );
+  expect((await submissions(request))[2]!.expectedVersion).toBe(8);
+});
+
+test("initial read retry loads existing state without re-opening the invitation", async ({
+  page,
+  request,
+}, info) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await configure(request, {
+    failure: { status: 503, code: "UNEXPECTED", method: "GET" },
+  });
+  await open(page);
+  await expect(page.getByRole("form")).toHaveCount(0);
+  const reload = page.getByRole("button", { name: "Reload latest RSVP" });
+  await expect(reload).toBeEnabled();
+  await noticeScreenshot(page, info, "initial-load-failure");
+  await reload.click();
+  await expect(
+    page.locator(".rsvp-information-section").getByRole("alert"),
+  ).toContainText("details couldn’t be loaded");
+  await expect(page.locator(".public-rsvp-form")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await expect(reload).toBeEnabled();
+  await expect(page.getByRole("form")).toHaveCount(0);
+  expect(await submissions(request)).toHaveLength(0);
+  await configure(request, { rsvp: { ...accepted, version: 19 } });
+  await reload.click();
+  await expect(page.getByRole("textbox")).toHaveValue("No seafood");
+  await expect(page.getByRole("status")).toBeFocused();
+  await page.getByRole("radio", { name: "Regretfully Decline" }).check();
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "saved as not attending",
+  );
+  expect((await submissions(request))[0]!.expectedVersion).toBe(19);
+  expect((await (await request.get(`${MOCK}/__count`)).json()).count).toBe(1);
+});
+
+for (const [code, button, group] of [
+  ["EVENT_NOT_SELECTED", "Review events", "Which events will you attend?"],
+  ["PLUS_ONE_NOT_ALLOWED", "Review attendees", "Who will be joining us?"],
+] as const) {
+  test(`${code} guides correction without blind retry`, async ({
+    page,
+    request,
+  }, info) => {
+    await page.setViewportSize({ width: 412, height: 900 });
+    await configure(request, {
+      rsvp: accepted,
+      failure: { status: 422, code, method: "PUT" },
+    });
+    await open(page);
+    await page.getByRole("button", { name: "Send RSVP" }).click();
+    const alert = page.locator(".rsvp-information-section").getByRole("alert");
+    await expect(alert).toContainText("Please review your response");
+    await expect(alert).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: "Send RSVP" }),
+    ).toBeDisabled();
+    await noticeScreenshot(page, info, code.toLowerCase());
+    await page.getByRole("button", { name: button }).click();
+    await expect(
+      page.getByRole("group", { name: group, exact: true }),
+    ).toBeFocused();
+    await expect(
+      page.getByRole("group", { name: group, exact: true }),
+    ).toHaveAttribute("aria-describedby", /error/);
+    await configure(request, {});
+    if (code === "PLUS_ONE_NOT_ALLOWED")
+      await page.getByRole("checkbox", { name: "Bring a plus one" }).uncheck();
+    else
+      await page
+        .getByRole("checkbox", { name: "Reception Test", exact: true })
+        .check();
+    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await expect(page.getByRole("status")).toContainText(
+      "acceptance has been saved",
+    );
+    expect(
+      (await submissions(request)).map((body) => body.expectedVersion),
+    ).toEqual([7, 7]);
+  });
+}
+
+test("unavailable mutation locks the form without disclosing a reason", async ({
+  page,
+  request,
+}) => {
+  await configure(request, {
+    rsvp: accepted,
+    failure: { status: 404, code: "INVITATION_NOT_AVAILABLE", method: "PUT" },
+  });
+  await open(page);
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  const alert = page.locator(".rsvp-information-section").getByRole("alert");
+  await expect(alert).toContainText("This invitation is no longer available.");
+  await expect(alert).not.toContainText(
+    /archived|expired|credential|token|hash|INVITATION_NOT_AVAILABLE/,
+  );
+  await expect(page.getByRole("button", { name: "Send RSVP" })).toBeDisabled();
+  await expect(page.getByRole("textbox")).toHaveValue("No seafood");
+  expect(await submissions(request)).toHaveLength(1);
+});
+
 test("pending state disables submission and prevents duplicate requests", async ({
   page,
   request,
@@ -286,13 +606,13 @@ test("pending state disables submission and prevents duplicate requests", async 
       new Event("submit", { bubbles: true, cancelable: true }),
     );
   });
-  await expect(page.getByRole("status")).toHaveText(
-    "Your response has been saved.",
+  await expect(page.getByRole("status")).toContainText(
+    "Your acceptance has been saved.",
   );
   expect(await submissions(request)).toHaveLength(1);
 });
 
-test("loads accepted state and keeps its draft on a generic API failure", async ({
+test("loads accepted state and keeps its draft on a version conflict", async ({
   page,
   request,
 }) => {
@@ -313,10 +633,10 @@ test("loads accepted state and keeps its draft on a generic API failure", async 
   await page.getByRole("button", { name: "Send RSVP" }).click();
   await expect(
     page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toContainText("couldn’t save");
+  ).toContainText("has been updated since you opened");
   await expect(page.getByRole("textbox")).toHaveValue("No seafood");
   expect((await submissions(request))[0]!.expectedVersion).toBe(7);
-  await expect(page.getByRole("button", { name: "Send RSVP" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Send RSVP" })).toBeDisabled();
 });
 
 test("declined initial state hides stale values and respects companion permissions", async ({
@@ -355,7 +675,7 @@ test("initial GET failure never enables a create-only form", async ({
   await open(page);
   await expect(
     page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toContainText("couldn’t load");
+  ).toContainText("This invitation is no longer available.");
   await expect(page.getByRole("form")).toHaveCount(0);
   expect(await submissions(request)).toHaveLength(0);
 });

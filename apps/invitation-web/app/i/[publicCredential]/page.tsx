@@ -28,6 +28,10 @@ export default async function PublicInvitationPage({
   }
 
   const initialRsvp = await retrievePublicRsvp(publicCredential);
+  async function reloadRsvp() {
+    "use server";
+    return retrievePublicRsvp(publicCredential);
+  }
   async function submitRsvp(request: SubmitPublicRsvpRequest) {
     "use server";
     // Next encrypts the captured credential in the server action closure.
@@ -64,6 +68,7 @@ export default async function PublicInvitationPage({
             }}
             initialResult={initialRsvp}
             submitAction={submitRsvp}
+            reloadAction={reloadRsvp}
           />
         }
       />

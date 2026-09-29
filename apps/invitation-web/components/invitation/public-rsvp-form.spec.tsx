@@ -13,6 +13,7 @@ function render(props: Partial<PublicRsvpFormProps> = {}) {
         data: { rsvp: null, checkinPass: null },
       },
       submitAction: vi.fn(),
+      reloadAction: vi.fn(),
       ...props,
     }),
   );
@@ -100,5 +101,6 @@ describe("PublicRsvpForm rendering", () => {
     expect(html).toContain('role="alert"');
     expect(html).not.toContain("<form");
     expect(html).not.toContain("INVITATION_NOT_AVAILABLE");
+    expect(html).toContain("Reload latest RSVP");
   });
 });
