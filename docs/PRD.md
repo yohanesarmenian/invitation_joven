@@ -64,11 +64,15 @@ Create a personal wedding invitation platform that lets invited households open 
 ### RSVP behavior
 
 - RSVP statuses include `PENDING`, `ACCEPTED`, and `DECLINED`.
-- Guests should be able to update RSVP until the RSVP deadline, subject to unresolved cutoff details.
+- Guests may create and update RSVP up to and including the RSVP cutoff instant. After the cutoff, both create and update are rejected; public invitation retrieval remains available.
+- The cutoff is the persisted `Invitation.rsvpDeadlineAt`. The Phase 5 public baseline is `25 December 2026, 23:59:59 Asia/Jakarta` (`2026-12-25T16:59:59Z`).
+- Phase 5 defines no public post-deadline override. Any OWNER post-deadline override would require a separate authenticated admin contract.
 - OWNER may override RSVP when needed.
 - Backend validation is authoritative.
 - Frontend validation is UX assistance only.
 - RSVP uses optimistic versioning. Public reads return `version`; mutations require `expectedVersion`; mismatches return `409 RSVP_VERSION_CONFLICT`.
+- `expectedVersion: null` means create-only and fails if an RSVP row already exists. An existing RSVP requires the exact persisted `version`. Empty RSVP rows are not pre-created.
+- An `ACCEPTED` RSVP must select at least one eligible attending event.
 - `RSVPAttendee` represents the current attendee composition for the RSVP overall.
 - `RSVPEventSelection` represents household event intent and expected count for one event.
 - Event expected counts may differ from each other and may be lower than total RSVP attendee quantity.
@@ -76,7 +80,7 @@ Create a personal wedding invitation platform that lets invited households open 
 - If an event is attended, its expected count must be at least `1` and no more than total RSVP attendee quantity.
 - MVP does not require knowing exactly which named person attends which event.
 - `Joyfully Accept` and `Regretfully Decline` are mutually exclusive states even if the Figma visual resembles checkboxes.
-- RSVP captures dietary notes/requirements.
+- RSVP captures household-level dietary notes/requirements: optional, trimmed, maximum 500 characters after trimming, with an empty value stored as `null` and cleared to `null` on decline.
 
 ### QR and check-in
 
@@ -228,4 +232,4 @@ MVP has one effective role: OWNER. No permission matrix or role-management UI is
 
 ## Open Questions
 
-See `OPEN-QUESTIONS.md`. The wedding date / RSVP deadline conflict is blocking for final content and RSVP deadline implementation.
+See `OPEN-QUESTIONS.md`. The RSVP deadline value is resolved: `25 December 2026, 23:59:59 Asia/Jakarta` (`2026-12-25T16:59:59Z`), which precedes the displayed wedding date `09 January 2027`. Remaining items are tracked in `OPEN-QUESTIONS.md`.

@@ -32,11 +32,15 @@ describe("OpenAPI contract", () => {
     await app.close();
   });
 
-  it("documents only the locked public invitation retrieval contract", () => {
+  it("documents the locked public invitation and RSVP contracts", () => {
     const document = createOpenApiDocument(app);
     const publicInvitationPath =
       document.paths["/api/public/invitations/{publicCredential}"];
     const getOperation = publicInvitationPath?.get;
+    const publicRsvpPath =
+      document.paths["/api/public/invitations/{publicCredential}/rsvp"];
+    const getRsvpOperation = publicRsvpPath?.get;
+    const putRsvpOperation = publicRsvpPath?.put;
     const schemas = document.components?.schemas ?? {};
 
     expect(getOperation).toBeDefined();
@@ -55,11 +59,27 @@ describe("OpenAPI contract", () => {
     );
     expect(getOperation?.responses).toHaveProperty("200");
     expect(getOperation?.responses).toHaveProperty("404");
+    expect(getRsvpOperation).toBeDefined();
+    expect(getRsvpOperation?.responses).toHaveProperty("200");
+    expect(getRsvpOperation?.responses).toHaveProperty("404");
+    expect(putRsvpOperation).toBeDefined();
+    expect(putRsvpOperation?.requestBody).toBeDefined();
+    expect(putRsvpOperation?.responses).toHaveProperty("200");
+    expect(putRsvpOperation?.responses).toHaveProperty("400");
+    expect(putRsvpOperation?.responses).toHaveProperty("404");
+    expect(putRsvpOperation?.responses).toHaveProperty("409");
+    expect(putRsvpOperation?.responses).toHaveProperty("422");
     expect(schemas).toHaveProperty("PublicInvitationResponseDto");
+    expect(schemas).toHaveProperty("SubmitPublicRsvpRequestDto");
+    expect(schemas).toHaveProperty("PublicRsvpMutationResponseDto");
+    expect(schemas).toHaveProperty("PublicRsvpReadResponseDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     expect(JSON.stringify(schemas)).not.toContain("publicTokenHash");
     expect(JSON.stringify(schemas)).not.toContain("publicTokenVersion");
     expect(JSON.stringify(schemas)).not.toContain("openCount");
+    expect(JSON.stringify(schemas)).not.toContain("tokenHash");
+    expect(JSON.stringify(schemas)).not.toContain("credentialVersion");
+    expect(JSON.stringify(schemas)).not.toContain("qrPayload");
 
     expect(schemas.PublicInvitationDto).toMatchObject({
       properties: expect.objectContaining({
@@ -69,6 +89,24 @@ describe("OpenAPI contract", () => {
           format: "date-time",
           nullable: true,
           type: "string",
+        }),
+      }),
+    });
+    expect(schemas.SubmitPublicRsvpRequestDto).toMatchObject({
+      properties: expect.objectContaining({
+        expectedVersion: expect.objectContaining({ nullable: true }),
+        status: expect.objectContaining({
+          enum: ["ACCEPTED", "DECLINED"],
+        }),
+      }),
+    });
+    expect(schemas.PublicRsvpStateDto).toMatchObject({
+      properties: expect.objectContaining({
+        attendees: expect.objectContaining({ type: "array" }),
+        dietaryNotes: expect.objectContaining({ nullable: true }),
+        eventSelections: expect.objectContaining({ type: "array" }),
+        status: expect.objectContaining({
+          enum: ["PENDING", "ACCEPTED", "DECLINED"],
         }),
       }),
     });

@@ -278,14 +278,27 @@ Per-event counts may differ. MVP does not track exactly which named attendee att
 
 RSVP transitions:
 
+- `(no RSVP row) -> ACCEPTED` / `(no RSVP row) -> DECLINED`: first public mutation with `expectedVersion: null`; creates the RSVP row at `version = 1`.
 - `PENDING -> ACCEPTED`: save valid RSVP, selections, attendees, create one active CheckinPass, increment version, commit atomically.
 - `PENDING -> DECLINED`: save declined state, ensure no active pass, clear active attendance selections, increment version, commit atomically.
-- `ACCEPTED -> ACCEPTED`: update current RSVP details and normally retain current active pass; do not issue another pass merely because details changed.
+- `ACCEPTED -> ACCEPTED`: update current RSVP details and retain the existing active pass; do not issue another pass merely because details changed and do not create a duplicate active pass.
 - `ACCEPTED -> DECLINED`: update RSVP to declined, revoke active pass, increment version, commit atomically.
-- `DECLINED -> ACCEPTED`: update RSVP, issue new CheckinPass, increment version, commit atomically.
+- `DECLINED -> ACCEPTED`: update RSVP, issue a new CheckinPass, increment version, commit atomically. Never reactivate the previously revoked credential.
 - `DECLINED -> DECLINED`: update permitted decline state, keep no active pass, increment version.
 
+Transition to `DECLINED` leaves clean state in the same transaction: `status = DECLINED`, `dietary_notes = null`, no attending event selections, no RSVPAttendee rows, and no `ACTIVE` CheckinPass. Revoked pass rows may remain as historical/audit facts.
+
 Public RSVP mutation requires `expectedVersion`. Mismatch returns `409 RSVP_VERSION_CONFLICT`; do not use last-write-wins.
+
+Phase 5 contract lock:
+
+- `expectedVersion` is `integer | null`. `null` means create-only and fails with `409 RSVP_VERSION_CONFLICT` when an RSVP row already exists at lock time. An integer must equal the persisted `RSVP.version`.
+- Do not eagerly create empty/`PENDING` RSVP rows to manufacture a version. Initial persisted `version = 1`; each successful mutation increments it.
+- `ACCEPTED` requires at least one eligible attending event (`InvitationEvent` is the authoritative eligibility relation). Accepted with zero attending events returns `422 EVENT_NOT_SELECTED`.
+- `dietaryNotes` is household-level: trimmed, maximum 500 characters after trimming, empty after trimming normalizes to `null`.
+- `guestNote` is outside the Phase 5 public RSVP contract. It is not accepted, mutated, or cleared by RSVP accept/decline, and it stays separate from Guest Message work.
+- Public RSVP create and update are both allowed up to and including the cutoff instant and both rejected afterwards with `422 RSVP_DEADLINE_PASSED`. The cutoff instant is `Invitation.rsvp_deadline_at`; the Phase 5 public baseline is `2026-12-25T16:59:59Z`. Public invitation GET remains available after the cutoff. Phase 5 defines no public post-deadline override.
+- The RSVP mutation and the CheckinPass lifecycle happen in the same Invitation-scoped transaction.
 
 ## Shared Transaction Lock Order
 

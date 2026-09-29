@@ -12,6 +12,7 @@ import { configureApp } from "../app.setup.js";
 import { getDatabaseUrl } from "../database/database-url.js";
 import { PrismaClient } from "../generated/prisma/client.js";
 import {
+  CheckinPassStatus,
   InvitationStatus,
   InviteeCategory,
   RSVPStatus,
@@ -72,6 +73,8 @@ const testLogger = {
 class PublicInvitationHttpTestModule {}
 
 interface PublicInvitationHttpFixture {
+  adultInviteeId: string;
+  childInviteeId: string;
   credential: DerivedCredential;
   invitationId: string;
   linkedEventIdsByDisplayOrder: string[];
@@ -95,6 +98,7 @@ function uniqueDisplayOrderBase(): number {
 
 async function createFixture(
   options: {
+    rsvpDeadlineAt?: Date | null;
     status?: InvitationStatus;
     tokenVersion?: number;
     withNullableProjection?: boolean;
@@ -119,7 +123,7 @@ async function createFixture(
       publicTokenVersion: tokenVersion,
       rsvpDeadlineAt: options.withNullableProjection
         ? null
-        : new Date("2026-11-01T12:00:00.000Z"),
+        : (options.rsvpDeadlineAt ?? new Date("2026-11-01T12:00:00.000Z")),
       status: options.status ?? InvitationStatus.ACTIVE,
     },
   });
@@ -162,21 +166,21 @@ async function createFixture(
     ],
   });
 
-  await prisma.invitee.createMany({
-    data: [
-      {
-        category: InviteeCategory.CHILD,
-        displayOrder: 20,
-        fullName: "Second Guest",
-        invitationId: invitation.id,
-      },
-      {
-        category: InviteeCategory.ADULT,
-        displayOrder: 10,
-        fullName: "First Guest",
-        invitationId: invitation.id,
-      },
-    ],
+  const adultInvitee = await prisma.invitee.create({
+    data: {
+      category: InviteeCategory.ADULT,
+      displayOrder: 10,
+      fullName: "First Guest",
+      invitationId: invitation.id,
+    },
+  });
+  const childInvitee = await prisma.invitee.create({
+    data: {
+      category: InviteeCategory.CHILD,
+      displayOrder: 20,
+      fullName: "Second Guest",
+      invitationId: invitation.id,
+    },
   });
 
   if (options.withRsvp) {
@@ -190,6 +194,8 @@ async function createFixture(
   }
 
   return {
+    adultInviteeId: adultInvitee.id,
+    childInviteeId: childInvitee.id,
     credential,
     invitationId: invitation.id,
     linkedEventIdsByDisplayOrder: [ceremony.id, reception.id],
@@ -217,6 +223,20 @@ async function cleanupFixtures() {
     return;
   }
 
+  await prisma.checkinRecord.deleteMany({
+    where: {
+      invitationId: {
+        in: createdInvitationIds,
+      },
+    },
+  });
+  await prisma.checkinPass.deleteMany({
+    where: {
+      invitationId: {
+        in: createdInvitationIds,
+      },
+    },
+  });
   await prisma.rSVP.deleteMany({
     where: {
       invitationId: {
@@ -454,5 +474,551 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     });
     expect(JSON.stringify(logEntry)).not.toContain(VALID_UNKNOWN_CREDENTIAL);
     expect(JSON.stringify(logEntry)).not.toContain("QUERY-SECRET");
+  });
+
+  it("creates an accepted RSVP over HTTP and does not expose credential-bearing pass fields", async () => {
+    const fixture = await createFixture();
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: {
+          "x-request-id": "req-rsvp-accepted",
+        },
+        method: "PUT",
+        payload: {
+          attendees: [
+            {
+              inviteeId: fixture.adultInviteeId,
+              quantity: 1,
+              type: "NAMED_INVITEE",
+            },
+            {
+              quantity: 1,
+              type: "PLUS_ONE",
+            },
+          ],
+          dietaryNotes: "  Vegetarian  ",
+          eventSelections: [
+            {
+              attending: true,
+              eventId: fixture.linkedEventIdsByDisplayOrder[0],
+              expectedAttendeeCount: 2,
+            },
+            {
+              attending: false,
+              eventId: fixture.linkedEventIdsByDisplayOrder[1],
+              expectedAttendeeCount: 0,
+            },
+          ],
+          expectedVersion: null,
+          status: RSVPStatus.ACCEPTED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+    const activePasses = await prisma.checkinPass.findMany({
+      where: {
+        invitationId: fixture.invitationId,
+        status: CheckinPassStatus.ACTIVE,
+      },
+    });
+    const invitationState = await getInvitationState(fixture.invitationId);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["x-request-id"]).toBe("req-rsvp-accepted");
+    expect(response.json()).toMatchObject({
+      checkinPass: {
+        issuedAt: expect.any(String),
+        status: CheckinPassStatus.ACTIVE,
+      },
+      rsvp: {
+        attendeeQuantityTotal: 2,
+        attendees: [
+          {
+            inviteeId: fixture.adultInviteeId,
+            quantity: 1,
+            type: "NAMED_INVITEE",
+          },
+          {
+            inviteeId: null,
+            quantity: 1,
+            type: "PLUS_ONE",
+          },
+        ],
+        dietaryNotes: "Vegetarian",
+        status: RSVPStatus.ACCEPTED,
+        version: 1,
+      },
+    });
+    expect(response.json().rsvp.eventSelections).toEqual([
+      {
+        attending: true,
+        eventId: fixture.linkedEventIdsByDisplayOrder[0],
+        expectedAttendeeCount: 2,
+      },
+      {
+        attending: false,
+        eventId: fixture.linkedEventIdsByDisplayOrder[1],
+        expectedAttendeeCount: 0,
+      },
+    ]);
+    expect(activePasses).toHaveLength(1);
+    expect(invitationState.openCount).toBe(0);
+    expect(response.body).not.toContain("tokenHash");
+    expect(response.body).not.toContain("credentialVersion");
+    expect(response.body).not.toContain("qrPayload");
+    expect(response.body).not.toContain(activePasses[0]?.tokenHash ?? "");
+  });
+
+  it("returns the current RSVP state over HTTP without recording an invitation open", async () => {
+    const fixture = await createFixture();
+    const putResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: null,
+          status: RSVPStatus.DECLINED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(putResponse.statusCode).toBe(200);
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "GET",
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+    const invitationState = await getInvitationState(fixture.invitationId);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      checkinPass: null,
+      rsvp: {
+        attendeeQuantityTotal: 0,
+        attendees: [],
+        dietaryNotes: null,
+        eventSelections: [],
+        status: RSVPStatus.DECLINED,
+        version: 1,
+      },
+    });
+    expect(invitationState.openCount).toBe(0);
+    expect(response.body).not.toContain("tokenHash");
+    expect(response.body).not.toContain("credentialVersion");
+    expect(response.body).not.toContain("qrPayload");
+  });
+
+  it("returns null RSVP state from the dedicated RSVP GET before a household responds", async () => {
+    const fixture = await createFixture();
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "GET",
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      checkinPass: null,
+      rsvp: null,
+    });
+    expect(response.body).not.toContain("tokenHash");
+    expect(response.body).not.toContain("credentialVersion");
+    expect(response.body).not.toContain("qrPayload");
+  });
+
+  it("returns accepted RSVP state from the dedicated RSVP GET", async () => {
+    const fixture = await createFixture();
+    await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      payload: {
+        attendees: [
+          {
+            inviteeId: fixture.adultInviteeId,
+            quantity: 1,
+            type: "NAMED_INVITEE",
+          },
+        ],
+        eventSelections: [
+          {
+            attending: true,
+            eventId: fixture.linkedEventIdsByDisplayOrder[0],
+            expectedAttendeeCount: 1,
+          },
+        ],
+        expectedVersion: null,
+        status: RSVPStatus.ACCEPTED,
+      },
+      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    });
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "GET",
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      checkinPass: {
+        status: CheckinPassStatus.ACTIVE,
+      },
+      rsvp: {
+        attendeeQuantityTotal: 1,
+        attendees: [
+          {
+            inviteeId: fixture.adultInviteeId,
+            quantity: 1,
+            type: "NAMED_INVITEE",
+          },
+        ],
+        dietaryNotes: null,
+        status: RSVPStatus.ACCEPTED,
+        version: 1,
+      },
+    });
+    expect(response.body).not.toContain("tokenHash");
+    expect(response.body).not.toContain("credentialVersion");
+    expect(response.body).not.toContain("qrPayload");
+  });
+
+  it("maps unavailable dedicated RSVP GET credentials to the generic 404 envelope", async () => {
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "GET",
+        url: "/api/public/invitations/bad/rsvp",
+      });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "INVITATION_NOT_AVAILABLE",
+        details: null,
+        message: "Resource not found",
+      },
+    });
+    expect(response.body).not.toContain("bad");
+  });
+
+  it("updates an existing public RSVP with the current expectedVersion", async () => {
+    const fixture = await createFixture();
+    await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      payload: {
+        attendees: [],
+        eventSelections: [],
+        expectedVersion: null,
+        status: RSVPStatus.DECLINED,
+      },
+      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    });
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [
+            {
+              inviteeId: fixture.childInviteeId,
+              quantity: 1,
+              type: "NAMED_INVITEE",
+            },
+          ],
+          dietaryNotes: null,
+          eventSelections: [
+            {
+              attending: true,
+              eventId: fixture.linkedEventIdsByDisplayOrder[0],
+              expectedAttendeeCount: 1,
+            },
+          ],
+          expectedVersion: 1,
+          status: RSVPStatus.ACCEPTED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      checkinPass: {
+        status: CheckinPassStatus.ACTIVE,
+      },
+      rsvp: {
+        attendeeQuantityTotal: 1,
+        status: RSVPStatus.ACCEPTED,
+        version: 2,
+      },
+    });
+  });
+
+  it("rejects public RSVP submissions after the persisted deadline", async () => {
+    const fixture = await createFixture({
+      rsvpDeadlineAt: new Date("2020-01-01T00:00:00.000Z"),
+    });
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: null,
+          status: RSVPStatus.DECLINED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "RSVP_DEADLINE_PASSED",
+        details: null,
+        message: "RSVP deadline passed",
+      },
+    });
+  });
+
+  it("rejects event selections outside the invitation eligibility list", async () => {
+    const fixture = await createFixture();
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [
+            {
+              inviteeId: fixture.adultInviteeId,
+              quantity: 1,
+              type: "NAMED_INVITEE",
+            },
+          ],
+          eventSelections: [
+            {
+              attending: true,
+              eventId: randomUUID(),
+              expectedAttendeeCount: 1,
+            },
+          ],
+          expectedVersion: null,
+          status: RSVPStatus.ACCEPTED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "EVENT_NOT_ALLOWED",
+        details: null,
+        message: "Event is not allowed",
+      },
+    });
+  });
+
+  it("transitions an accepted public RSVP to declined and removes active pass exposure", async () => {
+    const fixture = await createFixture();
+    await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      payload: {
+        attendees: [
+          {
+            inviteeId: fixture.adultInviteeId,
+            quantity: 1,
+            type: "NAMED_INVITEE",
+          },
+        ],
+        eventSelections: [
+          {
+            attending: true,
+            eventId: fixture.linkedEventIdsByDisplayOrder[0],
+            expectedAttendeeCount: 1,
+          },
+        ],
+        expectedVersion: null,
+        status: RSVPStatus.ACCEPTED,
+      },
+      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    });
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: 1,
+          status: RSVPStatus.DECLINED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+    const activePasses = await prisma.checkinPass.findMany({
+      where: {
+        invitationId: fixture.invitationId,
+        status: CheckinPassStatus.ACTIVE,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      checkinPass: null,
+      rsvp: {
+        attendeeQuantityTotal: 0,
+        attendees: [],
+        dietaryNotes: null,
+        eventSelections: [],
+        status: RSVPStatus.DECLINED,
+        version: 2,
+      },
+    });
+    expect(activePasses).toHaveLength(0);
+    expect(response.body).not.toContain("tokenHash");
+    expect(response.body).not.toContain("credentialVersion");
+    expect(response.body).not.toContain("qrPayload");
+  });
+
+  it("maps stale public RSVP versions to a 409 error envelope", async () => {
+    const fixture = await createFixture();
+    await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      payload: {
+        attendees: [],
+        eventSelections: [],
+        expectedVersion: null,
+        status: RSVPStatus.DECLINED,
+      },
+      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    });
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: null,
+          status: RSVPStatus.DECLINED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "RSVP_VERSION_CONFLICT",
+        details: null,
+        message: "RSVP version conflict",
+      },
+    });
+  });
+
+  it("maps public RSVP domain validation failures to a 422 error envelope", async () => {
+    const fixture = await createFixture();
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: null,
+          status: RSVPStatus.ACCEPTED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "EVENT_NOT_SELECTED",
+        details: null,
+        message: "Event is not selected",
+      },
+    });
+  });
+
+  it("maps malformed public RSVP payloads to a 400 error envelope", async () => {
+    const fixture = await createFixture();
+
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [
+            {
+              attending: true,
+              eventId: "not-a-uuid",
+              expectedAttendeeCount: 1,
+            },
+          ],
+          expectedVersion: null,
+          status: RSVPStatus.ACCEPTED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "BAD_REQUEST",
+        details: null,
+        message: "Bad request",
+      },
+    });
+    expect(response.body).not.toContain(fixture.credential);
+  });
+
+  it("treats unavailable RSVP credentials as the same 404 classification", async () => {
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: null,
+          status: RSVPStatus.DECLINED,
+        },
+        url: `/api/public/invitations/bad/rsvp`,
+      });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "INVITATION_NOT_AVAILABLE",
+        details: null,
+        message: "Resource not found",
+      },
+    });
+    expect(response.body).not.toContain("bad");
   });
 });

@@ -121,7 +121,7 @@ Phase 4 visible data classification:
 | Events | `name`, `startsAt`, `venueName`, `address`, `googleMapsUrl` | API-backed dynamic event content. Preserve API order. Render event time from `startsAt` in Asia/Jakarta as `HH.mm`. Render maps link only when `googleMapsUrl` is present. |
 | Rules | `allowPlusOne`, `maxAdditionalChildren` | Later RSVP behavior data. Do not expose as raw rules unless required by read-only explanatory RSVP layout. |
 | RSVP | `status`, `version` | Later RSVP/update behavior data. May inform read-only copy only if a later Phase 4 slice explicitly needs it; do not create working RSVP state. |
-| Deadline | `rsvpDeadlineAt` | API-backed dynamic deadline when shown. Do not hard-code the conflicting Figma RSVP deadline as application truth. |
+| Deadline | `rsvpDeadlineAt` | API-backed dynamic deadline when shown. The authority is the persisted `Invitation.rsvpDeadlineAt`; the Phase 5 public baseline is `25 December 2026, 23:59:59 Asia/Jakarta` (`2026-12-25T16:59:59Z`). Do not hard-code a deadline in the frontend. |
 | Wedding content | names, parent names, quote, closing, credits | Fixed design/content reference, content pending until approved. |
 | RSVP controls | accept/decline, event choices, attendee choices, dietary fields, send confirmation | Later-phase interaction. Phase 4 must not create working form state, persistence, submission, confirmation, or QR display. |
 | Guest message controls | message input and send message | Later Phase 7 interaction. No POST, fake submit, local persistence, or success overlay in Phase 4. |
@@ -349,7 +349,12 @@ Production behavior:
 - Known spouse and known children appear as normal named invitees.
 - Event expected counts may differ from total attendee composition. MVP does not ask the guest to assign each named person to each event.
 - Public RSVP submit must include the latest RSVP `expectedVersion`; stale update conflicts require reloading current RSVP state.
-- QR pass is displayed only after accepted RSVP and active pass issuance, which happen atomically in the backend.
+- A first-time household submits `expectedVersion: null`. The UI must not send a placeholder version for a household that has never RSVP'd.
+- Accepting requires at least one selected attending event. The UI must block an accepted submission with zero event selections and surface the backend error if it still occurs.
+- Dietary input is household-level, optional, and limited to 500 characters after trimming; an empty value is submitted as no dietary information.
+- Decline clears dietary information along with event attendance and attendee selections.
+- After the RSVP cutoff, the RSVP form is closed for both new and updated submissions and the deadline-passed state is shown. Public invitation content remains readable.
+- QR pass is displayed only after accepted RSVP and active pass issuance, which happen atomically in the backend. Phase 5 does not render the QR; see `IMPLEMENTATION-ROADMAP.md` Phase 6.
 
 ## Confirmation States
 
@@ -534,9 +539,11 @@ read-only presentation should not display raw UUIDs.
 
 ## Unresolved UI Items
 
-- Wedding date / RSVP deadline conflict: blocks final content and later RSVP
-  deadline validation; does not block Phase 4 structure. Do not hard-code the
-  conflicting Figma RSVP deadline as application truth.
+- RSVP deadline value: resolved in Phase 5 Slice 5B0 to
+  `25 December 2026, 23:59:59 Asia/Jakarta` (`2026-12-25T16:59:59Z`), served from
+  `rsvpDeadlineAt`. Do not hard-code the deadline in the frontend.
+- Deadline-passed and stale-version conflict UX: the states are locked by
+  contract, but final copy and visual treatment remain unresolved.
 - Parking Guide behavior: unresolved; do not choose image/modal/PDF/map/page
   without approval. Blocks only a Parking Guide action.
 - Final production copy and image set: unresolved. Blocks final visual/content
