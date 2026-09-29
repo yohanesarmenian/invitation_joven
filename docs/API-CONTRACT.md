@@ -45,9 +45,10 @@ Required error codes:
 | Code | Status | Meaning |
 |---|---:|---|
 | `INVITATION_NOT_AVAILABLE` | 404 | Public credential is malformed, unknown, stale, archived, or otherwise unavailable. Do not reveal which. |
-| `RSVP_VERSION_CONFLICT` | 409 | Submitted `expectedVersion` does not match current RSVP version. |
+| `RSVP_VERSION_CONFLICT` | 409 | Submitted `expectedVersion` does not match current persisted RSVP state: a non-null integer differs from the reloaded `RSVP.version`, or `expectedVersion: null` is sent when an RSVP row already exists. |
+| `RSVP_DEADLINE_PASSED` | 422 | Public RSVP create or update was submitted after the invitation RSVP cutoff instant. |
 | `EVENT_NOT_ALLOWED` | 422 | Invitation is not eligible for the selected event. |
-| `EVENT_NOT_SELECTED` | 422 | RSVP does not select attendance for the event. |
+| `EVENT_NOT_SELECTED` | 422 | RSVP does not select attendance for the event; also covers an `ACCEPTED` RSVP that selects zero attending events. |
 | `PLUS_ONE_NOT_ALLOWED` | 422 | RSVP included plus-one without permission. |
 | `ADDITIONAL_CHILD_LIMIT_EXCEEDED` | 422 | Additional child quantity exceeds allowance. |
 | `RSVP_ATTENDEE_INVALID` | 422 | RSVP attendee rows violate type/quantity/reference rules. |
@@ -200,6 +201,27 @@ Request:
 }
 ```
 
+Request fields:
+
+- `expectedVersion`: required, `integer | null`.
+  - `null` means create-only. It succeeds only if no RSVP row exists. If an RSVP already exists by the time the Invitation row lock is held and RSVP state is reloaded inside the transaction, return `409 RSVP_VERSION_CONFLICT`.
+  - An integer means update. It must equal the current persisted `RSVP.version`. Mismatch returns `409 RSVP_VERSION_CONFLICT`.
+  - Do not send a placeholder `expectedVersion: 1` for a household that has never RSVP'd, and do not eagerly create an empty/`PENDING` RSVP row solely to manufacture a version.
+- `status`: `ACCEPTED` or `DECLINED` for public submission.
+- `eventSelections[]`: `{ eventId, attending, expectedAttendeeCount }`.
+- `attendees[]`: `{ type, inviteeId?, quantity }`.
+- `dietaryNotes`: optional household-level text. Trimmed; maximum 500 characters after trimming; empty after trimming normalizes to `null`.
+- `guestNote` is not part of the Phase 5 public RSVP mutation contract. It is not accepted, not mutated, and not cleared as a side effect of accept/decline. Guest-message functionality belongs to a later phase.
+
+Deadline evaluation:
+
+- Public RSVP create and update are both allowed up to and including the cutoff instant.
+- After the cutoff, both create and update are rejected with `422 RSVP_DEADLINE_PASSED`.
+- The cutoff is evaluated from the persisted `Invitation.rsvp_deadline_at`, which remains the authoritative source field. The stored/API value stays an ISO date-time instant.
+- The Phase 5 public baseline cutoff is `2026-12-25T16:59:59Z`, equivalent to `25 December 2026, 23:59:59 Asia/Jakarta (WIB, UTC+7)`.
+- `GET /api/public/invitations/{publicCredential}` and `GET /api/public/invitations/{publicCredential}/rsvp` remain available after the cutoff.
+- Phase 5 defines no public override after the cutoff. If an OWNER/admin post-deadline override is added later, it must be a separate authenticated admin contract. Do not invent public override behavior.
+
 Response:
 
 ```json
@@ -227,28 +249,31 @@ Response:
 Validation:
 
 - Invitation credential must resolve to active Invitation.
-- `expectedVersion` must match current RSVP version.
+- `expectedVersion` must be `null` for a first mutation and an exact match of the persisted `RSVP.version` for an existing RSVP.
 - Status must be `ACCEPTED` or `DECLINED` for public submission.
-- Selected events must be eligible through `InvitationEvent`.
+- Selected events must be eligible through `InvitationEvent`. Requested events absent from `InvitationEvent` remain invalid.
 - If event `attending = false`, `expectedAttendeeCount = 0`.
 - If event `attending = true`, `expectedAttendeeCount >= 1`.
 - If event `attending = true`, `expectedAttendeeCount <= total RSVPAttendee quantity`.
-- Declined RSVP must not leave attending event selections active.
+- If status is `ACCEPTED`, at least one eligible event must be selected with `attending = true`. Accepted with zero attending events returns `422 EVENT_NOT_SELECTED`.
+- If status is `DECLINED`, there must be zero attending event selections, zero RSVP attendee rows, `dietaryNotes = null`, and zero active CheckinPass.
 - `NAMED_INVITEE` requires `inviteeId`, `quantity = 1`, and Invitee must belong to the Invitation.
 - Same named Invitee may appear only once.
 - `PLUS_ONE` requires null invitee, `quantity = 1`, and `allowPlusOne = true`.
 - At most one `PLUS_ONE` row per RSVP.
 - `ADDITIONAL_CHILD` requires null invitee and quantity at least 1.
 - Total `ADDITIONAL_CHILD` quantity must not exceed `maxAdditionalChildren`.
-- Deadline behavior depends on unresolved RSVP cutoff question.
+- `dietaryNotes` is trimmed; maximum 500 characters after trimming; empty after trimming normalizes to `null`. For `DECLINED`, `dietaryNotes` must become `null`.
+- Both create and update are rejected after the cutoff instant with `422 RSVP_DEADLINE_PASSED`.
 
 State transitions:
 
-- `PENDING -> ACCEPTED`: saves RSVP/selections/attendees and creates one active CheckinPass atomically.
+- `(no RSVP row) -> ACCEPTED` / `(no RSVP row) -> DECLINED`: first public mutation with `expectedVersion: null`; creates the RSVP row at `version = 1`.
+- `PENDING -> ACCEPTED`: saves RSVP/selections/attendees and creates exactly one active household CheckinPass atomically.
 - `PENDING -> DECLINED`: saves declined state and ensures no active pass.
-- `ACCEPTED -> ACCEPTED`: updates current RSVP state and normally retains current active pass.
+- `ACCEPTED -> ACCEPTED`: updates current RSVP state and retains the existing active pass; do not create a duplicate active pass.
 - `ACCEPTED -> DECLINED`: revokes active pass atomically.
-- `DECLINED -> ACCEPTED`: issues a new CheckinPass atomically.
+- `DECLINED -> ACCEPTED`: issues a new CheckinPass atomically; do not reactivate the previously revoked credential.
 - `DECLINED -> DECLINED`: keeps no active pass.
 
 Errors:
@@ -256,15 +281,34 @@ Errors:
 - `404 INVITATION_NOT_AVAILABLE`.
 - `409 RSVP_VERSION_CONFLICT`.
 - `422 EVENT_NOT_ALLOWED`.
+- `422 EVENT_NOT_SELECTED`.
 - `422 PLUS_ONE_NOT_ALLOWED`.
 - `422 ADDITIONAL_CHILD_LIMIT_EXCEEDED`.
 - `422 RSVP_ATTENDEE_INVALID`.
-- `422 RSVP_DEADLINE_PASSED` if final rule confirms public cutoff.
+- `422 RSVP_DEADLINE_PASSED` after the cutoff instant for both create and update.
 
 Idempotency:
 
 - Retrying after a network failure with an old `expectedVersion` may return `409 RSVP_VERSION_CONFLICT`; the client should re-read state.
 - Repeating accepted RSVP at the current version must not create multiple active passes.
+
+Transaction order (Phase 5 lock):
+
+1. Validate public credential shape.
+2. Derive/hash the credential outside the transaction.
+3. Begin the Prisma interactive transaction.
+4. Lock the Invitation using the established parameterized `SELECT ... FOR UPDATE` pattern.
+5. Require Invitation status `ACTIVE`.
+6. Evaluate the RSVP cutoff against `Invitation.rsvp_deadline_at`.
+7. Reload current RSVP and related mutation state under the lock.
+8. Check `expectedVersion`.
+9. Validate status, event eligibility, attendees, counts, and dietary data.
+10. Apply RSVP, selection, and attendee changes.
+11. Apply the minimal CheckinPass lifecycle invariant.
+12. Increment/set `RSVP.version`.
+13. Commit.
+
+Any domain error rolls the transaction back. The raw public credential is never persisted and never retained in logs.
 
 ### Retrieve RSVP/pass state
 
@@ -450,7 +494,7 @@ Side effects:
 - Stores `public_token_hash`.
 - Creates InvitationEvent rows.
 - Creates invitees.
-- Creates or initializes RSVP pending state if implementation chooses eager creation.
+- Does not create an RSVP row. Phase 5 locks lazy RSVP creation: `expectedVersion: null` create-only semantics depend on the absence of an RSVP row, so no empty/`PENDING` RSVP row may be pre-created.
 
 ### Get invitation detail
 
@@ -565,6 +609,8 @@ Validation:
 - Same domain validations as public RSVP unless OWNER-specific override is explicitly allowed and audited.
 - Requires override reason.
 - Follows shared Invitation row lock order.
+- Uses the same `expectedVersion` semantics as public RSVP, including `null` for create-only.
+- This endpoint is not a public post-deadline override. Phase 5 defines no public override after the cutoff; any OWNER post-deadline override belongs to a separate authenticated admin contract.
 
 State transitions: same RSVP/check-in pass lifecycle as public.
 

@@ -14,26 +14,31 @@ Resolved by Phase 0D and no longer open:
 - Check-in uniqueness: confirmed attendance is unique by `Invitation + Event`.
 - Archive behavior: public/RSVP/message/check-in denied; OWNER history retained.
 
+## Resolved by Phase 5 Slice 5B0
+
+Owner decisions locked for Phase 5. These are now authoritative; do not re-litigate them during implementation.
+
+- RSVP cutoff value — Decision: cutoff is `25 December 2026, 23:59:59 Asia/Jakarta (WIB, UTC+7)`, equivalent instant `2026-12-25T16:59:59Z`, held in the persisted `Invitation.rsvpDeadlineAt`. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: the Figma deadline value `25 December 2027` is Figma-stale and superseded; it must not be treated as application truth. The displayed wedding date `09 January 2027` is unchanged, and the cutoff now precedes it, so no chronological inconsistency remains. Phase 4 public copy needs no change.
+- Public create/update cutoff behavior — Decision: public RSVP create and update are both allowed up to and including the cutoff instant and both rejected afterwards with `422 RSVP_DEADLINE_PASSED`. Public invitation GET remains available after the cutoff. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: Phase 4's read-only behavior is unaffected; Phase 5 must enforce the cutoff in the RSVP transaction before applying state.
+- OWNER post-deadline override — Decision: not defined or implemented in Phase 5, and no public override behavior may be invented. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: any future OWNER override must be a separate authenticated admin contract.
+- First-mutation `expectedVersion` — Decision: `expectedVersion` is `integer | null`. `null` is create-only and conflicts if an RSVP row exists at lock time; an existing RSVP requires the exact persisted `version`, otherwise `409 RSVP_VERSION_CONFLICT`. Initial persisted `version = 1`; each successful mutation increments it. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: RSVP rows are created lazily; no empty/`PENDING` row is pre-created to manufacture a version.
+- Accepted-event minimum — Decision: an `ACCEPTED` RSVP must select at least one eligible attending event. Zero attending events returns `422 EVENT_NOT_SELECTED`; no new error code is introduced. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: the existing event-selection error code now explicitly covers the zero-event case.
+- Dietary semantics — Decision: `RSVP.dietaryNotes` is household-level, optional, trimmed, maximum 500 characters after trimming, empty-after-trim becomes `null`, and is cleared to `null` on decline. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: the 500-character maximum is documented consistently in the API and UI contract areas.
+- Phase 5 vs Phase 6 pass boundary — Decision: Phase 5 implements only the minimal `CheckinPass` data lifecycle required for RSVP transactional consistency (accepted holds exactly one active pass, decline revokes, re-accept issues a new pass). Phase 6 owns QR rendering, QR presentation, the QR-centric confirmation UX, and later pass/check-in presentation. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: Phase 5 is not a QR implementation and must not ship QR UI.
+
 ## Phase-Blocking Questions
 
 ### Wedding date and RSVP deadline conflict
 
-- Question: Figma displays wedding date as `Saturday, 09 January 2027` and RSVP deadline as `25 December 2027`. Which value is correct?
-- Why it matters: RSVP deadline after the wedding date is chronologically inconsistent.
-- Impacted components/documents: PRD, UI/UX Spec, API validation, RSVP deadline configuration, public invitation copy.
-- Blocking phase: Phase 5 RSVP deadline validation and final public content. BLOCKING CONTENT CONFIRMATION REQUIRED before hard-coding production dates or deadline behavior. Phase 4 structure may proceed, but Phase 4 must not make the conflicting Figma RSVP deadline authoritative application truth.
-- Possible choices: Confirm wedding date, confirm RSVP deadline, or provide revised final copy.
-- Status: Unresolved.
+- Status: RESOLVED in Phase 5 Slice 5B0. The RSVP deadline is `25 December 2026, 23:59:59 Asia/Jakarta` (`2026-12-25T16:59:59Z`), which precedes the displayed wedding date `09 January 2027`. The Figma value `25 December 2027` is Figma-stale and superseded. See "Resolved by Phase 5 Slice 5B0" above.
+- Historical context: Figma displayed the wedding date as `Saturday, 09 January 2027` and the RSVP deadline as `25 December 2027`, which was chronologically inconsistent because the deadline fell after the wedding date.
+- Residual: final wedding copy confirmation remains tracked under "Final wedding copy" below.
 
 ### RSVP deadline/update cutoff behavior
 
-- Question: After the RSVP deadline, can guests update RSVP themselves, or only the OWNER?
-- Why it matters: Public API validation, UI disabled/error states, and OWNER override behavior depend on this rule.
-- Impacted components/documents: PRD, API Contract, UI/UX Spec, RSVP implementation.
-- Blocking phase: Phase 5 before final RSVP mutation behavior ships.
-- Phase 4 impact: non-blocking for read-only frontend structure because Phase 4 does not submit RSVP.
-- Possible choices: public updates blocked after deadline; grace period; OWNER override only.
-- Status: Unresolved.
+- Status: RESOLVED in Phase 5 Slice 5B0. Public create and update both close at the cutoff instant with `422 RSVP_DEADLINE_PASSED`; public GET stays open; no public override exists. See "Resolved by Phase 5 Slice 5B0" above.
+- Historical context: the question was whether guests could update RSVP after the deadline themselves or only through the OWNER.
+- Residual: whether an authenticated OWNER post-deadline override is ever added remains undecided, but it is explicitly out of Phase 5 scope.
 
 ### Final admin auth deployment topology
 

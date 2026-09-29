@@ -171,32 +171,38 @@ Do not begin Phase 1 until Phase 0 documentation corrections are accepted. This 
 
 - Objective: Implement RSVP lifecycle, attendee modeling, event expected counts, versioning, and pass state atomically.
 - Prerequisite: Phases 2-4.
+- Contract lock: Slice 5B0 locks the RSVP contract decisions (cutoff, `expectedVersion`, accepted-event minimum, dietary semantics, declined clean state, minimal pass invariant, Phase 6 boundary) before backend implementation.
 - Tasks:
   - Implement shared Invitation row lock helper/pattern.
-  - Implement RSVP service transaction.
-  - Implement `expectedVersion` conflict policy.
+  - Implement RSVP service transaction in the locked mutation order.
+  - Implement `expectedVersion` conflict policy: `null` is create-only, integer must match persisted `RSVP.version`; mismatch is `409 RSVP_VERSION_CONFLICT`.
+  - Implement public RSVP cutoff enforcement against `Invitation.rsvp_deadline_at` for both create and update (`422 RSVP_DEADLINE_PASSED`), with public GET remaining available.
   - Implement `NAMED_INVITEE`, `PLUS_ONE`, and `ADDITIONAL_CHILD` validation.
-  - Implement event selection validation and per-event expected count rules.
-  - Implement dietary notes.
+  - Implement event selection validation and per-event expected count rules, including the accepted-event minimum.
+  - Implement dietary notes normalization: trim, 500 character maximum after trimming, empty becomes `null`, `null` on decline.
+  - Implement declined clean state: no attending selections, no attendee rows, null dietary notes, no active pass.
   - Implement CheckinPass creation/retention/revocation in the RSVP transaction.
   - Add public RSVP API and UI form.
   - Add decline confirmation state.
 - Expected files/modules: rsvp backend module, checkin pass service, invitation-web RSVP section, api-client.
 - Acceptance criteria:
   - Accepted RSVP cannot commit without required active CheckinPass state.
-  - Declined RSVP cannot leave active pass.
-  - Re-acceptance after decline creates a new pass.
+  - Accepted RSVP cannot commit with zero attending events.
+  - Declined RSVP cannot leave active pass, attendee rows, or dietary notes.
+  - Re-acceptance after decline creates a new pass; the revoked credential is never reactivated.
   - Ineligible event choices blocked by backend.
   - Event expected counts can differ and remain within attendee total.
   - Stale `expectedVersion` returns `409 RSVP_VERSION_CONFLICT`.
-- Test/verification: backend integration tests for all RSVP/pass transitions, version conflict tests, frontend form/E2E tests.
-- Non-goals: QR scanner/check-in confirmation, admin import.
-- Completion gate: guest can submit/update RSVP with atomic pass lifecycle according to confirmed cutoff rule.
+  - Post-cutoff create and update both return `422 RSVP_DEADLINE_PASSED`.
+- Test/verification: backend integration tests for all RSVP/pass transitions, version conflict tests, cutoff tests, frontend form/E2E tests.
+- Non-goals: QR rendering/presentation, QR scanner/check-in confirmation, admin import, public post-deadline override.
+- Completion gate: guest can submit/update RSVP with atomic pass lifecycle according to the locked cutoff rule.
 
 ## Phase 6 - QR Presentation and Confirmation Screen
 
 - Objective: Render active household QR and finalize guest confirmation screen integration.
 - Prerequisite: Phase 5.
+- Scope ownership: Phase 6 owns QR rendering, QR presentation, the QR-centric confirmation experience, and later pass/check-in presentation behavior. Phase 5 only guarantees the backend pass data invariant; it does not render or present a pass.
 - Tasks:
   - Add QR payload response handling.
   - Render QR after accepted RSVP.

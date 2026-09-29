@@ -33,6 +33,9 @@
 - Invitation-scoped state changes that can conflict must lock the target Invitation row first, then reload and revalidate dependent state inside the same transaction.
 - Do not introduce Redis, distributed locks, queues, or other concurrency infrastructure for MVP invitation-scoped locking.
 - Accepted RSVP and CheckinPass lifecycle must be implemented atomically from the first RSVP implementation.
+- Public RSVP mutations use `expectedVersion: null` for create-only and an exact persisted integer for updates. Do not pre-create empty RSVP rows to manufacture a version.
+- Public RSVP create and update are both cut off at `Invitation.rsvp_deadline_at`; after the cutoff both return `422 RSVP_DEADLINE_PASSED`. Do not add a public override.
+- Phase 5 owns only the minimal CheckinPass data lifecycle. QR rendering, presentation, scanning, and check-in remain later-phase work.
 - QR validation must remain read-only. Only explicit confirmation creates `CheckinRecord`.
 - Manual check-in and QR check-in must share the same backend domain confirmation path after invitation resolution.
 

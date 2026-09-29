@@ -116,7 +116,7 @@ Purpose: Represents one household/group invitation.
   - `public_token_version integer not null default 1`.
   - `public_token_hash text`: unique hash of current derived public invitation credential.
   - `status varchar`: `ACTIVE`, `ARCHIVED`.
-  - `rsvp_deadline_at timestamptz null`: unresolved until content/date confirmation.
+  - `rsvp_deadline_at timestamptz null`: authoritative public RSVP cutoff instant. Phase 5 locks the public baseline value as `2026-12-25T16:59:59Z` (`25 December 2026, 23:59:59 Asia/Jakarta`).
   - `allow_plus_one boolean`.
   - `max_additional_children integer`.
   - `first_opened_at timestamptz null`.
@@ -217,8 +217,8 @@ Purpose: Household RSVP lifecycle.
 - Important fields:
   - `status varchar`: `PENDING`, `ACCEPTED`, `DECLINED`.
   - `version integer not null default 1`.
-  - `dietary_notes text null`.
-  - `guest_note text null`: optional RSVP note separate from GuestMessage.
+  - `dietary_notes text null`: household-level dietary information. Normalized on write: trimmed, maximum 500 characters after trimming, empty after trimming stored as `null`.
+  - `guest_note text null`: optional RSVP note separate from GuestMessage. Not part of the Phase 5 public RSVP mutation contract.
   - `submitted_at timestamptz null`.
   - `last_updated_at timestamptz`.
   - `admin_override_reason text null`.
@@ -228,10 +228,17 @@ Purpose: Household RSVP lifecycle.
   - Index `status`.
   - Check `version >= 1`.
 - Lifecycle:
+  - RSVP rows are created lazily by the first public mutation. No empty/`PENDING` RSVP row is pre-created at invitation creation time.
+  - `PENDING` remains a valid stored status value, but the Phase 5 public flow never writes it: the first public mutation persists `ACCEPTED` or `DECLINED` directly.
   - Initial persisted version is `1`.
-  - Every successful RSVP mutation increments `version`.
-  - Public mutation must provide `expectedVersion`; mismatch is `409 RSVP_VERSION_CONFLICT`.
+  - Every successful RSVP mutation increments `version` by one from the previous value.
+  - Public mutation must provide `expectedVersion`.
+  - `expectedVersion: null` means create-only: it succeeds only when no RSVP row exists. If a row exists once the Invitation lock is held and state is reloaded, return `409 RSVP_VERSION_CONFLICT`.
+  - A non-null `expectedVersion` must equal the persisted `RSVP.version`; mismatch is `409 RSVP_VERSION_CONFLICT`.
+  - Version checking happens after credential validation/hash, transaction start, Invitation row lock, and in-transaction RSVP reload.
   - Public/admin updates replace or reconcile current event selections and attendee rows in the same transaction.
+  - `dietary_notes` is set to `null` whenever the RSVP transitions to `DECLINED`.
+  - `guest_note` is not accepted, mutated, or cleared by Phase 5 public RSVP mutations.
 
 ### RSVPEventSelection
 
@@ -254,7 +261,8 @@ Purpose: Records event-specific attendance decision and expected count for an RS
   - If `attending = false`, `expected_attendee_count = 0`.
   - If `attending = true`, `expected_attendee_count >= 1`.
   - If `attending = true`, `expected_attendee_count <= total quantity represented by RSVPAttendee`.
-  - If RSVP status is `DECLINED`, all selections must have `attending = false` and count `0`.
+  - If RSVP status is `DECLINED`, all selections must have `attending = false` and count `0`; no attending/active selection may remain.
+  - If RSVP status is `ACCEPTED`, at least one eligible selection must have `attending = true`. Accepted with zero attending events is rejected with `422 EVENT_NOT_SELECTED`.
 
 ### RSVPAttendee
 
@@ -289,6 +297,7 @@ Purpose: Current attendee composition for the RSVP overall.
   - Total `ADDITIONAL_CHILD` quantity must not exceed `Invitation.max_additional_children`.
   - Known child Invitees do not consume `max_additional_children` unless a future product decision changes that rule.
   - Event expected counts must be less than or equal to total RSVPAttendee quantity.
+  - When the RSVP transitions to `DECLINED`, no RSVPAttendee rows remain. Historical composition is not retained for MVP.
 - Prisma note: partial unique indexes and multi-column conditional checks may require customized PostgreSQL migration SQL if Prisma declarative schema cannot express them.
 
 ### GuestMessage
@@ -338,9 +347,15 @@ Purpose: Household QR/check-in credential lifecycle.
   - Plaintext credential/QR payload is not persisted.
 - Lifecycle:
   - Issued when RSVP becomes accepted.
-  - Normally retained on accepted-to-accepted detail updates.
+  - An accepted RSVP must have exactly one active household pass.
+  - Retained on accepted-to-accepted detail updates; do not create a duplicate active pass.
   - Revoked when RSVP becomes declined.
-  - Revoked passes are immutable and never reactivated.
+  - Declined-to-accepted issues a new active pass; the previously revoked credential is never reactivated.
+  - Revoked passes are immutable and never reactivated. Revoked rows remain historical/audit facts.
+  - The pass lifecycle is applied in the same Invitation-scoped transaction as the RSVP mutation.
+- Phase boundary:
+  - Phase 5 owns only the minimal CheckinPass data lifecycle required to keep RSVP state transactionally consistent.
+  - QR rendering, QR presentation/confirmation UX, QR scanning, and check-in mutation belong to later phases.
 
 ### CheckinRecord
 
@@ -411,7 +426,11 @@ Purpose: Audit successful committed guest imports.
 | One active check-in pass per invitation | Partial unique index plus transaction |
 | Revoked pass cannot become active again | Application service rule |
 | Only accepted RSVP can have active pass | RSVP transaction/application rule |
+| Accepted RSVP has exactly one active pass | Partial unique index plus RSVP transaction/application rule |
+| Accepted RSVP selects at least one eligible attending event | API/application transaction validation |
 | Declined RSVP cannot leave active pass | RSVP transaction/application rule |
+| Declined RSVP leaves no attendee rows and null dietary notes | RSVP transaction/application rule |
+| Public RSVP create and update are rejected after the cutoff instant | API/application validation against `Invitation.rsvp_deadline_at` |
 | RSVP version increments on every mutation | RSVP transaction/application rule |
 | Stale RSVP expectedVersion is rejected | RSVP transaction/application rule |
 | RSVP event must be eligible | Application transaction validation against InvitationEvent |
@@ -511,19 +530,23 @@ Open aggregates are persisted reporting data, not best-effort telemetry. If the 
 
 ### RSVP update
 
-One transaction must:
+Required mutation order:
 
-1. Lock Invitation row `FOR UPDATE`.
-2. Validate invitation is active and RSVP deadline/update policy.
-3. Load current RSVP and compare `expectedVersion` for public mutations.
-4. Validate event eligibility.
-5. Validate attendee rows and event counts.
-6. Upsert/update RSVP.
-7. Replace/reconcile current RSVPAttendee rows.
-8. Replace/reconcile RSVPEventSelection rows.
-9. Create, retain, or revoke CheckinPass according to status transition.
-10. Increment RSVP version.
-11. Commit only when final state is internally consistent.
+1. Validate public credential shape.
+2. Derive/hash the credential outside the transaction.
+3. Begin the Prisma interactive transaction.
+4. Lock the Invitation using the established parameterized `SELECT ... FOR UPDATE` pattern.
+5. Require Invitation status `ACTIVE`.
+6. Evaluate the RSVP cutoff against `Invitation.rsvp_deadline_at`.
+7. Reload current RSVP and related mutation state under the lock.
+8. Check `expectedVersion`.
+9. Validate status, event eligibility, attendees, counts, and dietary data.
+10. Apply RSVP, RSVPEventSelection, and RSVPAttendee changes.
+11. Apply the minimal CheckinPass lifecycle invariant.
+12. Increment/set `RSVP.version`.
+13. Commit only when final state is internally consistent.
+
+Any domain error rolls the transaction back. The raw public credential must never be persisted or retained in logs.
 
 Historical attendee composition before the edit does not need to be retained for MVP. Old revoked CheckinPass rows and confirmed CheckinRecord rows remain historical facts.
 
