@@ -45,6 +45,132 @@
         ]
       }
     },
+    "/api/public/invitations/{publicCredential}/rsvp": {
+      "get": {
+        "operationId": "PublicInvitationController_retrievePublicRsvp",
+        "parameters": [
+          {
+            "name": "publicCredential",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "maxLength": 43,
+              "minLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRsvpReadResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invitation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Retrieve public RSVP state",
+        "tags": [
+          "Public Invitations"
+        ]
+      },
+      "put": {
+        "operationId": "PublicInvitationController_submitPublicRsvp",
+        "parameters": [
+          {
+            "name": "publicCredential",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "maxLength": 43,
+              "minLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPublicRsvpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRsvpMutationResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invitation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RSVP version conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "RSVP domain validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create or update public RSVP",
+        "tags": [
+          "Public Invitations"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_getHealth",
@@ -272,6 +398,253 @@
           "error",
           "requestId",
           "timestamp"
+        ]
+      },
+      "PublicRsvpEventSelectionDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attending": {
+            "type": "boolean"
+          },
+          "expectedAttendeeCount": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "eventId",
+          "attending",
+          "expectedAttendeeCount"
+        ]
+      },
+      "PublicRsvpAttendeeDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "NAMED_INVITEE",
+              "PLUS_ONE",
+              "ADDITIONAL_CHILD"
+            ]
+          },
+          "inviteeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "type",
+          "inviteeId",
+          "quantity"
+        ]
+      },
+      "PublicRsvpStateDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "version": {
+            "type": "number",
+            "minimum": 1
+          },
+          "dietaryNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "attendeeQuantityTotal": {
+            "type": "number",
+            "minimum": 0
+          },
+          "eventSelections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicRsvpEventSelectionDto"
+            }
+          },
+          "attendees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicRsvpAttendeeDto"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "dietaryNotes",
+          "attendeeQuantityTotal",
+          "eventSelections",
+          "attendees"
+        ]
+      },
+      "PublicCheckinPassDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE"
+            ]
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "issuedAt"
+        ]
+      },
+      "PublicRsvpReadResponseDto": {
+        "type": "object",
+        "properties": {
+          "rsvp": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicRsvpStateDto"
+              }
+            ]
+          },
+          "checkinPass": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicCheckinPassDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "rsvp",
+          "checkinPass"
+        ]
+      },
+      "SubmitPublicRsvpEventSelectionDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attending": {
+            "type": "boolean"
+          },
+          "expectedAttendeeCount": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "eventId",
+          "attending",
+          "expectedAttendeeCount"
+        ]
+      },
+      "SubmitPublicRsvpAttendeeDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "NAMED_INVITEE",
+              "PLUS_ONE",
+              "ADDITIONAL_CHILD"
+            ]
+          },
+          "inviteeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "type",
+          "quantity"
+        ]
+      },
+      "SubmitPublicRsvpRequestDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "eventSelections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmitPublicRsvpEventSelectionDto"
+            }
+          },
+          "attendees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmitPublicRsvpAttendeeDto"
+            }
+          },
+          "dietaryNotes": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "status",
+          "eventSelections",
+          "attendees"
+        ]
+      },
+      "PublicRsvpMutationResponseDto": {
+        "type": "object",
+        "properties": {
+          "rsvp": {
+            "$ref": "#/components/schemas/PublicRsvpStateDto"
+          },
+          "checkinPass": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicCheckinPassDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "rsvp",
+          "checkinPass"
         ]
       }
     }

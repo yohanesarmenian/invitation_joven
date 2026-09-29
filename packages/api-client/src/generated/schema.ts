@@ -21,6 +21,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/invitations/{publicCredential}/rsvp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Retrieve public RSVP state */
+        get: operations["PublicInvitationController_retrievePublicRsvp"];
+        /** Create or update public RSVP */
+        put: operations["PublicInvitationController_submitPublicRsvp"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -94,6 +112,63 @@ export interface components {
             /** Format: date-time */
             timestamp: string;
         };
+        PublicRsvpEventSelectionDto: {
+            /** Format: uuid */
+            eventId: string;
+            attending: boolean;
+            expectedAttendeeCount: number;
+        };
+        PublicRsvpAttendeeDto: {
+            /** @enum {string} */
+            type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD";
+            /** Format: uuid */
+            inviteeId: string | null;
+            quantity: number;
+        };
+        PublicRsvpStateDto: {
+            /** @enum {string} */
+            status: "PENDING" | "ACCEPTED" | "DECLINED";
+            version: number;
+            dietaryNotes: string | null;
+            attendeeQuantityTotal: number;
+            eventSelections: components["schemas"]["PublicRsvpEventSelectionDto"][];
+            attendees: components["schemas"]["PublicRsvpAttendeeDto"][];
+        };
+        PublicCheckinPassDto: {
+            /** @enum {string} */
+            status: "ACTIVE";
+            /** Format: date-time */
+            issuedAt: string;
+        };
+        PublicRsvpReadResponseDto: {
+            rsvp: components["schemas"]["PublicRsvpStateDto"] | null;
+            checkinPass: components["schemas"]["PublicCheckinPassDto"] | null;
+        };
+        SubmitPublicRsvpEventSelectionDto: {
+            /** Format: uuid */
+            eventId: string;
+            attending: boolean;
+            expectedAttendeeCount: number;
+        };
+        SubmitPublicRsvpAttendeeDto: {
+            /** @enum {string} */
+            type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD";
+            /** Format: uuid */
+            inviteeId?: string | null;
+            quantity: number;
+        };
+        SubmitPublicRsvpRequestDto: {
+            expectedVersion: number | null;
+            /** @enum {string} */
+            status: "ACCEPTED" | "DECLINED";
+            eventSelections: components["schemas"]["SubmitPublicRsvpEventSelectionDto"][];
+            attendees: components["schemas"]["SubmitPublicRsvpAttendeeDto"][];
+            dietaryNotes?: string | null;
+        };
+        PublicRsvpMutationResponseDto: {
+            rsvp: components["schemas"]["PublicRsvpStateDto"];
+            checkinPass: components["schemas"]["PublicCheckinPassDto"] | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -124,6 +199,97 @@ export interface operations {
             };
             /** @description Invitation unavailable. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    PublicInvitationController_retrievePublicRsvp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicCredential: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicRsvpReadResponseDto"];
+                };
+            };
+            /** @description Invitation unavailable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    PublicInvitationController_submitPublicRsvp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicCredential: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitPublicRsvpRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicRsvpMutationResponseDto"];
+                };
+            };
+            /** @description Invalid request payload. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            /** @description Invitation unavailable. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            /** @description RSVP version conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            /** @description RSVP domain validation failed. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

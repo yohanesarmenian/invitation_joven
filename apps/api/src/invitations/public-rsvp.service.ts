@@ -52,7 +52,7 @@ export type SubmitPublicRsvpCommand = {
 
 export type PublicRsvpMutationResult = {
   rsvp: {
-    status: PublicRsvpMutationStatus;
+    status: RSVPStatus;
     version: number;
     dietaryNotes: string | null;
     attendeeQuantityTotal: number;
@@ -71,6 +71,11 @@ export type PublicRsvpMutationResult = {
     status: typeof CheckinPassStatus.ACTIVE;
     issuedAt: string;
   } | null;
+};
+
+export type PublicRsvpReadResult = {
+  rsvp: PublicRsvpMutationResult["rsvp"] | null;
+  checkinPass: PublicRsvpMutationResult["checkinPass"];
 };
 
 interface LockedInvitationForRsvpRow {
@@ -392,6 +397,87 @@ async function readMutationState(
   };
 }
 
+async function readPublicRsvpState(
+  tx: Prisma.TransactionClient,
+  invitationId: string,
+): Promise<PublicRsvpReadResult> {
+  const rsvp = await tx.rSVP.findUnique({
+    where: { invitationId },
+    select: {
+      attendees: {
+        orderBy: [{ createdAt: "asc" }, { attendeeType: "asc" }],
+        select: {
+          attendeeType: true,
+          inviteeId: true,
+          quantity: true,
+        },
+      },
+      checkinPasses: {
+        where: {
+          status: CheckinPassStatus.ACTIVE,
+        },
+        orderBy: {
+          issuedAt: "asc",
+        },
+        select: {
+          issuedAt: true,
+          status: true,
+        },
+        take: 1,
+      },
+      dietaryNotes: true,
+      eventSelections: {
+        orderBy: [{ createdAt: "asc" }, { eventId: "asc" }],
+        select: {
+          attending: true,
+          eventId: true,
+          expectedAttendeeCount: true,
+        },
+      },
+      status: true,
+      version: true,
+    },
+  });
+
+  if (rsvp === null) {
+    return {
+      checkinPass: null,
+      rsvp: null,
+    };
+  }
+
+  const activePass = rsvp.checkinPasses[0] ?? null;
+
+  return {
+    checkinPass:
+      activePass === null
+        ? null
+        : {
+            issuedAt: activePass.issuedAt.toISOString(),
+            status: CheckinPassStatus.ACTIVE,
+          },
+    rsvp: {
+      attendeeQuantityTotal: rsvp.attendees.reduce(
+        (total, attendee) => total + attendee.quantity,
+        0,
+      ),
+      attendees: rsvp.attendees.map((attendee) => ({
+        inviteeId: attendee.inviteeId,
+        quantity: attendee.quantity,
+        type: attendee.attendeeType,
+      })),
+      dietaryNotes: rsvp.dietaryNotes,
+      eventSelections: rsvp.eventSelections.map((selection) => ({
+        attending: selection.attending,
+        eventId: selection.eventId,
+        expectedAttendeeCount: selection.expectedAttendeeCount,
+      })),
+      status: rsvp.status,
+      version: rsvp.version,
+    },
+  };
+}
+
 @Injectable()
 export class PublicRsvpService {
   constructor(
@@ -412,6 +498,19 @@ export class PublicRsvpService {
     return this.prisma.$transaction((tx) =>
       this.submitPublicRsvpInTransaction(tx, lookupHash, command),
     );
+  }
+
+  async retrievePublicRsvp(
+    publicCredential: string,
+  ): Promise<PublicRsvpReadResult> {
+    const credential = validatePublicCredential(publicCredential);
+    const lookupHash = this.credentialService.hashCredential(credential);
+
+    return this.prisma.$transaction(async (tx) => {
+      const invitation = await lockInvitationForRsvp(tx, lookupHash);
+
+      return readPublicRsvpState(tx, invitation.id);
+    });
   }
 
   private async submitPublicRsvpInTransaction(
