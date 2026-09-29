@@ -5,11 +5,15 @@ import {
   type SmokeFixtureRead,
 } from "./smoke-fixture";
 
-// Internal fields that must never reach the browser. `publicTokenHash` in
-// particular would let the raw credential be recovered by brute force offline.
+// Internal fields that must never reach the browser. `publicTokenHash` and
+// `tokenHash` in particular would let the raw credential be recovered by brute
+// force offline, and `credentialVersion` is explicitly non-public per the
+// "Public IDs" section of docs/API-CONTRACT.md.
 const LEAKED_INTERNAL_FIELDS = [
   "publicTokenHash",
   "publicTokenVersion",
+  "tokenHash",
+  "credentialVersion",
   "firstOpenedAt",
   "lastOpenedAt",
   "openCount",
@@ -59,9 +63,12 @@ test("real backend: one retrieval per server render, client stages stay local", 
     expectedOpenCount,
   );
 
-  // Privacy: no internal field and no database identifier is serialized into
-  // the document. The credential itself is intentionally in the route URL, so
-  // this only asserts it is not rendered as visible content.
+  // Privacy: distinguish the identifiers the public contract allows from the
+  // ones it forbids (docs/API-CONTRACT.md, "Public IDs"). `state.eventId` is
+  // the public `events[].id` and is required in the payload because the browser
+  // submits it as `eventSelections[].eventId`, so its presence is asserted
+  // rather than rejected. The internal `Invitation.id` is not part of that
+  // projection and stays forbidden, as does all hash/version material.
   const html = await page.content();
   const visibleText = await page.locator("body").innerText();
 
@@ -69,7 +76,7 @@ test("real backend: one retrieval per server render, client stages stay local", 
     expect(html).not.toContain(field);
   }
 
+  expect(html).toContain(state.eventId);
   expect(html).not.toContain(state.invitationId);
-  expect(html).not.toContain(state.eventId);
   expect(visibleText).not.toContain(state.publicCredential);
 });
