@@ -1,10 +1,10 @@
 import Image from "next/image";
 import type { Ref } from "react";
 
-// 4B0 development fixtures. These local mock assets stand in for the
-// owner-approved photographs and are expected to be replaced in 4B1.
-const MOCK_HERO = "/assets/mock/hero.svg";
-const MOCK_HERO_SIZES = "(min-width: 388px) 340px, calc(100vw - 48px)";
+// Owner-approved flattened fallback: keep the complete artwork and its baked
+// title intact until a clean owner photograph is available.
+const OPENED_HERO = "/assets/hero/opened-hero.png";
+const OPENED_HERO_SIZES = "(min-width: 332px) 332px, 100vw";
 
 const ENVELOPE_SIZES = "(min-width: 480px) 480px, 100vw";
 
@@ -54,19 +54,16 @@ export function OpenedCoverStage({
         type="button"
         className="invitation-opened-cover"
         aria-label="View invitation"
+        aria-describedby="invitation-opened-title"
         onClick={onView}
       >
         <span className="invitation-opened-media" aria-hidden="true">
-          <Image
-            src={MOCK_HERO}
-            alt=""
-            fill
-            sizes={MOCK_HERO_SIZES}
-            unoptimized
-          />
+          <Image src={OPENED_HERO} alt="" fill sizes={OPENED_HERO_SIZES} />
         </span>
-        <span className="invitation-opened-title">
-          <span className="invitation-opened-kicker">The Wedding of</span>
+        {/* A future clean photo can restore the invitation-opened-title class.
+            The flattened fallback already supplies the visible typography. */}
+        <span id="invitation-opened-title" className="visually-hidden">
+          <span className="invitation-opened-kicker">The Wedding of</span>{" "}
           <span className="invitation-opened-names">Jo &amp; Venta</span>
         </span>
       </button>
