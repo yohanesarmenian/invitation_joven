@@ -132,6 +132,93 @@ Next dev output may expose the synthetic URL locally. That is acceptable: do not
 custom Next server or a suppression layer solely to hide dev-mode framework output. Do not
 treat dev logging behavior as evidence about production.
 
+## Admin Authentication Deployment Requirements
+
+**Locked by Phase 8 Slice 8B0.** Full contract: `TECHNICAL-ARCHITECTURE.md` ("Admin
+Authentication Architecture") and `API-CONTRACT.md` ("Admin Authentication Endpoints",
+"Admin CSRF and origin doctrine"). This section records only the deployment-facing
+obligations.
+
+### Same-origin topology
+
+The browser must see **one admin origin** serving both the admin UI and the admin API:
+
+```
+https://<admin-host>/          admin-web
+https://<admin-host>/api/**    api (proxied internally)
+```
+
+- Nest may run on another port or in another container; the reverse proxy, gateway, or
+  development proxy hides that.
+- The public invitation site may live on a different origin. The admin session cookie is
+  **host-only** and is never scoped to a parent domain shared with the public site.
+- Do **not** enable broad CORS, `Access-Control-Allow-Origin: *`, or cross-origin browser
+  `credentials: "include"` for the MVP. Browser admin requests must not depend on
+  credentialed cross-origin CORS.
+- The deployment must expose a configuration value `ADMIN_ORIGIN` as a full expected origin
+  (scheme + host + optional port; no wildcard, no trailing path). It is configuration, not
+  a secret. Every unsafe admin request, including login, is validated against it by exact
+  match.
+
+### TLS
+
+Admin authentication requires **HTTPS** in production. The production session cookie is
+`Secure` and named `__Host-admin_session`, which is only valid over HTTPS with `Path=/` and
+no `Domain`. Do not deploy the admin surface over plaintext transport.
+
+### Cookie
+
+Production: `__Host-admin_session`, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, no
+`Domain`, lifetime matching the session absolute expiration.
+
+Development / isolated test only: `admin_session`, `HttpOnly`, `Secure=false`,
+`SameSite=Strict`, `Path=/`, no `Domain`. **Production must refuse to issue the insecure
+development cookie configuration.**
+
+`SameSite=Strict` is defense in depth, not a CSRF solution. Unsafe admin requests
+additionally require a session-bound `X-CSRF-Token` and an exact `Origin`/`Referer` match.
+
+### Bootstrap operational security
+
+First-OWNER creation is an **operator-only CLI**, never an HTTP route.
+`ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` are supplied through the runtime
+environment and:
+
+- must never be committed, or written to files by the command;
+- must never appear in application logs, CI logs, or retained container-inspection output;
+- must never be included in exception text;
+- must never be persisted in plaintext.
+
+The command refuses as soon as any `AdminUser` exists. Operators should run it during
+initial provisioning and treat the password as a secret with the same handling rules as the
+credential secret.
+
+### Login throttling: single-instance limitation
+
+Login throttling is **in-process and ephemeral** (per-email 10 failed attempts / 15
+minutes; process-wide 100 / 15 minutes), and its state resets when the API process
+restarts. This is correct **only** for a single-API-instance deployment.
+
+Before horizontal or multi-instance scaling, move login throttling to a shared edge or
+store mechanism. Running multiple API instances without doing so silently multiplies the
+effective attempt allowance.
+
+### Auth logging and redaction
+
+Never deliberately log `password`, `passwordHash`, the raw session token,
+`sessionTokenHash`, the raw CSRF token, `csrfTokenHash`, the `Cookie` header, the
+`Set-Cookie` header, the `Authorization` header, or the bootstrap password. The login and
+bootstrap request payloads must not be logged. The normalized admin email may appear in
+appropriate authenticated audit metadata and must **not** be blanket-redacted. The existing
+redaction list in `apps/api/src/logging/redaction.ts` already covers the secret paths and
+remains authoritative.
+
+### Admin session telemetry
+
+`AdminSession.userAgent` and `AdminSession.ipAddress` remain `null` in the MVP. Do not
+introduce proxy-trust configuration, fingerprinting, geolocation logic, or PII retention
+merely because the nullable columns exist.
+
 ## Deployment Requirements
 
 The deployed reverse proxy / edge **must do exactly one of**:
@@ -216,7 +303,13 @@ Never use a real guest credential for this verification.
 ## Out of Scope
 
 - Credential transport redesign (moving the credential out of the path).
-- Authentication or authorization redesign.
+- **Redesign** of public invitation or check-in authentication and authorization. The admin
+  authentication contract is not a redesign: it is locked in
+  `TECHNICAL-ARCHITECTURE.md` ("Admin Authentication Architecture") and summarized under
+  "Admin Authentication Deployment Requirements" above.
 - Analytics or error-monitoring policy: no such tooling is installed.
 - Browser history and address-bar exposure.
-- Adding a `middleware.ts`, custom Next server, or logging dependency to this repository.
+- Adding a `middleware.ts`, custom Next server, or logging dependency to **invitation-web**
+  for credential-logging suppression. This restriction is scoped to the credential-logging
+  problem in this document. The admin-web auth foundation also requires no Next
+  `middleware.ts` (it uses server-side session bootstrap), so the two are consistent.

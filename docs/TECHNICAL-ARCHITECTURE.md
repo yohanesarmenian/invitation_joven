@@ -72,10 +72,17 @@ Phase 4 read-only frontend contract:
 
 ### admin-web
 
-- Provide OWNER login.
+- Provide OWNER login, session bootstrap, and the authenticated shell.
 - Manage invitations, invitees, event eligibility, imports, RSVP, messages, check-in, and reports.
 - Use generated API client.
 - Never embed database logic.
+
+Phase 8 auth foundation for admin-web (locked in Slice 8B0):
+
+- Declare `@wedding-invitation/api-client` as a proper workspace dependency. Do **not** introduce new relative-source imports of the form `../../packages/api-client/src/**`.
+- Browser-facing admin requests use the same-origin `/api` surface. Server-side admin-web requests may use an internal API base URL but must explicitly forward **only** the required session cookie. Do not forward arbitrary browser headers.
+- Protected layouts bootstrap the session server-side via `GET /api/admin/auth/me`. No Next `middleware.ts` is required for the MVP.
+- Route protection is UX and defense in depth; the backend remains the authoritative security boundary.
 
 ### api
 
@@ -120,6 +127,8 @@ PostgreSQL primary keys are UUIDs. For MVP, API DTOs may expose UUID identifiers
 
 ## Admin Authentication Architecture
 
+**Locked by Phase 8 Slice 8B0.** This section is the authoritative admin-auth contract. It resolves the previously open topology, cookie, bootstrap, password, session, CSRF, error, enumeration, throttling, and route-protection questions. Do not re-litigate these decisions during Phase 8 implementation.
+
 MVP uses opaque server-managed sessions, not JWT access/refresh tokens.
 
 Rationale:
@@ -129,19 +138,200 @@ Rationale:
 - Avoids unnecessary token refresh complexity.
 - Compatible with Next.js admin frontend and NestJS API on Docker/VPS.
 
-Flow:
+### Deployment topology (D1)
 
-1. OWNER submits email and password to `POST /admin/auth/login`.
-2. API verifies password using Argon2id hash.
-3. API generates a high-entropy random session token.
-4. API stores only `session_token_hash` in `AdminSession`.
-5. API sets an HttpOnly cookie, for example `admin_session`.
-6. API returns or otherwise establishes an anti-CSRF token for unsafe admin requests.
-7. Admin frontend sends `X-CSRF-Token` for unsafe methods.
-8. API authenticates by hashing the cookie token and finding an active unexpired session.
-9. Logout revokes the session and clears the cookie.
+The administration surface is **same-origin in the browser**. The browser sees one admin origin serving both the admin UI and the admin API:
 
-Final implementation must specify production same-site/origin topology, cookie attributes, CSRF issuance/recovery, allowed credentialed origins, logout cookie clearing, and expired-session cleanup before auth ships.
+```
+https://<admin-host>/          admin-web
+https://<admin-host>/api/**    API (proxied)
+```
+
+- **No cross-origin credentialed CORS for the MVP.** Do not enable broad CORS, do not use `Access-Control-Allow-Origin: *`, do not require browser `credentials: "include"` across origins.
+- Nest may run internally on another port or container. That is an implementation detail hidden behind a reverse proxy, gateway, or development proxy. The browser still sees one origin.
+- The public invitation site may live on a different origin. Admin and public share no cookie scope.
+- The admin session cookie is **host-only** to the dedicated admin origin and is never scoped to a shared parent domain.
+- Development: `admin-web` stays on port 3001 and Nest stays on port 4000. `admin-web` may proxy `/api/**` to the local Nest API so the browser remains same-origin from its own perspective. The concrete development proxy belongs to Slice 8C.
+
+### Cookie contract (D1)
+
+Production:
+
+| Attribute | Value |
+| --- | --- |
+| Name | `__Host-admin_session` |
+| `HttpOnly` | `true` |
+| `Secure` | `true` |
+| `SameSite` | `Strict` |
+| `Path` | `/` |
+| `Domain` | **omitted** |
+
+- The cookie lifetime matches the session absolute expiration.
+- No `Domain` attribute is ever set. The `__Host-` prefix requires `Secure`, `Path=/`, and no `Domain`.
+- Production admin authentication requires HTTPS.
+
+Development / isolated test runtime only: name `admin_session`, `HttpOnly=true`, `Secure=false`, `SameSite=Strict`, `Path=/`, `Domain` omitted. **Production must refuse to issue the insecure development cookie configuration.**
+
+### First OWNER bootstrap (D2 / D12)
+
+First OWNER creation is **operator-only** and is not reachable over the network.
+
+- There is **no** `/setup`, `/register`, or `/bootstrap` HTTP route, and no public admin registration.
+- Phase 8B provides an operator CLI, conceptually `pnpm --filter api admin:bootstrap-owner`. Exact script spelling may follow repository conventions.
+- Input comes from runtime environment variables `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD`. These values must never be committed, written to files by the command, logged, included in exception text, or persisted in plaintext.
+- The CLI validates the credentials, normalizes the email, hashes the password with the locked Argon2id parameters, enters an atomic database bootstrap critical section, verifies `admin_users` is empty, creates exactly one `ACTIVE` OWNER, and exits.
+- If **any** `AdminUser` already exists, bootstrap refuses. It must not update the existing account, reset its password, create a second OWNER, or silently succeed as though it created something.
+- No default OWNER email, no default password, no hard-coded credentials.
+
+The empty-table check and OWNER creation must be **concurrency-safe**. Two simultaneous bootstrap commands must produce exactly one successful OWNER creation and one safe refusal. Use the smallest PostgreSQL transaction-scoped serialization mechanism compatible with the current architecture — a transaction advisory lock or equivalent. A bare `SELECT count(*)` followed by `INSERT` without serialization is not sufficient. No new column and no migration are required.
+
+### OWNER count doctrine (D12)
+
+The supported MVP deployment has **one effective OWNER**. The schema may structurally permit multiple OWNER rows, but Phase 8 provides no product workflow for creating additional OWNERs and the first-owner CLI refuses once any `AdminUser` exists. Phase 8 adds no admin-user creation UI, no role management, no additional-OWNER creation, and no `ADMIN`/`EDITOR`/`VIEWER` roles.
+
+Do not add a database singleton constraint. Do not add a role-management surface.
+
+### Login identity (D3)
+
+The admin login identifier is `email`. Normalization before bootstrap persistence **and** before login lookup: trim outer whitespace, then lowercase. Maximum 254 characters and syntactically valid. All supported `AdminUser` writers must use the same normalization.
+
+No username login, no SSO, no OAuth/OIDC, no magic link, no Microsoft login.
+
+### Password policy and hashing (D3)
+
+Policy, locked for the MVP without MFA:
+
+- Minimum **15** Unicode code points, maximum **128** Unicode code points.
+- The password is **not trimmed**; whitespace is valid password content.
+- Unicode is allowed. No mandatory uppercase, lowercase, digit, or symbol rule. No silent truncation.
+- The bootstrap password obeys the same policy used by authentication.
+
+Hashing:
+
+- Algorithm: **Argon2id**.
+- Dependency for 8B: **`@node-rs/argon2`**. Do not use `bcrypt`, `bcryptjs`, SHA-256, HMAC, or PBKDF2 for password storage.
+- Parameters: `memoryCost = 19456` KiB, `timeCost = 2`, `parallelism = 1`.
+- Use a library-generated cryptographically random salt.
+- Persist only the encoded Argon2id hash in `AdminUser.passwordHash`.
+- Never persist a plaintext password, a reversible password, or a password encryption key. No pepper is required for the MVP.
+- Never log `password` or `passwordHash`.
+
+Phase 8 does not add a password strength library, breached-password lookup, email password reset, password-change UI, or MFA.
+
+### Session token (D4)
+
+- Opaque random tokens. **Not JWT.**
+- Each login session uses **32 cryptographically secure random bytes** generated with Node cryptographic randomness, encoded as unpadded Base64URL (conceptually 43 characters).
+- Never accept a session identifier supplied by the login request. Every successful login creates a **new** token.
+- Persist only `SHA-256(sessionToken)` in `AdminSession.sessionTokenHash`.
+- The raw session token exists only transiently during login/session processing and inside the HttpOnly browser cookie. It must not be persisted, returned in JSON, logged, placed in a URL, or placed in `localStorage`/`sessionStorage`.
+
+### Session lifetime and activity (D4)
+
+- Absolute lifetime: **12 hours** from successful login. `expiresAt` is fixed at login and is never extended by activity.
+- Idle timeout: **30 minutes**.
+- A session is valid only when **all** are true: `AdminUser.status === ACTIVE`; `AdminSession.revokedAt IS NULL`; `AdminSession.expiresAt > now`; and idle duration since the effective last activity is at most 30 minutes.
+- Effective last activity is `lastSeenAt` when present, otherwise `createdAt`.
+- Do **not** write `lastSeenAt` on every request. Update it when at least approximately 5 minutes have elapsed since the stored activity timestamp. This never extends `expiresAt`.
+
+### Session rotation and concurrency (D4 / D10)
+
+- No mid-session token rotation in the MVP. A fresh token is issued on every successful login.
+- Login never adopts or reuses a client-provided session identifier.
+- Logout revokes the current session. Expired sessions are never reactivated.
+- **Multiple simultaneous sessions per OWNER are allowed.** Successful login does not revoke other valid sessions. There is no one-session-per-OWNER constraint, no revoke-other-sessions-on-login, and no "sign out everywhere" operation in the Phase 8 auth foundation.
+
+### Expired-session cleanup and telemetry (D4)
+
+- Session validity does not depend on physical row deletion. Expired or revoked rows are immediately unusable even while present.
+- Phase 8B **may** perform bounded opportunistic cleanup of old session rows, with a recommended retention of 7 days for expired/revoked rows. Do not create cron infrastructure, a scheduler dependency, or a background worker solely for this.
+- `AdminSession.userAgent` and `AdminSession.ipAddress` remain `null` in the MVP. Authentication does not rely on them. Do not introduce proxy-trust configuration, fingerprinting, geolocation logic, or PII retention merely because the nullable columns exist. They are reserved for future operational/security telemetry.
+
+### CSRF model (D5)
+
+All authenticated unsafe admin operations require the `X-CSRF-Token` header. Unsafe methods are `POST`, `PUT`, `PATCH`, `DELETE`, with exactly one exception: `POST /api/admin/auth/login` has no authenticated session yet. `GET`/`HEAD`/`OPTIONS` must not mutate state and do not require a CSRF token. Logout remains CSRF-protected.
+
+One deterministic CSRF token is bound to each `AdminSession`:
+
+- After generating the raw 32-byte session token, derive the CSRF token with **HMAC-SHA256** keyed by the **raw session token bytes** and the context string `admin-csrf-v1`.
+- Encode the HMAC result as unpadded Base64URL.
+- Persist `SHA-256(csrfToken)` in `AdminSession.csrfTokenHash`. Never persist the raw CSRF token.
+- Because the token is deterministically bound to the raw session token, the API can re-derive it during authenticated session bootstrap without storing the raw token.
+- Use timing-safe comparison.
+
+Do not use a double-submit cookie, a CSRF token in a URL, or a CSRF token in `localStorage`/`sessionStorage`.
+
+Issuance and recovery: a successful login returns the raw CSRF token in JSON, and `GET /api/admin/auth/me` returns the same per-session token. This recovers after page refresh, a new admin-web server render, or loss of in-memory frontend state without rotating the session or the CSRF token. The token lasts only for the lifetime of that `AdminSession`; a new login produces a different token.
+
+### Origin protection (D5)
+
+Defense in depth: all browser unsafe admin operations must also pass exact admin-origin validation against the configured `ADMIN_ORIGIN` (a full expected origin: scheme + host + optional port; no wildcard, no trailing path).
+
+- If `Origin` is present, require an **exact** match with `ADMIN_ORIGIN`.
+- If `Origin` is absent but `Referer` is present, require its origin to exactly match `ADMIN_ORIGIN`.
+- If neither yields a valid expected origin, reject the unsafe request.
+- Do not use substring or suffix matching.
+- `POST /api/admin/auth/login` has no CSRF token yet and **must still enforce** the expected-origin rule.
+- Do not enable broad CORS to solve this.
+
+### Session-bound CSRF and cookie rationale
+
+- The session cookie is `HttpOnly`, so script cannot read it.
+- The production cookie is `Secure`, so it is never sent over plaintext transport.
+- The cookie is host-only, so sibling subdomains cannot receive it.
+- `SameSite=Strict` is defense in depth, **not** a CSRF solution on its own.
+- Unsafe admin requests still require an explicit CSRF token bound to the session.
+- Unsafe browser requests additionally require exact `Origin`/`Referer` validation.
+- The backend remains the authoritative security boundary.
+
+### Authorization doctrine (D9)
+
+- The **backend** is the authoritative security boundary. Admin-web route protection is UX and defense in depth.
+- Every `/api/admin/**` operation except login independently enforces a valid session, and where required OWNER authorization, and for unsafe methods CSRF plus origin validation.
+- Never trust client route state, hidden UI, a Next layout, or browser-side role data as authorization.
+- Phase 8B provides a narrow reusable auth foundation conceptually covering session resolution, current `AdminUser` resolution, `ACTIVE`-status enforcement, OWNER authorization, CSRF enforcement, origin enforcement, and a typed current-admin request context. Exact class and decorator names are not locked here.
+
+### admin-web route protection (D9)
+
+Use **server-side session bootstrap** for protected admin layouts and routes; do not use client-side-only auth protection. **No Next `middleware.ts` is required for the MVP.** Conceptually `/login` is public and the dashboard and management routes are protected. The protected server layout checks `GET /api/admin/auth/me` before rendering authenticated content and redirects unauthenticated visitors to `/login`. Backend authorization remains authoritative even if the frontend redirect is bypassed.
+
+### Session expiry UX (D11)
+
+When `/me` or another protected admin API call returns `401 UNAUTHENTICATED`, admin-web returns the user to `/login` with one concise generic state: "Your admin session has ended. Please sign in again." Do not distinguish expired, revoked, disabled, or missing in frontend copy. Do not persist sensitive form drafts to browser storage merely to survive session expiry. After successful login, navigate to the admin dashboard. No re-auth modal in the MVP.
+
+### Logout (D13)
+
+`POST /api/admin/auth/logout` revokes the **current session only**: it sets `revokedAt` on the current `AdminSession`, clears the current session cookie using the same name/path/environment configuration that was used at login, and returns `204`. It does not revoke other OWNER sessions. A future "logout everywhere" capability is outside the Phase 8 auth foundation.
+
+### Disabled accounts
+
+`AdminUser.status` must be `ACTIVE` for both login and session use. A `DISABLED` user gets `401 INVALID_CREDENTIALS` at login and `401 UNAUTHENTICATED` for an existing session. Phase 8's auth foundation implements no account-disable UI or endpoint. If an account becomes `DISABLED` through future trusted administration, existing sessions immediately cease to be usable because session resolution checks the current `AdminUser` status.
+
+### Login throttling (D7)
+
+The API implements a small **in-process** login limiter. No Redis, no database attempt counter, no lockout column, no CAPTCHA, and no new rate-limit infrastructure for the MVP.
+
+- Per normalized email: 10 failed attempts per 15 minutes.
+- Process-wide: 100 failed attempts per 15 minutes.
+- Unknown emails participate in the same per-email limiter.
+- On threshold: `429 TOO_MANY_LOGIN_ATTEMPTS`, without indicating whether the account exists.
+- A successful login clears the normalized-email failure bucket.
+- Limiter state is intentionally ephemeral, resets when the API process restarts, and is not an account status stored in `AdminUser`.
+
+This is acceptable **only** for the MVP's single-API-instance deployment. Before horizontal or multi-instance scaling, move login throttling to a shared edge or store mechanism. This deployment constraint is recorded in `DEPLOYMENT-SECURITY.md`.
+
+### Login flow
+
+1. OWNER submits email and password to `POST /api/admin/auth/login`.
+2. API normalizes the email, applies the origin rule, and checks the in-process limiter.
+3. API verifies the password against the Argon2id hash in `AdminUser.passwordHash`.
+4. API generates a new 32-byte random session token and derives the session-bound CSRF token.
+5. API stores only `sessionTokenHash` and `csrfTokenHash` in `AdminSession`, with `expiresAt` fixed at login.
+6. API sets the environment-appropriate `HttpOnly` session cookie and updates `AdminUser.lastLoginAt`.
+7. API returns the user identity, session expiry, and the raw CSRF token. The raw session token is never in the response body.
+8. Admin frontend sends `X-CSRF-Token` for unsafe methods.
+9. API authenticates by hashing the cookie token and finding a valid session, then enforces OWNER authorization and, for unsafe methods, CSRF plus origin.
+10. Logout revokes the current session and clears the cookie.
 
 ## Credential Architecture
 
@@ -269,11 +459,13 @@ Redisplay doctrine (Phase 6 lock):
 
 ### Admin session credential
 
-- High-entropy random session token in HttpOnly cookie.
-- Stored as hash only.
-- Revocable and expiring.
-- Not exposed to JavaScript.
-- Must not be logged.
+- 32 cryptographically secure random bytes, unpadded Base64URL (conceptually 43 characters), delivered only in the `HttpOnly` session cookie.
+- Stored at rest as `SHA-256(sessionToken)` in `AdminSession.sessionTokenHash` only.
+- Revocable and expiring: 12-hour absolute lifetime, 30-minute idle timeout, `revokedAt` on logout.
+- Not exposed to JavaScript. Never returned in JSON, never persisted raw, never placed in a URL, never logged.
+- The session-bound CSRF token is derived from the raw session token via HMAC-SHA256 (`admin-csrf-v1`); only `SHA-256(csrfToken)` is persisted. See "Admin Authentication Architecture" (D5).
+
+Session tokens are independent of public invitation and check-in credentials: a separate namespace, a separate lifecycle, and no interchangeability.
 
 ## RSVP Authority and Lifecycle
 
@@ -490,6 +682,8 @@ Use a consistent JSON error envelope:
 
 Public errors should avoid leaking existence or internal security details. Admin errors may include actionable validation detail. Do not expose stack traces or internal exception messages.
 
+Admin authentication error codes are locked in `API-CONTRACT.md`: `INVALID_CREDENTIALS`, `TOO_MANY_LOGIN_ATTEMPTS`, `UNAUTHENTICATED`, `FORBIDDEN`, `CSRF_INVALID`. Login failure never distinguishes unknown email, wrong password, and a `DISABLED` account.
+
 ## Observability and Logging
 
 - Use Pino structured logging.
@@ -497,6 +691,13 @@ Public errors should avoid leaking existence or internal security details. Admin
 - Redact credentials, credential hashes, credential versions where sensitive, cookies, passwords, password hashes, and QR payloads.
 - Log important admin operations without storing secrets.
 - Invalid/revoked QR attempts may be operational logs only, with credential redaction.
+
+Admin auth logging doctrine (Phase 8 Slice 8B0):
+
+- Never deliberately log `password`, `passwordHash`, the raw session token, `sessionTokenHash`, the raw CSRF token, `csrfTokenHash`, the `Cookie` header, the `Set-Cookie` header, the `Authorization` header, or the bootstrap password.
+- The login and bootstrap request payloads must not be logged.
+- The normalized admin email may appear in appropriate authenticated audit metadata. Do not blanket-redact it.
+- The existing redaction infrastructure in `apps/api/src/logging/redaction.ts` remains authoritative and already covers these paths.
 
 ## Deployment and CI Direction
 
@@ -509,3 +710,5 @@ Public errors should avoid leaking existence or internal security details. Admin
 ## Scaling Considerations
 
 The modular monolith and PostgreSQL are sufficient for MVP. Add Redis, queues, external object storage, search, or analytics stores only after a demonstrated requirement emerges.
+
+**Known single-instance constraint (Phase 8 Slice 8B0):** admin login throttling is intentionally in-process and ephemeral (see D7 above). It is correct only while the API runs as a single instance. Before horizontal or multi-instance scaling, move login throttling to a shared edge or store mechanism.

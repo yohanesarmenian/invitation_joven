@@ -440,6 +440,18 @@ Admin:
 - Check-in scanner states for ready, scanning, validating, valid preview, already confirmed, revoked/invalid QR, event not allowed, event not selected, offline/network error, and confirmed.
 - QR validation preview must not imply a reservation. Confirmation can still fail if another operator confirms first.
 
+Admin login and session states (locked in Phase 8 Slice 8B0):
+
+- `/login` is the only public admin route. The dashboard and every management route are protected.
+- Protected layouts bootstrap the session **server-side** by calling `GET /api/admin/auth/me` before rendering authenticated content, and redirect unauthenticated visitors to `/login`. Client-side-only protection is not used, and no Next `middleware.ts` is required for the MVP.
+- Login fields: an email identifier and a password. The failed-auth state shows one generic message and never distinguishes unknown email, wrong password, or a disabled account.
+- After a successful login, navigate to the admin dashboard. There is no re-auth modal in the MVP.
+- Session expiry: when `/me` or any protected admin call returns `401 UNAUTHENTICATED`, return the user to `/login` with one concise generic state — "Your admin session has ended. Please sign in again." Do not distinguish expired, revoked, disabled, or missing sessions in frontend copy.
+- Do not persist sensitive form drafts to browser storage merely to survive session expiry.
+- Backend authorization remains authoritative even if the frontend redirect is bypassed.
+
+Admin login screen design fidelity (fields, labels, visual treatment, responsive behaviour, and the authenticated landing surface) is **not specified in this document** and remains a UI decision for Slice 8C. Do not infer it from the public invitation visual direction.
+
 ## Accessibility
 
 - Envelope open action must be keyboard accessible.
