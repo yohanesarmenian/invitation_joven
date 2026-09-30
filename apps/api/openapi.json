@@ -505,11 +505,19 @@
           "issuedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "qrPayload": {
+            "type": "string",
+            "description": "Bare opaque check-in credential payload for the guest QR.",
+            "maxLength": 43,
+            "minLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$"
           }
         },
         "required": [
           "status",
-          "issuedAt"
+          "issuedAt",
+          "qrPayload"
         ]
       },
       "PublicRsvpReadResponseDto": {

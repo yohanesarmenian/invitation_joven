@@ -18,6 +18,7 @@ import {
   RSVPStatus,
 } from "../generated/prisma/enums.js";
 import {
+  DERIVED_CREDENTIAL_PATTERN,
   deriveCredentialWithSecret,
   hashDerivedCredential,
 } from "../security/credential.service.js";
@@ -530,6 +531,7 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     expect(response.json()).toMatchObject({
       checkinPass: {
         issuedAt: expect.any(String),
+        qrPayload: expect.any(String),
         status: CheckinPassStatus.ACTIVE,
       },
       rsvp: {
@@ -564,11 +566,18 @@ describe("GET /api/public/invitations/:publicCredential", () => {
       },
     ]);
     expect(activePasses).toHaveLength(1);
+    expect(response.json().checkinPass.qrPayload).toMatch(
+      DERIVED_CREDENTIAL_PATTERN,
+    );
+    expect(hashDerivedCredential(response.json().checkinPass.qrPayload)).toBe(
+      activePasses[0]!.tokenHash,
+    );
     expect(invitationState.openCount).toBe(0);
     expect(response.body).not.toContain("tokenHash");
     expect(response.body).not.toContain("credentialVersion");
-    expect(response.body).not.toContain("qrPayload");
     expect(response.body).not.toContain(activePasses[0]?.tokenHash ?? "");
+    expect(response.body).not.toContain(activePasses[0]?.id ?? "");
+    expect(response.body).not.toContain(fixture.invitationId);
   });
 
   it("returns the current RSVP state over HTTP without recording an invitation open", async () => {
@@ -660,6 +669,12 @@ describe("GET /api/public/invitations/:publicCredential", () => {
         status: RSVPStatus.ACCEPTED,
       },
       url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
+    const [activePass] = await prisma.checkinPass.findMany({
+      where: {
+        invitationId: fixture.invitationId,
+        status: CheckinPassStatus.ACTIVE,
+      },
     });
 
     const response = await app
@@ -673,6 +688,8 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       checkinPass: {
+        issuedAt: expect.any(String),
+        qrPayload: expect.any(String),
         status: CheckinPassStatus.ACTIVE,
       },
       rsvp: {
@@ -689,9 +706,13 @@ describe("GET /api/public/invitations/:publicCredential", () => {
         version: 1,
       },
     });
+    expect(hashDerivedCredential(response.json().checkinPass.qrPayload)).toBe(
+      activePass!.tokenHash,
+    );
     expect(response.body).not.toContain("tokenHash");
     expect(response.body).not.toContain("credentialVersion");
-    expect(response.body).not.toContain("qrPayload");
+    expect(response.body).not.toContain(activePass!.id);
+    expect(response.body).not.toContain(fixture.invitationId);
   });
 
   it("maps unavailable dedicated RSVP GET credentials to the generic 404 envelope", async () => {
@@ -757,6 +778,7 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       checkinPass: {
+        qrPayload: expect.any(String),
         status: CheckinPassStatus.ACTIVE,
       },
       rsvp: {
@@ -765,6 +787,108 @@ describe("GET /api/public/invitations/:publicCredential", () => {
         version: 2,
       },
     });
+  });
+
+  it("returns qrPayload according to the public pass lifecycle over HTTP", async () => {
+    const fixture = await createFixture();
+    const acceptPayload = {
+      attendees: [
+        {
+          inviteeId: fixture.adultInviteeId,
+          quantity: 1,
+          type: "NAMED_INVITEE",
+        },
+      ],
+      eventSelections: [
+        {
+          attending: true,
+          eventId: fixture.linkedEventIdsByDisplayOrder[0],
+          expectedAttendeeCount: 1,
+        },
+      ],
+      status: RSVPStatus.ACCEPTED,
+    };
+
+    const firstAccept = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      payload: {
+        ...acceptPayload,
+        dietaryNotes: "first",
+        expectedVersion: null,
+      },
+      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    });
+    const firstPass = await prisma.checkinPass.findFirstOrThrow({
+      where: {
+        invitationId: fixture.invitationId,
+        status: CheckinPassStatus.ACTIVE,
+      },
+    });
+    const firstPayload = firstAccept.json().checkinPass.qrPayload;
+
+    expect(firstAccept.statusCode).toBe(200);
+    expect(hashDerivedCredential(firstPayload)).toBe(firstPass.tokenHash);
+
+    const acceptedUpdate = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      payload: {
+        ...acceptPayload,
+        dietaryNotes: "second",
+        expectedVersion: 1,
+      },
+      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    });
+
+    expect(acceptedUpdate.statusCode).toBe(200);
+    expect(acceptedUpdate.json().checkinPass.qrPayload).toBe(firstPayload);
+    await expect(
+      prisma.checkinPass.count({
+        where: { invitationId: fixture.invitationId },
+      }),
+    ).resolves.toBe(1);
+
+    const decline = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      payload: {
+        attendees: [],
+        eventSelections: [],
+        expectedVersion: 2,
+        status: RSVPStatus.DECLINED,
+      },
+      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    });
+
+    expect(decline.statusCode).toBe(200);
+    expect(decline.json().checkinPass).toBeNull();
+
+    const reaccept = await app.getHttpAdapter().getInstance().inject({
+      method: "PUT",
+      payload: {
+        ...acceptPayload,
+        dietaryNotes: "third",
+        expectedVersion: 3,
+      },
+      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    });
+    const activePass = await prisma.checkinPass.findFirstOrThrow({
+      where: {
+        invitationId: fixture.invitationId,
+        status: CheckinPassStatus.ACTIVE,
+      },
+    });
+    const allPasses = await prisma.checkinPass.findMany({
+      where: { invitationId: fixture.invitationId },
+    });
+
+    expect(reaccept.statusCode).toBe(200);
+    expect(hashDerivedCredential(reaccept.json().checkinPass.qrPayload)).toBe(
+      activePass.tokenHash,
+    );
+    expect(reaccept.json().checkinPass.qrPayload).not.toBe(firstPayload);
+    expect(allPasses).toHaveLength(2);
+    expect(
+      allPasses.filter((pass) => pass.status === CheckinPassStatus.REVOKED),
+    ).toHaveLength(1);
   });
 
   it("rejects public RSVP submissions after the persisted deadline", async () => {

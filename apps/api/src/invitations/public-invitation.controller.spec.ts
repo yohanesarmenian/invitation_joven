@@ -165,6 +165,7 @@ describe("PublicInvitationController", () => {
     rsvpService.submitPublicRsvp.mockResolvedValueOnce({
       checkinPass: {
         issuedAt: "2026-09-17T00:00:00.000Z",
+        qrPayload: "B".repeat(43),
         status: "ACTIVE",
       },
       rsvp: {

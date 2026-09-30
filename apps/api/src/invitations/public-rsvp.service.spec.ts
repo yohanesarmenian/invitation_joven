@@ -13,6 +13,8 @@ import {
 } from "../generated/prisma/client.js";
 import type { CredentialSecretProvider } from "../security/credential-secret.provider.js";
 import {
+  CREDENTIAL_LOOKUP_HASH_PATTERN,
+  DERIVED_CREDENTIAL_PATTERN,
   CredentialService,
   deriveCredentialWithSecret,
 } from "../security/credential.service.js";
@@ -274,6 +276,17 @@ async function getAllPasses(invitationId: string) {
   });
 }
 
+function deriveCheckinCredential(pass: {
+  credentialVersion: number;
+  id: string;
+}): DerivedCredential {
+  return credentialService.deriveCredential({
+    namespace: "check-in",
+    stableId: pass.id,
+    version: pass.credentialVersion,
+  });
+}
+
 async function cleanupFixtures() {
   if (createdInvitationIds.length === 0 && createdEventIds.length === 0) {
     return;
@@ -346,6 +359,8 @@ describe("PublicRsvpService", () => {
 
     expect(result).toMatchObject({
       checkinPass: {
+        issuedAt: expect.any(String),
+        qrPayload: expect.any(String),
         status: CheckinPassStatus.ACTIVE,
       },
       rsvp: {
@@ -363,9 +378,56 @@ describe("PublicRsvpService", () => {
     expect(rsvp.attendees).toHaveLength(1);
     expect(rsvp.eventSelections).toHaveLength(1);
     expect(pass).toBeDefined();
-    expect(pass?.tokenHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(pass?.tokenHash).toMatch(CREDENTIAL_LOOKUP_HASH_PATTERN);
     expect(pass?.tokenHash).not.toBe(fixture.credential);
+    expect(result.checkinPass?.qrPayload).toMatch(DERIVED_CREDENTIAL_PATTERN);
+    expect(result.checkinPass?.qrPayload).toBe(deriveCheckinCredential(pass!));
+    expect(credentialService.hashCredential(result.checkinPass!.qrPayload)).toBe(
+      pass?.tokenHash,
+    );
     expect(JSON.stringify(result)).not.toContain("tokenHash");
+  });
+
+  it("fails safely when active pass tokenHash no longer matches re-derivation", async () => {
+    const fixture = await createFixture();
+    await service.submitPublicRsvp(acceptedCommand(fixture));
+    const [pass] = await getActivePasses(fixture.invitationId);
+    const originalRsvp = await getRsvp(fixture.invitationId);
+    const corruptedTokenHash = "f".repeat(64);
+
+    await prisma.checkinPass.update({
+      data: { tokenHash: corruptedTokenHash },
+      where: { id: pass!.id },
+    });
+
+    await expect(service.retrievePublicRsvp(fixture.credential)).rejects.toThrow(
+      "Check-in pass credential verification failed.",
+    );
+    await expect(
+      service.submitPublicRsvp(
+        acceptedCommand(fixture, {
+          dietaryNotes: "should roll back",
+          expectedVersion: 1,
+        }),
+      ),
+    ).rejects.toThrow("Check-in pass credential verification failed.");
+
+    const passes = await getAllPasses(fixture.invitationId);
+    const rsvp = await getRsvp(fixture.invitationId);
+
+    expect(passes).toHaveLength(1);
+    expect(passes[0]).toMatchObject({
+      id: pass!.id,
+      status: CheckinPassStatus.ACTIVE,
+      tokenHash: corruptedTokenHash,
+    });
+    expect(rsvp).toMatchObject({
+      dietaryNotes: originalRsvp.dietaryNotes,
+      status: originalRsvp.status,
+      version: originalRsvp.version,
+    });
+    expect(rsvp.eventSelections).toHaveLength(originalRsvp.eventSelections.length);
+    expect(String(corruptedTokenHash)).not.toContain(fixture.credential);
   });
 
   it("creates a first DECLINED RSVP with clean state and no active pass", async () => {
@@ -412,7 +474,8 @@ describe("PublicRsvpService", () => {
 
   it("updates an existing RSVP with exact version and preserves guestNote", async () => {
     const fixture = await createFixture();
-    await service.submitPublicRsvp(acceptedCommand(fixture));
+    const firstResult = await service.submitPublicRsvp(acceptedCommand(fixture));
+    const [firstPass] = await getActivePasses(fixture.invitationId);
     const firstRsvp = await getRsvp(fixture.invitationId);
     await prisma.rSVP.update({
       data: { guestNote: "Please keep this note." },
@@ -426,9 +489,12 @@ describe("PublicRsvpService", () => {
       }),
     );
     const rsvp = await getRsvp(fixture.invitationId);
+    const [activePass] = await getActivePasses(fixture.invitationId);
 
     expect(result.rsvp.version).toBe(2);
     expect(result.rsvp.dietaryNotes).toBe("Vegetarian");
+    expect(result.checkinPass?.qrPayload).toBe(firstResult.checkinPass?.qrPayload);
+    expect(activePass?.id).toBe(firstPass?.id);
     expect(rsvp.version).toBe(2);
     expect(rsvp.guestNote).toBe("Please keep this note.");
   });
@@ -663,7 +729,7 @@ describe("PublicRsvpService", () => {
 
   it("retains pass on accepted update, revokes on decline, and issues a new pass on re-accept", async () => {
     const fixture = await createFixture();
-    await service.submitPublicRsvp(acceptedCommand(fixture));
+    const firstResult = await service.submitPublicRsvp(acceptedCommand(fixture));
     const [firstPass] = await getActivePasses(fixture.invitationId);
     const firstRsvp = await getRsvp(fixture.invitationId);
     await prisma.rSVP.update({
@@ -671,28 +737,39 @@ describe("PublicRsvpService", () => {
       where: { id: firstRsvp.id },
     });
 
-    await service.submitPublicRsvp(
+    const updateResult = await service.submitPublicRsvp(
       acceptedCommand(fixture, {
         expectedVersion: 1,
       }),
+    );
+    expect(updateResult.checkinPass?.qrPayload).toBe(
+      firstResult.checkinPass?.qrPayload,
     );
     expect(await getActivePasses(fixture.invitationId)).toMatchObject([
       { id: firstPass?.id },
     ]);
 
-    await service.submitPublicRsvp(
+    const declinedResult = await service.submitPublicRsvp(
       declinedCommand(fixture, {
         expectedVersion: 2,
       }),
     );
+    expect(declinedResult.checkinPass).toBeNull();
     expect(await getActivePasses(fixture.invitationId)).toHaveLength(0);
     let rsvp = await getRsvp(fixture.invitationId);
     expect(rsvp.attendees).toHaveLength(0);
     expect(rsvp.eventSelections).toHaveLength(0);
     expect(rsvp.dietaryNotes).toBeNull();
     expect(rsvp.guestNote).toBe("survives decline");
+    await expect(service.retrievePublicRsvp(fixture.credential)).resolves.toMatchObject({
+      checkinPass: null,
+      rsvp: {
+        status: RSVPStatus.DECLINED,
+        version: 3,
+      },
+    });
 
-    await service.submitPublicRsvp(
+    const reacceptResult = await service.submitPublicRsvp(
       acceptedCommand(fixture, {
         expectedVersion: 3,
       }),
@@ -709,6 +786,12 @@ describe("PublicRsvpService", () => {
     expect(revokedPasses).toHaveLength(1);
     expect(activePasses[0]?.id).not.toBe(firstPass?.id);
     expect(activePasses[0]?.tokenHash).not.toBe(firstPass?.tokenHash);
+    expect(reacceptResult.checkinPass?.qrPayload).toBe(
+      deriveCheckinCredential(activePasses[0]!),
+    );
+    expect(reacceptResult.checkinPass?.qrPayload).not.toBe(
+      firstResult.checkinPass?.qrPayload,
+    );
 
     await service.submitPublicRsvp(
       declinedCommand(fixture, {

@@ -113,6 +113,15 @@ export class PublicCheckinPassDto {
 
   @ApiProperty({ format: "date-time", type: String })
   issuedAt: string;
+
+  @ApiProperty({
+    description: "Bare opaque check-in credential payload for the guest QR.",
+    maxLength: 43,
+    minLength: 43,
+    pattern: "^[A-Za-z0-9_-]{43}$",
+    type: String,
+  })
+  qrPayload: string;
 }
 
 export class PublicRsvpMutationResponseDto {
