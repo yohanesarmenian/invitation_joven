@@ -276,6 +276,19 @@ State transitions:
 - `DECLINED -> ACCEPTED`: issues a new CheckinPass atomically; do not reactivate the previously revoked credential.
 - `DECLINED -> DECLINED`: keeps no active pass.
 
+Public QR consequence of each transition (Phase 6 lock):
+
+| RSVP transition | Pass result | Public `checkinPass` / QR result |
+| --- | --- | --- |
+| no RSVP row | none | `null` — no QR |
+| no RSVP row -> `ACCEPTED` | one new `ACTIVE` pass | `{ status, issuedAt, qrPayload }` — new QR |
+| `PENDING`/`ACCEPTED` -> `ACCEPTED` | same pass retained | same `qrPayload` — QR unchanged |
+| `ACCEPTED` -> `DECLINED` | active pass revoked | `null` — QR disappears |
+| `DECLINED` -> `ACCEPTED` | new pass issued | new `qrPayload` — new QR |
+| `DECLINED` -> `DECLINED` | none | `null` — no QR |
+
+A `qrPayload` belonging to a revoked pass must never be redisplayed.
+
 Errors:
 
 - `404 INVITATION_NOT_AVAILABLE`.
@@ -316,11 +329,46 @@ Any domain error rolls the transaction back. The raw public credential is never 
 
 Authentication: public credential.
 
-Response includes current RSVP, version, event selections, attendees, and active pass QR payload if available.
+Response includes current RSVP, version, event selections, attendees, and the active pass QR payload when an active pass exists.
+
+Pass representation:
+
+- Accepted RSVP with an `ACTIVE` CheckinPass: `checkinPass` is `{ status: "ACTIVE", issuedAt, qrPayload }`.
+- No RSVP row, `PENDING`, `DECLINED`, or no active pass: `checkinPass` is `null`.
+- Revoked pass history is never returned publicly. A revoked pass is indistinguishable from no pass in this response.
 
 Errors:
 
 - `404 INVITATION_NOT_AVAILABLE`.
+
+### Public CheckinPass representation (`qrPayload`)
+
+The public `checkinPass` object is exactly:
+
+```json
+{
+  "status": "ACTIVE",
+  "issuedAt": "2026-09-17T00:00:00.000Z",
+  "qrPayload": "<opaque check-in credential>"
+}
+```
+
+Rules (Phase 6 lock):
+
+- `qrPayload` exists only for an `ACTIVE` public CheckinPass representation. It is absent or the whole object is `null` in every other state.
+- `qrPayload` is the re-derived opaque check-in credential produced by the server credential derivation for namespace `check-in`, using `CheckinPass.id` as the stable id and `CheckinPass.credentialVersion` as the version. See `TECHNICAL-ARCHITECTURE.md`.
+- `qrPayload` is bearer credential material. It is not persisted by the public frontend and must not be logged.
+- `qrPayload` is the value encoded directly into the guest QR. It is not a URL, not JSON, not a JWT, not a prefixed string, and not an internal identifier.
+- `qrPayload` must never contain or expose `CheckinPass.id`, `tokenHash`, `credentialVersion`, `Invitation.id`, or `RSVP.id`.
+- `tokenHash` is never QR content and is never public.
+- `credentialVersion` is an internal derivation input and is never public.
+
+The same representation applies to the `PUT` accepted response:
+
+- A mutation that results in `ACCEPTED` with an active pass returns `checkinPass` including `qrPayload`.
+- `ACCEPTED -> ACCEPTED` retains the same CheckinPass, so the same derived `qrPayload` is returned.
+- `DECLINED -> ACCEPTED` issues a new CheckinPass, so a new `qrPayload` is returned. The earlier revoked credential is never returned again.
+- `ACCEPTED -> DECLINED` returns `checkinPass: null`.
 
 ### Send guest message
 

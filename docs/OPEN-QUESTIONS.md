@@ -26,7 +26,24 @@ Owner decisions locked for Phase 5. These are now authoritative; do not re-litig
 - Dietary semantics — Decision: `RSVP.dietaryNotes` is household-level, optional, trimmed, maximum 500 characters after trimming, empty-after-trim becomes `null`, and is cleared to `null` on decline. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: the 500-character maximum is documented consistently in the API and UI contract areas.
 - Phase 5 vs Phase 6 pass boundary — Decision: Phase 5 implements only the minimal `CheckinPass` data lifecycle required for RSVP transactional consistency (accepted holds exactly one active pass, decline revokes, re-accept issues a new pass). Phase 6 owns QR rendering, QR presentation, the QR-centric confirmation UX, and later pass/check-in presentation. Date/phase: 2026-09-29, Phase 5 Slice 5B0. Consequence: Phase 5 is not a QR implementation and must not ship QR UI.
 
+## Resolved by Phase 6 Slice 6B0
+
+Guest check-in pass / QR contract decisions for Phase 6. These are now authoritative; do not re-litigate them during Phase 6 implementation.
+
+- QR payload wire format (D2) — Decision: `qrPayload` is the **bare opaque derived check-in credential** produced by the existing credential derivation for namespace `check-in` with `CheckinPass.id` as stable id and `CheckinPass.credentialVersion` as version. It is an unpadded Base64URL string. It is not a URL, not `/c/<credential>`, not `/api/public/checkin/<credential>`, not a JWT, not JSON, not prefixed, not an internal UUID, not `tokenHash`, and not `credentialVersion`. The QR image encodes the credential string itself. Date/phase: 2026-09-30, Phase 6 Slice 6B0. Consequence: no schema or storage change is needed for QR display, because the credential is deterministically re-derivable; no credential-bearing public route is introduced; the lexical format is not the security boundary and server-side validation remains authoritative.
+- Declined confirmation behavior (D4) — Decision: Phase 6 creates no new declined flow. It reuses the current Phase 5E declined confirmation: the existing notice is shown, no QR is rendered, and no pass credential or pass metadata is displayed. Guests may still edit their response before the deadline under the existing RSVP rules. Date/phase: 2026-09-30, Phase 6 Slice 6B0. Consequence: the declined confirmation copy remains whatever the implementation defines (`apps/invitation-web/src/rsvp/notice.ts`), and final copy polish stays a separate copy decision rather than being invented during pass work.
+- Guest pass presentation surface (D5) — Decision: the guest QR/pass is presented **inline within the existing public RSVP/result surface** on the invitation long page. Phase 6 introduces no dedicated pass route, no `/c/...` route, no separate guest portal, and no navigation to another public page. The Figma `Registered` state is a visual reference, not a routing requirement. Date/phase: 2026-09-30, Phase 6 Slice 6B0. Consequence: any later focused presentation state must still be hosted inside the existing invitation flow unless a future contract explicitly changes routing.
+
 ## Phase-Blocking Questions
+
+### Post-check-in RSVP mutation policy
+
+- Question: may a household that has already been checked in for an event still submit a new RSVP that changes its status or counts?
+- Why it matters: `CheckinRecord` and `RSVP` are independent rows with no mutual constraint. The Phase 5 mutation path never reads `CheckinRecord`, and the decline path revokes the pass without touching any existing `CheckinRecord`, so a checked-in household could currently decline and leave a confirmed attendance row behind.
+- Impacted components/documents: Technical Architecture, API Contract, Database Schema, RSVP service, Phase 10 check-in implementation.
+- Blocking phase: Phase 10 check-in implementation. **Does not block Phase 6**, which creates no `CheckinRecord`.
+- Possible choices: allow and treat check-in as a historical fact; block post-check-in RSVP mutation with a new domain error; allow but flag the household for operator attention.
+- Status: Unresolved. Phase 6 does not alter Phase 5 RSVP mutation semantics. This must be decided before Phase 10 implementation.
 
 ### Wedding date and RSVP deadline conflict
 
@@ -47,6 +64,15 @@ Owner decisions locked for Phase 5. These are now authoritative; do not re-litig
 - Impacted components/documents: Technical Architecture, API Contract, admin auth implementation, deployment.
 - Blocking phase: Phase 8 before admin auth ships. Does not block Phase 1 repository foundation.
 - Possible choices: same origin behind one host, same site different subdomains, or explicitly configured cross-origin admin/API deployment.
+- Status: Unresolved.
+
+### First admin OWNER bootstrap
+
+- Question: how is the first `AdminUser` — with a usable `passwordHash` — created in a fresh environment?
+- Why it matters: the repository currently has **no** supported first-admin bootstrap mechanism. There is no seed script, no user-creation endpoint or CLI, and no password-hashing dependency anywhere in the repository; `AdminUser.passwordHash` has no writer. A deployed environment therefore cannot create its first OWNER without direct database manipulation.
+- Impacted components/documents: Technical Architecture, API Contract, admin auth implementation, deployment runbook.
+- Blocking phase: Phase 8 (admin authentication). Explicitly out of Phase 6 scope; Phase 6 must not introduce admin auth or bootstrap logic.
+- Possible choices: a CLI/seed script reading credentials from environment configuration; a one-time setup endpoint gated on an empty `admin_users` table; documented manual SQL.
 - Status: Unresolved.
 
 ### Parking Guide behavior
