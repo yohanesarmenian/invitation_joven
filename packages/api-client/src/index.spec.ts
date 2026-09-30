@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { components, paths } from "./generated/schema.js";
 import {
   createInvitationApiClient,
+  type AdminAuthResponse,
+  type AdminLoginRequest,
   type PublicRsvpReadResponse,
   type SubmitPublicGuestMessageRequest,
   type SubmitPublicGuestMessageResponse,
@@ -112,5 +114,37 @@ describe("generated API client", () => {
     expect(Object.keys(response.message)).toEqual(["createdAt"]);
     expect(JSON.stringify(response)).not.toContain("invitationId");
     expect(JSON.stringify(response)).not.toContain("isHidden");
+  });
+
+  it("exposes the admin auth operations and safe response schemas", () => {
+    expect(assertApiPath("/api/admin/auth/login")).toBe(
+      "/api/admin/auth/login",
+    );
+    expect(assertApiPath("/api/admin/auth/me")).toBe("/api/admin/auth/me");
+    expect(assertApiPath("/api/admin/auth/logout")).toBe(
+      "/api/admin/auth/logout",
+    );
+
+    const request: AdminLoginRequest = {
+      email: "owner@example.com",
+      password: "correct horse battery staple",
+    };
+    const response: AdminAuthResponse = {
+      csrfToken: "csrf-token",
+      session: {
+        expiresAt: "2026-09-30T12:00:00.000Z",
+      },
+      user: {
+        email: request.email,
+        id: "11111111-1111-4111-8111-111111111111",
+        role: "OWNER",
+      },
+    };
+
+    expect(response.user.email).toBe("owner@example.com");
+    expect(JSON.stringify(response)).not.toContain("passwordHash");
+    expect(JSON.stringify(response)).not.toContain("sessionToken");
+    expect(JSON.stringify(response)).not.toContain("sessionTokenHash");
+    expect(JSON.stringify(response)).not.toContain("csrfTokenHash");
   });
 });

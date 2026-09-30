@@ -1,6 +1,145 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/api/admin/auth/login": {
+      "post": {
+        "operationId": "AdminAuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Admin login",
+        "tags": [
+          "Admin Auth"
+        ]
+      }
+    },
+    "/api/admin/auth/me": {
+      "get": {
+        "operationId": "AdminAuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get current admin session",
+        "tags": [
+          "Admin Auth"
+        ]
+      }
+    },
+    "/api/admin/auth/logout": {
+      "post": {
+        "operationId": "AdminAuthController_logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Logged out."
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Log out current admin session",
+        "tags": [
+          "Admin Auth"
+        ]
+      }
+    },
     "/api/public/invitations/{publicCredential}": {
       "get": {
         "operationId": "PublicInvitationController_retrievePublicInvitation",
@@ -260,6 +399,119 @@
   "servers": [],
   "components": {
     "schemas": {
+      "AdminLoginRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 15
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "AdminAuthUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role"
+        ]
+      },
+      "AdminAuthSessionDto": {
+        "type": "object",
+        "properties": {
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "expiresAt"
+        ]
+      },
+      "AdminAuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AdminAuthUserDto"
+          },
+          "session": {
+            "$ref": "#/components/schemas/AdminAuthSessionDto"
+          },
+          "csrfToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user",
+          "session",
+          "csrfToken"
+        ]
+      },
+      "ApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "details"
+        ]
+      },
+      "ApiErrorEnvelopeDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDto"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "error",
+          "requestId",
+          "timestamp"
+        ]
+      },
       "PublicInvitationEventDto": {
         "type": "object",
         "properties": {
@@ -421,47 +673,6 @@
         },
         "required": [
           "invitation"
-        ]
-      },
-      "ApiErrorDto": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "details": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true
-          }
-        },
-        "required": [
-          "code",
-          "message",
-          "details"
-        ]
-      },
-      "ApiErrorEnvelopeDto": {
-        "type": "object",
-        "properties": {
-          "error": {
-            "$ref": "#/components/schemas/ApiErrorDto"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "error",
-          "requestId",
-          "timestamp"
         ]
       },
       "PublicRsvpEventSelectionDto": {
