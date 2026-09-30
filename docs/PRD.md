@@ -165,7 +165,10 @@ The admin frontend must provide:
 - Manual guest lookup fallback.
 - CSV reports/export.
 
-MVP has one effective role: OWNER. No permission matrix or role-management UI is required.
+MVP has one effective role: OWNER. No permission matrix or role-management UI is required. The
+first OWNER is created by an operator-only command, not through a self-registration, signup, or
+network bootstrap flow; there is no admin account-creation UI. Multiple simultaneous OWNER
+sessions are allowed, and logout ends only the current session.
 
 ## Functional Requirements
 

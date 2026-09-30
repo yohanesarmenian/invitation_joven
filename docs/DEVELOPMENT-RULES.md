@@ -49,6 +49,21 @@
 - Public invitation APIs must not expose credential hashes, credential versions, sequential IDs, admin fields, or other invitations.
 - Check-in and RSVP state transitions must be transactionally safe.
 
+Admin authentication rules (locked in Phase 8 Slice 8B0):
+
+- The backend is the authoritative security boundary. Admin-web route protection is UX and defense in depth. Never treat client route state, hidden UI, a Next layout, or browser-side role data as authorization.
+- Every `/api/admin/**` operation except login independently enforces a valid session, and where required OWNER authorization, and for unsafe methods CSRF plus origin validation.
+- First-OWNER creation is an operator-only CLI. Do not add a network bootstrap, setup, or registration route, and do not add default credentials.
+- The first-OWNER command refuses once any `AdminUser` exists. Do not add a second-OWNER workflow, an admin-user creation UI, or role management in Phase 8.
+- Sessions are opaque, not JWT. Generate 32 cryptographically secure random bytes per login and persist only `SHA-256(sessionToken)`. Never accept a client-supplied session identifier.
+- The raw session token and raw CSRF token are never persisted, returned in JSON, logged, or placed in a URL or browser storage.
+- Use the session-bound `X-CSRF-Token` for unsafe methods and exact `Origin`/`Referer` validation against `ADMIN_ORIGIN`. Do not treat `SameSite=Strict` as a CSRF solution.
+- Do not enable broad CORS or cross-origin credentialed requests for the admin surface.
+- Login failure must return one indistinguishable response for unknown email, wrong password, and a `DISABLED` account. Do not add a distinct `SESSION_EXPIRED` public code.
+- The login and bootstrap request payloads must never be logged. Do not blanket-redact the normalized admin email.
+- Keep login throttling in-process for the MVP, and document the single-API-instance constraint before any horizontal scaling.
+- Password reset, password change, and MFA are outside the Phase 8 auth foundation. Do not add them by assumption.
+
 ## Testing and Verification
 
 - Meaningful domain logic requires tests.

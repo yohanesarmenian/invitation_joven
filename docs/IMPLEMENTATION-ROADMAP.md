@@ -272,9 +272,9 @@ Phase 7 ownership boundary (locked in 7B0):
 ## Phase 8 - Admin Frontend and Auth
 
 - Objective: Build OWNER admin interface and protected session flow.
-- Prerequisite: backend auth/session implementation plan finalized for deployment topology.
+- Prerequisite: backend auth/session implementation plan finalized for deployment topology. **Satisfied by Slice 8B0** (auth/security contract lock).
 - Tasks:
-  - Finalize production same-site/origin topology, cookie attributes, CSRF issuance/recovery, allowed credentialed origins, logout cookie clearing, and expired-session cleanup.
+  - Finalize production same-site/origin topology, cookie attributes, CSRF issuance/recovery, allowed credentialed origins, logout cookie clearing, and expired-session cleanup. **Done in Slice 8B0.**
   - Create Next.js admin app with shadcn/ui.
   - Implement login/logout/session handling.
   - Build dashboard.
@@ -289,6 +289,44 @@ Phase 7 ownership boundary (locked in 7B0):
 - Test/verification: E2E auth/protected route tests, API integration tests.
 - Non-goals: complex RBAC, role management UI.
 - Completion gate: admin can manage core invitation lifecycle.
+
+### Phase 8 scope (locked in Slice 8B0)
+
+Phase 8 is **not** only authentication. Phase 8 owns:
+
+- admin authentication: first-OWNER bootstrap, Argon2id password hashing, opaque sessions, login, logout, current session, CSRF, origin enforcement, login throttling, the authentication and OWNER guards
+- the `apps/admin-web` authenticated shell: login, server-side session bootstrap, protected layout, logout, session-expiry UX
+- dashboard
+- invitation list, detail, create, edit, archive
+- invitee management
+- `InvitationEvent` eligibility management
+- RSVP overview, detail, and OWNER override
+- **Guest Message visibility and moderation** — owned by Phase 8, but contract-locked separately (Slice 8D0) and implemented after the auth foundation
+
+Phase 8 does **not** own:
+
+- CSV/XLSX import — Phase 9
+- QR scanner and venue check-in — Phase 10
+- reporting and CSV export — Phase 11
+- Event catalog/management beyond `InvitationEvent` eligibility — not silently added
+- role management, additional-OWNER creation, or non-`OWNER` roles
+
+**Phase 8 is not complete once authentication and the admin shell ship.** The admin-management surface (8D0 onward) is part of Phase 8.
+
+### Phase 8 slices (locked in Slice 8B0)
+
+| Slice | Scope | Notes |
+| --- | --- | --- |
+| 8A | Admin foundation discovery / auth audit | Read-only discovery against the repository; produced the D1-D13 decision inventory. No code. |
+| 8B0 | Auth/security contract lock (docs only) | Resolves D1-D13: same-origin topology, `__Host-` cookie, operator-only bootstrap, Argon2id parameters, opaque session lifetime, session-bound CSRF, origin validation, the auth error contract, in-process login throttling, route-protection and API-client doctrine, and guest-message ownership. No code, no schema change, no migration. |
+| 8B | Backend auth foundation | Bootstrap CLI, Argon2id, login, `me`, logout, sessions, guards, OWNER authorization, CSRF, origin enforcement, login throttling, OpenAPI and generated client. |
+| 8C | admin-web auth foundation | Login, session bootstrap, authenticated shell, protected layout, logout, session-expiry UX. |
+| 8D0 | Admin-management contract audit/lock (docs only) | Dashboard, invitations, invitees, eligibility, RSVP administration/override, and Guest Messages. Must also resolve invitation-link regeneration retry/idempotency, which Slice 8B0 deliberately did not settle. |
+| 8D+ | Admin-management backend/domain implementation | Bounded slices, named after 8D0. |
+| 8E+ | Admin-management admin-web surfaces | Bounded slices matching 8D+. |
+| 8F | Final integrated Phase 8 QA | Auth, privacy, CSRF, session-expiry, and regression audit. |
+
+Exact 8D/8E sub-slice names may be refined after 8D0.
 
 ## Phase 9 - CSV/XLSX Import
 

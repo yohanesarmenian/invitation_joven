@@ -81,6 +81,15 @@ Purpose: Stores OWNER login identity.
 - Sensitive fields: `password_hash`.
 - Deletion: not normally deleted; disable if needed.
 
+Phase 8 Slice 8B0 additions (no schema change):
+
+- `email` is stored **normalized**: trimmed and lowercased before persistence. It is `TEXT`, not `citext`; normalization is an application-boundary rule and every supported `AdminUser` writer must apply the same one. Maximum 254 characters, syntactically valid.
+- `password_hash` holds the encoded **Argon2id** hash only (`memoryCost = 19456`, `timeCost = 2`, `parallelism = 1`, library-generated random salt). Plaintext passwords, reversible passwords, and password encryption keys are never persisted.
+- `role` remains `OWNER`-only. No `ADMIN`/`EDITOR`/`VIEWER` value is added, and no role-management surface is introduced in Phase 8.
+- `status` gates both login and session use. A `DISABLED` user gets `401 INVALID_CREDENTIALS` at login and `401 UNAUTHENTICATED` for an existing session.
+- `last_login_at` is updated on every successful login.
+- First-OWNER bootstrap is operator-only and refuses once **any** `AdminUser` row exists. The MVP supports one effective OWNER. **No singleton constraint is added**, because the schema may structurally permit multiple OWNER rows while the product provides no workflow to create them.
+
 ### AdminSession
 
 Purpose: Server-managed opaque admin sessions.
@@ -104,6 +113,18 @@ Purpose: Server-managed opaque admin sessions.
   - Active session lookup by `session_token_hash`.
 - Sensitive fields: token hashes, IP address.
 - Lifecycle: created at login, updated on use, revoked on logout or security action, expired by time.
+
+Phase 8 Slice 8B0 additions (no schema change):
+
+- `session_token_hash` stores `SHA-256(sessionToken)` of a 32-byte cryptographically secure random token encoded as unpadded Base64URL. The raw token is never persisted; it exists only transiently and inside the `HttpOnly` cookie.
+- `csrf_token_hash` stores `SHA-256(csrfToken)`, where the CSRF token is `HMAC-SHA256(key = raw session token bytes, message = "admin-csrf-v1")` encoded as unpadded Base64URL. The raw CSRF token is never persisted; it can be re-derived at session bootstrap.
+- `expires_at` is fixed at login to **12 hours** and is never extended by activity. There is no sliding expiration.
+- Idle timeout is **30 minutes**, evaluated against `last_seen_at` when present, otherwise `created_at`. `last_seen_at` is written only when at least approximately 5 minutes have elapsed since the stored activity timestamp — not on every request.
+- `revoked_at` is set on logout for the current session only. Multiple simultaneous sessions per `AdminUser` are allowed; login does not revoke other sessions and there is no "sign out everywhere" operation.
+- A session is valid only when the `AdminUser` is `ACTIVE`, `revoked_at IS NULL`, `expires_at > now`, and the idle window has not elapsed.
+- Session validity never depends on physical row deletion. Expired or revoked rows are immediately unusable while present; Phase 8B **may** opportunistically delete rows older than a recommended **7 days** past expiry or revocation, with no cron, scheduler dependency, or background worker added for it.
+- `user_agent` and `ip_address` remain **`null`** in the MVP. Authentication does not rely on them; no proxy-trust configuration, fingerprinting, geolocation logic, or PII retention is introduced merely because the nullable columns exist. They are reserved for future operational/security telemetry.
+- Login throttling is **in-process and ephemeral** and therefore adds **no** `failed_login_attempts` or `locked_until` column. See `TECHNICAL-ARCHITECTURE.md` (D7).
 
 ### Invitation
 

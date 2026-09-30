@@ -55,6 +55,13 @@ Required error codes:
 | `QR_INVALID` | 404 or 422 | Admin scanner received invalid/non-resolvable credential; response must not leak sensitive internals. |
 | `QR_REVOKED` | 422 | Admin scanner resolved a revoked/expired pass. |
 | `CHECKIN_ALREADY_CONFIRMED` | 409 | Invitation already has confirmed attendance for the event. |
+| `INVALID_CREDENTIALS` | 401 | Admin login failed. Covers unknown email, wrong password, and a `DISABLED` account, indistinguishably. |
+| `TOO_MANY_LOGIN_ATTEMPTS` | 429 | Admin login was rejected by the login throttle. Must not indicate whether the account exists. |
+| `UNAUTHENTICATED` | 401 | Admin request without a usable session: missing cookie, malformed session token, unknown session, expired session, idle-expired session, revoked session, or a session whose `AdminUser` is `DISABLED`. |
+| `FORBIDDEN` | 403 | Authenticated session without the required role. Reserved for authorization doctrine; normally unreachable while `OWNER` is the only role. |
+| `CSRF_INVALID` | 403 | Unsafe authenticated admin request failed CSRF or admin-origin validation. Does not disclose which check failed. |
+
+Admin authentication error codes are locked by Phase 8 Slice 8B0 and must not be merged, split, or renamed during implementation. There is deliberately **no** public `SESSION_EXPIRED` code: an expired, revoked, idle-expired, missing, or disabled-account session all return `401 UNAUTHENTICATED` so the admin client shows one generic state.
 
 Public APIs must not expose credential hashes, credential versions, password/session data, admin-only fields, internal security fields, or data from other invitations.
 
@@ -441,22 +448,30 @@ Logging:
 
 ## Admin Authentication Endpoints
 
+**Locked by Phase 8 Slice 8B0.** These three endpoints are the whole admin authentication surface. First-OWNER creation is an operator CLI and is deliberately not an HTTP route; see `TECHNICAL-ARCHITECTURE.md` (D2).
+
 ### Login
 
 `POST /api/admin/auth/login`
 
-Authentication: none.
+Authentication: none. No existing session is required and no CSRF token is required. The expected-origin rule **is** enforced (see "Admin CSRF and origin doctrine").
 
 Request:
 
 ```json
 {
   "email": "owner@example.com",
-  "password": "password"
+  "password": "a correct horse battery staple"
 }
 ```
 
-Response:
+Request rules:
+
+- `email`: required string; trimmed; lowercased; syntactically valid; maximum 254 characters. The normalized form is what is persisted at bootstrap and what login looks up.
+- `password`: required string; **not** trimmed; 15 to 128 Unicode code points. Whitespace is valid content and Unicode is allowed.
+- Unknown extra top-level fields follow the existing strict DTO validation doctrine and are rejected with `400 VALIDATION_ERROR`.
+
+Response `200 OK`:
 
 ```json
 {
@@ -465,34 +480,87 @@ Response:
     "email": "owner@example.com",
     "role": "OWNER"
   },
-  "csrfToken": "csrf_token_for_unsafe_requests"
+  "session": {
+    "expiresAt": "2026-09-30T21:14:07.000Z"
+  },
+  "csrfToken": "unpadded-base64url-session-bound-csrf-token"
 }
 ```
 
-Side effect: sets HttpOnly admin session cookie.
+Side effects:
+
+- Sets the environment-appropriate `HttpOnly` admin session cookie (production `__Host-admin_session`; development/test `admin_session`).
+- Creates a new `AdminSession` row storing only `SHA-256(sessionToken)` and `SHA-256(csrfToken)`.
+- Updates `AdminUser.lastLoginAt`.
+
+The raw session token is **never** in the JSON body; it is delivered only through the cookie.
 
 Errors:
 
-- `401 INVALID_CREDENTIALS`.
-- `429 TOO_MANY_LOGIN_ATTEMPTS`.
+- `400 VALIDATION_ERROR` for a malformed request body.
+- `401 INVALID_CREDENTIALS` for unknown email, wrong password, and a `DISABLED` account, indistinguishably.
+- `403 CSRF_INVALID` for a failed admin-origin check.
+- `429 TOO_MANY_LOGIN_ATTEMPTS` when the login throttle rejects the request.
 
 ### Current session
 
 `GET /api/admin/auth/me`
 
-Authentication: admin session cookie.
+Authentication: admin session cookie. No CSRF token required.
 
-Response: current OWNER identity and session expiry.
+Behavior: resolves the session, requires `AdminUser.status === ACTIVE`, re-derives the session-bound CSRF token from the raw cookie token so the admin client can recover it after a refresh or a new server render, and returns the same shape as a successful login.
+
+Response `200 OK`:
+
+```json
+{
+  "user": {
+    "id": "6a3e6cb6-5a1a-457d-9b36-7fb7cb8ac96a",
+    "email": "owner@example.com",
+    "role": "OWNER"
+  },
+  "session": {
+    "expiresAt": "2026-09-30T21:14:07.000Z"
+  },
+  "csrfToken": "unpadded-base64url-session-bound-csrf-token"
+}
+```
+
+Never returned: session id, session token, `sessionTokenHash`, `csrfTokenHash`, `passwordHash`, `ipAddress`, `userAgent`.
+
+Errors: `401 UNAUTHENTICATED` for any unusable session.
 
 ### Logout
 
 `POST /api/admin/auth/logout`
 
-Authentication: admin session cookie plus CSRF token.
+Authentication: admin session cookie **plus** CSRF token. Origin validation also applies.
 
 Response: `204 No Content`.
 
-Side effect: revokes session and clears cookie.
+Side effects: sets `revokedAt` on the **current** `AdminSession` only, and clears the current session cookie with matching name, path, and environment attributes. Other OWNER sessions are unaffected. See `TECHNICAL-ARCHITECTURE.md` (D13).
+
+Errors: `401 UNAUTHENTICATED`, `403 CSRF_INVALID`.
+
+## Admin CSRF and origin doctrine
+
+**Locked by Phase 8 Slice 8B0.**
+
+- Every authenticated unsafe admin operation (`POST`, `PUT`, `PATCH`, `DELETE`) requires the `X-CSRF-Token` header. The only exception is `POST /api/admin/auth/login`, which has no authenticated session yet.
+- `GET`, `HEAD`, and `OPTIONS` must not mutate state and do not require a CSRF token.
+- The CSRF token is deterministic per `AdminSession`: HMAC-SHA256 keyed by the raw session token bytes with context `admin-csrf-v1`, encoded as unpadded Base64URL. Only `SHA-256(csrfToken)` is persisted, in `AdminSession.csrfTokenHash`. Comparison is timing-safe.
+- A successful login and `GET /api/admin/auth/me` both return the raw CSRF token, which is how the admin client recovers it after a refresh without rotating the session.
+- One deterministic token is bound to each session; a new login produces a different token.
+- No double-submit cookie, no CSRF token in a URL, and no CSRF token in `localStorage`/`sessionStorage`.
+
+Origin rule, applied to every browser unsafe admin request including login:
+
+- `Origin` present: require an exact match with the configured `ADMIN_ORIGIN` (scheme + host + optional port; no wildcard, no trailing path).
+- `Origin` absent, `Referer` present: require its origin to exactly match `ADMIN_ORIGIN`.
+- Neither yields a valid expected origin: reject with `403 CSRF_INVALID`.
+- Substring and suffix matching are not permitted.
+
+Broad CORS is not enabled to satisfy this, and `SameSite=Strict` is treated as defense in depth rather than as a CSRF solution.
 
 ## Admin Dashboard
 
@@ -637,6 +705,8 @@ Transaction:
 
 Old credential becomes invalid immediately. Deterministic retry/idempotency semantics must be finalized before this endpoint ships.
 
+**Carried forward (Phase 8 Slice 8B0).** The retry/idempotency contract for this endpoint is deliberately **not** resolved by the auth lock. It is carried explicitly into the Slice 8D0 admin-management contract audit, together with the rest of the admin-domain surface.
+
 ### Copy invitation URL
 
 `GET /api/admin/invitations/{invitationId}/public-url`
@@ -698,7 +768,9 @@ State transitions: same RSVP/check-in pass lifecycle as public.
 
 ## Admin Message Endpoints
 
-**Deferred. Not part of Phase 7.** These operations require the OWNER admin session foundation owned by Phase 8, and `apps/admin-web` has no API client or authentication. Phase 7 owns public guest-message submission only.
+**Deferred. Not part of Phase 7 or Phase 8's auth foundation.** These operations require the OWNER admin session foundation owned by Phase 8, and `apps/admin-web` has no API client or authentication. Phase 7 owns public guest-message submission only.
+
+**Phase ownership (locked in Phase 8 Slice 8B0).** Admin guest-message visibility and moderation **is owned by Phase 8**, but it is **not** part of Phase 8's auth-foundation slices 8B and 8C. It requires its own admin-domain contract lock (Slice 8D0) before implementation. Phase 8 is therefore not complete once auth and the admin shell ship.
 
 - `GET /api/admin/messages?page=1&pageSize=25`
 - `GET /api/admin/invitations/{invitationId}/messages`
@@ -706,7 +778,9 @@ State transitions: same RSVP/check-in pass lifecycle as public.
 
 Authentication: OWNER.
 
-Admin listing pagination, sort order, detail, and hide/unhide behavior are not Phase 7 public-contract blockers and are not locked here. They are decided when the admin foundation exists. Guest message content remains plain text in admin surfaces: no `dangerouslySetInnerHTML`, no Markdown interpretation.
+Admin listing pagination, sort order, detail, and hide/unhide behavior are not Phase 7 public-contract blockers and are **still not locked**. Slice 8D0 must resolve the global list response, the invitation-specific list response, pagination and `pageSize` limits, sort order, returned fields, `authorName` handling, `createdAt` representation, `isHidden` visibility, the hide/unhide request and response, idempotency, the empty state, admin rendering, and plain-text safety. No schema change is expected.
+
+Guest message content remains plain text in admin surfaces: no `dangerouslySetInnerHTML`, no Markdown interpretation.
 
 ## Admin Import Endpoints
 
