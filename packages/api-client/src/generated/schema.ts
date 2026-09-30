@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/admin/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin login */
+        post: operations["AdminAuthController_login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current admin session */
+        get: operations["AdminAuthController_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Log out current admin session */
+        post: operations["AdminAuthController_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public/invitations/{publicCredential}": {
         parameters: {
             query?: never;
@@ -76,6 +127,39 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminLoginRequestDto: {
+            email: string;
+            password: string;
+        };
+        AdminAuthUserDto: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            /** @enum {string} */
+            role: "OWNER";
+        };
+        AdminAuthSessionDto: {
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        AdminAuthResponseDto: {
+            user: components["schemas"]["AdminAuthUserDto"];
+            session: components["schemas"]["AdminAuthSessionDto"];
+            csrfToken: string;
+        };
+        ApiErrorDto: {
+            code: string;
+            message: string;
+            details: {
+                [key: string]: unknown;
+            } | null;
+        };
+        ApiErrorEnvelopeDto: {
+            error: components["schemas"]["ApiErrorDto"];
+            requestId: string;
+            /** Format: date-time */
+            timestamp: string;
+        };
         PublicInvitationEventDto: {
             /** Format: uuid */
             id: string;
@@ -115,19 +199,6 @@ export interface components {
         };
         PublicInvitationResponseDto: {
             invitation: components["schemas"]["PublicInvitationDto"];
-        };
-        ApiErrorDto: {
-            code: string;
-            message: string;
-            details: {
-                [key: string]: unknown;
-            } | null;
-        };
-        ApiErrorEnvelopeDto: {
-            error: components["schemas"]["ApiErrorDto"];
-            requestId: string;
-            /** Format: date-time */
-            timestamp: string;
         };
         PublicRsvpEventSelectionDto: {
             /** Format: uuid */
@@ -208,6 +279,122 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    AdminAuthController_login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminLoginRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAuthResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAuthResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
     PublicInvitationController_retrievePublicInvitation: {
         parameters: {
             query?: never;

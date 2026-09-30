@@ -6,12 +6,13 @@ import {
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { AuthModule } from "./auth/auth.module.js";
 import { InvitationsModule } from "./invitations/invitations.module.js";
 import { MessagesModule } from "./messages/messages.module.js";
 import { createOpenApiDocument } from "./openapi.js";
 
 @Module({
-  imports: [InvitationsModule, MessagesModule],
+  imports: [AuthModule, InvitationsModule, MessagesModule],
 })
 class OpenApiTestModule {}
 
@@ -45,6 +46,9 @@ describe("OpenAPI contract", () => {
     const publicGuestMessagePath =
       document.paths["/api/public/invitations/{publicCredential}/messages"];
     const postMessageOperation = publicGuestMessagePath?.post;
+    const adminLoginPath = document.paths["/api/admin/auth/login"];
+    const adminMePath = document.paths["/api/admin/auth/me"];
+    const adminLogoutPath = document.paths["/api/admin/auth/logout"];
     const schemas = document.components?.schemas ?? {};
 
     expect(getOperation).toBeDefined();
@@ -78,6 +82,21 @@ describe("OpenAPI contract", () => {
     expect(postMessageOperation?.responses).toHaveProperty("201");
     expect(postMessageOperation?.responses).toHaveProperty("400");
     expect(postMessageOperation?.responses).toHaveProperty("404");
+    expect(adminLoginPath?.post).toBeDefined();
+    expect(adminLoginPath?.post?.requestBody).toBeDefined();
+    expect(adminLoginPath?.post?.responses).toHaveProperty("200");
+    expect(adminLoginPath?.post?.responses).toHaveProperty("400");
+    expect(adminLoginPath?.post?.responses).toHaveProperty("401");
+    expect(adminLoginPath?.post?.responses).toHaveProperty("403");
+    expect(adminLoginPath?.post?.responses).toHaveProperty("429");
+    expect(adminMePath?.get).toBeDefined();
+    expect(adminMePath?.get?.responses).toHaveProperty("200");
+    expect(adminMePath?.get?.responses).toHaveProperty("401");
+    expect(adminLogoutPath?.post).toBeDefined();
+    expect(adminLogoutPath?.post?.responses).toHaveProperty("204");
+    expect(adminLogoutPath?.post?.responses).toHaveProperty("401");
+    expect(adminLogoutPath?.post?.responses).toHaveProperty("403");
+    expect(document.paths["/api/admin/auth/bootstrap"]).toBeUndefined();
     expect(publicGuestMessagePath?.get).toBeUndefined();
     expect(publicGuestMessagePath?.put).toBeUndefined();
     expect(publicGuestMessagePath?.patch).toBeUndefined();
@@ -88,6 +107,8 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("PublicRsvpReadResponseDto");
     expect(schemas).toHaveProperty("SubmitPublicGuestMessageRequestDto");
     expect(schemas).toHaveProperty("PublicGuestMessageResponseDto");
+    expect(schemas).toHaveProperty("AdminLoginRequestDto");
+    expect(schemas).toHaveProperty("AdminAuthResponseDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     expect(JSON.stringify(schemas)).not.toContain("publicTokenHash");
     expect(JSON.stringify(schemas)).not.toContain("publicTokenVersion");
@@ -182,6 +203,44 @@ describe("OpenAPI contract", () => {
     );
     expect(JSON.stringify(schemas.PublicGuestMessageResponseDto)).not.toContain(
       "isHidden",
+    );
+    expect(schemas.AdminLoginRequestDto).toMatchObject({
+      properties: {
+        email: expect.objectContaining({
+          maxLength: 254,
+          type: "string",
+        }),
+        password: expect.objectContaining({
+          maxLength: 128,
+          minLength: 15,
+          type: "string",
+        }),
+      },
+      required: ["email", "password"],
+    });
+    expect(schemas.AdminAuthResponseDto).toMatchObject({
+      properties: {
+        csrfToken: expect.objectContaining({ type: "string" }),
+        session: expect.objectContaining({
+          $ref: "#/components/schemas/AdminAuthSessionDto",
+        }),
+        user: expect.objectContaining({
+          $ref: "#/components/schemas/AdminAuthUserDto",
+        }),
+      },
+      required: ["user", "session", "csrfToken"],
+    });
+    expect(JSON.stringify(schemas.AdminAuthResponseDto)).not.toContain(
+      "passwordHash",
+    );
+    expect(JSON.stringify(schemas.AdminAuthResponseDto)).not.toContain(
+      "sessionToken",
+    );
+    expect(JSON.stringify(schemas.AdminAuthResponseDto)).not.toContain(
+      "sessionTokenHash",
+    );
+    expect(JSON.stringify(schemas.AdminAuthResponseDto)).not.toContain(
+      "csrfTokenHash",
     );
   });
 });
