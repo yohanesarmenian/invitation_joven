@@ -12,7 +12,7 @@ Base paths:
 Response format:
 
 - Success responses return JSON objects.
-- List responses use `{ "items": [], "page": {...} }`.
+- List responses use `{ "items": [], "page": {...} }`. The `page` object is locked for admin lists under "Admin Management Conventions".
 - Errors use the shared envelope:
 
 ```json
@@ -60,6 +60,8 @@ Required error codes:
 | `UNAUTHENTICATED` | 401 | Admin request without a usable session: missing cookie, malformed session token, unknown session, expired session, idle-expired session, revoked session, or a session whose `AdminUser` is `DISABLED`. |
 | `FORBIDDEN` | 403 | Authenticated session without the required role. Reserved for authorization doctrine; normally unreachable while `OWNER` is the only role. |
 | `CSRF_INVALID` | 403 | Unsafe authenticated admin request failed CSRF or admin-origin validation. Does not disclose which check failed. |
+| `NOT_FOUND` | 404 | Authenticated OWNER request referenced a missing admin resource. Admin-domain only. |
+| `CONFLICT` | 409 | Admin-domain state or concurrency conflict where no more-specific existing domain code applies. |
 
 Admin authentication error codes are locked by Phase 8 Slice 8B0 and must not be merged, split, or renamed during implementation. There is deliberately **no** public `SESSION_EXPIRED` code: an expired, revoked, idle-expired, missing, or disabled-account session all return `401 UNAUTHENTICATED` so the admin client shows one generic state.
 
@@ -562,20 +564,93 @@ Origin rule, applied to every browser unsafe admin request including login:
 
 Broad CORS is not enabled to satisfy this, and `SameSite=Strict` is treated as defense in depth rather than as a CSRF solution.
 
+## Admin Management Conventions
+
+**Locked by Phase 8 Slice 8D0.** These apply to every Phase 8 admin-management endpoint. The auth contract in the previous section is unchanged and is not reopened.
+
+### Shared enforcement
+
+- Every `/api/admin/**` route except `POST /api/admin/auth/login` requires a valid session and OWNER authorization.
+- Safe methods (`GET`, `HEAD`, `OPTIONS`) must not mutate state and require no CSRF token.
+- Unsafe methods (`POST`, `PUT`, `PATCH`, `DELETE`) additionally require exact `ADMIN_ORIGIN` validation and a valid `X-CSRF-Token`.
+- Enforcement is a **shared** backend surface, not a per-controller manual call. A route must not be able to opt out by omission. Exact guard/decorator names remain an implementation detail.
+- Login is the single intentional exception, because no authenticated session exists yet.
+
+### Shared pagination
+
+Admin list endpoints accept:
+
+- `page`: integer, 1-based, default `1`, minimum `1`.
+- `pageSize`: integer, default `25`, minimum `1`, maximum `100`.
+
+Invalid values return `400 VALIDATION_ERROR`.
+
+Response envelope, shared by every admin list:
+
+```json
+{
+  "items": [],
+  "page": {
+    "number": 1,
+    "pageSize": 25,
+    "totalItems": 0,
+    "totalPages": 0
+  }
+}
+```
+
+- `totalItems` counts rows **after filters and before pagination**.
+- `totalPages = ceil(totalItems / pageSize)`.
+- Zero items means `totalPages` is `0`.
+- An otherwise valid page beyond the final page returns an empty `items` array, the requested `number`, and correct totals. It is **not** a `404`.
+- Cursor pagination is not used in Phase 8.
+
+### Shared sorting
+
+Admin list endpoints accept `sortBy` and `sortOrder` (`asc` | `desc`). An unsupported field or order returns `400 VALIDATION_ERROR`. Client-supplied sort fields are whitelisted per endpoint and never interpolated into SQL.
+
+Every ordering appends `id ASC` as a deterministic final tie-breaker, so page boundaries stay stable.
+
+Never sortable: public credential, `publicTokenHash`, `publicTokenVersion`, `Invitation.notes`, `GuestMessage.message`, and auth/session fields.
+
+### Shared search
+
+Where an endpoint accepts `search`:
+
+- The value is trimmed of outer whitespace; empty after trimming is treated as omitted.
+- Maximum 100 Unicode code points.
+- Case-insensitive partial match.
+- No full-text, trigram, or new database extension/index is introduced in Phase 8.
+
+Searchable fields are listed per endpoint. Never searchable: the public credential, `publicTokenHash`, `publicTokenVersion`, internal UUIDs, `CheckinPass` credential or hash, and auth/session fields.
+
+### Error doctrine
+
+- `400 VALIDATION_ERROR` for malformed query, body, or input.
+- `404 NOT_FOUND` for an authenticated OWNER request referencing a missing admin resource.
+- `409 CONFLICT` for state or concurrency conflicts where no more-specific existing domain code applies.
+- The public `404 INVITATION_NOT_AVAILABLE` is **not** reused for admin resource lookups. It exists to keep public credential resolution indistinguishable and carries public non-enumeration semantics that admin-domain lookups do not have.
+- Existing RSVP domain codes remain authoritative where they apply: `RSVP_VERSION_CONFLICT`, `RSVP_DEADLINE_PASSED`, `EVENT_NOT_SELECTED`, `EVENT_NOT_ALLOWED`, `PLUS_ONE_NOT_ALLOWED`, `ADDITIONAL_CHILD_LIMIT_EXCEEDED`, `RSVP_ATTENDEE_INVALID`.
+- Admin responses may carry a safe, actionable message. They never expose stack traces, SQL, internal exception text, credentials, or hashes.
+
+### Response shape doctrine
+
+Admin responses use **explicit DTOs**. Prisma models are never returned directly, and an admin route never becomes a raw table dump because the caller is authenticated. The prohibited fields are enumerated under "Response Privacy" below.
+
 ## Admin Dashboard
 
 `GET /api/admin/dashboard`
 
 Authentication: OWNER.
 
-Default active metrics exclude archived invitations, while archived count is shown separately.
+**Locked by Phase 8 Slice 8D0.** The earlier dashboard payload in this document was illustrative and has been replaced. Phase 8 ships only metrics whose source data has a writer in Phase 8.
 
 Response:
 
 ```json
 {
   "invitations": {
-    "totalActive": 118,
+    "active": 118,
     "archived": 2,
     "openedActive": 90
   },
@@ -584,40 +659,86 @@ Response:
     "accepted": 70,
     "declined": 10
   },
-  "headcount": {
-    "expectedTotal": 180,
-    "expectedByEvent": [
-      { "eventId": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4", "count": 120 }
-    ],
-    "adults": 140,
-    "children": 40
-  },
-  "checkin": {
-    "checkedInHouseholds": 30,
-    "checkedInAttendeeCount": 70,
-    "byEvent": [
-      { "eventId": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4", "households": 30, "attendees": 70 }
-    ],
-    "notYetArrivedAcceptedInvitations": 40
-  }
+  "expectedByEvent": [
+    {
+      "event": {
+        "id": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
+        "slug": "holy-matrimony",
+        "name": "Holy Matrimony"
+      },
+      "expectedAttendeeCount": 120
+    }
+  ]
 }
 ```
 
+Definitions:
+
+- `invitations.active`: `Invitation.status = ACTIVE`.
+- `invitations.archived`: `Invitation.status = ARCHIVED`.
+- `invitations.openedActive`: `ACTIVE` invitation with `openCount > 0`.
+- `rsvp.accepted` / `rsvp.declined`: `RSVP.status` counts belonging to `ACTIVE` invitations.
+- `rsvp.pending`: `ACTIVE` invitations with **no RSVP row** or with an RSVP row whose status is `PENDING`. RSVP rows are created lazily, so an absent row is the normal pending state.
+- `expectedByEvent[].expectedAttendeeCount`: for `ACTIVE` invitations with an `ACCEPTED` RSVP, the sum of `RSVPEventSelection.expectedAttendeeCount` over attending selections, grouped by `Event`.
+
+Archived invitations are excluded from every `rsvp` and `expectedByEvent` metric and are reported only through `invitations.archived`.
+
+The read should use one consistent database read/transaction where practical so the counts describe one instant.
+
+**Not in the Phase 8 dashboard:** the `checkin` block, checked-in households, checked-in attendee counts, not-yet-arrived counts, adult/child reporting totals, `headcount.expectedTotal` (cross-event sums double-count households attending more than one event), and reporting charts. Check-in metrics need Phase 10 `CheckinRecord` data; broader reporting belongs to Phase 11.
+
 ## Admin Invitation Endpoints
+
+All endpoints in this section follow "Admin Management Conventions". Mutations require OWNER plus CSRF plus exact origin. Mutations are rejected with `409 CONFLICT` when the Invitation is `ARCHIVED`; archive is terminal.
 
 ### List invitations
 
-`GET /api/admin/invitations?status=ACTIVE&rsvpStatus=ACCEPTED&search=smith&page=1&pageSize=25`
+`GET /api/admin/invitations?status=ACTIVE&rsvpStatus=ACCEPTED&search=smith&sortBy=createdAt&sortOrder=desc&page=1&pageSize=25`
 
 Authentication: OWNER.
 
-Response: paginated invitation summaries.
+Query:
+
+- `status`: `ACTIVE` | `ARCHIVED`. Omitted means all statuses.
+- `rsvpStatus`: `PENDING` | `ACCEPTED` | `DECLINED`. `PENDING` means an invitation with **no RSVP row** or with `RSVP.status = PENDING`.
+- `search`: matches `Invitation.displayName`, `Invitation.greetingName`, or a related `Invitee.fullName`.
+- `sortBy`: `createdAt` | `updatedAt` | `displayName` | `status` | `lastOpenedAt`. Default `createdAt`.
+- `sortOrder`: `asc` | `desc`. Default `desc`.
+- `page`, `pageSize`: shared pagination.
+
+Item:
+
+```json
+{
+  "items": [
+    {
+      "id": "0975522e-edc7-445e-80f2-c9f7c88a6ff2",
+      "displayName": "John & Jane Smith Family",
+      "greetingName": "John & Jane",
+      "status": "ACTIVE",
+      "rsvpStatus": "ACCEPTED",
+      "inviteeCount": 3,
+      "openCount": 4,
+      "lastOpenedAt": "2026-09-29T10:15:00.000Z",
+      "rsvpDeadlineAt": "2026-12-25T16:59:59.000Z",
+      "createdAt": "2026-09-17T00:00:00.000Z",
+      "updatedAt": "2026-09-29T10:15:00.000Z",
+      "archivedAt": null
+    }
+  ],
+  "page": { "number": 1, "pageSize": 25, "totalItems": 1, "totalPages": 1 }
+}
+```
+
+`rsvpStatus` is the persisted RSVP status, or `PENDING` when no RSVP row exists.
+
+Not in the list item: the public credential, public URL, `publicTokenHash`, `publicTokenVersion`, `notes`, invitee arrays, messages, `qrPayload`, pass credentials, and a guest-message count. The list is a summary; use the detail endpoint for relations.
 
 ### Create invitation
 
 `POST /api/admin/invitations`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER plus CSRF plus exact origin.
 
 Request:
 
@@ -627,24 +748,45 @@ Request:
   "greetingName": "John & Jane",
   "allowPlusOne": false,
   "maxAdditionalChildren": 2,
+  "rsvpDeadlineAt": null,
+  "notes": null,
   "eventIds": ["7d98761a-b7fc-4a2e-8df4-69b6f22d85b4"],
   "invitees": [
     { "fullName": "John Smith", "category": "ADULT" },
-    { "fullName": "Alice Smith", "category": "CHILD" }
+    { "fullName": "Alice Smith", "category": "CHILD", "label": null }
   ]
 }
 ```
 
-Response: `201 Created` with invitation detail and public URL.
+Invitee items use the existing `category` values `ADULT` and `CHILD`. There are no contact, phone, email, or CRM fields, and none may be invented.
 
-Side effects:
+Behavior — **one transaction**:
 
-- Creates Invitation with `public_token_version = 1`.
-- Derives public credential.
-- Stores `public_token_hash`.
-- Creates InvitationEvent rows.
-- Creates invitees.
-- Does not create an RSVP row. Phase 5 locks lazy RSVP creation: `expectedVersion: null` create-only semantics depend on the absence of an RSVP row, so no empty/`PENDING` RSVP row may be pre-created.
+1. Begin transaction.
+2. Allocate the new `Invitation.id` (UUID) in application/domain code, before any credential work.
+3. Derive the public credential through the existing deterministic invitation derivation, using namespace `invitation`, stable id = the newly allocated `Invitation.id`, and version `1`. Hash the derived credential to produce `public_token_hash`. Plaintext is never persisted.
+4. Insert the Invitation with `status = ACTIVE`, `public_token_version = 1`, and the `public_token_hash` derived in step 3, together with every canonical Invitation field.
+5. Create one `InvitationEvent` row per `eventId`.
+6. Create the invitees, assigning `displayOrder` from request array position (`0, 1, 2, ...`).
+7. Commit.
+
+Credential coherence invariant: an Invitation must never become a committed row with a missing, placeholder, or mismatched `public_token_version` / `public_token_hash`. **Version and hash begin coherently at version 1**, in the same insert. A temporary or fake hash, a blank credential hash, a two-transaction setup, or a post-insert credential backfill on a `NOT NULL` column are all forbidden. The concrete Prisma mechanism may differ (for example a client-generated UUID supplied to `create`), but the invariant does not.
+
+Rules:
+
+- `eventIds` must contain no duplicates, and every referenced `Event` must exist and be selectable (see "Admin Event Endpoints").
+- Display/greeting/name text uses the existing project text normalization doctrine.
+- Duplicate invitee names are allowed. There is no uniqueness rule on `Invitee.fullName`.
+- The Invitation, its `InvitationEvent` rows, its invitees, and the initial credential version/hash state all belong to **one** transaction. Failure of any write rolls back the whole create; there is no partially-created household.
+- **No RSVP row is created.** Phase 5 locks lazy RSVP creation: `expectedVersion: null` create-only semantics depend on the absence of an RSVP row, so no empty/`PENDING` RSVP row may be pre-created.
+
+Response: `201 Created` with the created invitation detail plus a public URL object (`publicUrl` and `publicTokenVersion`).
+
+Create retry doctrine — **create is not idempotent** and no idempotency key is introduced:
+
+- admin-web prevents duplicate pending submissions, never auto-retries after an uncertain network result, and never claims success without a confirmed response.
+- If the outcome is uncertain, admin-web reloads the invitation list and lets the OWNER determine whether the invitation was created before explicitly submitting again.
+- No content-based deduplication is attempted.
 
 ### Get invitation detail
 
@@ -652,60 +794,59 @@ Side effects:
 
 Authentication: OWNER.
 
-Response: full admin detail including invitees, eligibility, RSVP, messages summary, pass status/history, CheckinRecord history, open aggregates, and current public URL if the backend chooses to include it. Must not expose credential hashes.
+Response fields: `id`, `displayName`, `greetingName`, `status`, `allowPlusOne`, `maxAdditionalChildren`, `rsvpDeadlineAt`, `notes`, `publicTokenVersion`, `openCount`, `firstOpenedAt`, `lastOpenedAt`, `createdAt`, `updatedAt`, `archivedAt`.
+
+Embedded relations:
+
+- `invitees` — full invitee DTOs.
+- `eligibility` — current `InvitationEvent` rows with safe `Event` metadata (`id`, `slug`, `name`, `isActive`, `displayOrder`).
+- RSVP summary/detail sufficient for the invitation detail page, including `status` and `version`.
+- Message summary only: `total` and `hidden` counts.
+- Check-in pass **metadata history** when an RSVP exists: `status`, `issuedAt`, `revokedAt`, `revocationReason`, `expiresAt`. `credentialVersion` may be included as operational metadata.
+
+Not embedded: `publicTokenHash`, the raw public credential, the public URL, `qrPayload`, `CheckinPass.tokenHash`, auth/session fields, and `CheckinRecord` history.
+
+The public URL is deliberately fetched only from `GET /api/admin/invitations/{invitationId}/public-url`, so raw credential material stays out of normal detail responses and out of normal detail-page logging. `CheckinRecord` admin history is Phase 10 and is not part of the Phase 8 detail response.
 
 ### Update invitation
 
 `PATCH /api/admin/invitations/{invitationId}`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER plus CSRF plus exact origin.
 
-Request: partial invitation fields, invitee updates handled by invitee endpoints unless implementation chooses nested update with documented transaction.
+Writable fields only: `displayName`, `greetingName`, `allowPlusOne`, `maxAdditionalChildren`, `rsvpDeadlineAt`, `notes`.
 
-Validation:
+Not writable here: `id`, `status`, `archivedAt`, `publicTokenVersion`, `publicTokenHash`, the open aggregates, invitees, eligibility, and RSVP. Archive has its own endpoint; token rotation has its own endpoint.
 
-- Must not break existing RSVP/check-in history silently.
-- Event eligibility changes that can affect RSVP/check-in must follow shared Invitation row lock order.
+The Invitation must be `ACTIVE`. An archived invitation returns `409 CONFLICT`.
+
+Concurrency:
+
+- The request **must** include `expectedUpdatedAt`, the `updatedAt` value last returned by the admin API.
+- Transaction: lock the Invitation row, require the resource exists, require `ACTIVE`, compare the persisted `updatedAt` with `expectedUpdatedAt` using the application's canonical timestamp representation, and on mismatch return `409 CONFLICT` with **no writes**. Only then validate and apply the mutation and return the updated detail.
+- There is no silent last-writer-wins behavior.
+
+**No `Invitation.version` column is added.** `expectedUpdatedAt` is the Phase 8 invitation concurrency mechanism; the RSVP `version` contract is unchanged and separate.
+
+A retry after a lost response may return `409 CONFLICT` because its `expectedUpdatedAt` is now stale. The client refetches rather than auto-repeating.
 
 ### Archive invitation
 
 `POST /api/admin/invitations/{invitationId}/archive`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER plus CSRF plus exact origin.
 
-Request:
+Request body: empty. There is no `reason` property — the earlier illustrative `{ "reason": ... }` payload has been removed because there is no `archiveReason` column, and the contract does not accept data that cannot be persisted truthfully.
 
-```json
-{ "reason": "No longer attending" }
-```
+First successful archive: lock the Invitation row, set `status = ARCHIVED` and `archivedAt`, commit. Every child and history row is preserved. The public credential is **not** rotated. RSVP, pass, and message history are **not** mutated.
 
-Response: updated invitation status.
+Response: `200` with `{ "invitation": { "id": "...", "status": "ARCHIVED", "archivedAt": "..." } }`.
 
-Side effect: preserves all associated records and makes public invitation, RSVP, messages, QR validation, and check-in unavailable.
+Archive is **idempotent**. If the invitation is already `ARCHIVED`: return `200`, return the existing `archivedAt` unchanged, and perform no new domain writes.
 
-### Regenerate public URL
+**No unarchive operation exists in Phase 8.**
 
-`POST /api/admin/invitations/{invitationId}/regenerate-token`
-
-Authentication: OWNER plus CSRF.
-
-Response:
-
-```json
-{ "publicUrl": "https://example.com/i/new-derived-credential" }
-```
-
-Transaction:
-
-1. Lock Invitation.
-2. Increment `public_token_version`.
-3. Derive new credential.
-4. Store new `public_token_hash`.
-5. Return new public URL.
-
-Old credential becomes invalid immediately. Deterministic retry/idempotency semantics must be finalized before this endpoint ships.
-
-**Carried forward (Phase 8 Slice 8B0).** The retry/idempotency contract for this endpoint is deliberately **not** resolved by the auth lock. It is carried explicitly into the Slice 8D0 admin-management contract audit, together with the rest of the admin-domain surface.
+Archiving continues to disable the existing public flows exactly as the public-domain doctrine already requires.
 
 ### Copy invitation URL
 
@@ -713,74 +854,387 @@ Old credential becomes invalid immediately. Deterministic retry/idempotency sema
 
 Authentication: OWNER.
 
-Behavior: backend re-derives the current credential from server secret, Invitation id, and current `public_token_version`, then returns the protected OWNER-only URL. Plaintext credential is not persisted.
+Only an `ACTIVE` invitation may return a usable public URL. An `ARCHIVED` invitation returns `409 CONFLICT`, because its link is inert.
+
+Response:
+
+```json
+{
+  "publicUrl": "https://invitation.example.com/i/<derived-credential>",
+  "publicTokenVersion": 1
+}
+```
+
+Behavior:
+
+- Re-derive the current credential from `CREDENTIAL_SECRET`, `Invitation.id`, and the current `public_token_version`, using the existing derivation contract.
+- Verify the derived credential against the persisted `public_token_hash`. A mismatch is a server-side integrity failure and is **not** silently repaired.
+- **Do not** increment `openCount`, and do not modify `firstOpenedAt` or `lastOpenedAt`. This is an admin read, not a guest open. It must not reuse the public retrieval path, which mutates open aggregates.
+- Never persist the plaintext credential.
+- Never deliberately log `publicUrl` or the raw credential.
+
+The URL origin comes from the non-secret `PUBLIC_INVITATION_BASE_URL` configuration value (see Slice 8D0 deployment requirements).
+
+### Regenerate public URL
+
+`POST /api/admin/invitations/{invitationId}/regenerate-token`
+
+Authentication: OWNER plus CSRF plus exact origin.
+
+The Invitation must be `ACTIVE`. An archived invitation returns `409 CONFLICT`.
+
+Request:
+
+```json
+{ "expectedTokenVersion": 1 }
+```
+
+`expectedTokenVersion` is the `publicTokenVersion` last read from the invitation detail or from `GET public-url`. It is mandatory.
+
+Transaction:
+
+1. Lock the Invitation row.
+2. Require the Invitation exists.
+3. Require `ACTIVE`.
+4. Compare the persisted `publicTokenVersion` with `expectedTokenVersion`. On mismatch: `409 CONFLICT` and **no rotation**.
+5. `nextVersion = current + 1`.
+6. Derive the next credential using the existing deterministic invitation credential doctrine.
+7. Hash the next credential.
+8. Update `publicTokenVersion = nextVersion` and `publicTokenHash` together.
+9. Commit.
+10. Return `{ "publicUrl": "...", "publicTokenVersion": nextVersion }`.
+
+Old credential becomes invalid immediately after commit.
+
+Response:
+
+```json
+{
+  "publicUrl": "https://invitation.example.com/i/<next-derived-credential>",
+  "publicTokenVersion": 2
+}
+```
+
+Retry and lost-response doctrine — regeneration is **not** automatically retryable:
+
+- admin-web never auto-retries regeneration, keeps exactly one request pending, and treats an uncertain outcome as **unknown**, not as a failed commit.
+- Recovery is a read: call `GET /api/admin/invitations/{invitationId}/public-url`. If the mutation committed, this re-derives and returns the currently valid link. Because derivation is deterministic, the current link is always recoverable without an idempotency key.
+- If the OWNER explicitly retries the regeneration with the **old** `expectedTokenVersion`, the API returns `409 CONFLICT` and **must not rotate again**.
+
+Concurrent regeneration:
+
+- Two requests carrying the same `expectedTokenVersion` serialize on the Invitation row lock. The first succeeds and increments the version. The second observes the changed version and returns `409 CONFLICT` with no rotation.
+- Therefore exactly **one** version increment occurs for concurrent requests originating from the same displayed state. There is no "both succeed, last writer wins" behavior.
+
+No `Idempotency-Key` header, no idempotency table, and no new schema column are introduced.
 
 ## Admin Invitee Endpoints
 
-- `POST /api/admin/invitations/{invitationId}/invitees`
-- `PATCH /api/admin/invitees/{inviteeId}`
-- `DELETE /api/admin/invitees/{inviteeId}` only if safe; otherwise use future inactive/archive behavior.
+Authentication: OWNER for reads, OWNER plus CSRF plus exact origin for mutations. The owning Invitation must be `ACTIVE`; an archived invitation returns `409 CONFLICT`.
 
-Authentication: OWNER plus CSRF for mutations.
+### Create invitee
 
-Validation:
+`POST /api/admin/invitations/{invitationId}/invitees`
 
-- Do not delete invitees referenced by current RSVP state or historical records unless a documented preservation strategy exists.
+Request:
+
+```json
+{ "fullName": "Alice Smith", "category": "CHILD", "label": null }
+```
+
+`fullName` is trimmed and must be non-empty. `label` is optional, trimmed, and blank normalizes to `null`. Only the existing `ADULT` and `CHILD` categories are accepted.
+
+Transaction: lock the Invitation row, compute the current maximum `displayOrder`, assign the next value, create the `Invitee`, commit. Concurrent creates serialize through the Invitation row lock.
+
+Duplicate names are allowed. Create is **not idempotent**, and admin-web must not auto-retry it after an uncertain result.
+
+Response: `201 Created` with the invitee DTO (`id`, `invitationId`, `fullName`, `displayOrder`, `category`, `label`, `createdAt`, `updatedAt`).
+
+### Update invitee
+
+`PATCH /api/admin/invitees/{inviteeId}`
+
+Writable: `fullName`, `category`, `label`.
+
+Immutable: `id`, `invitationId`, `displayOrder`.
+
+The request must include `expectedUpdatedAt`, with the same compare-and-conflict behavior as invitation update. A stale value returns `409 CONFLICT`.
+
+A missing invitee returns `404 NOT_FOUND`.
+
+**Phase 8 does not implement invitee reordering.** `displayOrder` stays stable once assigned.
+
+### Delete invitee
+
+`DELETE /api/admin/invitees/{inviteeId}`
+
+**Hard delete only.** No soft-delete or inactive state is added to the schema.
+
+Safety rule: if **any** `RSVPAttendee` row references this invitee, return `409 CONFLICT` and delete nothing. No implicit RSVP or attendee reconciliation is performed.
+
+If unreferenced, delete the invitee and return `204 No Content`.
+
+If the invitee is already absent, also return `204 No Content`, so a lost successful `DELETE` response can be retried safely.
+
+There is no inactive or archived invitee state in Phase 8.
+
+### Post-RSVP invitee edit semantics
+
+Editing `Invitee.fullName`, `Invitee.category`, or `Invitee.label` does **not** rewrite existing `RSVPAttendee` rows.
+
+An existing RSVP attendee composition is treated as a **submitted snapshot**. Name and category edits affect the invitation's invitee list, not historical RSVP composition. `RSVPAttendee.displayName` exists precisely to decouple the two.
+
+If the RSVP itself needs correction, the OWNER uses the authenticated RSVP override flow. Name or category edits are never silently cascaded into a submitted RSVP.
+
+## Admin Event Endpoints
+
+### List events
+
+`GET /api/admin/events`
+
+Authentication: OWNER.
+
+Phase 8 manages `InvitationEvent` **eligibility only**. There is no `Event` create, update, or delete endpoint, and the event catalog is not silently extended.
+
+Response: the existing `Event` fields needed for selection and display, using the exact schema field names — `id`, `slug`, `name`, `isActive`, `displayOrder`.
+
+Ordering: `displayOrder ASC`, `id ASC`. Not paginated; the event catalog is a small fixed set.
+
+Inactive events **are** returned, so existing eligibility and historical RSVP context remain representable. The admin UI may show them as inactive. An inactive event cannot be newly added to eligibility, and historical eligibility is not silently deleted merely because an `Event` becomes inactive.
+
+### Replace invitation eligibility
+
+`PUT /api/admin/invitations/{invitationId}/events`
+
+Authentication: OWNER plus CSRF plus exact origin.
+
+Request:
+
+```json
+{ "eventIds": ["7d98761a-b7fc-4a2e-8df4-69b6f22d85b4"] }
+```
+
+This is one **declarative set-to-value** operation. The body describes the desired final eligibility set; additions and removals are derived from it. Repeating the same body is naturally retry-safe.
+
+Rules:
+
+- The Invitation must be `ACTIVE`. An archived invitation returns `409 CONFLICT`.
+- `eventIds` contains no duplicates.
+- Every `Event` id must exist and be selectable. Unknown ids return `400 VALIDATION_ERROR`; an inactive event returns `400 VALIDATION_ERROR`.
+- One transaction, following the shared Invitation row lock order.
+
+Removal safety — before removing any `InvitationEvent` row, check for existing `RSVPEventSelection` rows referencing that invitation and event. If **any** selection references an event being removed, reject the **entire** replacement with `409 CONFLICT` and perform **zero** eligibility changes.
+
+Do not delete RSVP selections, rewrite the RSVP, decline the RSVP, or silently orphan a selection. This preserves the documented invariant that every `RSVPEventSelection.eventId` remains eligible through `InvitationEvent`, and it prevents an `ACCEPTED` RSVP from being left with zero eligible attending events, which would contradict `EVENT_NOT_SELECTED`.
+
+The operator workflow for changing eligibility after an RSVP is:
+
+1. Use the OWNER RSVP override to remove or change the affected selection.
+2. Then change eligibility.
+
+A concurrent public RSVP submission and an eligibility replacement must serialize on the same Invitation row lock.
+
+Response: `200 OK` with the resulting eligibility list, using the same shape as the invitation detail's `eligibility` relation.
 
 ## Admin RSVP Endpoints
 
+Authentication: OWNER for reads, OWNER plus CSRF plus exact origin for the override.
+
 ### List RSVPs
 
-`GET /api/admin/rsvps?status=PENDING&eventId=7d98761a-b7fc-4a2e-8df4-69b6f22d85b4&page=1&pageSize=25`
+`GET /api/admin/rsvps?status=ACCEPTED&eventId=7d98761a-b7fc-4a2e-8df4-69b6f22d85b4&search=smith&sortBy=updatedAt&sortOrder=desc&page=1&pageSize=25`
 
-Authentication: OWNER.
+Query:
+
+- `status`: `PENDING` | `ACCEPTED` | `DECLINED`.
+- `eventId`: restricts to RSVPs with a selection for that event.
+- `search`: matches the related `Invitation.displayName`, `Invitation.greetingName`, or a related `Invitee.fullName`.
+- `sortBy`: `createdAt` | `updatedAt` | `status`. Default `updatedAt`.
+- `sortOrder`: `asc` | `desc`. Default `desc`.
+- `page`, `pageSize`: shared pagination.
+
+Only persisted `RSVP` rows are returned. Invitations with **no** RSVP row are never synthesized into this list; they belong to the invitation list's `rsvpStatus=PENDING` filter.
+
+Item:
+
+```json
+{
+  "items": [
+    {
+      "id": "3d0a1e77-...",
+      "invitation": {
+        "id": "0975522e-edc7-445e-80f2-c9f7c88a6ff2",
+        "displayName": "John & Jane Smith Family",
+        "status": "ACTIVE"
+      },
+      "status": "ACCEPTED",
+      "version": 3,
+      "attendeeCount": 4,
+      "attendingEventCount": 2,
+      "createdAt": "2026-09-20T00:00:00.000Z",
+      "updatedAt": "2026-09-29T10:15:00.000Z",
+      "submittedByAdmin": false
+    }
+  ],
+  "page": { "number": 1, "pageSize": 25, "totalItems": 1, "totalPages": 1 }
+}
+```
+
+`submittedByAdmin` is a boolean derived from `submittedByAdminUserId != null`. No pass credential material appears in the list.
 
 ### Get RSVP detail
 
 `GET /api/admin/rsvps/{rsvpId}`
 
-Authentication: OWNER.
+A missing RSVP returns `404 NOT_FOUND`.
+
+Response: `id`, the safe invitation summary, `status`, `version`, event selections, attendees, `dietaryNotes`, `guestNote`, `createdAt`, `updatedAt`.
+
+Admin submission metadata:
+
+```json
+{
+  "submittedByAdmin": true,
+  "adminUser": { "id": "...", "email": "owner@example.com" },
+  "overrideReason": "Guest replied by phone"
+}
+```
+
+`adminUser` and `overrideReason` are present only when available.
+
+Check-in pass history may expose safe metadata only: `status`, `issuedAt`, `revokedAt`, `revocationReason`, `expiresAt`, `credentialVersion`.
+
+Not exposed: `CheckinPass.tokenHash`, `qrPayload`, or any raw check-in credential. Phase 8 admin UI does not render or reissue guest QR credentials; that belongs to a separately locked later check-in/reprint use case. The credential is deterministically re-derivable if such a need arises.
 
 ### Override RSVP
 
 `PUT /api/admin/invitations/{invitationId}/rsvp`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER plus CSRF plus exact origin.
 
-Request shape matches public RSVP plus:
+Request: the same canonical public RSVP mutation fields, plus a mandatory `expectedVersion`, plus a mandatory `overrideReason`.
 
-```json
-{
-  "expectedVersion": 3,
-  "overrideReason": "Guest replied by phone"
-}
-```
+`overrideReason` is a string, trimmed, non-empty, and at most **500 Unicode code points**.
 
-Validation:
+The admin endpoint **may bypass** the public `rsvpDeadlineAt` cutoff. That is the explicit meaning of the privileged OWNER override, and it is why this endpoint is a separate authenticated admin contract rather than a relaxation of the public one.
 
-- Same domain validations as public RSVP unless OWNER-specific override is explicitly allowed and audited.
-- Requires override reason.
-- Follows shared Invitation row lock order.
-- Uses the same `expectedVersion` semantics as public RSVP, including `null` for create-only.
-- This endpoint is not a public post-deadline override. Phase 5 defines no public override after the cutoff; any OWNER post-deadline override belongs to a separate authenticated admin contract.
+It **must not** bypass: the `ACTIVE` invitation requirement, event eligibility, attendee composition validation, capacity and plus-one rules, the canonical RSVP transition rules, the `CheckinPass` lifecycle, or `expectedVersion` concurrency. An archived invitation returns `409 CONFLICT`.
 
-State transitions: same RSVP/check-in pass lifecycle as public.
+`expectedVersion` uses the same doctrine as public RSVP: `null` means create-only and conflicts when an RSVP row already exists; an integer must exactly equal the persisted `RSVP.version`. Mismatch returns `409 RSVP_VERSION_CONFLICT`.
+
+The override uses the **same underlying RSVP lifecycle implementation** as the public path. `CheckinPass` semantics are not forked: the existing service must be reused or its transaction body extracted so an invitation-id entry point shares one implementation. A second, parallel RSVP state machine is not introduced.
+
+Every successful OWNER override writes `submittedByAdminUserId` = the current OWNER id and `adminOverrideReason` = the normalized `overrideReason`. These two columns already exist; the override is their only Phase 8 writer.
+
+`guestNote` is **not** writable in the Phase 8 override. Its existing value is preserved. `dietaryNotes` follows the existing canonical RSVP rules, including clearing to `null` on decline.
+
+Response: the admin RSVP detail shape.
+
+Pass lifecycle, preserved exactly:
+
+- `ACCEPTED -> ACCEPTED`: keep the active pass.
+- `ACCEPTED -> DECLINED`: revoke the active pass.
+- `DECLINED -> ACCEPTED`: issue a new pass; never reactivate the revoked one.
+- `DECLINED -> DECLINED`: no active pass.
+
+There is no admin-specific pass shortcut, and no raw `qrPayload` appears in the admin response.
 
 ## Admin Message Endpoints
 
-**Deferred. Not part of Phase 7 or Phase 8's auth foundation.** These operations require the OWNER admin session foundation owned by Phase 8, and `apps/admin-web` has no API client or authentication. Phase 7 owns public guest-message submission only.
+**Locked by Phase 8 Slice 8D0.** Admin guest-message visibility and moderation are owned by Phase 8, and the listing, filtering, and moderation semantics below are now resolved.
 
-**Phase ownership (locked in Phase 8 Slice 8B0).** Admin guest-message visibility and moderation **is owned by Phase 8**, but it is **not** part of Phase 8's auth-foundation slices 8B and 8C. It requires its own admin-domain contract lock (Slice 8D0) before implementation. Phase 8 is therefore not complete once auth and the admin shell ship.
+Authentication: OWNER. Moderation requires OWNER plus CSRF plus exact origin.
 
-- `GET /api/admin/messages?page=1&pageSize=25`
-- `GET /api/admin/invitations/{invitationId}/messages`
-- `PATCH /api/admin/messages/{messageId}` for moderation fields such as `isHidden`.
+### List guest messages
 
-Authentication: OWNER.
+`GET /api/admin/messages?hidden=all&invitationId=...&sortBy=createdAt&sortOrder=desc&page=1&pageSize=25`
 
-Admin listing pagination, sort order, detail, and hide/unhide behavior are not Phase 7 public-contract blockers and are **still not locked**. Slice 8D0 must resolve the global list response, the invitation-specific list response, pagination and `pageSize` limits, sort order, returned fields, `authorName` handling, `createdAt` representation, `isHidden` visibility, the hide/unhide request and response, idempotency, the empty state, admin rendering, and plain-text safety. No schema change is expected.
+Query:
 
-Guest message content remains plain text in admin surfaces: no `dangerouslySetInnerHTML`, no Markdown interpretation.
+- `hidden`: `all` | `visible` | `hidden`. Default `all`.
+- `invitationId`: restricts to one invitation.
+- `sortBy`: `createdAt` only. Default `createdAt`.
+- `sortOrder`: `asc` | `desc`. Default `desc`.
+- `page`, `pageSize`: shared pagination.
+
+There is **no** free-text message-body search in Phase 8.
+
+Shared item DTO:
+
+```json
+{
+  "items": [
+    {
+      "id": "a1b2c3d4-...",
+      "invitation": { "id": "0975522e-edc7-445e-80f2-c9f7c88a6ff2", "displayName": "John & Jane Smith Family" },
+      "authorName": "Aunt May",
+      "message": "Wishing you both a lifetime of happiness.",
+      "createdAt": "2026-09-29T10:15:00.000Z",
+      "isHidden": false
+    }
+  ],
+  "page": { "number": 1, "pageSize": 25, "totalItems": 1, "totalPages": 1 }
+}
+```
+
+`authorName` is `null` for an anonymous submission; the admin UI shows an explicit anonymous state rather than an empty cell.
+
+The response never includes the public credential, `publicTokenHash`, or auth/session data. Message body and `authorName` are admin-visible personal content and must not be deliberately logged.
+
+### List messages for one invitation
+
+`GET /api/admin/invitations/{invitationId}/messages`
+
+Uses the **same** query parameters, pagination, sort rules, `hidden` filter, item DTO, and page envelope as the global list.
+
+The `invitation` summary stays in each item on the scoped endpoint as well, so one generated type and one admin component serve both surfaces. No separate near-identical message DTO is introduced.
+
+### Moderate a message
+
+`PATCH /api/admin/messages/{messageId}`
+
+Request:
+
+```json
+{ "isHidden": true }
+```
+
+`isHidden` is the only writable moderation field. There is no delete, no reason, and no moderation comment.
+
+Response: `200 OK` with the updated shared admin guest-message item.
+
+Set-to-value behavior is **idempotent**: `false -> true`, `true -> true`, `true -> false`, and `false -> false` all return `200`, and a same-value request makes no semantic change.
+
+A missing message returns `404 NOT_FOUND`.
+
+Phase 8 schema records **no** `hiddenAt`, `hiddenByAdminUserId`, or moderation timestamp. This is an explicit MVP limitation, not an oversight.
+
+`isHidden` currently has **no public guest-facing effect**, because no public message wall and no public message read path exist. "Visible" does not mean publicly listed. It is an internal moderation state for current and future admin/reporting behavior.
+
+Guest message content remains plain text in admin surfaces: no `dangerouslySetInnerHTML`, no Markdown interpretation, no HTML or link auto-conversion.
+
+## Admin Response Privacy
+
+**Locked by Phase 8 Slice 8D0.** Admin authentication is not a reason to return raw database models. Admin responses use explicit DTOs, and the fields below are governed individually.
+
+| Field | Allowed surface | Forbidden surface | Why |
+| --- | --- | --- | --- |
+| `publicUrl` (the derived raw public credential, inside the URL) | `GET /api/admin/invitations/{id}/public-url` and `POST /api/admin/invitations/{id}/regenerate-token` **only** | Invitation list, Invitation detail, and every unrelated admin response; deliberate logs | It is the copyable invitation link; the OWNER cannot distribute it otherwise. It is bearer material, so it travels only through its two explicit endpoints and must never be deliberately logged. |
+| `publicTokenVersion` | Invitation **detail**, `public-url` response, `regenerate-token` response | Invitation **list** item and every unrelated admin summary | Operational metadata and the concurrency token for regeneration. Not a secret and does not resolve a link by itself. |
+| Raw `publicCredential` outside `publicUrl` | — | Every admin response, including list items, detail responses, and messages | Only the two explicit credential endpoints may surface it, and only as part of the URL. |
+| `publicTokenHash` | — | Every admin response, and all logs | Internal lookup hash with no admin use. |
+| `qrPayload` | — | Every Phase 8 admin response | Bearer check-in credential material. Phase 8 admin UI never renders or reissues guest QR credentials; a later check-in/reprint contract decides separately. |
+| `CheckinPass.tokenHash` | — | Every admin response, and all logs | Internal credential hash. |
+| Pass status/`issuedAt`/`revokedAt`/`revocationReason`/`expiresAt`/`credentialVersion` | Invitation detail pass history, RSVP detail | Unrelated admin summaries | Operational lifecycle metadata with no credential value. |
+| `sessionToken`, `sessionTokenHash`, `csrfTokenHash` | The locked Slice 8B0 auth responses: the CSRF token is returned only by the authorized auth endpoints and only as designed there | Every other admin response | Locked by Slice 8B0 and not reopened. |
+| `passwordHash` | — | Every admin response | Locked by Slice 8B0 and not reopened. |
+| `AdminSession.ipAddress` / `userAgent` | — | Every admin response | Locked by Slice 8B0 and not reopened. |
+| `GuestMessage.message` / `authorName` | Admin guest-message list, invitation-scoped message list, and the moderation response | Unrelated admin endpoints (invitation/dashboard/RSVP summaries), and all logs | Required for moderation; plain text only. Admin-visible personal content is not log material. |
+| `Invitation.notes` | Invitation **detail** | Invitation **list** item, the public invitation projection, and unrelated admin summaries | Admin-only management data. `PATCH` Invitation can write it; the public contract never returns it. |
+| `RSVP.dietaryNotes` | RSVP admin **detail**, and canonical RSVP responses where already contractually appropriate | Unrelated admin summaries | Operational catering need. |
+| `RSVP.guestNote` | RSVP admin **detail** | Unrelated admin summaries; the public projection | Readable admin-side and read-only in Phase 8: the OWNER override does not write it, and the existing value is preserved. It is not globally never-returned. |
+
+`publicTokenVersion` is safe admin operational metadata. `publicUrl` is not: it is credential-bearing and confined to its two explicit endpoints. Every other credential, hash, or session secret is never returned outside the authorized auth responses.
 
 ## Admin Import Endpoints
 
@@ -869,6 +1323,8 @@ Transaction:
 Preview lifetime and idempotent commit semantics must be finalized before Phase 9 ships.
 
 ## Admin Check-in Endpoints
+
+**Phase ownership: Phase 10.** The QR scanner and venue check-in are explicitly outside Phase 8. Phase 8 adds no scanner route, no check-in route, and no check-in dashboard metric. The endpoints below remain the intended contract and are not implemented by Phase 8.
 
 ### Validate QR/check-in credential
 
@@ -1003,13 +1459,15 @@ Validation and duplicate handling match QR confirm after invitation resolution. 
 
 ## Admin Reports and Export
 
+**Phase ownership: Phase 11.** Reporting is outside Phase 8. The Phase 8 dashboard is deliberately narrowed to the metric set defined under "Admin Dashboard"; it is not the reporting summary.
+
 ### Report summary
 
 `GET /api/admin/reports/summary?includeArchived=false`
 
 Authentication: OWNER.
 
-Returns the same categories as dashboard, with archived invitations excluded by default unless explicitly included.
+Returns a broader metric set than the Phase 8 dashboard, with archived invitations excluded by default unless explicitly included.
 
 ### CSV export
 

@@ -286,7 +286,7 @@ Phase 7 ownership boundary (locked in 7B0):
   - OWNER can manage invitations without direct DB access.
   - Protected routes enforce session.
   - Archive denies public access/check-in while preserving admin history.
-- Test/verification: E2E auth/protected route tests, API integration tests.
+- Test/verification: E2E auth/protected route tests, API integration tests, the admin route-inventory security regression test required by Slice 8D0 (every `/api/admin/**` route except login rejects a missing session with `401 UNAUTHENTICATED`; every unsafe admin route rejects a missing/wrong CSRF token or bad origin with `403 CSRF_INVALID`), and public regression coverage for invitations, archive, eligibility, regeneration, and the RSVP pass lifecycle.
 - Non-goals: complex RBAC, role management UI.
 - Completion gate: admin can manage core invitation lifecycle.
 
@@ -321,12 +321,23 @@ Phase 8 does **not** own:
 | 8B0 | Auth/security contract lock (docs only) | Resolves D1-D13: same-origin topology, `__Host-` cookie, operator-only bootstrap, Argon2id parameters, opaque session lifetime, session-bound CSRF, origin validation, the auth error contract, in-process login throttling, route-protection and API-client doctrine, and guest-message ownership. No code, no schema change, no migration. |
 | 8B | Backend auth foundation | Bootstrap CLI, Argon2id, login, `me`, logout, sessions, guards, OWNER authorization, CSRF, origin enforcement, login throttling, OpenAPI and generated client. |
 | 8C | admin-web auth foundation | Login, session bootstrap, authenticated shell, protected layout, logout, session-expiry UX. |
-| 8D0 | Admin-management contract audit/lock (docs only) | Dashboard, invitations, invitees, eligibility, RSVP administration/override, and Guest Messages. Must also resolve invitation-link regeneration retry/idempotency, which Slice 8B0 deliberately did not settle. |
-| 8D+ | Admin-management backend/domain implementation | Bounded slices, named after 8D0. |
-| 8E+ | Admin-management admin-web surfaces | Bounded slices matching 8D+. |
-| 8F | Final integrated Phase 8 QA | Auth, privacy, CSRF, session-expiry, and regression audit. |
+| 8D0A | Admin-management contract discovery / audit (docs only) | Read-only audit of the remaining admin-management surface. Established that no schema change is required and produced the D1-D24 decision inventory. No code. |
+| 8D0B | Admin-management contract lock (docs only, this slice) | Resolves D1-D24: shared pagination/sorting/search, the admin error doctrine, the Phase 8 dashboard metric set, invitation list/detail/create/edit/archive/public-url/regeneration, invitee create/edit/delete and RSVP snapshot semantics, declarative eligibility replacement with selection-reference rejection, the event read endpoint, RSVP list/detail and the OWNER override, guest-message listing and `isHidden` moderation, the admin-web route and state contract, and the shared admin enforcement surface. Also resolves the invitation-link regeneration retry/idempotency question carried from 8B0. No code, no schema change, no migration. |
+| 8D1 | Backend shared admin plumbing + dashboard + invitation reads | Shared enforcement surface and its route-inventory security test, shared pagination/sorting/search, dashboard, `GET /api/admin/events`, invitation list, invitation detail, and `public-url`. OpenAPI and generated client for these routes. No mutation beyond the auth infrastructure. |
+| 8D2 | Backend invitation mutations | Create, edit, archive, and `regenerate-token`, including the `expectedUpdatedAt` and `expectedTokenVersion` concurrency contracts and the shared transaction body for the Invitation row lock. |
+| 8D3 | Backend invitee + eligibility management | Invitee create/update/delete with the FK-reference safety rule, post-RSVP snapshot semantics, and the declarative eligibility replacement endpoint. |
+| 8D4 | Backend RSVP admin | RSVP list, RSVP detail, reuse of the public RSVP lifecycle for the OWNER override, actor/reason attribution, and the deadline-bypass contract. |
+| 8D5 | Backend guest message admin | Global list, invitation-scoped list, and `isHidden` moderation. |
+| 8E1 | admin-web dashboard + invitation list | Shared shell navigation, dashboard, and the invitation list with filters and pagination. |
+| 8E2 | Invitation create/detail/edit/archive/regeneration UI | Includes the archive and regeneration confirmations and the regeneration uncertain-outcome recovery. |
+| 8E3 | Invitee + eligibility UI | Invitee CRUD and eligibility replacement inside the invitation detail route. |
+| 8E4 | RSVP admin UI | RSVP list, RSVP detail, and the OWNER override form. |
+| 8E5 | Guest message moderation UI | `/messages` with the hide/unhide action. |
+| 8F | Final integrated Phase 8 QA | Auth, privacy, CSRF, session-expiry, admin-management, and public-regression audit. |
 
-Exact 8D/8E sub-slice names may be refined after 8D0.
+Model routing: 8D1-8D4 are transaction- and security-sensitive and use GPT-5.5 HIGH / Codex. 8D5 is bounded and low-coupling and may use DeepSeek V4.1 Flash, escalating to GPT-5.5 HIGH if the shared-query or refactoring surface grows. 8E1-8E5 use Astra 6 HIGH. 8D0 and 8F are docs/audit work.
+
+Slice order is a dependency order, not a requirement to keep both tracks strictly serial: 8E1 may begin once 8D1 has landed, and each 8E slice depends only on the 8D slice that provides its route contract.
 
 ## Phase 9 - CSV/XLSX Import
 

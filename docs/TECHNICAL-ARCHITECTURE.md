@@ -84,6 +84,15 @@ Phase 8 auth foundation for admin-web (locked in Slice 8B0):
 - Protected layouts bootstrap the session server-side via `GET /api/admin/auth/me`. No Next `middleware.ts` is required for the MVP.
 - Route protection is UX and defense in depth; the backend remains the authoritative security boundary.
 
+Phase 8 management surface (locked in Slice 8D0):
+
+- Protected routes: `/` (dashboard), `/invitations`, `/invitations/new`, `/invitations/[invitationId]`, `/invitations/[invitationId]/edit`, `/rsvps`, `/rsvps/[rsvpId]`, `/messages`.
+- There is no top-level `/invitees`, `/events`, `/checkin`, `/imports`, or `/reports` route in Phase 8. Invitees and eligibility are managed from the invitation detail route, and invitation-scoped messages are read through the scoped API rather than a separate route.
+- Shell navigation exposes Dashboard, Invitations, RSVPs, and Messages, alongside OWNER identity and sign-out. Imports, check-in, and reports are not rendered as disabled or placeholder navigation, because those phases do not exist yet.
+- Unsafe admin mutations never auto-retry. Create, invitee create, archive, and token regeneration each require explicit operator action, and an uncertain outcome is resolved by re-reading state rather than by resending the request.
+- Destructive actions require explicit confirmation: archive, token regeneration, and invitee deletion. The regeneration confirmation must state that previously distributed links stop working immediately and that the action cannot be undone.
+- Raw `qrPayload` is never fetched, rendered, or stored by the Phase 8 admin UI.
+
 ### api
 
 - Expose public and admin HTTP APIs.
@@ -103,16 +112,19 @@ Expected modules:
 - `invitees`: named invitee management.
 - `events`: event definitions and ordering.
 - `rsvp`: household RSVP, event selections, current attendee composition, dietary notes, versioning, pass lifecycle coordination.
-- `messages`: public guest message submission and persistence (Phase 7). Owns the create-only public endpoint and plain-text content validation. Does not own admin listing, moderation, or message read operations.
-- `checkin`: pass credential derivation, QR validation, duplicate-safe CheckinRecord confirmation.
-- `imports`: CSV/XLSX parse, validate, preview, commit.
-- `reports`: dashboard metrics and CSV export.
+- `messages`: public guest message submission and persistence (Phase 7), plus Phase 8 admin listing, scoped listing, and `isHidden` moderation.
+- `checkin`: pass credential derivation, QR validation, duplicate-safe CheckinRecord confirmation. Phase 10.
+- `imports`: CSV/XLSX parse, validate, preview, commit. Phase 9.
+- `reports`: Phase 11 reporting metrics and CSV export. It does **not** own the Phase 8 dashboard, which is a narrower operational read.
+- `admin`: Phase 8 admin-management read and orchestration surface — the dashboard read, and the admin-facing list/detail projections that aggregate invitation, invitee, eligibility, RSVP, and message state. Admin invitation/invitee/eligibility mutations live with their owning feature modules and are reached through this surface.
 - `database`: Prisma integration and transaction helpers.
 - `security`: HMAC credential derivation, hashing, session token generation, and redaction helpers.
 - `health`: health/readiness endpoints.
-- `common`: shared errors, pagination, request context.
+- `common`: shared errors, pagination, sorting/search normalization, request context, and the shared admin enforcement surface.
 
 Module dependency rule: feature modules may depend on `common`, `database`, and `security`; cross-feature writes should go through application services, not direct table manipulation from unrelated modules.
+
+`common` also hosts the shared admin enforcement surface locked in Phase 8 Slice 8D0. It is the one place that decides whether an `/api/admin/**` route requires a session, OWNER authorization, CSRF, and origin validation, and it recognizes method safety automatically. Feature modules do not restate those rules. See "Admin Management Architecture".
 
 ## API Contract and Client Generation
 
@@ -639,9 +651,81 @@ When Invitation is `ARCHIVED`:
 - Guest message submission is denied.
 - QR validation/check-in is denied.
 - Public response is generic `404 INVITATION_NOT_AVAILABLE`.
-- OWNER admin APIs may still view invitation, invitees, RSVP, messages, pass history, and check-in records.
-- Active dashboard metrics exclude archived invitations by default and show archived count separately.
+- OWNER admin APIs may still view invitation, invitees, eligibility, RSVP, RSVP attendees and selections, pass history, Guest Messages, and open aggregates.
+- Active dashboard metrics exclude archived invitations, and the archived count is shown separately.
 - Reports may include archived invitations through explicit filters.
+- Archiving preserves every child and history row. It does not rotate the public credential, and it does not mutate RSVP, pass, or message history.
+- Archive is idempotent: a second archive returns the existing `archivedAt` and writes nothing.
+- Admin management **mutations** against an archived invitation are rejected with `409 CONFLICT`. Read-only historical access stays available, so an archived invitation remains fully inspectable.
+- There is no unarchive operation in Phase 8.
+
+## Admin Management Architecture
+
+Phase 8 Slice 8D0 contract lock. API semantics live in `API-CONTRACT.md`; this section records the backend responsibilities and the reasoning that is not visible from the routes alone.
+
+### Shared enforcement surface
+
+Every `/api/admin/**` route except login enforces session validity and OWNER authorization. Unsafe methods additionally enforce an exact `ADMIN_ORIGIN` match and a session-bound `X-CSRF-Token`. Safe methods must not mutate state and need no token.
+
+Enforcement is one reusable surface, not a per-controller manual call. The earlier auth foundation exposed manual `assertCsrf`/origin calls, which is acceptable for three auth routes and unsafe once dozens of admin routes exist: the realistic failure mode is a new unsafe route that simply forgets the check. The shared surface must recognize method safety itself, and login must be the only declared exception. Exact guard and decorator names remain an implementation detail, consistent with Slice 8B0 D9.
+
+A route-inventory security test backs this: for every `/api/admin/**` route except login, a request without a session returns `401 UNAUTHENTICATED`; for every unsafe admin route, a missing or wrong CSRF token returns `403 CSRF_INVALID` and a bad `Origin` returns `403 CSRF_INVALID`. The test must fail when a future unsafe route is added without inheriting the shared enforcement. This is mandatory before the first admin-management slice is complete.
+
+The Phase 8B0 auth contract is not reopened: opaque sessions, the derived CSRF token, `__Host-` cookie scope, and the origin rule are unchanged.
+
+### Pagination, sorting, and search
+
+Admin lists share one offset-pagination envelope, one sort convention with an `id ASC` tie-breaker, and one search normalization. They are described in `API-CONTRACT.md` and belong to `common`.
+
+The tie-breaker is not cosmetic: without a stable final ordering key, offset pagination can repeat or skip rows when sort values collide, which is common for `status` and `lastOpenedAt`. Client sort fields are whitelisted per endpoint and never interpolated into SQL.
+
+Search deliberately stops at case-insensitive partial matching over a small allow-list, with no trigram or full-text extension. The catalog is small enough that a new database extension would be cost without benefit, and the allow-list exists mainly to guarantee that credential material and internal identifiers are not searchable.
+
+### Dashboard
+
+The Phase 8 dashboard exposes only metrics whose source rows have a writer in Phase 8. It is not the Phase 11 reporting summary, and the earlier illustrative payload — which included a `checkin` block and cross-event headcount totals — has been replaced.
+
+The `checkin` block is removed because `CheckinRecord` has no writer until Phase 10; shipping a dashboard block that can only ever read zero would misrepresent it as working. A cross-event `expectedTotal` is also removed because summing per-event expected counts double-counts a household attending more than one event, which is exactly the kind of number an operator would act on.
+
+`pending` is defined as `ACTIVE` invitations with no RSVP row **or** with `RSVP.status = PENDING`. Because RSVP rows are created lazily, the absent-row case is the normal pending state and must be counted; a count that only looked at stored `PENDING` rows would under-report systematically.
+
+Archived invitations are excluded from every RSVP and headcount metric and are represented only by `invitations.archived`.
+
+### Invitation concurrency, archive, and regeneration
+
+`Invitation` has no `version` column and none is added. Invitation edits carry `expectedUpdatedAt` and compare under the Invitation row lock, so a concurrent edit conflicts instead of silently overwriting. This is a deliberate divergence from the RSVP `version` contract, justified because invitations are edited rarely by a single operator whereas RSVPs are written by guests concurrently.
+
+Creation has the mirror-image problem: the credential is derived from the Invitation's own id and version, so the row cannot be inserted before the credential exists. The order is therefore allocate the UUID, derive version `1`, hash it, then insert the Invitation with `public_token_version` and `public_token_hash` together, followed by its `InvitationEvent` and `Invitee` rows, all in one transaction. The invariant is that no committed Invitation ever carries a missing, placeholder, or mismatched version/hash pair; how the UUID reaches the insert (application-generated id passed to Prisma `create`, or an equivalent mechanism) is an implementation detail.
+
+Archive is idempotent, takes no payload, and records no reason, because no column can persist one. Accepting a `reason` that is silently dropped would be worse than not accepting it.
+
+Regeneration is the highest-risk admin operation: a blind retry rotates again and irreversibly invalidates a link that may already be in a guest's hands. The contract therefore requires `expectedTokenVersion`, rotates at most once per displayed state, and forbids client auto-retry. Recovery needs no idempotency key or table because derivation is deterministic: after an uncertain outcome, the admin re-reads `GET /api/admin/invitations/{id}/public-url` and receives the link that is actually valid, whether or not the rotation committed. Two concurrent regenerations from the same displayed version serialize on the Invitation row lock; the first succeeds and the second returns `409 CONFLICT` without rotating.
+
+### Public URL and open aggregates
+
+The admin `public-url` read re-derives the credential and verifies it against the stored hash. It is a pure read: it must not increment `openCount` or touch `firstOpenedAt`/`lastOpenedAt`, and it must not reuse the public retrieval path, which records an open. An OWNER copying a link is not a guest opening an invitation, and letting it count would corrupt the only engagement signal the product has.
+
+The guest-facing origin comes from the non-secret `PUBLIC_INVITATION_BASE_URL`, never from a request header. Deriving it per request would let a crafted header produce a link pointing somewhere other than the real invitation site.
+
+### Invitees, eligibility, and the RSVP snapshot boundary
+
+Invitee creation assigns `displayOrder` under the Invitation row lock. Invitee deletion is hard delete and only when no `RSVPAttendee` references the invitee; there is no soft-delete state. Editing an invitee never rewrites an existing `RSVPAttendee` row, because submitted RSVP composition is a snapshot and `RSVPAttendee.displayName` exists precisely to decouple the two.
+
+Eligibility is replaced declaratively, in one transaction. Removal is rejected outright with `409 CONFLICT` when any `RSVPEventSelection` references an event being removed. `RSVPEventSelection` has no foreign key to `InvitationEvent`, so nothing in the database prevents an orphaned selection; the application check is the only guard, and it preserves the documented invariant that every selected event remains eligible. Silently deleting or rewriting the selection would corrupt a submitted RSVP to make an eligibility edit succeed, which inverts the priority. The operator instead changes the RSVP through the override, then changes eligibility.
+
+### RSVP override
+
+The OWNER override reuses the public RSVP lifecycle implementation. Extracting or reusing the existing transaction body is required; a second parallel state machine would let the admin path drift from the public one, and `CheckinPass` issuance/revocation is exactly where that drift would be invisible until check-in day.
+
+The override may bypass `rsvpDeadlineAt` — that is its purpose — and it must not bypass `ACTIVE`, eligibility, composition, capacity, transition, pass-lifecycle, or `expectedVersion` rules. Every successful override writes `submittedByAdminUserId` and `adminOverrideReason`, making the RSVP override the only Phase 8 mutation with actor attribution. `guestNote` stays read-only.
+
+### Guest message moderation
+
+Moderation is `isHidden` set-to-value, and the operation is idempotent. `GuestMessage` carries no actor, no timestamp, and no reason, so moderation is unattributed; that is a declared MVP limitation rather than something to be worked around with an improvised table. `isHidden` has no public effect because no public message wall exists, and the contract must not imply one.
+
+### Auditability
+
+Phase 8 adds no generic audit-log table. Actor attribution exists only where the schema already carries it. Invitation create/edit/archive/regeneration, invitee mutations, eligibility replacement, and guest-message moderation record no actor in Phase 8. These are known limitations of the MVP scope, recorded so they are not mistaken for oversights during a later audit.
 
 ## Import Architecture
 
@@ -684,6 +768,15 @@ Public errors should avoid leaking existence or internal security details. Admin
 
 Admin authentication error codes are locked in `API-CONTRACT.md`: `INVALID_CREDENTIALS`, `TOO_MANY_LOGIN_ATTEMPTS`, `UNAUTHENTICATED`, `FORBIDDEN`, `CSRF_INVALID`. Login failure never distinguishes unknown email, wrong password, and a `DISABLED` account.
 
+Admin management error doctrine (Phase 8 Slice 8D0):
+
+- `400 VALIDATION_ERROR` for malformed query, body, or input, including an unsupported `sortBy`/`sortOrder` value.
+- `404 NOT_FOUND` for an authenticated OWNER request referencing a missing admin resource.
+- `409 CONFLICT` for admin state or concurrency conflicts where no more-specific existing domain code applies: stale `expectedUpdatedAt`, stale `expectedTokenVersion`, mutation of an archived invitation, invitee deletion while an `RSVPAttendee` references it, and an eligibility replacement that would orphan an `RSVPEventSelection`.
+- Existing RSVP domain codes stay authoritative where they apply, notably `409 RSVP_VERSION_CONFLICT` for an OWNER override version mismatch and `422 EVENT_NOT_ALLOWED` / `422 EVENT_NOT_SELECTED` for eligibility violations.
+- The public `404 INVITATION_NOT_AVAILABLE` is **not** reused for admin lookups. Its purpose is public indistinguishability between malformed, unknown, stale, and archived credentials; an authenticated OWNER is entitled to a real "not found", and collapsing admin 404s into the public code would make the admin client unable to tell a deleted resource from a broken link.
+- Admin messages may carry actionable validation detail, as already stated. They never expose stack traces, SQL, credentials, or hashes.
+
 ## Observability and Logging
 
 - Use Pino structured logging.
@@ -698,6 +791,14 @@ Admin auth logging doctrine (Phase 8 Slice 8B0):
 - The login and bootstrap request payloads must not be logged.
 - The normalized admin email may appear in appropriate authenticated audit metadata. Do not blanket-redact it.
 - The existing redaction infrastructure in `apps/api/src/logging/redaction.ts` remains authoritative and already covers these paths.
+
+Admin management logging doctrine (Phase 8 Slice 8D0):
+
+- Never deliberately log the `publicUrl` value or the raw public credential returned by `GET /api/admin/invitations/{id}/public-url` and `POST /api/admin/invitations/{id}/regenerate-token`. Those two responses carry bearer material and must be excluded from response-body logging the same way the public credential path already is.
+- Never log the admin guest-message `message` body or `authorName`. They are personal content shown only for moderation.
+- Do not log `publicTokenHash`, `CheckinPass.tokenHash`, or `qrPayload`.
+- Admin email may appear in authenticated audit metadata, consistent with the auth doctrine. Do not blanket-redact it.
+- Logging an admin mutation should record the actor id, route, target id, and outcome — never the payload contents that carry credentials or personal content.
 
 ## Deployment and CI Direction
 

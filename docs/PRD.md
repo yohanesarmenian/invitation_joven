@@ -66,8 +66,8 @@ Create a personal wedding invitation platform that lets invited households open 
 - RSVP statuses include `PENDING`, `ACCEPTED`, and `DECLINED`.
 - Guests may create and update RSVP up to and including the RSVP cutoff instant. After the cutoff, both create and update are rejected; public invitation retrieval remains available.
 - The cutoff is the persisted `Invitation.rsvpDeadlineAt`. The Phase 5 public baseline is `25 December 2026, 23:59:59 Asia/Jakarta` (`2026-12-25T16:59:59Z`).
-- Phase 5 defines no public post-deadline override. Any OWNER post-deadline override would require a separate authenticated admin contract.
-- OWNER may override RSVP when needed.
+- Phase 5 defines no public post-deadline override. The OWNER post-deadline override is the separate authenticated admin contract, locked in Phase 8 Slice 8D0: `PUT /api/admin/invitations/{invitationId}/rsvp`. It requires an OWNER session, CSRF, a mandatory reason, and `expectedVersion`, and it records the acting OWNER.
+- OWNER may override RSVP when needed. The override may pass the public deadline, but it must satisfy every other RSVP rule: invitation active, event eligibility, attendee composition, capacity and plus-one limits, the canonical accept/decline transitions, the check-in pass lifecycle, and version concurrency.
 - Backend validation is authoritative.
 - Frontend validation is UX assistance only.
 - RSVP uses optimistic versioning. Public reads return `version`; mutations require `expectedVersion`; mismatches return `409 RSVP_VERSION_CONFLICT`.
@@ -147,23 +147,23 @@ Initial export format is CSV. XLSX reporting/export is out of scope for MVP. XLS
 The admin frontend must provide:
 
 - OWNER login and logout.
-- Dashboard with reporting summary.
+- An operational dashboard showing invitation status counts, opened-active count, RSVP status counts, and expected attendance by event. Broader reporting metrics and charts are Phase 11, not Phase 8.
 - Invitation list with status, RSVP status, eligibility, opened aggregates, and search/filter controls.
 - Invitation detail.
 - Create and edit invitation.
-- Archive invitation.
-- Invitee management.
+- Archive invitation. Archive is terminal in Phase 8: it removes public access while preserving all admin history, and there is no unarchive action.
+- Invitee management, including hard deletion when no RSVP references the invitee.
 - Event eligibility configuration.
 - Additional child allowance and plus-one configuration.
 - Copy invitation URL by protected backend re-derivation.
-- Regenerate invitation URL by incrementing public credential version.
+- Regenerate invitation URL by incrementing the public credential version **and** replacing the stored credential hash together. Incrementing the version alone invalidates nothing, because credential lookup resolves by hash and never consults the version. Old links stop working immediately, and regeneration cannot be undone.
 - RSVP overview and detail.
-- RSVP administrative override.
-- Guest messages.
-- CSV/XLSX guest import with validation preview.
-- QR/check-in interface.
-- Manual guest lookup fallback.
-- CSV reports/export.
+- RSVP administrative override, which may operate after the public RSVP deadline and always records the OWNER and a reason.
+- Guest message listing and hide/unhide moderation.
+- CSV/XLSX guest import with validation preview. Phase 9.
+- QR/check-in interface. Phase 10.
+- Manual guest lookup fallback. Phase 10.
+- CSV reports/export. Phase 11.
 
 MVP has one effective role: OWNER. No permission matrix or role-management UI is required. The
 first OWNER is created by an operator-only command, not through a self-registration, signup, or
