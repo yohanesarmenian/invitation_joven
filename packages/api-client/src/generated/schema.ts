@@ -39,6 +39,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/invitations/{publicCredential}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a public guest message */
+        post: operations["PublicGuestMessageController_submitPublicGuestMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -171,6 +188,17 @@ export interface components {
             rsvp: components["schemas"]["PublicRsvpStateDto"];
             checkinPass: components["schemas"]["PublicCheckinPassDto"] | null;
         };
+        SubmitPublicGuestMessageRequestDto: {
+            authorName?: string | null;
+            message: string;
+        };
+        PublicGuestMessageDto: {
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PublicGuestMessageResponseDto: {
+            message: components["schemas"]["PublicGuestMessageDto"];
+        };
     };
     responses: never;
     parameters: never;
@@ -292,6 +320,49 @@ export interface operations {
             };
             /** @description RSVP domain validation failed. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    PublicGuestMessageController_submitPublicGuestMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicCredential: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitPublicGuestMessageRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicGuestMessageResponseDto"];
+                };
+            };
+            /** @description Invalid request payload. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            /** @description Invitation unavailable. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

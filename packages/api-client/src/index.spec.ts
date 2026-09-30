@@ -3,6 +3,8 @@ import type { components, paths } from "./generated/schema.js";
 import {
   createInvitationApiClient,
   type PublicRsvpReadResponse,
+  type SubmitPublicGuestMessageRequest,
+  type SubmitPublicGuestMessageResponse,
   type SubmitPublicRsvpRequest,
 } from "./index.js";
 
@@ -85,5 +87,30 @@ describe("generated API client", () => {
       "11111111-1111-4111-8111-111111111111",
     );
     expect(response.checkinPass?.qrPayload).toHaveLength(43);
+  });
+
+  it("exposes the public guest message operation and minimal response schema", () => {
+    expect(
+      assertApiPath("/api/public/invitations/{publicCredential}/messages"),
+    ).toBe("/api/public/invitations/{publicCredential}/messages");
+
+    const request: SubmitPublicGuestMessageRequest = {
+      authorName: "Jo",
+      message: "Congratulations!",
+    };
+    const anonymousRequest: SubmitPublicGuestMessageRequest = {
+      message: "Best wishes",
+    };
+    const response: SubmitPublicGuestMessageResponse = {
+      message: {
+        createdAt: "2026-09-30T00:00:00.000Z",
+      },
+    };
+
+    expect(request.authorName).toBe("Jo");
+    expect(anonymousRequest.message).toBe("Best wishes");
+    expect(Object.keys(response.message)).toEqual(["createdAt"]);
+    expect(JSON.stringify(response)).not.toContain("invitationId");
+    expect(JSON.stringify(response)).not.toContain("isHidden");
   });
 });
