@@ -11,6 +11,10 @@ export type PublicRsvpMutationResponse =
   components["schemas"]["PublicRsvpMutationResponseDto"];
 export type PublicRsvpReadResponse =
   components["schemas"]["PublicRsvpReadResponseDto"];
+export type SubmitPublicGuestMessageRequest =
+  components["schemas"]["SubmitPublicGuestMessageRequestDto"];
+export type SubmitPublicGuestMessageResponse =
+  components["schemas"]["PublicGuestMessageResponseDto"];
 export type ApiErrorEnvelope = components["schemas"]["ApiErrorEnvelopeDto"];
 export type GetPublicInvitationResponse =
   paths["/api/public/invitations/{publicCredential}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -18,6 +22,8 @@ export type SubmitPublicRsvpResponse =
   paths["/api/public/invitations/{publicCredential}/rsvp"]["put"]["responses"]["200"]["content"]["application/json"];
 export type GetPublicRsvpResponse =
   paths["/api/public/invitations/{publicCredential}/rsvp"]["get"]["responses"]["200"]["content"]["application/json"];
+export type PostPublicGuestMessageResponse =
+  paths["/api/public/invitations/{publicCredential}/messages"]["post"]["responses"]["201"]["content"]["application/json"];
 
 export function createInvitationApiClient(
   options?: Parameters<typeof createClient<paths>>[0],

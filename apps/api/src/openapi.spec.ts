@@ -7,10 +7,11 @@ import {
 } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { InvitationsModule } from "./invitations/invitations.module.js";
+import { MessagesModule } from "./messages/messages.module.js";
 import { createOpenApiDocument } from "./openapi.js";
 
 @Module({
-  imports: [InvitationsModule],
+  imports: [InvitationsModule, MessagesModule],
 })
 class OpenApiTestModule {}
 
@@ -41,6 +42,9 @@ describe("OpenAPI contract", () => {
       document.paths["/api/public/invitations/{publicCredential}/rsvp"];
     const getRsvpOperation = publicRsvpPath?.get;
     const putRsvpOperation = publicRsvpPath?.put;
+    const publicGuestMessagePath =
+      document.paths["/api/public/invitations/{publicCredential}/messages"];
+    const postMessageOperation = publicGuestMessagePath?.post;
     const schemas = document.components?.schemas ?? {};
 
     expect(getOperation).toBeDefined();
@@ -69,10 +73,21 @@ describe("OpenAPI contract", () => {
     expect(putRsvpOperation?.responses).toHaveProperty("404");
     expect(putRsvpOperation?.responses).toHaveProperty("409");
     expect(putRsvpOperation?.responses).toHaveProperty("422");
+    expect(postMessageOperation).toBeDefined();
+    expect(postMessageOperation?.requestBody).toBeDefined();
+    expect(postMessageOperation?.responses).toHaveProperty("201");
+    expect(postMessageOperation?.responses).toHaveProperty("400");
+    expect(postMessageOperation?.responses).toHaveProperty("404");
+    expect(publicGuestMessagePath?.get).toBeUndefined();
+    expect(publicGuestMessagePath?.put).toBeUndefined();
+    expect(publicGuestMessagePath?.patch).toBeUndefined();
+    expect(publicGuestMessagePath?.delete).toBeUndefined();
     expect(schemas).toHaveProperty("PublicInvitationResponseDto");
     expect(schemas).toHaveProperty("SubmitPublicRsvpRequestDto");
     expect(schemas).toHaveProperty("PublicRsvpMutationResponseDto");
     expect(schemas).toHaveProperty("PublicRsvpReadResponseDto");
+    expect(schemas).toHaveProperty("SubmitPublicGuestMessageRequestDto");
+    expect(schemas).toHaveProperty("PublicGuestMessageResponseDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     expect(JSON.stringify(schemas)).not.toContain("publicTokenHash");
     expect(JSON.stringify(schemas)).not.toContain("publicTokenVersion");
@@ -128,5 +143,45 @@ describe("OpenAPI contract", () => {
       },
       required: expect.arrayContaining(["status", "issuedAt", "qrPayload"]),
     });
+    expect(schemas.SubmitPublicGuestMessageRequestDto).toMatchObject({
+      properties: {
+        authorName: expect.objectContaining({
+          maxLength: 100,
+          nullable: true,
+          type: "string",
+        }),
+        message: expect.objectContaining({
+          maxLength: 1000,
+          type: "string",
+        }),
+      },
+      required: ["message"],
+    });
+    expect(schemas.PublicGuestMessageDto).toMatchObject({
+      properties: {
+        createdAt: expect.objectContaining({
+          format: "date-time",
+          type: "string",
+        }),
+      },
+      required: ["createdAt"],
+    });
+    expect(schemas.PublicGuestMessageResponseDto).toMatchObject({
+      properties: {
+        message: expect.objectContaining({
+          $ref: "#/components/schemas/PublicGuestMessageDto",
+        }),
+      },
+      required: ["message"],
+    });
+    expect(JSON.stringify(schemas.PublicGuestMessageResponseDto)).not.toContain(
+      "id",
+    );
+    expect(JSON.stringify(schemas.PublicGuestMessageResponseDto)).not.toContain(
+      "invitationId",
+    );
+    expect(JSON.stringify(schemas.PublicGuestMessageResponseDto)).not.toContain(
+      "isHidden",
+    );
   });
 });

@@ -171,6 +171,70 @@
         ]
       }
     },
+    "/api/public/invitations/{publicCredential}/messages": {
+      "post": {
+        "operationId": "PublicGuestMessageController_submitPublicGuestMessage",
+        "parameters": [
+          {
+            "name": "publicCredential",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "maxLength": 43,
+              "minLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPublicGuestMessageRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicGuestMessageResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invitation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Submit a public guest message",
+        "tags": [
+          "Public Guest Messages"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_getHealth",
@@ -653,6 +717,46 @@
         "required": [
           "rsvp",
           "checkinPass"
+        ]
+      },
+      "SubmitPublicGuestMessageRequestDto": {
+        "type": "object",
+        "properties": {
+          "authorName": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "PublicGuestMessageDto": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "createdAt"
+        ]
+      },
+      "PublicGuestMessageResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/PublicGuestMessageDto"
+          }
+        },
+        "required": [
+          "message"
         ]
       }
     }
