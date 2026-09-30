@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { retrievePublicRsvp, submitPublicRsvp } from "./public-rsvp";
-import { acceptedRsvp } from "../../components/invitation/public-rsvp.fixtures";
+import {
+  acceptedRsvp,
+  activePass,
+} from "../../components/invitation/public-rsvp.fixtures";
 import type { SubmitPublicRsvpRequest } from "../../../../packages/api-client/src/index";
 
 const credential = "test-credential-not-a-secret";
@@ -14,6 +17,50 @@ const request: SubmitPublicRsvpRequest = {
 };
 
 describe("generated public RSVP networking", () => {
+  it.each(["GET", "PUT"])(
+    "retains the complete canonical active pass from %s",
+    async (method) => {
+      const data = { rsvp: acceptedRsvp, checkinPass: activePass };
+      const options = { env, fetch: async () => Response.json(data) };
+      const result =
+        method === "GET"
+          ? await retrievePublicRsvp(credential, options)
+          : await submitPublicRsvp(credential, request, options);
+      expect(result.status).toBe("success");
+      if (result.status === "success") {
+        expect(
+          result.data.checkinPass?.qrPayload === activePass.qrPayload,
+        ).toBe(true);
+        expect(result.data.rsvp?.version).toBe(acceptedRsvp.version);
+      }
+    },
+  );
+  it.each([
+    undefined,
+    null,
+    42,
+    "",
+    "x".repeat(42),
+    "x".repeat(44),
+    "x".repeat(42) + "=",
+    "x".repeat(42) + "/",
+    "x".repeat(42) + " ",
+    "x".repeat(43) + "\n",
+    "x".repeat(43) + "\r\n",
+  ])("rejects an absent or malformed pass payload", async (qrPayload) => {
+    const result = await retrievePublicRsvp(credential, {
+      env,
+      fetch: async () =>
+        Response.json({
+          rsvp: acceptedRsvp,
+          checkinPass: { ...activePass, qrPayload },
+        }),
+    });
+    expect(result).toEqual({
+      status: "error",
+      error: { kind: "invalid-response", httpStatus: 200, code: null },
+    });
+  });
   it("loads detailed state using the generated GET with no caching", async () => {
     const fetch = vi.fn(async (input: Request) => {
       expect(input.url).toBe(

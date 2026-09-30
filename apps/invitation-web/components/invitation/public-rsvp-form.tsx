@@ -14,6 +14,7 @@ import {
   type RsvpNotice,
 } from "../../src/rsvp/notice";
 import { RsvpResultNotice } from "./rsvp-result-notice";
+import { GuestCheckinPass } from "./guest-checkin-pass";
 import {
   attendeeTotal,
   createRsvpDraft,
@@ -40,9 +41,12 @@ export function PublicRsvpForm({
   reloadAction,
 }: PublicRsvpFormProps) {
   const id = useId();
-  const [canonical, setCanonical] = useState(
-    initialResult.status === "success" ? initialResult.data.rsvp : null,
+  const [canonicalResponse, setCanonical] = useState(
+    initialResult.status === "success" ? initialResult.data : null,
   );
+  const canonical = canonicalResponse?.rsvp ?? null;
+  // Keep a stale pass suspended even if a later failed reload changes the notice.
+  const [passNeedsReload, setPassNeedsReload] = useState(false);
   const [draft, setDraft] = useState(() =>
     createRsvpDraft(invitation, canonical),
   );
@@ -107,6 +111,11 @@ export function PublicRsvpForm({
   function recordFailure(error: RsvpFailure, source: "submit" | "reload") {
     setFailure({ error, source });
     if (error.kind !== "api") return;
+    if (
+      (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT") ||
+      (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
+    )
+      setPassNeedsReload(true);
     if (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT")
       setLock("conflict");
     if (error.httpStatus === 422 && error.code === "RSVP_DEADLINE_PASSED")
@@ -125,7 +134,8 @@ export function PublicRsvpForm({
       const result = await reloadAction();
       if (result.status === "error") recordFailure(result.error, "reload");
       else {
-        setCanonical(result.data.rsvp);
+        setCanonical(result.data);
+        setPassNeedsReload(false);
         setDraft(createRsvpDraft(invitation, result.data.rsvp));
         setLoaded(true);
         setLock(null);
@@ -174,7 +184,7 @@ export function PublicRsvpForm({
       if (result.status === "error") {
         recordFailure(result.error, "submit");
       } else {
-        setCanonical(result.data.rsvp);
+        setCanonical(result.data);
         setDraft(createRsvpDraft(invitation, result.data.rsvp));
         setFeedback("saved");
       }
@@ -248,6 +258,9 @@ export function PublicRsvpForm({
     >
       {errorNotice}
       {statusNotice}
+      {!passNeedsReload && canonical?.status === "ACCEPTED" ? (
+        <GuestCheckinPass pass={canonicalResponse?.checkinPass ?? null} />
+      ) : null}
       <fieldset disabled={pending || terminal} className="rsvp-fields">
         <legend className="visually-hidden">Your RSVP</legend>
         <fieldset

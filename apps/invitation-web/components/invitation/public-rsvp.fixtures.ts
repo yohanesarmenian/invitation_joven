@@ -1,6 +1,13 @@
 import type { PublicRsvpReadResponse } from "../../../../packages/api-client/src/index";
 import type { RsvpInvitation } from "./public-rsvp-state";
 
+// Synthetic presentation fixture; never derived from a real credential secret.
+export const activePass: NonNullable<PublicRsvpReadResponse["checkinPass"]> = {
+  status: "ACTIVE",
+  issuedAt: "2026-09-29T00:00:00Z",
+  qrPayload: "Test-checkin_credential-".padEnd(43, "x"),
+};
+
 export const rsvpInvitation: RsvpInvitation = {
   events: [
     { id: "event-1", name: "Holy Matrimony" },
