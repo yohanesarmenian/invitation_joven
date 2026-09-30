@@ -7,7 +7,12 @@ import {
 import { retrievePublicInvitation } from "@/src/server/public-invitation";
 import { retrievePublicRsvp, submitPublicRsvp } from "@/src/server/public-rsvp";
 import { PublicRsvpForm } from "@/components/invitation/public-rsvp-form";
-import type { SubmitPublicRsvpRequest } from "../../../../../packages/api-client/src/index";
+import { GuestMessageForm } from "@/components/invitation/guest-message-form";
+import { submitPublicGuestMessage } from "@/src/server/public-guest-message";
+import type {
+  SubmitPublicRsvpRequest,
+  SubmitPublicGuestMessageRequest,
+} from "../../../../../packages/api-client/src/index";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +33,10 @@ export default async function PublicInvitationPage({
   }
 
   const initialRsvp = await retrievePublicRsvp(publicCredential);
+  async function sendGuestMessage(request: SubmitPublicGuestMessageRequest) {
+    "use server";
+    return submitPublicGuestMessage(publicCredential, request);
+  }
   async function reloadRsvp() {
     "use server";
     return retrievePublicRsvp(publicCredential);
@@ -56,6 +65,7 @@ export default async function PublicInvitationPage({
     <InvitationOpeningFlow>
       <PublicInvitationLongPage
         invitation={invitation}
+        guestMessageForm={<GuestMessageForm submitAction={sendGuestMessage} />}
         rsvpForm={
           <PublicRsvpForm
             invitation={{

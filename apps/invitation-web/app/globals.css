@@ -544,6 +544,95 @@ body {
   user-select: text;
 }
 
+.guest-message-form {
+  min-width: 0;
+  text-align: left;
+}
+
+.guest-message-form fieldset {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.guest-message-form label {
+  margin-top: 14px;
+  font-weight: 600;
+}
+
+.guest-message-form label span {
+  font-weight: 400;
+}
+
+.guest-message-form input,
+.guest-message-form textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid rgba(30, 41, 82, 0.55);
+  border-radius: 6px;
+  background: #fffaef;
+  color: #1e2952;
+  font: inherit;
+  font-size: 1rem;
+}
+
+.guest-message-form textarea {
+  resize: vertical;
+}
+
+.guest-message-form button {
+  min-height: 48px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px 20px;
+  border: 1px solid #1e2952;
+  border-radius: 999px;
+  background: #1e2952;
+  color: #fff5e1;
+  font: inherit;
+  cursor: pointer;
+}
+
+.guest-message-form button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.guest-message-form :is(input, textarea, button, [tabindex]):focus-visible {
+  outline: 3px solid #6082ff;
+  outline-offset: 3px;
+}
+
+.guest-message-form .guest-message-limit {
+  font-size: 0.875rem;
+}
+
+.guest-message-form p {
+  overflow-wrap: anywhere;
+}
+
+.guest-message-form .guest-message-error,
+.guest-message-confirmation {
+  padding: 16px;
+  border: 1px solid rgba(30, 41, 82, 0.3);
+  border-radius: 8px;
+  background: #fffaef;
+}
+
+.guest-message-confirmation {
+  text-align: center;
+}
+
+.guest-message-confirmation h3 {
+  margin: 0 0 10px;
+  font-size: 1.5rem;
+}
+
 .gallery-mosaic {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;

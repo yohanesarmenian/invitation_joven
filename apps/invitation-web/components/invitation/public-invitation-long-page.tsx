@@ -111,9 +111,11 @@ const invitationEventTimeFormatter = new Intl.DateTimeFormat("en-GB", {
 export function PublicInvitationLongPage({
   invitation,
   rsvpForm,
+  guestMessageForm,
 }: {
   invitation: PublicInvitationLongPageModel;
   rsvpForm: ReactNode;
+  guestMessageForm: ReactNode;
 }) {
   const guestName = invitation.greetingName ?? invitation.displayName;
 
@@ -130,7 +132,7 @@ export function PublicInvitationLongPage({
         </RsvpInformationSection>
         <GallerySection />
         <McCandlessQuoteSection />
-        <GuestMessageSection />
+        <GuestMessageSection>{guestMessageForm}</GuestMessageSection>
         <ClosingSection />
       </article>
     </main>
@@ -426,11 +428,11 @@ function McCandlessQuoteSection() {
   );
 }
 
-function GuestMessageSection() {
+function GuestMessageSection({ children }: { children: ReactNode }) {
   return (
     <section className="invitation-section guest-message-section" aria-labelledby="message-title">
       <h2 id="message-title">Leave a Message for the Bride &amp; Groom</h2>
-      <p>Guest messages will be available in a later phase.</p>
+      {children}
     </section>
   );
 }
