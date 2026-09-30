@@ -96,7 +96,7 @@ Expected modules:
 - `invitees`: named invitee management.
 - `events`: event definitions and ordering.
 - `rsvp`: household RSVP, event selections, current attendee composition, dietary notes, versioning, pass lifecycle coordination.
-- `messages`: guest messages.
+- `messages`: public guest message submission and persistence (Phase 7). Owns the create-only public endpoint and plain-text content validation. Does not own admin listing, moderation, or message read operations.
 - `checkin`: pass credential derivation, QR validation, duplicate-safe CheckinRecord confirmation.
 - `imports`: CSV/XLSX parse, validate, preview, commit.
 - `reports`: dashboard metrics and CSV export.
@@ -309,6 +309,36 @@ Phase 5 contract lock:
 - `guestNote` is outside the Phase 5 public RSVP contract. It is not accepted, mutated, or cleared by RSVP accept/decline, and it stays separate from Guest Message work.
 - Public RSVP create and update are both allowed up to and including the cutoff instant and both rejected afterwards with `422 RSVP_DEADLINE_PASSED`. The cutoff instant is `Invitation.rsvp_deadline_at`; the Phase 5 public baseline is `2026-12-25T16:59:59Z`. Public invitation GET remains available after the cutoff. Phase 5 defines no public post-deadline override.
 - The RSVP mutation and the CheckinPass lifecycle happen in the same Invitation-scoped transaction.
+
+## Guest Messages
+
+Guest message persistence is the existing `GuestMessage` model: `invitation_id`, nullable `author_name`, `message`, `created_at`, and the internal `is_hidden` moderation flag. No RSVP relation, no Invitee relation, no unique constraint, and no version column exist or are added. One `Invitation` owns many `GuestMessage` rows.
+
+Phase 7 contract lock (Slice 7B0):
+
+- The public guest-message API is **create-only**: `POST /api/public/invitations/{publicCredential}/messages`. There is no public read, update, or delete operation, and no public message wall.
+- Public response is `201 Created` with `{ "message": { "createdAt": "<ISO-8601>" } }` only. `GuestMessage.id` and all internal ownership and moderation fields stay private.
+- The request carries `message` (required) and `authorName` (optional) and nothing else. It never accepts `invitationId`, `inviteeId`, `rsvpId`, `isHidden`, `createdAt`, or `id`.
+- `message` is plain text, trimmed, non-empty after trimming, and at most 1000 Unicode characters after trimming. `authorName` is plain text, trimmed, `null` when empty after trimming, and at most 100 Unicode characters after trimming. HTML and Markdown are never interpreted, and message bodies are never rendered with `dangerouslySetInnerHTML`.
+- Submission depends only on `Invitation.status === ACTIVE`. It is independent of RSVP existence, RSVP status, and `Invitation.rsvp_deadline_at`.
+- Messages are append-only. Each explicit successful submission creates a new row. There is no idempotency key, no unique message-per-invitation rule, no optimistic version, and no update-on-duplicate behavior; an explicit resubmission after an uncertain network outcome may duplicate, and that is accepted for the MVP.
+- No new error codes are introduced. Invalid content uses the shared `400 VALIDATION_ERROR` envelope; unavailable or archived invitations use the existing generic `404 INVITATION_NOT_AVAILABLE` without revealing which case occurred.
+- `GuestMessage` is **not** `RSVP.guestNote`. Phase 7 never writes, clears, mirrors, or synchronizes `RSVP.guestNote`; the two remain separate concepts.
+
+Guest message resolution doctrine (semantic requirement, not an implementation mandate):
+
+1. Validate the public credential shape.
+2. Derive and hash the credential through the existing public-invitation mechanism.
+3. Enter an appropriate database transaction.
+4. Resolve the owning Invitation through the public credential.
+5. Require `status === ACTIVE`.
+6. Create one `GuestMessage` using the resolved `Invitation.id`.
+7. Commit.
+8. Return only `{ message: { createdAt } }`.
+
+The owning Invitation id comes **exclusively** from credential resolution and is never taken from the request body. The ACTIVE-invitation check must hold atomically with the write so a message is never intentionally inserted into an archived invitation. The implementation may extract or reuse the existing active-invitation resolution logic rather than coupling the messages module to RSVP-specific service code, but no broad refactor is required. Guest message semantics need no RSVP row lock and no `expectedVersion`.
+
+Admin message visibility and moderation are deferred to Phase 8+. `is_hidden` remains an internal moderation property: Phase 7 submission does not accept it, does not return it, and creates rows in the normal default internal state. Because there is no public message wall, "visible" does not mean publicly listed.
 
 ## Shared Transaction Lock Order
 

@@ -395,6 +395,30 @@ Phase 6 lock (resolves the declined state for the pass boundary; final copy rema
 - Shows "Message Sent!" overlay.
 - Back to Invitation returns to long page context.
 
+Phase 7 lock (Slice 7B0):
+
+- Phase 7 replaces the existing placeholder in the guest message section at long-page position 11 (`apps/invitation-web/components/invitation/public-invitation-long-page.tsx`, `GuestMessageSection`). Section placement and the surrounding journey do not change.
+- The guest flow remains: Invitation -> guest message section -> submit -> `Message Sent!` confirmation state -> Back to Invitation. The confirmation is an **in-flow presentation state** hosted inside the invitation experience.
+- No route change is introduced. There is no dedicated messages page, no guest-message history, and no public message wall. Back to Invitation must not navigate to a message id, a guest-message route, or a public message list.
+- `Message Sent!` remains the required success-state heading anchor from the UI spec.
+- The form collects a required `message` and an optional `authorName`. Both are plain text. The message field must accept internal line breaks and must not interpret HTML or Markdown; the message body is never rendered with `dangerouslySetInnerHTML`.
+- Submit is disabled while a submission is pending. A known server failure shows an error state with an explicit retry affordance. When the network outcome is uncertain, the UI must not automatically `POST` again and must not claim success without a confirmed response; the guest may explicitly retry, knowing it may create another message.
+- After a successful submission the current form submission completes and the success state is shown. Because multiple messages per invitation are allowed, a later explicit new submission is permitted; the frontend must not persist a browser-side "already submitted forever" restriction.
+- The guest message section never displays a previous message list. Admin moderation and hide/unhide surfaces belong to Phase 8+.
+
+#### Phase 7 guest messages — specification status
+
+Specified:
+
+- Section placement at position 11, the `Message Sent!` success anchor, Back to Invitation returning to long-page context, submit-disabled-while-pending, an error state with retry, and the plain-text rendering rule.
+
+Unspecified (do not invent during implementation without a separate copy/UX decision):
+
+- Form labels, placeholder text, and submit button label.
+- Whether the author-name field is shown, its label, and how optionality is communicated.
+- Whether the confirmation is modal, inline, or a notice region, and its keyboard dismissal behavior.
+- Any copy beyond the `Message Sent!` anchor.
+
 ## Loading, Disabled, Validation, and Error States
 
 Public invitation:
@@ -404,8 +428,9 @@ Public invitation:
 - RSVP submit disabled while request is pending.
 - Form-level validation for required status, eligible events, RSVP attendee rows, event expected counts, and dietary field limits.
 - API error state for deadline passed, unavailable invitation, ineligible event, event not selected, companion limit exceeded, RSVP version conflict, and network failure.
-- Message submit disabled while pending.
-- Message error state with retry.
+- Message submit disabled while pending, with no duplicate client request.
+- Message error state with an explicit retry affordance after a known failure. An uncertain network outcome must not trigger an automatic `POST` retry and must not show the success state without a confirmed response.
+- Message content validation feedback for a missing, empty-after-trim, or over-1000-character message, and for an over-100-character author name, using the shared validation error presentation.
 
 Admin:
 
@@ -550,7 +575,7 @@ selectors:
 
 ## Public Privacy
 
-The public UI may display household greeting, invited names needed for RSVP, eligible event details, RSVP status, and the active QR after acceptance. It must not expose internal IDs, token hashes, credential versions, admin notes, other invitations, or searchable guest data. The active pass `qrPayload` is bearer credential material: it may be held only in normal in-memory/render state needed to draw the QR, and must not be written to a URL, query string, `localStorage`, `sessionStorage`, analytics, or logs.
+The public UI may display household greeting, invited names needed for RSVP, eligible event details, RSVP status, and the active QR after acceptance. It must not expose internal IDs, token hashes, credential versions, admin notes, other invitations, or searchable guest data. Guest messages are **write-only** from the public surface (Phase 7 Slice 7B0): the public UI submits a message and shows the `Message Sent!` confirmation, but never lists messages, never displays `GuestMessage.id`, and never exposes another guest's message. The active pass `qrPayload` is bearer credential material: it may be held only in normal in-memory/render state needed to draw the QR, and must not be written to a URL, query string, `localStorage`, `sessionStorage`, analytics, or logs.
 
 Archived invitations use the same public unavailable state as unknown credentials. The UI must not reveal whether a link was once valid.
 

@@ -62,7 +62,9 @@ Public APIs must not expose credential hashes, credential versions, password/ses
 
 Resource IDs in request/response examples are UUID primary keys unless otherwise noted. UUIDs are acceptable for MVP because they are random and non-sequential. Credential strings, token hashes, and credential versions are never public resource identifiers.
 
-For public invitation retrieval, exposing `events[].id` and `invitees[].id` is intentional because later RSVP mutations require `eventId` and `inviteeId`. These IDs belong only to the resolved invitation's public projection. Public responses must not expose `Invitation.id`, `RSVP.id`, `CheckinPass.id`, credential versions, credential hashes, audit IDs, admin notes, or other invitations unless another locked contract explicitly requires them.
+For public invitation retrieval, exposing `events[].id` and `invitees[].id` is intentional because later RSVP mutations require `eventId` and `inviteeId`. These IDs belong only to the resolved invitation's public projection. Public responses must not expose `Invitation.id`, `RSVP.id`, `CheckinPass.id`, `GuestMessage.id`, credential versions, credential hashes, audit IDs, admin notes, or other invitations unless another locked contract explicitly requires them.
+
+`GuestMessage.id` is explicitly **not** an exception. Guest message creation is create-only, no public message read operation exists, and the public client has no functional need for the row id, so it stays internal (Phase 7 Slice 7B0).
 
 ## Public Endpoints
 
@@ -211,7 +213,7 @@ Request fields:
 - `eventSelections[]`: `{ eventId, attending, expectedAttendeeCount }`.
 - `attendees[]`: `{ type, inviteeId?, quantity }`.
 - `dietaryNotes`: optional household-level text. Trimmed; maximum 500 characters after trimming; empty after trimming normalizes to `null`.
-- `guestNote` is not part of the Phase 5 public RSVP mutation contract. It is not accepted, not mutated, and not cleared as a side effect of accept/decline. Guest-message functionality belongs to a later phase.
+- `guestNote` is not part of the Phase 5 public RSVP mutation contract. It is not accepted, not mutated, and not cleared as a side effect of accept/decline. Guest-message functionality is Phase 7 and uses the separate `GuestMessage` model; `guestNote` is never the guest-message mechanism and Phase 7 never writes, clears, mirrors, or synchronizes it.
 
 Deadline evaluation:
 
@@ -376,6 +378,8 @@ The same representation applies to the `PUT` accepted response:
 
 Authentication: public credential.
 
+Phase 7 guest-message contract is locked in Slice 7B0 and is **create-only**. There is no public message read, update, or delete operation, and no public message wall.
+
 Request:
 
 ```json
@@ -385,25 +389,55 @@ Request:
 }
 ```
 
-Response:
+`authorName` may be omitted entirely.
+
+Response: `201 Created`.
 
 ```json
 {
   "message": {
-    "id": "46a6c61b-9c5a-4d7e-8f30-f054b7b169e1",
     "createdAt": "2026-09-17T00:00:00.000Z"
   }
 }
 ```
 
-Validation:
+The public response deliberately returns **only** `createdAt`.
 
-- Invitation must be active.
-- Message is required.
-- Length limits to be set during implementation.
-- Message associates with invitation for admin visibility.
+- `GuestMessage.id` is **internal** and is never returned publicly. The public client has no functional need for it, and an internal UUID is not exposed merely because it exists.
+- The response never contains `invitationId`, `isHidden`, `Invitation.id`, `publicTokenHash`, `credentialVersion`, or admin metadata.
+- The response does not echo `message` or `authorName`.
 
-Guest message retry/idempotency policy must be decided before Phase 7 ships.
+Content contract:
+
+- `message` is required, plain text only, trimmed of leading and trailing whitespace before persistence, and rejected if empty after trimming.
+- `message` maximum length after trimming is **1000 Unicode characters**. Internal line breaks are preserved. Unicode and emoji are allowed.
+- HTML is not interpreted, Markdown is not interpreted, and links are not auto-converted to HTML. The stored value is the trimmed plain-text message.
+- `authorName` is optional guest-entered free text. It is never derived from `Invitee`, `Invitation.greetingName`, or `RSVP`. It is trimmed; empty after trimming becomes `null`; maximum length after trimming is **100 Unicode characters**. Anonymous submission (`authorName: null`) is valid.
+- The request never accepts `invitationId`, `inviteeId`, `rsvpId`, `isHidden`, `createdAt`, or `id`. The owning Invitation comes exclusively from credential resolution.
+
+Window:
+
+- Submission is independent of RSVP existence, RSVP status, and `rsvpDeadlineAt`. A message may be submitted while `Invitation.status` is `ACTIVE` even when no RSVP exists, the RSVP is `ACCEPTED` or `DECLINED`, or the RSVP cutoff has passed.
+- Submission is denied when the Invitation is `ARCHIVED` or otherwise unavailable through the public credential boundary, using the generic `404 INVITATION_NOT_AVAILABLE` response.
+- No message-specific deadline error exists. `RSVP_DEADLINE_PASSED` is never reused for guest messages.
+
+Errors:
+
+- `400 VALIDATION_ERROR` for malformed body, wrong field type, missing `message`, empty-after-trim `message`, `message` longer than 1000 characters, or `authorName` longer than 100 characters. Field-level structure follows the existing shared validation envelope.
+- `404 INVITATION_NOT_AVAILABLE` for unknown credentials, unavailable invitations, and archived invitations, preserving the generic non-enumerating behavior. The response does not reveal whether the credential never existed or the invitation was archived.
+- Unexpected failures use the existing generic server-error behavior and add no message-specific internal detail. Error responses never echo message content, `authorName`, the public credential, or database IDs.
+
+Retry and duplicate semantics:
+
+- Messages are create-only append operations. Every explicit successful submission creates a new `GuestMessage` row, and multiple messages from the same invitation are allowed.
+- There is no idempotency key, no unique message-per-invitation rule, no optimistic version, no update-on-duplicate behavior, and no automatic retry.
+- The frontend disables submit while a submission is pending and must not automatically retry the `POST` when the network outcome is uncertain.
+- A guest may explicitly submit again. An explicit second submission is a new message and may create a duplicate if the earlier uncertain request actually committed. This is an accepted MVP behavior.
+- See `OPEN-QUESTIONS.md` for the locked Phase 7 decision record.
+
+Logging:
+
+- `GuestMessage` content is user-authored personal content. The implementation must not deliberately log the raw message body, `authorName`, or the public credential, and must not add request-body debug logging.
 
 ## Admin Authentication Endpoints
 
@@ -664,11 +698,15 @@ State transitions: same RSVP/check-in pass lifecycle as public.
 
 ## Admin Message Endpoints
 
+**Deferred. Not part of Phase 7.** These operations require the OWNER admin session foundation owned by Phase 8, and `apps/admin-web` has no API client or authentication. Phase 7 owns public guest-message submission only.
+
 - `GET /api/admin/messages?page=1&pageSize=25`
 - `GET /api/admin/invitations/{invitationId}/messages`
 - `PATCH /api/admin/messages/{messageId}` for moderation fields such as `isHidden`.
 
 Authentication: OWNER.
+
+Admin listing pagination, sort order, detail, and hide/unhide behavior are not Phase 7 public-contract blockers and are not locked here. They are decided when the admin foundation exists. Guest message content remains plain text in admin surfaces: no `dangerouslySetInnerHTML`, no Markdown interpretation.
 
 ## Admin Import Endpoints
 
