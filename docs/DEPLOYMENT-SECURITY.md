@@ -28,6 +28,31 @@ The API sanitizer additionally reserves patterns for `/c/<credential>` and
 exist in `apps/api/src/logging/redaction.ts` so check-in and confirmation routes inherit
 redaction when they ship.
 
+Those reserved patterns are **defensive sanitization only**. They do not define a transport
+contract, and they are not the selected Phase 6 design. Phase 6 returns the guest pass
+credential as `checkinPass.qrPayload` in the public RSVP **response body**, and the future
+scanner submission (Phase 10) is expected in a **request body**. No credential-bearing URL is
+required by Phase 6, and Phase 6 must not introduce `/c/<credential>`,
+`/api/public/checkin/<credential>`, or any other new credential-bearing route. Gating a
+credential behind a path is what creates the access-log exposure this policy exists to avoid.
+The reserved patterns stay in place so that if such a route ever ships it is redacted by
+default rather than by remembering to add it.
+
+### Check-in credential (guest pass) logging
+
+- The check-in credential published as `qrPayload` is bearer material. Possession of it is
+  sufficient to identify one household pass at the venue.
+- It must never be logged: not in application logs, structured request logs, reverse-proxy or
+  platform access logs, error output, or exception details.
+- The existing redaction list already covers `credential`, `tokenHash`, `checkinToken`,
+  `qrPayload`, `qrCredential`, `hmacSecret`, and their wildcard variants. Do not remove those
+  entries.
+- The credential is delivered in a response body and submitted in a request body, so it must
+  never appear in a query string or route path.
+- Client-side, the credential may exist only in the in-memory state needed to render the QR. It
+  must not be written to `localStorage`, `sessionStorage`, cookies, analytics events, or
+  `console` output.
+
 ### Safe log representation
 
 - Redact the dynamic credential segment, e.g. `/i/[REDACTED]`.

@@ -257,6 +257,16 @@ Compatibility and security tests must freeze the exact vector, 43-character Base
 - Plaintext QR payload/credential is not persisted.
 - Must not be logged.
 
+Redisplay doctrine (Phase 6 lock):
+
+- Guest pass redisplay does **not** require storing a plaintext credential, and no schema or storage change is required for it.
+- The server re-derives the credential on demand from `CheckinPass.id`, `CheckinPass.credentialVersion`, and the server credential secret, using the existing `check-in` namespace and the existing derivation algorithm.
+- The derivation algorithm, the namespace strings, and `credentialVersion` behavior are unchanged by Phase 6.
+- The re-derived value is the exact string published as `qrPayload`: an unpadded Base64URL opaque credential. The QR image encodes that credential string and nothing else.
+- Re-derivation is only performed for a pass that is currently `ACTIVE`. A revoked pass row may exist in history, but its credential is never re-derived and never returned publicly.
+- Where a re-derived credential is used for verification, the implementation compares it against the currently persisted `token_hash` for the pass rather than trusting the derivation alone.
+- Exposing the credential on a public response does not weaken the invitation credential: the invitation credential and the check-in credential use separate namespaces and are never interchangeable.
+
 ### Admin session credential
 
 - High-entropy random session token in HttpOnly cookie.

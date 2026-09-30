@@ -218,6 +218,22 @@ Do not begin Phase 1 until Phase 0 documentation corrections are accepted. This 
 - Non-goals: venue scanner UI and CheckinRecord creation.
 - Completion gate: public confirmation surfaces are complete.
 
+Phase 6 slices:
+
+| Slice | Scope | Notes |
+| --- | --- | --- |
+| 6B0 | Guest pass / QR contract lock (docs only) | Locks QR payload format, declined behavior, and presentation surface. No code. |
+| 6B | Backend `qrPayload` exposure | Re-derive the active CheckinPass credential and add `qrPayload` to the public `checkinPass` representation; regenerate OpenAPI and the generated client; add DB-backed and HTTP integration tests. No schema change. |
+| 6C | Guest QR/pass presentation | Render the QR for an accepted RSVP with an active pass; render no QR for declined; textual fallback; responsive and accessibility work. invitation-web only. |
+| 6D | Phase 6 QA | Mock E2E, real-backend smoke, privacy and security assertions (no `tokenHash`, no `credentialVersion`, no pass id, no credential in URL or logs). |
+
+Phase 6 ownership boundary (locked in 6B0):
+
+- Phase 6 owns: public active pass credential re-derivation, the public `qrPayload` response, guest QR rendering, accepted/declined pass presentation, the accessibility fallback, and guest-pass QA.
+- Phase 6 does **not** own: admin login, admin session, CSRF, scanner, camera access, the QR validation endpoint, the confirm check-in mutation, `CheckinRecord` creation, manual check-in, or reporting.
+- Phase 8 owns the admin auth foundation. Phase 10 owns the scanner and venue check-in.
+- Phase 6 changes no RSVP mutation semantics and creates no `CheckinRecord`.
+
 ## Phase 7 - Guest Messages
 
 - Objective: Implement public message submission and admin visibility.

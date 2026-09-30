@@ -354,22 +354,41 @@ Production behavior:
 - Dietary input is household-level, optional, and limited to 500 characters after trimming; an empty value is submitted as no dietary information.
 - Decline clears dietary information along with event attendance and attendee selections.
 - After the RSVP cutoff, the RSVP form is closed for both new and updated submissions and the deadline-passed state is shown. Public invitation content remains readable.
-- QR pass is displayed only after accepted RSVP and active pass issuance, which happen atomically in the backend. Phase 5 does not render the QR; see `IMPLEMENTATION-ROADMAP.md` Phase 6.
+- QR pass is displayed only after accepted RSVP and active pass issuance, which happen atomically in the backend. Phase 5 does not render the QR; see `IMPLEMENTATION-ROADMAP.md` Phase 6. Phase 6 presents the pass inline within this RSVP surface (see Confirmation States).
 
 ## Confirmation States
 
 ### Registered / QR confirmation
 
 - Shows successful RSVP acceptance.
-- Displays backend-generated QR for active household CheckinPass.
+- Displays the backend-derived QR for the active household CheckinPass.
 - Shows Back to Invitation action.
 - The backend must not commit an accepted RSVP without the required pass state. If submission fails, show a recoverable RSVP submission error rather than a successful registered state.
+
+Phase 6 lock:
+
+- Surface: the pass/QR is presented **inline inside the existing public RSVP/result surface** on the invitation long page. Phase 6 introduces no dedicated pass route, no `/c/...` route, no separate guest portal, and no navigation to another public page.
+- The Figma `Registered` frame is a **visual reference** for the accepted/saved state, not a requirement to introduce new routing. If visual fidelity later needs a focused presentation state, it must still be hosted inside the existing invitation flow unless a future contract explicitly changes routing.
+- The QR is shown only when the RSVP is `ACCEPTED` **and** an active pass exists. Otherwise no QR is rendered — never a disabled, blurred, or placeholder QR.
+- "Back to Invitation" means returning to or dismissing the pass/result presentation within the existing invitation experience. It must not navigate to a new credential-bearing route.
+- The QR must not be the sole representation of the pass: a textual fallback is required (see Accessibility), and the accepted state must be conveyed in text independently of the QR image.
+- The pass remains visually part of the invitation and uses the invitation visual language.
+- The QR is rendered from the `checkinPass.qrPayload` returned by the API. The payload is never placed in a URL, a query string, browser persistent storage, analytics, or logs.
+- Guest pass UI must not display internal identifiers: no `CheckinPass.id`, no `tokenHash`, no `credentialVersion`, no `Invitation.id`, no `RSVP.id`.
 
 ### Declined confirmation
 
 - Figma does not define this clearly.
 - Production needs a confirmation state for declined RSVP without QR.
 - Exact copy/visual treatment is unresolved but must preserve main invitation return path.
+
+Phase 6 lock (resolves the declined state for the pass boundary; final copy remains as implemented):
+
+- Phase 6 does **not** introduce a new declined flow. It reuses the existing declined confirmation implemented in Phase 5E.
+- Declined state shows the existing confirmation notice and renders **no QR**, no pass credential, and no pass metadata. There is no disabled or placeholder QR.
+- Guests may continue editing their response before the deadline under the existing RSVP rules; the pass boundary does not change RSVP mutation semantics.
+- The existing success, error, conflict, deadline, and recovery architecture remains authoritative.
+- Current implemented copy is defined by `apps/invitation-web/src/rsvp/notice.ts` (`rsvpSuccessNotice`): title "Thank you for letting us know", message "Your response has been saved as not attending. You can update your response before the reply deadline." Any future copy change is a separate copy decision and must not be invented during pass work.
 
 ### Message confirmation
 
@@ -407,6 +426,11 @@ Admin:
 - Color swatches need text labels; do not rely on color alone.
 - Forms require labels and error associations.
 - QR confirmation should include text fallback.
+- The QR must not be the sole representation of the pass. A textual fallback must exist alongside it.
+- The pass state (`ACTIVE` / accepted) must be screen-reader discoverable and conveyed with text, not by the presence of the QR image alone.
+- The declined state must not rely on the absence of a QR to explain itself; it requires its own visible text.
+- The QR image requires a meaningful accessible name describing it as the household check-in pass.
+- No QR library is prescribed by this spec.
 - Motion should respect `prefers-reduced-motion`.
 - Contrast must be verified during implementation.
 - Meaningful images require alt text. Pure decorative images should use empty
@@ -526,7 +550,7 @@ selectors:
 
 ## Public Privacy
 
-The public UI may display household greeting, invited names needed for RSVP, eligible event details, RSVP status, and active QR after acceptance. It must not expose internal IDs, token hashes, admin notes, other invitations, or searchable guest data.
+The public UI may display household greeting, invited names needed for RSVP, eligible event details, RSVP status, and the active QR after acceptance. It must not expose internal IDs, token hashes, credential versions, admin notes, other invitations, or searchable guest data. The active pass `qrPayload` is bearer credential material: it may be held only in normal in-memory/render state needed to draw the QR, and must not be written to a URL, query string, `localStorage`, `sessionStorage`, analytics, or logs.
 
 Archived invitations use the same public unavailable state as unknown credentials. The UI must not reveal whether a link was once valid.
 
