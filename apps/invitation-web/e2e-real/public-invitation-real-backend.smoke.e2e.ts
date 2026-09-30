@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import {
   readSmokeState,
   runFixtureCli,
   type SmokeFixtureRead,
+  type SmokeMessageState,
   type SmokePassState,
 } from "./smoke-fixture";
 
@@ -745,4 +747,749 @@ test("real backend: the guest credential stays out of URLs, requests, and the co
   await expectNoPrivatePassFields(page, state, passState().activePassIds);
 
   resetRsvp();
+});
+
+// ---------------------------------------------------------------------------
+// Phase 7 — guest messages, real browser against the compiled API and the
+// isolated real PostgreSQL smoke database.
+//
+// These run last on purpose: the retrieval test above asserts `open_count` as
+// an exact delta from the seeded baseline, so an earlier page load in this file
+// would invalidate it. That is also why the Phase 7 HTTP matrix lives in its
+// own page-load-free file.
+//
+// Privacy: guest message content and `authorName` are user-authored personal
+// content. The synthetic constants below live only in test source; they are
+// never printed, never part of a test title, and never interpolated into an
+// assertion message. DB-side content equality is proven with SHA-256 digests.
+// ---------------------------------------------------------------------------
+
+const GUEST_MESSAGE_HEADING = "Leave a Message for the Bride & Groom";
+const GUEST_MESSAGE_SUCCESS = "Message Sent!";
+const GUEST_MESSAGE_FORM = "Guest message";
+
+const AUTHOR_WITH_PADDING = "  Smoke Author  ";
+const AUTHOR_NORMALIZED = "Smoke Author";
+const MESSAGE_WITH_PADDING = "  First line\nSecond line  ";
+const MESSAGE_NORMALIZED = "First line\nSecond line";
+const SCRIPT_MESSAGE = "<script>window.__xss = 1</script> plain text";
+const EMOJI = "😀";
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function messageState(): SmokeMessageState {
+  return runFixtureCli<SmokeMessageState>("message-state");
+}
+
+function resetMessages(): void {
+  runFixtureCli<{ status: string }>("reset-messages");
+}
+
+function setInvitationStatus(status: "active" | "archived"): void {
+  runFixtureCli<{ status: string }>("set-invitation-status", [status]);
+}
+
+function resetRsvpAndMessages(): void {
+  runFixtureCli<{ status: string }>("reset-rsvp");
+  resetMessages();
+}
+
+function guestMessageForm(page: Page) {
+  return page.getByRole("form", { name: GUEST_MESSAGE_FORM });
+}
+
+/** Scoped to the guest-message component so the RSVP notices never match. */
+function guestMessageAlert(page: Page) {
+  return page.locator(".guest-message-form").getByRole("alert");
+}
+
+function sendButton(page: Page) {
+  return page.getByRole("button", { name: /^Send Message/ });
+}
+
+async function openMessageForm(page: Page, publicCredential: string) {
+  await openInvitation(page, publicCredential);
+
+  await expect(guestMessageForm(page)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_HEADING }),
+  ).toBeVisible();
+}
+
+async function fillMessage(
+  page: Page,
+  authorName: string | null,
+  message: string,
+): Promise<void> {
+  if (authorName !== null) {
+    await page.getByLabel(/Your name/).fill(authorName);
+  }
+
+  await page.getByLabel(/Your message/).fill(message);
+}
+
+/**
+ * A Next server action arrives as a POST to the page route. The header name is
+ * not stable across Next versions, so it is matched case-insensitively instead
+ * of by exact spelling.
+ */
+function isServerActionRequest(request: {
+  headers: () => Record<string, string>;
+  method: () => string;
+}): boolean {
+  return (
+    request.method() === "POST" &&
+    Object.keys(request.headers()).some(
+      (header) => header.toLowerCase() === "next-action",
+    )
+  );
+}
+
+test("real backend: the message section renders a real form and no placeholder", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+
+  await openMessageForm(page, state.publicCredential);
+
+  await expect(page.locator("textarea")).toHaveCount(1);
+  await expect(page.getByLabel(/Your name/)).toBeVisible();
+  await expect(sendButton(page)).toBeEnabled();
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toHaveCount(0);
+
+  // No placeholder copy survives, and no public message history is rendered.
+  const visibleText = await page.locator("body").innerText();
+
+  expect(/coming soon|later phase|stay tuned/i.test(visibleText)).toBe(false);
+  await expect(page.getByText("See you at the Wedding!")).toBeVisible();
+});
+
+test("real backend: a named multiline message is persisted and confirmed in the browser", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+  const pageErrors: string[] = [];
+
+  page.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
+
+  resetMessages();
+  await openMessageForm(page, state.publicCredential);
+  await fillMessage(page, AUTHOR_WITH_PADDING, MESSAGE_WITH_PADDING);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Thank you for sharing your wishes with us."),
+  ).toBeVisible();
+
+  // No route change: the confirmation is an in-place state on the same page.
+  expect(new URL(page.url()).pathname).toBe(`/i/${state.publicCredential}`);
+
+  const after = messageState();
+
+  expect(after.messageCount).toBe(1);
+
+  const [row] = after.messages;
+
+  expect(row!.authorNamePresent).toBe(true);
+  expect(row!.authorNameIsTrimmed).toBe(true);
+  expect(row!.messageIsTrimmed).toBe(true);
+  expect(row!.messageHasNewline).toBe(true);
+  expect(row!.invitationIdMatches).toBe(true);
+  expect(row!.isHidden).toBe(false);
+  expect(row!.authorNameSha256).toBe(sha256(AUTHOR_NORMALIZED));
+  expect(row!.messageSha256).toBe(sha256(MESSAGE_NORMALIZED));
+
+  expect(pageErrors).toEqual([]);
+});
+
+test("real backend: an anonymous message is accepted and stored without an author", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+
+  resetMessages();
+  await openMessageForm(page, state.publicCredential);
+  await fillMessage(page, null, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  const after = messageState();
+
+  expect(after.messageCount).toBe(1);
+  expect(after.messages[0]!.authorNamePresent).toBe(false);
+});
+
+test("real backend: Back to Invitation restores an empty usable form and a second submission appends", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+
+  resetMessages();
+  await openMessageForm(page, state.publicCredential);
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Back to Invitation" }).click();
+
+  // The confirmation closes and a blank, usable form returns.
+  await expect(guestMessageForm(page)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel(/Your name/)).toHaveValue("");
+  await expect(page.getByLabel(/Your message/)).toHaveValue("");
+  await expect(sendButton(page)).toBeEnabled();
+  expect(new URL(page.url()).pathname).toBe(`/i/${state.publicCredential}`);
+
+  // A later explicit submission is a new request, not a locked-out one.
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  const after = messageState();
+
+  expect(after.messageCount).toBe(2);
+  expect(after.messages[0]!.id).not.toBe(after.messages[1]!.id);
+});
+
+test("real backend: client validation blocks invalid content before any request", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+  let requests = 0;
+
+  resetMessages();
+
+  page.on("request", (request) => {
+    if (isServerActionRequest(request)) requests += 1;
+  });
+
+  await openMessageForm(page, state.publicCredential);
+
+  // Blank message.
+  await fillMessage(page, AUTHOR_NORMALIZED, "   ");
+  await sendButton(page).click();
+  await expect(
+    guestMessageAlert(page).filter({
+      hasText: "Please write a message for the bride and groom.",
+    }),
+  ).toBeVisible();
+  expect(requests).toBe(0);
+
+  // One code point over the message cap.
+  await fillMessage(page, AUTHOR_NORMALIZED, EMOJI.repeat(1001));
+  await sendButton(page).click();
+  await expect(page.getByText(/keep your message to 1000/)).toBeVisible();
+  expect(requests).toBe(0);
+
+  // One code point over the author-name cap.
+  await fillMessage(page, EMOJI.repeat(101), MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+  await expect(page.getByText(/keep your name to 100/)).toBeVisible();
+  expect(requests).toBe(0);
+
+  expect(messageState().messageCount).toBe(0);
+
+  // Exactly at both caps is accepted and does reach the server.
+  await fillMessage(page, EMOJI.repeat(100), EMOJI.repeat(1000));
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+  expect(requests).toBe(1);
+
+  const after = messageState();
+
+  expect(after.messageCount).toBe(1);
+  expect(after.messages[0]!.messageCodePoints).toBe(1000);
+  expect(after.messages[0]!.authorNameCodePoints).toBe(100);
+});
+
+test("real backend: a pending submission is not duplicated by repeated clicks", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+  let requests = 0;
+
+  resetMessages();
+
+  page.on("request", (request) => {
+    if (isServerActionRequest(request)) requests += 1;
+  });
+
+  // Hold the response so the pending window is observable rather than a race.
+  await page.route("**/*", async (route) => {
+    if (isServerActionRequest(route.request())) {
+      await new Promise((resolve) => setTimeout(resolve, 750));
+    }
+
+    await route.continue();
+  });
+
+  await openMessageForm(page, state.publicCredential);
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+
+  await sendButton(page).click();
+
+  // The pending state is real, and the control is disabled during it.
+  await expect(page.getByRole("button", { name: /^Sending/ })).toBeDisabled();
+  expect(requests).toBe(1);
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  // Client-side pending protection only: one request, one row. This is not
+  // backend deduplication, and a deliberate later retry still appends.
+  expect(requests).toBe(1);
+  expect(messageState().messageCount).toBe(1);
+});
+
+test("real backend: a rejected submission keeps the draft and retries explicitly", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+
+  resetMessages();
+  await openMessageForm(page, state.publicCredential);
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+
+  try {
+    // The invitation closes mid-session, after the page was already rendered.
+    setInvitationStatus("archived");
+    await sendButton(page).click();
+
+    await expect(
+      page.getByText("This invitation is currently unavailable."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+    ).toHaveCount(0);
+
+    // The draft survives the failure; nothing was silently retried.
+    await expect(page.getByLabel(/Your name/)).toHaveValue(AUTHOR_NORMALIZED);
+    await expect(page.getByLabel(/Your message/)).toHaveValue(
+      MESSAGE_NORMALIZED,
+    );
+    expect(messageState().messageCount).toBe(0);
+  } finally {
+    setInvitationStatus("active");
+  }
+
+  // The explicit retry is a new user action and succeeds.
+  await page.getByRole("button", { name: "Send Message Again" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  const after = messageState();
+
+  expect(after.messageCount).toBe(1);
+  expect(after.messages[0]!.messageSha256).toBe(sha256(MESSAGE_NORMALIZED));
+});
+
+test("real backend: a response lost after a committed write never claims success and never auto-retries", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+  let requests = 0;
+
+  resetMessages();
+
+  page.on("request", (request) => {
+    if (isServerActionRequest(request)) requests += 1;
+  });
+
+  // The request is performed for real — so the append commits — and only then
+  // is the browser's response dropped. This is the exact uncertain case: the
+  // guest cannot tell whether the message was saved.
+  await page.route("**/*", async (route) => {
+    if (!isServerActionRequest(route.request())) {
+      await route.continue();
+      return;
+    }
+
+    await route.fetch();
+    await route.abort("failed");
+  });
+
+  await openMessageForm(page, state.publicCredential);
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByText("We couldn’t confirm whether your message was sent."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toHaveCount(0);
+
+  // Draft preserved, no automatic retry, and the result is genuinely unknown.
+  await expect(page.getByLabel(/Your message/)).toHaveValue(MESSAGE_NORMALIZED);
+  expect(requests).toBe(1);
+
+  // The write did commit server-side — which is exactly why no automatic retry
+  // is allowed here, and why the copy warns that sending again may produce a
+  // second copy.
+  expect(messageState().messageCount).toBe(1);
+});
+
+test("real backend: guest messages stay available after a decline and past the RSVP deadline", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+
+  resetRsvpAndMessages();
+
+  await openMessageForm(page, state.publicCredential);
+  await page.getByRole("radio", { name: "Regretfully Decline" }).check();
+  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Thank you for letting us know" }),
+  ).toBeVisible();
+
+  expect(passState().rsvpStatus).toBe("DECLINED");
+
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  // The message write did not disturb the RSVP it is independent of.
+  expect(passState().rsvpStatus).toBe("DECLINED");
+
+  // Re-accept so a reloaded form is in the editable ACCEPTED shape; a declined
+  // RSVP renders a summary without the dietary field, which is not what this
+  // leg is measuring.
+  await acceptInBrowser(page);
+  await expect(
+    page.getByRole("status").filter({ hasText: "Thank you for your RSVP" }),
+  ).toBeVisible();
+
+  runFixtureCli<{ status: string }>("set-deadline", ["past"]);
+
+  try {
+    // A fresh load past the cutoff. The RSVP controls are still closed...
+    await openMessageForm(page, state.publicCredential);
+    await page
+      .getByLabel(/Dietary requirements/)
+      .fill("Attempted after the deadline");
+    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "The reply deadline has passed" }),
+    ).toBeVisible();
+
+    // ...and the guest message path is not.
+    await fillMessage(page, null, MESSAGE_NORMALIZED);
+    await sendButton(page).click();
+
+    await expect(
+      page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+    ).toBeVisible();
+  } finally {
+    runFixtureCli<{ status: string }>("set-deadline", ["none"]);
+  }
+
+  expect(messageState().messageCount).toBe(2);
+
+  resetRsvpAndMessages();
+});
+
+test("real backend: a guest message leaves the check-in pass and its qrPayload untouched", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+
+  resetRsvpAndMessages();
+
+  await openInvitation(page, state.publicCredential);
+  await acceptInBrowser(page);
+
+  const payload = await expectPassVisible(page);
+  const before = passState();
+
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  // The pass survives the message write with the same credential.
+  const afterPayload = await expectPassVisible(page);
+
+  expect(sameSecret(afterPayload, payload)).toBe(true);
+
+  const after = passState();
+
+  expect(after).toMatchObject({
+    activeHashMatches: true,
+    activePassCount: 1,
+    rsvpStatus: "ACCEPTED",
+    rsvpVersion: before.rsvpVersion,
+    totalPassCount: before.totalPassCount,
+  });
+  expect(after.activePassIds).toEqual(before.activePassIds);
+
+  resetRsvpAndMessages();
+});
+
+test("real backend: script-like message content never executes and never renders", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+  const dialogs: string[] = [];
+  const pageErrors: string[] = [];
+
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.type());
+    void dialog.dismiss();
+  });
+  page.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
+
+  resetMessages();
+  await openMessageForm(page, state.publicCredential);
+  await fillMessage(page, AUTHOR_NORMALIZED, SCRIPT_MESSAGE);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  const xss = await page.evaluate(
+    () => (window as unknown as Record<string, unknown>).__xss ?? null,
+  );
+
+  expect(xss).toBe(null);
+  expect(dialogs).toEqual([]);
+  expect(pageErrors).toEqual([]);
+
+  // Stored verbatim, never interpreted, and never rendered back to the public.
+  const html = await page.content();
+
+  expect(html.includes(SCRIPT_MESSAGE)).toBe(false);
+  expect(html.includes("__xss")).toBe(false);
+
+  const after = messageState();
+
+  expect(after.messageCount).toBe(1);
+  expect(after.messages[0]!.messageSha256).toBe(sha256(SCRIPT_MESSAGE));
+
+  resetMessages();
+});
+
+test("real backend: guest content stays out of storage, URLs, and third-party requests", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+  const requests: string[] = [];
+  const consoleOutput: string[] = [];
+  const pageErrors: string[] = [];
+
+  resetMessages();
+
+  page.on("request", (request) => {
+    requests.push(`${request.method()} ${request.url()}`);
+  });
+  page.on("console", (message) => {
+    consoleOutput.push(message.text());
+  });
+  page.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
+
+  await openMessageForm(page, state.publicCredential);
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
+
+  const secrets = [AUTHOR_NORMALIZED, MESSAGE_NORMALIZED];
+
+  // Guest content never reaches a URL, encoded or raw.
+  for (const entry of requests) {
+    for (const value of secrets) {
+      expect(entry.includes(encodeURIComponent(value))).toBe(false);
+      expect(entry.includes(value)).toBe(false);
+    }
+  }
+
+  // No third-party destination of any kind is contacted.
+  expect(requests.filter((entry) => !entry.includes("localhost:3000"))).toEqual(
+    [],
+  );
+
+  const stored = await page.evaluate(() => ({
+    cookie: document.cookie,
+    localStorage: JSON.stringify(window.localStorage),
+    sessionStorage: JSON.stringify(window.sessionStorage),
+  }));
+
+  for (const value of secrets) {
+    expect(stored.localStorage.includes(value)).toBe(false);
+    expect(stored.sessionStorage.includes(value)).toBe(false);
+    expect(stored.cookie.includes(value)).toBe(false);
+  }
+
+  // No content in the URL, and the credential route is unchanged.
+  const url = new URL(page.url());
+
+  expect(sameSecret(url.pathname, `/i/${state.publicCredential}`)).toBe(true);
+  expect(url.search).toBe("");
+  expect(url.hash).toBe("");
+
+  for (const line of [...consoleOutput, ...pageErrors]) {
+    for (const value of secrets) {
+      expect(line.includes(value)).toBe(false);
+    }
+  }
+
+  expect(pageErrors).toEqual([]);
+
+  resetMessages();
+});
+
+test("real backend: the message form and confirmation fit every supported viewport", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+
+  resetMessages();
+  await openMessageForm(page, state.publicCredential);
+
+  for (const width of [320, 375, 412, 768, 1280]) {
+    await page.setViewportSize({ height: 900, width });
+
+    await expect(
+      page.getByRole("heading", { name: GUEST_MESSAGE_HEADING }),
+    ).toBeVisible();
+    await expect(page.getByLabel(/Your name/)).toBeVisible();
+    await expect(page.locator("textarea")).toBeVisible();
+    await expect(sendButton(page)).toBeEnabled();
+
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      ),
+    ).toBeLessThanOrEqual(1);
+
+    const field = await page.getByLabel(/Your message/).boundingBox();
+
+    expect(field).not.toBeNull();
+    expect(field!.x).toBeGreaterThanOrEqual(0);
+    expect(field!.x + field!.width).toBeLessThanOrEqual(width + 1);
+  }
+
+  // The confirmation state also fits the narrowest supported width.
+  await page.setViewportSize({ height: 900, width: 320 });
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  const success = page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS });
+
+  await expect(success).toBeVisible();
+
+  const box = await success.boundingBox();
+
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(321);
+  await expect(
+    page.getByRole("button", { name: "Back to Invitation" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+
+  resetMessages();
+});
+
+test("real backend: the message form is labelled, associated, and keyboard operable", async ({
+  page,
+}) => {
+  const state = readSmokeState();
+
+  resetMessages();
+  await openMessageForm(page, state.publicCredential);
+
+  const message = page.getByLabel(/Your message/);
+
+  // Real labels, and the required/optional semantics are in the accessible name.
+  await expect(page.getByLabel(/Your name \(optional\)/)).toBeVisible();
+  await expect(page.getByLabel(/Your message \(required\)/)).toBeVisible();
+  await expect(message).toHaveAttribute("required", "");
+
+  // Limits are associated with the field, not decorative.
+  const describedBy = await message.getAttribute("aria-describedby");
+
+  await expect(
+    page.locator(`#${describedBy!.split(" ")[0]}`),
+  ).toContainText("1000");
+
+  // The textarea accepts keyboard input.
+  await message.focus();
+  await page.keyboard.type("Keyboard entry");
+  await expect(message).toHaveValue("Keyboard entry");
+
+  // A validation failure is exposed with aria-invalid and an alert.
+  await message.fill("   ");
+  await sendButton(page).click();
+
+  await expect(message).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    guestMessageAlert(page).filter({
+      hasText: "Please write a message for the bride and groom.",
+    }),
+  ).toBeVisible();
+
+  // Success moves focus to the confirmation heading, so it is announced.
+  await fillMessage(page, AUTHOR_NORMALIZED, MESSAGE_NORMALIZED);
+  await sendButton(page).click();
+
+  const success = page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS });
+
+  await expect(success).toBeVisible();
+  await expect(success).toBeFocused();
+
+  // Back to Invitation is keyboard reachable and returns focus into the form.
+  await page.getByRole("button", { name: "Back to Invitation" }).focus();
+  await page.keyboard.press("Enter");
+
+  await expect(guestMessageForm(page)).toBeVisible();
+  await expect(page.getByLabel(/Your name/)).toBeFocused();
+
+  resetMessages();
 });
