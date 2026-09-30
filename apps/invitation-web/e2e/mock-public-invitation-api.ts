@@ -82,6 +82,20 @@ const malformedInvitationFixture = {
 // Counts public invitation retrievals only; control endpoints never increment.
 let publicInvitationRequestCount = 0;
 let rsvpState: PublicRsvpReadResponse["rsvp"] = null;
+let checkinPass: PublicRsvpReadResponse["checkinPass"] = null;
+let passSequence = 0;
+function syncPass() {
+  if (rsvpState?.status !== "ACCEPTED") checkinPass = null;
+  else if (!checkinPass) {
+    passSequence += 1;
+    checkinPass = {
+      status: "ACTIVE",
+      issuedAt: "2026-09-30T00:00:00Z",
+      // Deliberately synthetic, local-only test credentials.
+      qrPayload: `fixture-pass-${passSequence}-`.padEnd(43, "x"),
+    };
+  }
+}
 let rsvpRequests: SubmitPublicRsvpRequest[] = [];
 let rsvpRules = publicInvitationFixture.invitation.rules;
 let rsvpDelayMs = 0;
@@ -121,6 +135,8 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && pathname === "/__reset") {
     publicInvitationRequestCount = 0;
     rsvpState = null;
+    checkinPass = null;
+    passSequence = 0;
     rsvpRequests = [];
     rsvpRules = publicInvitationFixture.invitation.rules;
     rsvpDelayMs = 0;
@@ -140,6 +156,7 @@ const server = createServer(async (request, response) => {
     for await (const chunk of request) json += String(chunk);
     const fixture = JSON.parse(json) as {
       rsvp?: PublicRsvpReadResponse["rsvp"];
+      checkinPass?: PublicRsvpReadResponse["checkinPass"];
       rules?: PublicInvitationResponse["invitation"]["rules"];
       delayMs?: number;
       failure?: typeof rsvpFailure;
@@ -148,6 +165,8 @@ const server = createServer(async (request, response) => {
       deadline?: string | null;
     };
     if (fixture.rsvp !== undefined) rsvpState = fixture.rsvp;
+    syncPass();
+    if (fixture.checkinPass !== undefined) checkinPass = fixture.checkinPass;
     if (fixture.rules) rsvpRules = fixture.rules;
     rsvpDelayMs = fixture.delayMs ?? 0;
     rsvpFailure = fixture.failure ?? null;
@@ -182,7 +201,7 @@ const server = createServer(async (request, response) => {
           },
         });
       } else {
-        sendJson(response, 200, { rsvp: rsvpState, checkinPass: null });
+        sendJson(response, 200, { rsvp: rsvpState, checkinPass });
       }
       return;
     }
@@ -228,6 +247,7 @@ const server = createServer(async (request, response) => {
         ),
       };
       nextRsvpVersion = null;
+      syncPass();
       // Simulates a committed save whose response is lost in transit.
       if (dropRsvpResponse) {
         response.destroy();
@@ -235,10 +255,7 @@ const server = createServer(async (request, response) => {
       }
       sendJson(response, 200, {
         rsvp: rsvpState,
-        checkinPass:
-          body.status === "ACCEPTED"
-            ? { status: "ACTIVE", issuedAt: "2026-09-29T00:00:00Z" }
-            : null,
+        checkinPass,
       });
       return;
     }

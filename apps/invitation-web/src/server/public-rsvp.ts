@@ -102,7 +102,10 @@ function isRsvpResponse(value: unknown): value is PublicRsvpReadResponse {
     !(
       isRecord(checkinPass) &&
       checkinPass.status === "ACTIVE" &&
-      typeof checkinPass.issuedAt === "string"
+      typeof checkinPass.issuedAt === "string" &&
+      typeof checkinPass.qrPayload === "string" &&
+      checkinPass.qrPayload.length === 43 &&
+      /^[A-Za-z0-9_-]{43}$/.test(checkinPass.qrPayload)
     )
   )
     return false;

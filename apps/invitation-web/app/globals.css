@@ -506,6 +506,44 @@ body {
   margin-bottom: 14px;
 }
 
+.public-rsvp-form .guest-checkin-pass {
+  margin-bottom: 28px;
+  padding: 20px 16px;
+  border: 1px solid rgba(30, 41, 82, 0.3);
+  border-radius: 8px;
+  background: #fffaef;
+  text-align: center;
+}
+
+.public-rsvp-form .guest-checkin-pass h3 {
+  margin: 0 0 8px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.guest-checkin-pass svg {
+  display: block;
+  width: 240px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  margin: 20px auto;
+}
+
+.public-rsvp-form .checkin-code-label {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.guest-checkin-pass .checkin-code {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
 .gallery-mosaic {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;

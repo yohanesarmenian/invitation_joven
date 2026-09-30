@@ -2,7 +2,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { PublicRsvpForm, type PublicRsvpFormProps } from "./public-rsvp-form";
-import { acceptedRsvp, rsvpInvitation } from "./public-rsvp.fixtures";
+import {
+  acceptedRsvp,
+  activePass,
+  rsvpInvitation,
+} from "./public-rsvp.fixtures";
 
 function render(props: Partial<PublicRsvpFormProps> = {}) {
   return renderToStaticMarkup(
@@ -27,16 +31,17 @@ describe("PublicRsvpForm rendering", () => {
     expect(html.match(/type="radio"/g)).toHaveLength(2);
     expect(html).not.toContain('checked=""');
     expect(html).not.toContain("<textarea");
+    expect(html).not.toContain("guest-checkin-pass");
     expect(html).toContain("Joyfully Accept");
     expect(html).toContain("Regretfully Decline");
   });
-  it("prepopulates accepted fields and labels, without pass UI or guest message", () => {
+  it("prepopulates accepted fields and the canonical pass, without guest messages", () => {
     const html = render({
       initialResult: {
         status: "success",
         data: {
           rsvp: acceptedRsvp,
-          checkinPass: { status: "ACTIVE", issuedAt: "2026-09-29T00:00:00Z" },
+          checkinPass: activePass,
         },
       },
     });
@@ -54,6 +59,8 @@ describe("PublicRsvpForm rendering", () => {
     expect(html).toContain('maxLength="500"');
     expect(html).toContain('max="2"');
     expect(html).toContain('max="4"');
+    expect(html).toContain("Your check-in pass");
+    expect(html.includes(activePass.qrPayload)).toBe(true);
     expect(html).not.toMatch(
       /guestNote|qrPayload|checkinPass|issuedAt|PENDING/,
     );
@@ -86,6 +93,8 @@ describe("PublicRsvpForm rendering", () => {
     expect(html).not.toContain("<textarea");
     expect(html).not.toContain("No seafood");
     expect(html).not.toContain('type="checkbox"');
+    expect(html).not.toContain("guest-checkin-pass");
+    expect(html.includes(activePass.qrPayload)).toBe(false);
   });
   it("does not expose a submit form after a failed initial read", () => {
     const html = render({
@@ -100,6 +109,7 @@ describe("PublicRsvpForm rendering", () => {
     });
     expect(html).toContain('role="alert"');
     expect(html).not.toContain("<form");
+    expect(html).not.toContain("guest-checkin-pass");
     expect(html).not.toContain("INVITATION_NOT_AVAILABLE");
     expect(html).toContain("Reload latest RSVP");
   });
