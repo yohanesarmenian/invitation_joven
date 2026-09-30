@@ -43,7 +43,33 @@ export type SmokeFixtureRead = {
   openCount: number;
 };
 
-export function runFixtureCli<T>(command: "cleanup" | "read" | "setup"): T {
+/**
+ * Persisted pass lifecycle state for the smoke invitation. Never carries the
+ * credential or its hash: `activeHashMatches` is the boolean result of
+ * re-deriving through the production `CredentialService` and comparing to the
+ * stored `token_hash`. The ids are opaque row ids used for DOM-absence
+ * assertions.
+ */
+export type SmokePassState = {
+  activeHashMatches: boolean | null;
+  activePassCount: number;
+  activePassIds: string[];
+  revokedPassCount: number;
+  revokedPassIds: string[];
+  revokedWithRevocationReasonCount: number;
+  rsvpStatus: "ACCEPTED" | "DECLINED" | "PENDING" | null;
+  rsvpVersion: number | null;
+  status: "pass-state";
+  totalPassCount: number;
+};
+
+type FixtureCommand =
+  "cleanup" | "pass-state" | "read" | "reset-rsvp" | "set-deadline" | "setup";
+
+export function runFixtureCli<T>(
+  command: FixtureCommand,
+  args: readonly string[] = [],
+): T {
   const stdout = execSync(
     [
       "pnpm",
@@ -53,6 +79,7 @@ export function runFixtureCli<T>(command: "cleanup" | "read" | "setup"): T {
       "tsx",
       FIXTURE_SCRIPT,
       command,
+      ...args,
       "--state",
       JSON.stringify(SMOKE_STATE_FILE),
     ].join(" "),
