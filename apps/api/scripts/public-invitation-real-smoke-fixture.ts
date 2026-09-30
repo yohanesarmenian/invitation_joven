@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { PrismaService } from "../src/database/prisma.service.js";
 import {
@@ -41,6 +42,7 @@ type SmokeState = {
   beforeOpenCount: number;
   eventId: string;
   invitationId: string;
+  inviteeId: string;
   publicCredential: string;
 };
 
@@ -83,12 +85,17 @@ async function assertIsolatedDatabase(prisma: PrismaService): Promise<void> {
  *
  * Order matters, and every step below is `onDelete: Restrict` in the schema:
  * a check-in record references its pass, `checkin_passes` reference the
- * invitation and the RSVP, and `rsvp_attendees` reference an invitee. So the
- * RSVP must go before the invitees it names, and the passes before the RSVP.
- * Until Phase 6 this fixture seeded no RSVP at all, which is why the earlier
- * invitee/RSVP order was never exercised.
+ * invitation and the RSVP, `guest_messages` reference the invitation, and
+ * `rsvp_attendees` reference an invitee. So the RSVP must go before the
+ * invitees it names, the passes before the RSVP, and the guest messages
+ * before the invitation they belong to. Until Phase 6 this fixture seeded no
+ * RSVP at all, and until Phase 7 no guest messages, which is why the earlier
+ * invitee/RSVP order and the guest-message step were never exercised.
  */
 async function deleteSmokeRows(prisma: PrismaService): Promise<void> {
+  await prisma.guestMessage.deleteMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+  });
   await prisma.checkinRecord.deleteMany({
     where: { invitationId: SMOKE_INVITATION_ID },
   });
@@ -196,6 +203,7 @@ async function setup(prisma: PrismaService, statePath: string): Promise<void> {
     beforeOpenCount: invitation.openCount,
     eventId: SMOKE_EVENT_ID,
     invitationId: SMOKE_INVITATION_ID,
+    inviteeId: SMOKE_INVITEE_ID,
     publicCredential,
   };
 
@@ -347,6 +355,114 @@ async function setDeadline(
   );
 }
 
+function codePointCount(value: string): number {
+  return [...value].length;
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+/**
+ * Reports the persisted guest messages for the smoke invitation as normalized
+ * metadata only.
+ *
+ * Guest message content is user-authored personal content, so the raw
+ * `author_name` and `message` values are never written to stdout — not even
+ * for the synthetic fixture values. Exact-content assertions are made by
+ * comparing SHA-256 digests, which the test recomputes in memory from the
+ * value it submitted. `*IsTrimmed` covers the outer-whitespace rule,
+ * `messageHasNewline` covers newline preservation, and the code-point counts
+ * cover the Unicode caps without revealing the text.
+ */
+async function readMessageState(prisma: PrismaService): Promise<void> {
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: SMOKE_INVITATION_ID },
+    select: { status: true },
+  });
+  const messages = await prisma.guestMessage.findMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+    orderBy: { createdAt: "asc" },
+    select: {
+      authorName: true,
+      createdAt: true,
+      id: true,
+      invitationId: true,
+      isHidden: true,
+      message: true,
+    },
+  });
+
+  process.stdout.write(
+    `${JSON.stringify({
+      invitationStatus: invitation?.status ?? null,
+      messageCount: messages.length,
+      messages: messages.map((row) => ({
+        authorNameCodePoints:
+          row.authorName === null ? null : codePointCount(row.authorName),
+        authorNameIsTrimmed:
+          row.authorName === null ? null : row.authorName === row.authorName.trim(),
+        authorNamePresent: row.authorName !== null,
+        authorNameSha256:
+          row.authorName === null ? null : sha256(row.authorName),
+        createdAtIso: row.createdAt.toISOString(),
+        id: row.id,
+        invitationIdMatches: row.invitationId === SMOKE_INVITATION_ID,
+        isHidden: row.isHidden,
+        messageCodePoints: codePointCount(row.message),
+        messageHasNewline: /[\r\n]/.test(row.message),
+        messageIsTrimmed: row.message === row.message.trim(),
+        messageSha256: sha256(row.message),
+      })),
+      status: "message-state",
+    })}\n`,
+  );
+}
+
+/** Removes guest messages only, leaving the rest of the smoke fixture in place. */
+async function resetMessages(prisma: PrismaService): Promise<void> {
+  await prisma.guestMessage.deleteMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+  });
+
+  process.stdout.write(`${JSON.stringify({ status: "messages-reset" })}\n`);
+}
+
+/**
+ * Flips the smoke invitation between ACTIVE and ARCHIVED so the real
+ * availability path can be exercised without a second credential. Only the
+ * smoke invitation is touched, and the caller restores ACTIVE afterwards.
+ */
+async function setInvitationStatus(
+  prisma: PrismaService,
+  args: readonly string[],
+): Promise<void> {
+  const requested = args[0];
+  const status =
+    requested === "archived"
+      ? InvitationStatus.ARCHIVED
+      : requested === "active"
+        ? InvitationStatus.ACTIVE
+        : null;
+
+  if (status === null) {
+    fail('set-invitation-status expects "active" or "archived".');
+  }
+
+  const invitation = await prisma.invitation.update({
+    data: { status },
+    select: { status: true },
+    where: { id: SMOKE_INVITATION_ID },
+  });
+
+  process.stdout.write(
+    `${JSON.stringify({
+      invitationStatus: invitation.status,
+      status: "invitation-status-set",
+    })}\n`,
+  );
+}
+
 async function countRemainingSmokeRows(prisma: PrismaService) {
   const [
     invitationCount,
@@ -356,6 +472,7 @@ async function countRemainingSmokeRows(prisma: PrismaService) {
     rsvpCount,
     checkinPassCount,
     checkinRecordCount,
+    guestMessageCount,
   ] = await Promise.all([
     prisma.invitation.count({ where: { id: SMOKE_INVITATION_ID } }),
     prisma.invitee.count({ where: { invitationId: SMOKE_INVITATION_ID } }),
@@ -368,12 +485,16 @@ async function countRemainingSmokeRows(prisma: PrismaService) {
     prisma.checkinRecord.count({
       where: { invitationId: SMOKE_INVITATION_ID },
     }),
+    prisma.guestMessage.count({
+      where: { invitationId: SMOKE_INVITATION_ID },
+    }),
   ]);
 
   return {
     checkinPass: checkinPassCount,
     checkinRecord: checkinRecordCount,
     event: eventCount,
+    guestMessage: guestMessageCount,
     invitation: invitationCount,
     invitationEvent: invitationEventCount,
     invitee: inviteeCount,
@@ -420,12 +541,21 @@ async function main(): Promise<void> {
       case "set-deadline":
         await setDeadline(prisma, args);
         return;
+      case "message-state":
+        await readMessageState(prisma);
+        return;
+      case "reset-messages":
+        await resetMessages(prisma);
+        return;
+      case "set-invitation-status":
+        await setInvitationStatus(prisma, args);
+        return;
       case "cleanup":
         await cleanup(prisma);
         return;
       default:
         fail(
-          `Unknown command "${command ?? ""}". Use setup, read, reset-rsvp, pass-state, set-deadline or cleanup.`,
+          `Unknown command "${command ?? ""}". Use setup, read, reset-rsvp, pass-state, set-deadline, message-state, reset-messages, set-invitation-status or cleanup.`,
         );
     }
   } finally {

@@ -34,6 +34,13 @@ export type SmokeFixtureState = {
   beforeOpenCount: number;
   eventId: string;
   invitationId: string;
+  /**
+   * The seeded invitee's row id. Handed over here so a public-API test can
+   * build an RSVP body without calling the public invitation `GET`, which would
+   * bump `open_count` and break the exact-delta assertion in the Phase 4
+   * retrieval smoke.
+   */
+  inviteeId: string;
   publicCredential: string;
 };
 
@@ -63,8 +70,42 @@ export type SmokePassState = {
   totalPassCount: number;
 };
 
+/**
+ * Persisted guest-message state for the smoke invitation. Content-free by
+ * design: `authorNameSha256` / `messageSha256` let the test prove exact
+ * persistence by hashing the value it submitted, without the raw guest-authored
+ * text ever reaching stdout, a test name, or a failure message.
+ */
+export type SmokeMessageState = {
+  invitationStatus: "ACTIVE" | "ARCHIVED" | null;
+  messageCount: number;
+  messages: Array<{
+    authorNameCodePoints: number | null;
+    authorNameIsTrimmed: boolean | null;
+    authorNamePresent: boolean;
+    authorNameSha256: string | null;
+    createdAtIso: string;
+    id: string;
+    invitationIdMatches: boolean;
+    isHidden: boolean;
+    messageCodePoints: number;
+    messageHasNewline: boolean;
+    messageIsTrimmed: boolean;
+    messageSha256: string;
+  }>;
+  status: "message-state";
+};
+
 type FixtureCommand =
-  "cleanup" | "pass-state" | "read" | "reset-rsvp" | "set-deadline" | "setup";
+  | "cleanup"
+  | "message-state"
+  | "pass-state"
+  | "read"
+  | "reset-messages"
+  | "reset-rsvp"
+  | "set-deadline"
+  | "set-invitation-status"
+  | "setup";
 
 export function runFixtureCli<T>(
   command: FixtureCommand,
@@ -259,6 +300,7 @@ export function readSmokeState(): SmokeFixtureState {
     parsed === null ||
     typeof (parsed as SmokeFixtureState).publicCredential !== "string" ||
     typeof (parsed as SmokeFixtureState).invitationId !== "string" ||
+    typeof (parsed as SmokeFixtureState).inviteeId !== "string" ||
     typeof (parsed as SmokeFixtureState).beforeOpenCount !== "number"
   ) {
     throw new Error("Smoke fixture state file is malformed.");
