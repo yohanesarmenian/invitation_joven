@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { PublicInvitationLongPage } from "./public-invitation-long-page.js";
+import { GuestMessageForm } from "./guest-message-form";
 import type { PublicInvitationResponse } from "../../../../packages/api-client/src/index.js";
 
 const DUMMY_CREDENTIAL = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-AbC";
@@ -55,6 +56,12 @@ function renderInvitation(
     createElement(PublicInvitationLongPage, {
       invitation: baseInvitation,
       rsvpForm: createElement("div", { "data-rsvp-slot": true }, "RSVP form"),
+      guestMessageForm: createElement(GuestMessageForm, {
+        submitAction: async () => ({
+          status: "success" as const,
+          data: { message: { createdAt: "2026-09-30T00:00:00Z" } },
+        }),
+      }),
     }),
   );
 }
@@ -214,15 +221,25 @@ describe("PublicInvitationLongPage", () => {
     expect(withoutDeadline).not.toContain("25 December 2026");
   });
 
-  it("leaves controls to the supplied RSVP slot and keeps guest messages inactive", () => {
+  it("keeps the RSVP slot independent and renders the Phase 7 message form in section 11", () => {
     const html = renderInvitation();
 
     expect(html).toContain('data-rsvp-slot="true"');
-    expect(html).not.toContain("<form");
-    expect(html).not.toContain("<input");
+    expect(html).toContain('aria-label="Guest message"');
+    expect(html).toContain("<input");
     expect(html).not.toContain("<select");
-    expect(html).not.toContain("<textarea");
-    expect(html).not.toContain("<button");
+    expect(html).toContain("<textarea");
+    expect(html).toContain("Your name");
+    expect(html).toContain("Your message");
+    expect(html).not.toContain(
+      "Guest messages will be available in a later phase",
+    );
+    expect(html.indexOf('aria-label="Guest message"')).toBeGreaterThan(
+      html.indexOf("Leave a Message"),
+    );
+    expect(html.indexOf('aria-label="Guest message"')).toBeLessThan(
+      html.indexOf("See you at the Wedding!"),
+    );
     expect(html).not.toContain('type="checkbox"');
     expect(html).not.toContain('type="radio"');
     expect(html).not.toContain('role="checkbox"');
@@ -232,7 +249,7 @@ describe("PublicInvitationLongPage", () => {
     expect(html).not.toContain("Regretfully Decline");
     expect(html).not.toContain("Bring someone special");
     expect(html).not.toContain("Send Confirmation");
-    expect(html).not.toContain("Send Message");
+    expect(html).toContain("Send Message");
   });
 
   it("does not render credentials, raw IDs, RSVP version, or private fields", () => {

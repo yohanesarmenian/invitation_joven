@@ -3,6 +3,7 @@ import type {
   PublicInvitationResponse,
   PublicRsvpReadResponse,
   SubmitPublicRsvpRequest,
+  SubmitPublicGuestMessageRequest,
 } from "../../../packages/api-client/src/index";
 
 // Test-only harness. Not production API configuration: the real API uses port
@@ -108,6 +109,14 @@ let nextRsvpVersion: number | null = null;
 let rsvpReadCount = 0;
 let dropRsvpResponse = false;
 let rsvpDeadlineAt = publicInvitationFixture.invitation.rsvpDeadlineAt;
+let messageRequests: SubmitPublicGuestMessageRequest[] = [];
+let messageCommits = 0;
+let messageFixture: {
+  delayMs?: number;
+  failure?: { status: number; code: string };
+  dropResponse?: boolean;
+  malformed?: boolean;
+} = {};
 
 function sendJson(
   response: ServerResponse,
@@ -134,6 +143,9 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "POST" && pathname === "/__reset") {
     publicInvitationRequestCount = 0;
+    messageRequests = [];
+    messageCommits = 0;
+    messageFixture = {};
     rsvpState = null;
     checkinPass = null;
     passSequence = 0;
@@ -151,6 +163,73 @@ const server = createServer(async (request, response) => {
   }
 
   // Test-only RSVP controls; never part of the application or real backend.
+  if (request.method === "POST" && pathname === "/__message-fixture") {
+    let json = "";
+    for await (const chunk of request) json += String(chunk);
+    messageFixture = JSON.parse(json);
+    sendJson(response, 200, { ok: true });
+    return;
+  }
+  if (request.method === "GET" && pathname === "/__message-state") {
+    // Test harness inspection only; there is no public message read endpoint.
+    sendJson(response, 200, {
+      requests: messageRequests,
+      commits: messageCommits,
+    });
+    return;
+  }
+  if (
+    pathname.startsWith(PUBLIC_INVITATION_PATH_PREFIX) &&
+    pathname.endsWith("/messages")
+  ) {
+    if (request.method !== "POST") {
+      sendJson(response, 404, unavailableEnvelope);
+      return;
+    }
+    let json = "";
+    for await (const chunk of request) json += String(chunk);
+    const body = JSON.parse(json) as SubmitPublicGuestMessageRequest;
+    messageRequests.push(body);
+    const fixture = messageFixture;
+    if (fixture.delayMs)
+      await new Promise((resolve) => setTimeout(resolve, fixture.delayMs));
+    if (fixture.failure) {
+      sendJson(response, fixture.failure.status, {
+        error: {
+          code: fixture.failure.code,
+          message: "Mock failure",
+          details: null,
+        },
+      });
+      return;
+    }
+    if (
+      !body.message.trim() ||
+      [...body.message.trim()].length > 1000 ||
+      [...(body.authorName?.trim() ?? "")].length > 100
+    ) {
+      sendJson(response, 400, {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid message",
+          details: null,
+        },
+      });
+      return;
+    }
+    messageCommits += 1;
+    if (fixture.dropResponse) response.destroy();
+    else
+      sendJson(
+        response,
+        201,
+        fixture.malformed
+          ? { message: {} }
+          : { message: { createdAt: "2026-09-30T00:00:00Z" } },
+      );
+    return;
+  }
+
   if (request.method === "POST" && pathname === "/__rsvp-fixture") {
     let json = "";
     for await (const chunk of request) json += String(chunk);
