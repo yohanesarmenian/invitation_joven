@@ -452,6 +452,76 @@ Admin login and session states (locked in Phase 8 Slice 8B0):
 
 Admin login screen design fidelity (fields, labels, visual treatment, responsive behaviour, and the authenticated landing surface) is **not specified in this document** and remains a UI decision for Slice 8C. Do not infer it from the public invitation visual direction.
 
+## Admin Management UI Contract
+
+**Locked by Phase 8 Slice 8D0 at the functional route and state level.** The Phase 8B0 login and session states above are unchanged. Visual design, component library choices, table density, and exact copy below the required confirmation content remain implementation decisions.
+
+### Route table
+
+Protected routes, all behind the server-side session bootstrap:
+
+| Route | Surface |
+| --- | --- |
+| `/` | Dashboard |
+| `/invitations` | Invitation list |
+| `/invitations/new` | Create invitation |
+| `/invitations/[invitationId]` | Invitation detail, invitees, eligibility, and bounded message summary |
+| `/invitations/[invitationId]/edit` | Invitation edit |
+| `/rsvps` | RSVP list |
+| `/rsvps/[rsvpId]` | RSVP detail and OWNER override |
+| `/messages` | Global guest-message moderation |
+
+There is no top-level `/invitees`, `/events`, `/checkin`, `/imports`, or `/reports` route in Phase 8. Invitees and eligibility are managed from the invitation detail route, and invitation-scoped messages are read through the scoped API rather than a dedicated route.
+
+### Navigation
+
+The authenticated shell exposes: Dashboard, Invitations, RSVPs, Messages, plus OWNER identity and Sign out.
+
+Imports, check-in, and reports are **not** rendered as disabled or placeholder navigation. Navigation for a phase that has not shipped must not exist.
+
+### Required states per screen
+
+Every management screen defines loading, empty, error, and session-ended states, plus success feedback where a mutation occurs.
+
+List screens: the contracted filters and search, pagination controls, and deterministic sort controls only where the sort is genuinely useful. Empty states distinguish "no rows exist" from "no rows match the current filter".
+
+Forms: field-level validation, a pending lock that prevents duplicate submission, server-side validation feedback, an explicit conflict state, and an explicit retry affordance. Unsafe mutations never auto-retry.
+
+The session-ended state is the Phase 8B0 generic state; management screens must not distinguish expired, revoked, disabled, or missing sessions.
+
+### Destructive actions
+
+**Archive confirmation.** Archive removes **public** access but preserves admin history. The confirmation must state that the public invitation stops resolving, public RSVP access stops, public guest-message submission stops, public QR/check-in access is disabled under archive doctrine, and that admin history remains available. Explicit OWNER confirmation is required. **No unarchive affordance is offered.**
+
+**Token regeneration confirmation.** Regeneration uses a stronger confirmation than archive. It must state that the current invitation link stops working immediately on success, that previously distributed old links will no longer work, and that the action cannot be undone. The current `publicTokenVersion` may be shown as operational metadata.
+
+Regeneration behavior while pending and after:
+
+- Exactly one pending request. **No automatic retry.**
+- On confirmed success, show and offer to copy the returned new public URL.
+- On network or transport uncertainty, do **not** send regeneration again. Call `GET /api/admin/invitations/{invitationId}/public-url` and show the currently valid URL. The UI must not claim that regeneration failed when the commit status is unknown.
+- On `409 CONFLICT`, refetch the invitation detail and the current public URL.
+
+**Invitee deletion confirmation.** Require confirmation before a hard delete. If the backend returns `409 CONFLICT` because an `RSVPAttendee` references the invitee, explain that an existing RSVP uses that person and deletion is not allowed. Do not offer a fake soft-delete or disable-only option.
+
+### RSVP override
+
+The override form clearly indicates that this is an OWNER action and requires an `overrideReason`. It may operate after the public RSVP deadline, and it preserves every canonical RSVP validation. An `RSVP_VERSION_CONFLICT` is handled by refetching and reviewing the current RSVP, never by an automatic retry. Raw `qrPayload` is never displayed.
+
+### Guest message moderation
+
+The `/messages` page shows plain-text content, an `authorName` value or an explicit anonymous state, the invitation context (`displayName`), `createdAt`, and the hidden state, with a hide/unhide action.
+
+- Hidden content stays visible to the OWNER with a clear hidden marker.
+- Hidden rows are **not** removed from the default `all` view.
+- The page implies no public message wall, and nothing in the UI may suggest guests can read messages.
+
+### Accessibility and responsive expectations
+
+- Admin management surfaces keep the existing accessibility baseline: labelled form controls, error associations, visible focus states, accessible names, semantic table markup, and status announcements for mutation outcomes.
+- Confirmation dialogs must be keyboard operable, must move focus into the dialog, must be dismissible, and must not rely on color alone to convey the destructive nature of the action.
+- Tables must not cause horizontal document overflow at the responsive widths already covered by the admin auth E2E suite.
+
 ## Accessibility
 
 - Envelope open action must be keyboard accessible.

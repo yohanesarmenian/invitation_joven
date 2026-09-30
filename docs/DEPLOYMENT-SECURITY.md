@@ -219,6 +219,33 @@ remains authoritative.
 introduce proxy-trust configuration, fingerprinting, geolocation logic, or PII retention
 merely because the nullable columns exist.
 
+### Admin management deployment requirements (Phase 8 Slice 8D0)
+
+Admin management endpoints inherit the auth requirements above without change. Two
+additional requirements apply.
+
+**`PUBLIC_INVITATION_BASE_URL`** is the guest-facing public invitation **origin**. It is
+configuration, not a secret, and it is the only source of the origin used to build the
+copyable invitation link returned by `GET /api/admin/invitations/{id}/public-url` and
+`POST /api/admin/invitations/{id}/regenerate-token`.
+
+- It must be an absolute origin: scheme + host + optional port, with no path, no query, no
+  fragment, and no embedded credential. Local development value is conceptually
+  `http://localhost:3000`.
+- Production **must** use `https`.
+- It must never be derived from a request header, `Host`, `X-Forwarded-Host`, or any other
+  per-request value. A crafted header must not be able to change the origin of a link the
+  OWNER copies and distributes.
+- The derived link points at the public invitation site, which may be a different origin
+  from the admin host. That is expected, and it is not a reason to relax the admin
+  same-origin rule.
+
+**Credential responses must not be logged.** The `publicUrl` value returned by those two
+endpoints contains a raw bearer credential. It is subject to the same logging policy as the
+public `/i/*` path: response-body logging, tracing, and error-reporting integrations must
+not capture it, and application logging must not deliberately log it. Admin audit logging
+should record the actor, route, target invitation id, and outcome — never the URL value.
+
 ## Deployment Requirements
 
 The deployed reverse proxy / edge **must do exactly one of**:
@@ -255,8 +282,11 @@ a logging finding.
 
 ## Credential Rotation (Incident Response Context)
 
-There is no credential regeneration API or UI. The following is the accurate behavior of
-the current source, for incident response.
+There is **no public** credential regeneration API. The only regeneration path is the
+authenticated OWNER admin endpoint `POST /api/admin/invitations/{invitationId}/regenerate-token`,
+whose contract is locked in `API-CONTRACT.md` (Phase 8 Slice 8D0) and which requires a
+session, OWNER authorization, CSRF, and exact origin validation. The following is the
+accurate behavior of credential derivation, for incident response.
 
 The credential is derived as
 `HMAC-SHA256(CREDENTIAL_SECRET, "v1" \0 namespace \0 invitationId \0 publicTokenVersion)`,

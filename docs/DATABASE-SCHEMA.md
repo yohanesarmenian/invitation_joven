@@ -185,7 +185,7 @@ Purpose: Named person known before RSVP.
   - Unique `(invitation_id, display_order)`.
   - Check `display_order >= 0`.
   - Check category in `ADULT`, `CHILD`.
-- Deletion: avoid deleting if referenced by current or historical RSVP/check-in context; prefer inactive/archive extension if needed later.
+- Deletion: avoid deleting if referenced by current or historical RSVP/check-in context; prefer inactive/archive extension if needed later. Phase 8 locks the concrete rule: hard delete is permitted only when no `RSVPAttendee` row references the invitee, otherwise the request is rejected with `409 CONFLICT`. No inactive/archive column is added. See "Phase 8 Admin Management" below.
 
 ### Event
 
@@ -345,7 +345,7 @@ Phase 7 contract lock (Slice 7B0):
 - **No schema change and no migration are required for Phase 7.** No idempotency column and no unique constraint are added, and no length `CHECK` constraint is required for the MVP: the 1000-character `message` cap and the 100-character `author_name` cap are enforced at the DTO/application boundary.
 - `author_name` stays nullable; anonymous submission stores `null`. It is never derived from `Invitee`, `Invitation.greeting_name`, or `RSVP`.
 - `message` stores the trimmed plain-text value. HTML and Markdown are never interpreted at persistence or render time.
-- `is_hidden` remains an internal admin moderation property. Phase 7 public submission neither accepts nor returns it, and creates rows in the default internal state. Admin moderation is Phase 8+.
+- `is_hidden` remains an internal admin moderation property. Phase 7 public submission neither accepts nor returns it, and creates rows in the default internal state. Phase 8 Slice 8D0 locks admin moderation to `isHidden` only: set-to-value, idempotent, no delete, no reason, and **no attribution** — the model has no `updated_at`, `hidden_at`, or `hidden_by_admin_user_id`, and none is added. `is_hidden` has no public guest-facing effect because no public message wall exists.
 - `GuestMessage` is separate from `RSVP.guest_note`. Phase 7 never writes, clears, mirrors, or synchronizes `RSVP.guest_note`.
 
 ### CheckinPass
@@ -603,6 +603,43 @@ Concurrent confirmations are guarded finally by unique `(invitation_id, event_id
 
 MVP commit is all-or-nothing for selected valid rows. The transaction creates invitations, invitees, invitation events, default RSVP state where used, invitation credential version/hash initialization, and successful import batch provenance. If any selected row fails commit, rollback the full selected import.
 
+## Phase 8 Admin Management
+
+Contract lock (Slice 8D0) — persistence consequences only. API semantics live in `API-CONTRACT.md`.
+
+**No schema change and no migration are required for Phase 8 admin management.** Every admin-management read and mutation is expressed against the existing models.
+
+Schema capability per admin area:
+
+| Admin area | Schema support | Concurrency mechanism | Attribution |
+| --- | --- | --- | --- |
+| Dashboard | Existing `Invitation`, `RSVP`, `RSVPEventSelection`, `Event` rows | Consistent read | None needed |
+| Invitation list/detail | `Invitation`, `Invitee`, `InvitationEvent`, `RSVP`, `GuestMessage`, `CheckinPass` | n/a | None |
+| Invitation create | `Invitation`, `InvitationEvent`, `Invitee` | Single transaction | None |
+| Invitation update | `Invitation.updated_at` | `expectedUpdatedAt` compare under the Invitation row lock | None |
+| Archive | `Invitation.status`, `Invitation.archived_at` | Invitation row lock; idempotent | None |
+| Public URL / regeneration | `Invitation.public_token_version`, `Invitation.public_token_hash` | Invitation row lock plus `expectedTokenVersion` compare | None |
+| Invitee create/update/delete | `Invitee`, `RSVPAttendee.invitee_id` FK `Restrict` | Invitation row lock for create; `expectedUpdatedAt` for update | None |
+| Eligibility replacement | `InvitationEvent`, `RSVPEventSelection` | Invitation row lock; reject if a selection references a removed event | None |
+| RSVP debug/override | `RSVP.version`, `RSVP.submitted_by_admin_user_id`, `RSVP.admin_override_reason` | Invitation row lock plus `expectedVersion` compare | **Yes** — both columns are written |
+| Guest message moderation | `GuestMessage.is_hidden` | None needed; set-to-value | **No** |
+
+Known schema limitations, accepted for the MVP rather than fixed:
+
+- **`Invitation` has no `version` column.** Invitation and Invitee update concurrency uses `expectedUpdatedAt` instead of an integer version. `RSVP` keeps its `version`.
+- **`Invitee` has no soft-delete or active state.** Deletion is hard delete and is blocked while an `RSVPAttendee` references the invitee.
+- **`GuestMessage` has no moderation actor or timestamp.** Hide/unhide is unattributed. `is_hidden` exists; `updated_at`, `hidden_at`, and `hidden_by_admin_user_id` do not.
+- **No generic admin audit-log table exists**, and Phase 8 does not add one. Actor attribution is available only where the schema already carries it: `RSVP.submitted_by_admin_user_id` (written by the OWNER override), `CheckinRecord.confirmed_by_admin_user_id` and `GuestImportBatch.committed_by_admin_user_id` (later phases).
+- **`RSVP.admin_override_reason` and `RSVP.guest_note` had no writer before Phase 8.** The OWNER RSVP override becomes the first writer of `admin_override_reason`. `guest_note` stays unwritten in Phase 8.
+- **Token regeneration needs no idempotency column.** Derivation is deterministic from `CREDENTIAL_SECRET`, `Invitation.id`, and `public_token_version`, so the current link is always re-derivable and a lost response needs no stored key.
+
+Archive persistence rules:
+
+- Archive sets `status = ARCHIVED` and `archived_at` in one transaction and preserves every child and history row. Existing FKs from `Invitee`, `RSVP`, `InvitationEvent`, `CheckinPass`, and `GuestMessage` are `Restrict`, so nothing cascades.
+- The public credential is not rotated on archive. The row simply stops resolving, because public lookup requires `ACTIVE`.
+- Admin mutations against an archived invitation are rejected with `409 CONFLICT`. Read-only historical access remains available.
+- There is no unarchive operation. Nothing in the schema prevents one; the contract simply does not define one.
+
 ## Query Patterns
 
 - Public invitation lookup by public credential hash.
@@ -611,7 +648,7 @@ MVP commit is all-or-nothing for selected valid rows. The transaction creates in
 - RSVP detail by invitation.
 - Active pass lookup by check-in credential hash.
 - Confirmed check-in history by event and invitation.
-- Dashboard counts by invitation status, RSVP status, expected attendee counts, and CheckinRecord status.
+- Dashboard counts by invitation status, RSVP status, and expected attendee counts. The Phase 8 dashboard excludes archived invitations from every RSVP and headcount metric and carries **no** check-in metric; `CheckinRecord` counts belong to Phase 10 and Phase 11 reporting.
 - CSV export queries for invitations, RSVP, dietary notes, and check-in.
 
 ## Migration Principles

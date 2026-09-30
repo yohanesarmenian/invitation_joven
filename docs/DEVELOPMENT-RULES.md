@@ -64,6 +64,29 @@ Admin authentication rules (locked in Phase 8 Slice 8B0):
 - Keep login throttling in-process for the MVP, and document the single-API-instance constraint before any horizontal scaling.
 - Password reset, password change, and MFA are outside the Phase 8 auth foundation. Do not add them by assumption.
 
+Admin management rules (locked in Phase 8 Slice 8D0):
+
+- Admin management endpoints do not re-implement security per controller. Session, OWNER, CSRF, and origin enforcement is one shared backend surface. A new unsafe `/api/admin/**` route must inherit it by construction, and a route-inventory security test must fail if a route is added without it.
+- `GET`, `HEAD`, and `OPTIONS` admin routes must not mutate state and require no CSRF token. `POST`, `PUT`, `PATCH`, and `DELETE` require session, OWNER, exact origin, and a valid `X-CSRF-Token`. Login is the only exception.
+- Admin list endpoints share one pagination envelope, one sort convention with an `id ASC` tie-breaker, and one search normalization. Do not invent per-endpoint shapes of the same concept.
+- Admin responses use explicit DTOs. Never return a Prisma model directly because the caller is authenticated.
+- Admin resource lookups return `404 NOT_FOUND`. Do not reuse the public `404 INVITATION_NOT_AVAILABLE`, which exists to keep public credential resolution indistinguishable.
+- Invitation update concurrency uses `expectedUpdatedAt`. There is no `Invitation.version` column and none is added. Invitee update uses the same mechanism.
+- Do not silently use last-writer-wins for admin mutations that can conflict.
+- Invitation archive is idempotent, carries no `reason` payload, and has no unarchive counterpart. Do not accept data that no column can persist.
+- Every mutation on an `ARCHIVED` invitation is rejected with `409 CONFLICT`, except explicitly read-only historical access.
+- Token regeneration requires `expectedTokenVersion` and rotates exactly once per displayed state. Never auto-retry it, and never add an idempotency key or idempotency table. Recovery is a re-read of `GET /api/admin/invitations/{id}/public-url`, because derivation is deterministic.
+- The admin public-url path must not touch `openCount`, `firstOpenedAt`, or `lastOpenedAt`. Only a valid public guest retrieval records an open.
+- The guest-facing origin comes from the non-secret `PUBLIC_INVITATION_BASE_URL`. Never build it from a request header or an arbitrary per-request host.
+- Eligibility replacement is declarative and all-or-nothing. Reject the entire replacement with `409 CONFLICT` if any `RSVPEventSelection` references an event being removed. Never orphan, delete, or rewrite an RSVP selection to make a removal succeed.
+- Invitee deletion is hard delete, permitted only when no `RSVPAttendee` references the invitee. There is no soft-delete or inactive invitee state, and none is added.
+- Editing an Invitee never rewrites an existing `RSVPAttendee` snapshot. Correct submitted RSVP composition through the RSVP override flow.
+- The OWNER RSVP override reuses the public RSVP lifecycle implementation and must not fork `CheckinPass` semantics. It may bypass `rsvpDeadlineAt`; it must not bypass `ACTIVE`, eligibility, composition, capacity, transition, pass-lifecycle, or `expectedVersion` rules.
+- Every successful OWNER RSVP override writes `submittedByAdminUserId` and `adminOverrideReason`. `guestNote` is not written in Phase 8.
+- Phase 8 adds no generic audit-log table. Invitation, invitee, eligibility, archive, regeneration, and guest-message-moderation mutations carry no actor attribution, and `GuestMessage` moderation carries no actor or timestamp. These are declared MVP limitations, not omissions to fix silently.
+- Phase 8 does not own the Event catalog. Only `InvitationEvent` eligibility is managed. No `Event` create/update/delete route is added.
+- `isHidden` is an internal moderation flag with no public guest-facing effect, because no public message wall exists. Do not imply one.
+
 ## Testing and Verification
 
 - Meaningful domain logic requires tests.
