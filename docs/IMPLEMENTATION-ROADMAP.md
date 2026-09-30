@@ -236,21 +236,38 @@ Phase 6 ownership boundary (locked in 6B0):
 
 ## Phase 7 - Guest Messages
 
-- Objective: Implement public message submission and admin visibility.
-- Prerequisite: Phase 3 or later.
+- Objective: Implement public message submission. Admin message visibility and moderation move to Phase 8 with the admin foundation.
+- Prerequisite: Phase 6.
+- Contract lock: Slice 7B0 locks the Phase 7 guest-message contract (retry/idempotency, content limits, submission window, author identity, create-only public API and response shape, error contract, abuse posture) before backend implementation.
 - Tasks:
-  - Decide retry/idempotency policy for guest messages.
-  - Add public message endpoint with active-invitation enforcement.
-  - Add message form and confirmation overlay.
-  - Add admin message list/detail surface if admin foundation exists.
-- Expected files/modules: messages module, invitation-web message section, admin-web messages later if needed.
+  - Implement public message endpoint with active-invitation enforcement.
+  - Implement message form and confirmation overlay.
+- Expected files/modules: messages module, invitation-web message section, api-client.
 - Acceptance criteria:
   - Message associates with active invitation.
   - Archived/unavailable invitation cannot submit message.
   - Confirmation overlay returns to invitation.
+  - Public response exposes only `message.createdAt`; `GuestMessage.id` stays internal.
 - Test/verification: backend tests and Playwright flow.
-- Non-goals: public message wall unless approved.
+- Non-goals: public message list/wall, message update/delete, admin authentication, admin message listing, moderation UI, hide/unhide UI, CAPTCHA, and rate-limit infrastructure. Admin message visibility and moderation are Phase 8+.
 - Completion gate: guests can submit wishes safely.
+
+Phase 7 slices:
+
+| Slice | Scope | Notes |
+| --- | --- | --- |
+| 7A | Guest messages discovery + contract audit | Read-only discovery against the repository; produced the D1-D7 decision inventory. No code. |
+| 7B0 | Guest messages contract lock (docs only) | Locks D1-D7: create-only append semantics with no idempotency key, the 1000/100 plain-text content caps, submission window independent of the RSVP deadline, optional free-text `authorName`, create-only public API returning only `createdAt`, no new `MESSAGE_*` error code, and the accepted no-rate-limit MVP posture. No code and no schema change. |
+| 7B | Backend public message endpoint | `messages` module, DTOs, `POST /api/public/invitations/{publicCredential}/messages` reusing the active-invitation credential resolution boundary, DB-backed and HTTP integration tests, OpenAPI regeneration, and generated client update. No schema change and no migration. |
+| 7C | invitation-web message form + confirmation | Replace the section-11 placeholder with the real form and the `Message Sent!` confirmation state. invitation-web only. No route change and no public message wall. |
+| 7D | Phase 7 QA | Mock E2E, real-backend smoke, privacy and regression audit. |
+
+Phase 7 ownership boundary (locked in 7B0):
+
+- Phase 7 owns: the public guest-message `POST`, plain-text validation, active-invitation enforcement, `GuestMessage` persistence, OpenAPI and generated client updates, the invitation-web message form, the `Message Sent!` confirmation state, guest-side error and retry UX, and Phase 7 QA.
+- Phase 7 does **not** own: public message list/wall, message update/delete, admin authentication, admin message listing, moderation UI, hide/unhide UI, CAPTCHA, rate-limit infrastructure, or any change to `RSVP.guestNote`.
+- Phase 8 owns the admin auth foundation and admin message visibility/moderation.
+- Phase 7 changes no RSVP, pass, or check-in semantics, and requires **no schema change and no migration**.
 
 ## Phase 8 - Admin Frontend and Auth
 

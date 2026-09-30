@@ -318,6 +318,15 @@ Purpose: Guest wishes/messages associated with an active invitation.
 - Deletion: keep by default; hiding/moderation preferred over deletion.
 - Archive rule: public submission denied when invitation is archived; existing messages remain visible to OWNER.
 
+Phase 7 contract lock (Slice 7B0):
+
+- **Cardinality: `Invitation 1 -> many GuestMessage`.** There is no unique constraint and no one-message-per-invitation rule. A second explicit submission creates a second row. This is expected behavior, not an accidental omission.
+- **No schema change and no migration are required for Phase 7.** No idempotency column and no unique constraint are added, and no length `CHECK` constraint is required for the MVP: the 1000-character `message` cap and the 100-character `author_name` cap are enforced at the DTO/application boundary.
+- `author_name` stays nullable; anonymous submission stores `null`. It is never derived from `Invitee`, `Invitation.greeting_name`, or `RSVP`.
+- `message` stores the trimmed plain-text value. HTML and Markdown are never interpreted at persistence or render time.
+- `is_hidden` remains an internal admin moderation property. Phase 7 public submission neither accepts nor returns it, and creates rows in the default internal state. Admin moderation is Phase 8+.
+- `GuestMessage` is separate from `RSVP.guest_note`. Phase 7 never writes, clears, mirrors, or synchronizes `RSVP.guest_note`.
+
 ### CheckinPass
 
 Purpose: Household QR/check-in credential lifecycle.
@@ -466,6 +475,8 @@ Every invitation-scoped state-changing operation that can conflict must:
 5. Commit.
 
 Use this for public RSVP mutation, OWNER RSVP override, event eligibility changes that can affect RSVP/check-in, check-in confirmation, invitation archive, and credential regeneration/rotation.
+
+Guest message insertion (Phase 7) is **not** in that list and needs no row lock or version: messages are create-only appends that never update shared invitation state. Its requirement is narrower but still atomic — the ACTIVE-invitation check and the `GuestMessage` insert must occur in one transaction so a message is never intentionally written into an archived invitation. The owning `invitation_id` comes from credential resolution and never from the request body.
 
 ### Public invitation retrieval and open tracking
 

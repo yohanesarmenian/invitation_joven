@@ -80,6 +80,23 @@ Aggravating factors in the current model:
 - Retrieval is not rate limited or second-factor protected; the URL is the whole secret.
 - Opening a leaked link is observable: `openCount` and `lastOpenedAt` increment, which is
   a partial detection signal for operators with database access.
+- Guest message submission (Phase 7) adds a **public write surface**. Holding a leaked
+  credential allows repeated `POST /api/public/invitations/{publicCredential}/messages`
+  calls that persist rows, not merely increment counters. There is no expiry, no
+  rate limit, and no second factor. The accepted MVP mitigations are the `ACTIVE`
+  invitation requirement, the 1000-character message cap, the 100-character author-name
+  cap, strict DTO validation, submit-disabled-while-pending on the client, no automatic
+  `POST` retry, and the generic unavailable response. Repeated deliberate submissions
+  remain possible; this is an accepted MVP limitation, not a defect.
+- Guest message content is user-authored personal content. The implementation must not
+  deliberately log the raw message body, `authorName`, or the public credential, and must
+  not add request-body debug logging. `authorName` and `message` are deliberately **not**
+  added to the global redaction list: the rule is that Phase 7 must not log these fields
+  in the first place, and blanket redaction would hide legitimate admin audit fields.
+- Recommended before production exposure if abuse becomes a concern: enforce rate limiting
+  at the deployment/edge layer. Phase 7 deliberately introduces no CAPTCHA, Turnstile,
+  Redis, Nest throttler, or other rate-limit dependency, and does not depend on
+  infrastructure that does not exist in this repository.
 
 ## Current Verified Status
 
