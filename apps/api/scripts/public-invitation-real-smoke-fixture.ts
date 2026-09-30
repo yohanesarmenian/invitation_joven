@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { PrismaService } from "../src/database/prisma.service.js";
 import {
+  CheckinPassStatus,
   InvitationStatus,
   InviteeCategory,
 } from "../src/generated/prisma/enums.js";
@@ -79,15 +80,30 @@ async function assertIsolatedDatabase(prisma: PrismaService): Promise<void> {
 /**
  * Deletes only rows carrying the exact deterministic smoke IDs. Safe to run
  * repeatedly, which is how an interrupted prior run is recovered.
+ *
+ * Order matters, and every step below is `onDelete: Restrict` in the schema:
+ * a check-in record references its pass, `checkin_passes` reference the
+ * invitation and the RSVP, and `rsvp_attendees` reference an invitee. So the
+ * RSVP must go before the invitees it names, and the passes before the RSVP.
+ * Until Phase 6 this fixture seeded no RSVP at all, which is why the earlier
+ * invitee/RSVP order was never exercised.
  */
 async function deleteSmokeRows(prisma: PrismaService): Promise<void> {
+  await prisma.checkinRecord.deleteMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+  });
+  await prisma.checkinPass.deleteMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+  });
+  // Cascades to rsvp_attendees and rsvp_event_selections, which is what frees
+  // the invitees for deletion below.
+  await prisma.rSVP.deleteMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+  });
   await prisma.invitationEvent.deleteMany({
     where: { invitationId: SMOKE_INVITATION_ID },
   });
   await prisma.invitee.deleteMany({
-    where: { invitationId: SMOKE_INVITATION_ID },
-  });
-  await prisma.rSVP.deleteMany({
     where: { invitationId: SMOKE_INVITATION_ID },
   });
   await prisma.invitation.deleteMany({ where: { id: SMOKE_INVITATION_ID } });
@@ -218,6 +234,119 @@ async function read(prisma: PrismaService): Promise<void> {
   );
 }
 
+/**
+ * Removes RSVP and pass rows only, leaving the invitation, event and invitee in
+ * place. This gives each Phase 6 lifecycle scenario a known empty starting
+ * state without re-running the whole seed.
+ */
+async function resetRsvp(prisma: PrismaService): Promise<void> {
+  await prisma.checkinRecord.deleteMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+  });
+  await prisma.checkinPass.deleteMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+  });
+  await prisma.rSVP.deleteMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+  });
+
+  process.stdout.write(`${JSON.stringify({ status: "rsvp-reset" })}\n`);
+}
+
+/**
+ * Reports the persisted pass lifecycle state for the smoke invitation.
+ *
+ * It re-derives the ACTIVE pass credential through the exact production
+ * `CredentialService` and compares it to the stored `token_hash`, so the test
+ * can assert the hash correspondence without ever seeing either value. The
+ * credential and the hash are never written to stdout; only booleans, counts,
+ * and opaque row ids (used for DOM-absence assertions) are returned.
+ */
+async function readPassState(prisma: PrismaService): Promise<void> {
+  const credentialService = new CredentialService(
+    new CredentialSecretProvider(),
+  );
+
+  const rsvp = await prisma.rSVP.findFirst({
+    where: { invitationId: SMOKE_INVITATION_ID },
+    select: { status: true, version: true },
+  });
+  const passes = await prisma.checkinPass.findMany({
+    where: { invitationId: SMOKE_INVITATION_ID },
+    orderBy: { issuedAt: "asc" },
+    select: {
+      credentialVersion: true,
+      id: true,
+      revokedAt: true,
+      status: true,
+      tokenHash: true,
+    },
+  });
+  const active = passes.filter(
+    (pass) => pass.status === CheckinPassStatus.ACTIVE,
+  );
+  const revoked = passes.filter(
+    (pass) => pass.status === CheckinPassStatus.REVOKED,
+  );
+
+  let activeHashMatches: boolean | null = null;
+
+  if (active.length === 1 && active[0] !== undefined) {
+    const [single] = active;
+    const derived = credentialService.deriveCredential({
+      namespace: "check-in",
+      stableId: single.id,
+      version: single.credentialVersion,
+    });
+
+    activeHashMatches =
+      credentialService.hashCredential(derived) === single.tokenHash;
+  }
+
+  process.stdout.write(
+    `${JSON.stringify({
+      activeHashMatches,
+      activePassCount: active.length,
+      activePassIds: active.map((pass) => pass.id),
+      revokedPassCount: revoked.length,
+      revokedPassIds: revoked.map((pass) => pass.id),
+      revokedWithRevocationReasonCount: revoked.filter(
+        (pass) => pass.revokedAt !== null,
+      ).length,
+      rsvpStatus: rsvp?.status ?? null,
+      rsvpVersion: rsvp?.version ?? null,
+      status: "pass-state",
+      totalPassCount: passes.length,
+    })}\n`,
+  );
+}
+
+/**
+ * Moves `rsvp_deadline_at` into the past (or back to `null`) so the real
+ * deadline path can be exercised without waiting for a wall-clock date. Only
+ * the smoke invitation is touched.
+ */
+async function setDeadline(
+  prisma: PrismaService,
+  args: readonly string[],
+): Promise<void> {
+  const value =
+    args[0] === "past" ? new Date("2020-01-01T00:00:00.000Z") : null;
+
+  const invitation = await prisma.invitation.update({
+    data: { rsvpDeadlineAt: value },
+    select: { rsvpDeadlineAt: true },
+    where: { id: SMOKE_INVITATION_ID },
+  });
+
+  process.stdout.write(
+    `${JSON.stringify({
+      deadlineSet: invitation.rsvpDeadlineAt !== null,
+      status: "deadline-set",
+    })}\n`,
+  );
+}
+
 async function countRemainingSmokeRows(prisma: PrismaService) {
   const [
     invitationCount,
@@ -225,6 +354,8 @@ async function countRemainingSmokeRows(prisma: PrismaService) {
     invitationEventCount,
     eventCount,
     rsvpCount,
+    checkinPassCount,
+    checkinRecordCount,
   ] = await Promise.all([
     prisma.invitation.count({ where: { id: SMOKE_INVITATION_ID } }),
     prisma.invitee.count({ where: { invitationId: SMOKE_INVITATION_ID } }),
@@ -233,9 +364,15 @@ async function countRemainingSmokeRows(prisma: PrismaService) {
     }),
     prisma.event.count({ where: { id: SMOKE_EVENT_ID } }),
     prisma.rSVP.count({ where: { invitationId: SMOKE_INVITATION_ID } }),
+    prisma.checkinPass.count({ where: { invitationId: SMOKE_INVITATION_ID } }),
+    prisma.checkinRecord.count({
+      where: { invitationId: SMOKE_INVITATION_ID },
+    }),
   ]);
 
   return {
+    checkinPass: checkinPassCount,
+    checkinRecord: checkinRecordCount,
     event: eventCount,
     invitation: invitationCount,
     invitationEvent: invitationEventCount,
@@ -274,11 +411,22 @@ async function main(): Promise<void> {
       case "read":
         await read(prisma);
         return;
+      case "reset-rsvp":
+        await resetRsvp(prisma);
+        return;
+      case "pass-state":
+        await readPassState(prisma);
+        return;
+      case "set-deadline":
+        await setDeadline(prisma, args);
+        return;
       case "cleanup":
         await cleanup(prisma);
         return;
       default:
-        fail(`Unknown command "${command ?? ""}". Use setup, read or cleanup.`);
+        fail(
+          `Unknown command "${command ?? ""}". Use setup, read, reset-rsvp, pass-state, set-deadline or cleanup.`,
+        );
     }
   } finally {
     await prisma.$disconnect();
