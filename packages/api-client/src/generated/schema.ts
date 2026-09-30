@@ -139,6 +139,8 @@ export interface components {
             status: "ACTIVE";
             /** Format: date-time */
             issuedAt: string;
+            /** @description Bare opaque check-in credential payload for the guest QR. */
+            qrPayload: string;
         };
         PublicRsvpReadResponseDto: {
             rsvp: components["schemas"]["PublicRsvpStateDto"] | null;

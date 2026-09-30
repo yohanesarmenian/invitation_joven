@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
 import {
@@ -8,8 +8,14 @@ import {
   RSVPStatus,
 } from "../generated/prisma/client.js";
 import { PrismaService } from "../database/prisma.service.js";
-import { CredentialService } from "../security/credential.service.js";
-import type { CredentialLookupHash } from "../security/credential.types.js";
+import {
+  CREDENTIAL_LOOKUP_HASH_PATTERN,
+  CredentialService,
+} from "../security/credential.service.js";
+import type {
+  CredentialLookupHash,
+  DerivedCredential,
+} from "../security/credential.types.js";
 import { InvitationNotAvailableError } from "./invitation-not-available.error.js";
 import { validatePublicCredential } from "./public-invitation.service.js";
 import {
@@ -70,6 +76,7 @@ export type PublicRsvpMutationResult = {
   checkinPass: {
     status: typeof CheckinPassStatus.ACTIVE;
     issuedAt: string;
+    qrPayload: DerivedCredential;
   } | null;
 };
 
@@ -98,10 +105,21 @@ type InvitationMutationState = {
   readonly rsvp: ExistingRsvpState;
   readonly activePass:
     | {
+        credentialVersion: number;
         id: string;
         issuedAt: Date;
+        status: CheckinPassStatus;
+        tokenHash: string;
       }
     | null;
+};
+
+type ActiveCheckinPassForPublicResponse = {
+  credentialVersion: number;
+  id: string;
+  issuedAt: Date;
+  status: CheckinPassStatus;
+  tokenHash: string;
 };
 
 type AcceptedValidation = {
@@ -117,6 +135,13 @@ type AcceptedValidation = {
 
 function throwPublicRsvpError(code: PublicRsvpErrorCode): never {
   throw new PublicRsvpDomainError(code);
+}
+
+class CheckinPassCredentialVerificationError extends Error {
+  constructor() {
+    super("Check-in pass credential verification failed.");
+    this.name = "CheckinPassCredentialVerificationError";
+  }
 }
 
 function isUuid(value: string | null | undefined): value is string {
@@ -147,6 +172,45 @@ function normalizeDietaryNotes(value: string | null | undefined): string | null 
   }
 
   return normalized;
+}
+
+function credentialLookupHashesMatch(
+  actual: CredentialLookupHash,
+  expected: string,
+): boolean {
+  if (!CREDENTIAL_LOOKUP_HASH_PATTERN.test(expected)) {
+    return false;
+  }
+
+  const actualBuffer = Buffer.from(actual, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(actualBuffer, expectedBuffer)
+  );
+}
+
+function mapPublicCheckinPass(
+  pass: ActiveCheckinPassForPublicResponse,
+  credentialService: CredentialService,
+): NonNullable<PublicRsvpMutationResult["checkinPass"]> {
+  const qrPayload = credentialService.deriveCredential({
+    namespace: "check-in",
+    stableId: pass.id,
+    version: pass.credentialVersion,
+  });
+  const tokenHash = credentialService.hashCredential(qrPayload);
+
+  if (!credentialLookupHashesMatch(tokenHash, pass.tokenHash)) {
+    throw new CheckinPassCredentialVerificationError();
+  }
+
+  return {
+    issuedAt: pass.issuedAt.toISOString(),
+    qrPayload,
+    status: CheckinPassStatus.ACTIVE,
+  };
 }
 
 function validateExpectedVersion(
@@ -363,8 +427,11 @@ async function readMutationState(
             status: CheckinPassStatus.ACTIVE,
           },
           select: {
+            credentialVersion: true,
             id: true,
             issuedAt: true,
+            status: true,
+            tokenHash: true,
           },
           take: 1,
         },
@@ -400,6 +467,7 @@ async function readMutationState(
 async function readPublicRsvpState(
   tx: Prisma.TransactionClient,
   invitationId: string,
+  credentialService: CredentialService,
 ): Promise<PublicRsvpReadResult> {
   const rsvp = await tx.rSVP.findUnique({
     where: { invitationId },
@@ -420,8 +488,11 @@ async function readPublicRsvpState(
           issuedAt: "asc",
         },
         select: {
+          credentialVersion: true,
+          id: true,
           issuedAt: true,
           status: true,
+          tokenHash: true,
         },
         take: 1,
       },
@@ -452,10 +523,7 @@ async function readPublicRsvpState(
     checkinPass:
       activePass === null
         ? null
-        : {
-            issuedAt: activePass.issuedAt.toISOString(),
-            status: CheckinPassStatus.ACTIVE,
-          },
+        : mapPublicCheckinPass(activePass, credentialService),
     rsvp: {
       attendeeQuantityTotal: rsvp.attendees.reduce(
         (total, attendee) => total + attendee.quantity,
@@ -509,7 +577,7 @@ export class PublicRsvpService {
     return this.prisma.$transaction(async (tx) => {
       const invitation = await lockInvitationForRsvp(tx, lookupHash);
 
-      return readPublicRsvpState(tx, invitation.id);
+      return readPublicRsvpState(tx, invitation.id, this.credentialService);
     });
   }
 
@@ -596,10 +664,7 @@ export class PublicRsvpService {
       (await this.issueActiveCheckinPass(tx, invitationId, rsvp.id));
 
     return {
-      checkinPass: {
-        issuedAt: activePass.issuedAt.toISOString(),
-        status: CheckinPassStatus.ACTIVE,
-      },
+      checkinPass: mapPublicCheckinPass(activePass, this.credentialService),
       rsvp: {
         attendeeQuantityTotal: accepted.attendeeQuantityTotal,
         attendees: accepted.attendees,
@@ -702,7 +767,7 @@ export class PublicRsvpService {
     tx: Prisma.TransactionClient,
     invitationId: string,
     rsvpId: string,
-  ): Promise<{ id: string; issuedAt: Date }> {
+  ): Promise<ActiveCheckinPassForPublicResponse> {
     const id = randomUUID();
     const credential = this.credentialService.deriveCredential({
       namespace: "check-in",
@@ -721,8 +786,11 @@ export class PublicRsvpService {
         tokenHash,
       },
       select: {
+        credentialVersion: true,
         id: true,
         issuedAt: true,
+        status: true,
+        tokenHash: true,
       },
     });
   }

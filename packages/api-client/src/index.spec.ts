@@ -62,7 +62,11 @@ describe("generated API client", () => {
       status: "ACCEPTED",
     };
     const response: PublicRsvpReadResponse = {
-      checkinPass: null,
+      checkinPass: {
+        issuedAt: "2026-09-30T00:00:00.000Z",
+        qrPayload: "B".repeat(43),
+        status: "ACTIVE",
+      },
       rsvp: {
         attendeeQuantityTotal: 1,
         attendees: request.attendees.map((attendee) => ({
@@ -80,5 +84,6 @@ describe("generated API client", () => {
     expect(response.rsvp?.eventSelections[0]?.eventId).toBe(
       "11111111-1111-4111-8111-111111111111",
     );
+    expect(response.checkinPass?.qrPayload).toHaveLength(43);
   });
 });

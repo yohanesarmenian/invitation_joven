@@ -79,7 +79,6 @@ describe("OpenAPI contract", () => {
     expect(JSON.stringify(schemas)).not.toContain("openCount");
     expect(JSON.stringify(schemas)).not.toContain("tokenHash");
     expect(JSON.stringify(schemas)).not.toContain("credentialVersion");
-    expect(JSON.stringify(schemas)).not.toContain("qrPayload");
 
     expect(schemas.PublicInvitationDto).toMatchObject({
       properties: expect.objectContaining({
@@ -109,6 +108,25 @@ describe("OpenAPI contract", () => {
           enum: ["PENDING", "ACCEPTED", "DECLINED"],
         }),
       }),
+    });
+    expect(schemas.PublicCheckinPassDto).toMatchObject({
+      properties: {
+        issuedAt: expect.objectContaining({
+          format: "date-time",
+          type: "string",
+        }),
+        qrPayload: expect.objectContaining({
+          maxLength: 43,
+          minLength: 43,
+          pattern: "^[A-Za-z0-9_-]{43}$",
+          type: "string",
+        }),
+        status: expect.objectContaining({
+          enum: ["ACTIVE"],
+          type: "string",
+        }),
+      },
+      required: expect.arrayContaining(["status", "issuedAt", "qrPayload"]),
     });
   });
 });
