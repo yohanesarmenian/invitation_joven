@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AdminModule } from "./admin/admin.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { HealthModule } from "./health/health.module.js";
 import { InvitationsModule } from "./invitations/invitations.module.js";
@@ -11,6 +12,7 @@ import { SecurityModule } from "./security/security.module.js";
     AppLoggingModule,
     SecurityModule,
     AuthModule,
+    AdminModule,
     InvitationsModule,
     MessagesModule,
     HealthModule,

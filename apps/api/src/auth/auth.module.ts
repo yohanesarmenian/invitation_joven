@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
+import { AdminSecurityGuard } from "../common/admin-security.guard.js";
 import { DatabaseModule } from "../database/database.module.js";
 import { AdminAuthController } from "./admin-auth.controller.js";
 import { AdminAuthService } from "./admin-auth.service.js";
@@ -18,9 +20,14 @@ import { AdminSessionTokenService } from "./session-token.service.js";
     AdminCookieService,
     AdminOriginService,
     AdminPasswordService,
+    AdminSecurityGuard,
     AdminSessionGuard,
     AdminSessionService,
     AdminSessionTokenService,
+    {
+      provide: APP_GUARD,
+      useExisting: AdminSecurityGuard,
+    },
     LoginThrottleService,
     OwnerGuard,
   ],
@@ -31,6 +38,7 @@ import { AdminSessionTokenService } from "./session-token.service.js";
     AdminSessionGuard,
     AdminSessionService,
     AdminSessionTokenService,
+    AdminSecurityGuard,
     LoginThrottleService,
     OwnerGuard,
   ],

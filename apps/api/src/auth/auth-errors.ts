@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   HttpException,
   HttpStatus,
+  NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
 
@@ -54,5 +56,21 @@ export function csrfInvalid(): never {
     code: "CSRF_INVALID",
     details: null,
     message: "CSRF invalid",
+  });
+}
+
+export function notFound(): never {
+  throw new NotFoundException({
+    code: "NOT_FOUND",
+    details: null,
+    message: "Resource not found",
+  });
+}
+
+export function conflict(message = "Conflict"): never {
+  throw new ConflictException({
+    code: "CONFLICT",
+    details: null,
+    message,
   });
 }

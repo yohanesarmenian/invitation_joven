@@ -6,6 +6,7 @@ import {
   HttpCode,
   Inject,
   Post,
+  Req,
   Res,
 } from "@nestjs/common";
 import {
@@ -20,9 +21,13 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { ApiErrorEnvelopeDto } from "../common/api-error.dto.js";
+import type { RequestWithAdminContext } from "../common/admin-security.guard.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminOriginService } from "./admin-origin.service.js";
-import { AdminSessionService } from "./admin-session.service.js";
+import {
+  AdminSessionService,
+  type AuthenticatedAdminContext,
+} from "./admin-session.service.js";
 import { AdminCookieService } from "./cookie.service.js";
 import {
   AdminAuthResponseDto,
@@ -45,6 +50,13 @@ export class AdminAuthController {
     @Inject(AdminOriginService) private readonly originService: AdminOriginService,
     @Inject(AdminCookieService) private readonly cookieService: AdminCookieService,
   ) {}
+
+  private async getAdminContext(
+    request: RequestWithAdminContext,
+    cookie: string | string[] | undefined,
+  ): Promise<AuthenticatedAdminContext> {
+    return request.admin ?? this.sessionService.authenticate(cookie);
+  }
 
   @Post("login")
   @HttpCode(200)
@@ -77,8 +89,11 @@ export class AdminAuthController {
   @ApiOperation({ summary: "Get current admin session" })
   @ApiOkResponse({ type: AdminAuthResponseDto })
   @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
-  async me(@Headers("cookie") cookie: string | string[] | undefined): Promise<AdminAuthResponseDto> {
-    const context = await this.sessionService.authenticate(cookie);
+  async me(
+    @Req() request: RequestWithAdminContext,
+    @Headers("cookie") cookie: string | string[] | undefined,
+  ): Promise<AdminAuthResponseDto> {
+    const context = await this.getAdminContext(request, cookie);
     this.sessionService.assertOwner(context);
 
     return {
@@ -101,12 +116,13 @@ export class AdminAuthController {
   @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
   @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
   async logout(
+    @Req() request: RequestWithAdminContext,
     @Headers() headers: HeaderBag,
     @Headers("cookie") cookie: string | string[] | undefined,
     @Headers("x-csrf-token") csrfToken: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReplyLike,
   ): Promise<void> {
-    const context = await this.sessionService.authenticate(cookie);
+    const context = await this.getAdminContext(request, cookie);
     this.sessionService.assertOwner(context);
     this.originService.assertValidAdminOrigin(headers);
     this.sessionService.assertCsrf(context, csrfToken);
