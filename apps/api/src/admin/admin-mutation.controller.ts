@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   HttpCode,
   Inject,
   Param,
   Patch,
   Post,
+  Put,
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -13,6 +15,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -26,10 +29,15 @@ import {
   AdminInvitationPublicUrlResponseDto,
 } from "./dto/admin-read.dto.js";
 import {
+  AdminInviteeMutationDto,
   ArchiveAdminInvitationResponseDto,
+  CreateAdminInviteeRequestDto,
   CreateAdminInvitationRequestDto,
   CreateAdminInvitationResponseDto,
   RegenerateInvitationTokenRequestDto,
+  ReplaceAdminInvitationEventsRequestDto,
+  ReplaceAdminInvitationEventsResponseDto,
+  UpdateAdminInviteeRequestDto,
   UpdateAdminInvitationRequestDto,
 } from "./dto/admin-mutation.dto.js";
 
@@ -103,5 +111,76 @@ export class AdminMutationController {
     @Body() body: RegenerateInvitationTokenRequestDto,
   ): Promise<AdminInvitationPublicUrlResponseDto> {
     return this.adminMutationService.regenerateInvitationToken(invitationId, body);
+  }
+
+  @Post(":invitationId/invitees")
+  @ApiOperation({ summary: "Create admin invitation invitee" })
+  @ApiBody({ type: CreateAdminInviteeRequestDto })
+  @ApiCreatedResponse({ type: AdminInviteeMutationDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  @ApiConflictResponse({ type: ApiErrorEnvelopeDto })
+  async createInvitee(
+    @Param("invitationId") invitationId: string,
+    @Body() body: CreateAdminInviteeRequestDto,
+  ): Promise<AdminInviteeMutationDto> {
+    return this.adminMutationService.createInvitee(invitationId, body);
+  }
+
+  @Put(":invitationId/events")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Replace admin invitation eligibility" })
+  @ApiBody({ type: ReplaceAdminInvitationEventsRequestDto })
+  @ApiOkResponse({ type: ReplaceAdminInvitationEventsResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  @ApiConflictResponse({ type: ApiErrorEnvelopeDto })
+  async replaceInvitationEvents(
+    @Param("invitationId") invitationId: string,
+    @Body() body: ReplaceAdminInvitationEventsRequestDto,
+  ): Promise<ReplaceAdminInvitationEventsResponseDto> {
+    return this.adminMutationService.replaceInvitationEvents(invitationId, body);
+  }
+}
+
+@ApiTags("Admin")
+@Controller("api/admin/invitees")
+export class AdminInviteeMutationController {
+  constructor(
+    @Inject(AdminMutationService)
+    private readonly adminMutationService: AdminMutationService,
+  ) {}
+
+  @Patch(":inviteeId")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Update admin invitee" })
+  @ApiBody({ type: UpdateAdminInviteeRequestDto })
+  @ApiOkResponse({ type: AdminInviteeMutationDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  @ApiConflictResponse({ type: ApiErrorEnvelopeDto })
+  async updateInvitee(
+    @Param("inviteeId") inviteeId: string,
+    @Body() body: UpdateAdminInviteeRequestDto,
+  ): Promise<AdminInviteeMutationDto> {
+    return this.adminMutationService.updateInvitee(inviteeId, body);
+  }
+
+  @Delete(":inviteeId")
+  @HttpCode(204)
+  @ApiOperation({ summary: "Delete admin invitee" })
+  @ApiNoContentResponse()
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  @ApiConflictResponse({ type: ApiErrorEnvelopeDto })
+  async deleteInvitee(@Param("inviteeId") inviteeId: string): Promise<void> {
+    await this.adminMutationService.deleteInvitee(inviteeId);
   }
 }

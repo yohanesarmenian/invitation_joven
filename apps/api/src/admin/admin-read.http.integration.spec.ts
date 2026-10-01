@@ -344,6 +344,7 @@ describe("admin read HTTP integration", () => {
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
     expect(routeNames).toEqual([
+      "DELETE /api/admin/invitees/:inviteeId",
       "GET /api/admin/auth/me",
       "GET /api/admin/dashboard",
       "GET /api/admin/events",
@@ -351,11 +352,14 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/invitations/:invitationId",
       "GET /api/admin/invitations/:invitationId/public-url",
       "PATCH /api/admin/invitations/:invitationId",
+      "PATCH /api/admin/invitees/:inviteeId",
       "POST /api/admin/auth/login",
       "POST /api/admin/auth/logout",
       "POST /api/admin/invitations",
       "POST /api/admin/invitations/:invitationId/archive",
+      "POST /api/admin/invitations/:invitationId/invitees",
       "POST /api/admin/invitations/:invitationId/regenerate-token",
+      "PUT /api/admin/invitations/:invitationId/events",
     ]);
 
     for (const route of routes.filter(
@@ -391,11 +395,15 @@ describe("admin read HTTP integration", () => {
         !(route.method === "POST" && route.path === "/api/admin/auth/login"),
     );
     expect(unsafeRoutes.map((route) => `${route.method} ${route.path}`)).toEqual([
+      "DELETE /api/admin/invitees/:inviteeId",
       "PATCH /api/admin/invitations/:invitationId",
+      "PATCH /api/admin/invitees/:inviteeId",
       "POST /api/admin/auth/logout",
       "POST /api/admin/invitations",
       "POST /api/admin/invitations/:invitationId/archive",
+      "POST /api/admin/invitations/:invitationId/invitees",
       "POST /api/admin/invitations/:invitationId/regenerate-token",
+      "PUT /api/admin/invitations/:invitationId/events",
     ]);
 
     for (const route of unsafeRoutes) {

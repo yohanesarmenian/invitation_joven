@@ -14,8 +14,10 @@ import {
   type AdminInvitationPublicUrlResponseDto,
 } from "./dto/admin-read.dto.js";
 import type {
+  AdminInviteeMutationDto,
   ArchiveAdminInvitationResponseDto,
   CreateAdminInvitationResponseDto,
+  ReplaceAdminInvitationEventsResponseDto,
 } from "./dto/admin-mutation.dto.js";
 import { PublicInvitationBaseUrlService } from "./public-invitation-base-url.service.js";
 
@@ -40,6 +42,13 @@ const CREATE_FIELDS = new Set([
   "invitees",
 ]);
 const INVITEE_FIELDS = new Set(["fullName", "category", "label"]);
+const UPDATE_INVITEE_FIELDS = new Set([
+  "expectedUpdatedAt",
+  "fullName",
+  "category",
+  "label",
+]);
+const REPLACE_EVENTS_FIELDS = new Set(["eventIds"]);
 
 type PlainObject = Record<string, unknown>;
 
@@ -72,6 +81,15 @@ type NormalizedUpdateInput = {
   };
 };
 
+type NormalizedInviteeUpdateInput = {
+  expectedUpdatedAt: Date;
+  values: {
+    category?: InviteeCategory;
+    fullName?: string;
+    label?: string | null;
+  };
+};
+
 type LockedInvitationRow = {
   id: string;
   archivedAt: Date | null;
@@ -81,6 +99,17 @@ type LockedInvitationRow = {
   publicTokenHash: string;
   publicTokenVersion: number;
   status: InvitationStatus;
+  updatedAt: Date;
+};
+
+type InviteeMutationRow = {
+  id: string;
+  invitationId: string;
+  fullName: string;
+  category: InviteeCategory;
+  label: string | null;
+  displayOrder: number;
+  createdAt: Date;
   updatedAt: Date;
 };
 
@@ -206,6 +235,48 @@ function normalizeEventIds(value: unknown): string[] {
   return eventIds;
 }
 
+function normalizeReplacementEventIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    validationError();
+  }
+
+  const eventIds = value.map((eventId) => {
+    if (typeof eventId !== "string") {
+      validationError();
+    }
+
+    assertUuid(eventId);
+    return eventId;
+  });
+
+  if (new Set(eventIds).size !== eventIds.length) {
+    validationError();
+  }
+
+  return eventIds;
+}
+
+function normalizeInviteeInput(body: unknown): NormalizedInviteeInput {
+  if (!isPlainObject(body)) {
+    validationError();
+  }
+
+  assertKnownKeys(body, INVITEE_FIELDS);
+
+  if (
+    body.category !== InviteeCategory.ADULT &&
+    body.category !== InviteeCategory.CHILD
+  ) {
+    validationError();
+  }
+
+  return {
+    category: body.category,
+    fullName: normalizeRequiredText(body.fullName),
+    label: normalizeNullableText(body.label),
+  };
+}
+
 function normalizeInvitees(value: unknown): NormalizedInviteeInput[] {
   if (!Array.isArray(value) || value.length === 0) {
     validationError();
@@ -216,20 +287,7 @@ function normalizeInvitees(value: unknown): NormalizedInviteeInput[] {
       validationError();
     }
 
-    assertKnownKeys(item, INVITEE_FIELDS);
-
-    if (
-      item.category !== InviteeCategory.ADULT &&
-      item.category !== InviteeCategory.CHILD
-    ) {
-      validationError();
-    }
-
-    return {
-      category: item.category,
-      fullName: normalizeRequiredText(item.fullName),
-      label: normalizeNullableText(item.label),
-    };
+    return normalizeInviteeInput(item);
   });
 }
 
@@ -331,8 +389,86 @@ function normalizeExpectedTokenVersion(body: unknown): number {
   return body.expectedTokenVersion;
 }
 
+function normalizeInviteeUpdateInput(body: unknown): NormalizedInviteeUpdateInput {
+  if (!isPlainObject(body)) {
+    validationError();
+  }
+
+  assertKnownKeys(body, UPDATE_INVITEE_FIELDS);
+
+  if (!Object.hasOwn(body, "expectedUpdatedAt")) {
+    validationError();
+  }
+
+  const values: NormalizedInviteeUpdateInput["values"] = {};
+
+  if (Object.hasOwn(body, "fullName")) {
+    values.fullName = normalizeRequiredText(body.fullName);
+  }
+
+  if (Object.hasOwn(body, "category")) {
+    if (
+      body.category !== InviteeCategory.ADULT &&
+      body.category !== InviteeCategory.CHILD
+    ) {
+      validationError();
+    }
+
+    values.category = body.category;
+  }
+
+  if (Object.hasOwn(body, "label")) {
+    values.label = normalizeNullableText(body.label);
+  }
+
+  if (Object.keys(values).length === 0) {
+    validationError();
+  }
+
+  return {
+    expectedUpdatedAt: normalizeRequiredDate(body.expectedUpdatedAt),
+    values,
+  };
+}
+
+function normalizeReplaceEventsInput(body: unknown): string[] {
+  if (!isPlainObject(body)) {
+    validationError();
+  }
+
+  assertKnownKeys(body, REPLACE_EVENTS_FIELDS);
+
+  if (!Object.hasOwn(body, "eventIds")) {
+    validationError();
+  }
+
+  return normalizeReplacementEventIds(body.eventIds);
+}
+
 function nextMonotonicTimestamp(current: Date): Date {
   return new Date(Math.max(Date.now(), current.getTime() + 1));
+}
+
+function mapInviteeMutation(row: InviteeMutationRow): AdminInviteeMutationDto {
+  return {
+    category: row.category,
+    createdAt: row.createdAt.toISOString(),
+    displayOrder: row.displayOrder,
+    fullName: row.fullName,
+    id: row.id,
+    invitationId: row.invitationId,
+    label: row.label,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function isPrismaKnownErrorCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === code
+  );
 }
 
 @Injectable()
@@ -529,6 +665,240 @@ export class AdminMutationService {
     };
   }
 
+  async createInvitee(
+    invitationId: string,
+    body: unknown,
+  ): Promise<AdminInviteeMutationDto> {
+    assertUuid(invitationId);
+    const input = normalizeInviteeInput(body);
+
+    const invitee = await this.prisma.$transaction(async (tx) => {
+      const invitation = await this.lockInvitation(tx, invitationId);
+      this.assertInvitationActive(invitation);
+
+      const maxOrder = await tx.invitee.aggregate({
+        _max: { displayOrder: true },
+        where: { invitationId: invitation.id },
+      });
+
+      return tx.invitee.create({
+        data: {
+          category: input.category,
+          displayOrder: (maxOrder._max.displayOrder ?? -1) + 1,
+          fullName: input.fullName,
+          invitationId: invitation.id,
+          label: input.label,
+        },
+        select: this.inviteeMutationSelect(),
+      });
+    });
+
+    return mapInviteeMutation(invitee);
+  }
+
+  async updateInvitee(
+    inviteeId: string,
+    body: unknown,
+  ): Promise<AdminInviteeMutationDto> {
+    assertUuid(inviteeId);
+    const input = normalizeInviteeUpdateInput(body);
+
+    const invitee = await this.prisma.$transaction(async (tx) => {
+      const owner = await tx.invitee.findUnique({
+        select: { invitationId: true },
+        where: { id: inviteeId },
+      });
+
+      if (owner === null) {
+        notFound();
+      }
+
+      const invitation = await this.lockInvitation(tx, owner.invitationId);
+      this.assertInvitationActive(invitation);
+
+      const current = await tx.invitee.findUnique({
+        select: this.inviteeMutationSelect(),
+        where: { id: inviteeId },
+      });
+
+      if (current === null || current.invitationId !== invitation.id) {
+        notFound();
+      }
+
+      if (
+        current.updatedAt.toISOString() !==
+        input.expectedUpdatedAt.toISOString()
+      ) {
+        conflict("Invitee has changed.");
+      }
+
+      return tx.invitee.update({
+        data: {
+          ...input.values,
+          updatedAt: nextMonotonicTimestamp(current.updatedAt),
+        },
+        select: this.inviteeMutationSelect(),
+        where: { id: current.id },
+      });
+    });
+
+    return mapInviteeMutation(invitee);
+  }
+
+  async deleteInvitee(inviteeId: string): Promise<void> {
+    assertUuid(inviteeId);
+
+    await this.prisma.$transaction(async (tx) => {
+      const owner = await tx.invitee.findUnique({
+        select: { invitationId: true },
+        where: { id: inviteeId },
+      });
+
+      if (owner === null) {
+        return;
+      }
+
+      const invitation = await this.lockInvitation(tx, owner.invitationId);
+      this.assertInvitationActive(invitation);
+
+      const current = await tx.invitee.findUnique({
+        select: { id: true, invitationId: true },
+        where: { id: inviteeId },
+      });
+
+      if (current === null || current.invitationId !== invitation.id) {
+        return;
+      }
+
+      const referenceCount = await tx.rSVPAttendee.count({
+        where: { inviteeId: current.id },
+      });
+
+      if (referenceCount > 0) {
+        conflict("Invitee is referenced by an RSVP.");
+      }
+
+      try {
+        await tx.invitee.delete({ where: { id: current.id } });
+      } catch (error) {
+        if (isPrismaKnownErrorCode(error, "P2003")) {
+          conflict("Invitee is referenced by an RSVP.");
+        }
+
+        throw error;
+      }
+    });
+  }
+
+  async replaceInvitationEvents(
+    invitationId: string,
+    body: unknown,
+  ): Promise<ReplaceAdminInvitationEventsResponseDto> {
+    assertUuid(invitationId);
+    const desiredEventIds = normalizeReplaceEventsInput(body);
+
+    const eligibility = await this.prisma.$transaction(async (tx) => {
+      const invitation = await this.lockInvitation(tx, invitationId);
+      this.assertInvitationActive(invitation);
+
+      const currentRows = await tx.invitationEvent.findMany({
+        select: {
+          event: {
+            select: {
+              displayOrder: true,
+              id: true,
+              isActive: true,
+              name: true,
+              slug: true,
+            },
+          },
+          eventId: true,
+        },
+        where: { invitationId: invitation.id },
+      });
+      const currentEventIds = new Set(currentRows.map((row) => row.eventId));
+      const desiredEventIdSet = new Set(desiredEventIds);
+      const events = await tx.event.findMany({
+        select: {
+          displayOrder: true,
+          id: true,
+          isActive: true,
+          name: true,
+          slug: true,
+        },
+        where: { id: { in: desiredEventIds } },
+      });
+
+      if (events.length !== desiredEventIds.length) {
+        validationError();
+      }
+
+      if (
+        events.some((event) => !event.isActive && !currentEventIds.has(event.id))
+      ) {
+        validationError();
+      }
+
+      const removedEventIds = [...currentEventIds].filter(
+        (eventId) => !desiredEventIdSet.has(eventId),
+      );
+      const addedEventIds = desiredEventIds.filter(
+        (eventId) => !currentEventIds.has(eventId),
+      );
+
+      if (removedEventIds.length > 0) {
+        const referenced = await tx.rSVPEventSelection.count({
+          where: {
+            eventId: { in: removedEventIds },
+            rsvp: { invitationId: invitation.id },
+          },
+        });
+
+        if (referenced > 0) {
+          conflict("Eligibility removal is referenced by an RSVP.");
+        }
+      }
+
+      if (removedEventIds.length > 0) {
+        await tx.invitationEvent.deleteMany({
+          where: {
+            eventId: { in: removedEventIds },
+            invitationId: invitation.id,
+          },
+        });
+      }
+
+      if (addedEventIds.length > 0) {
+        await tx.invitationEvent.createMany({
+          data: addedEventIds.map((eventId) => ({
+            eventId,
+            invitationId: invitation.id,
+          })),
+        });
+      }
+
+      const resultingRows = await tx.invitationEvent.findMany({
+        orderBy: [{ event: { displayOrder: "asc" } }, { event: { id: "asc" } }],
+        select: {
+          event: {
+            select: {
+              displayOrder: true,
+              id: true,
+              isActive: true,
+              name: true,
+              slug: true,
+            },
+          },
+        },
+        where: { invitationId: invitation.id },
+      });
+
+      return resultingRows.map((row) => ({ event: row.event }));
+    });
+
+    return { eligibility };
+  }
+
   private async assertActiveEvents(
     tx: Prisma.TransactionClient,
     eventIds: readonly string[],
@@ -541,6 +911,19 @@ export class AdminMutationService {
     if (events.length !== eventIds.length || events.some((event) => !event.isActive)) {
       validationError();
     }
+  }
+
+  private inviteeMutationSelect() {
+    return {
+      category: true,
+      createdAt: true,
+      displayOrder: true,
+      fullName: true,
+      id: true,
+      invitationId: true,
+      label: true,
+      updatedAt: true,
+    } satisfies Prisma.InviteeSelect;
   }
 
   private assertInvitationActive(invitation: LockedInvitationRow): void {

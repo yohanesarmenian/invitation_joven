@@ -39,6 +39,16 @@ export type ArchiveAdminInvitationResponse =
   components["schemas"]["ArchiveAdminInvitationResponseDto"];
 export type RegenerateInvitationTokenRequest =
   components["schemas"]["RegenerateInvitationTokenRequestDto"];
+export type CreateAdminInviteeRequest =
+  components["schemas"]["CreateAdminInviteeRequestDto"];
+export type UpdateAdminInviteeRequest =
+  components["schemas"]["UpdateAdminInviteeRequestDto"];
+export type AdminInviteeMutationResponse =
+  components["schemas"]["AdminInviteeMutationDto"];
+export type ReplaceAdminInvitationEventsRequest =
+  components["schemas"]["ReplaceAdminInvitationEventsRequestDto"];
+export type ReplaceAdminInvitationEventsResponse =
+  components["schemas"]["ReplaceAdminInvitationEventsResponseDto"];
 export type ApiErrorEnvelope = components["schemas"]["ApiErrorEnvelopeDto"];
 export type GetPublicInvitationResponse =
   paths["/api/public/invitations/{publicCredential}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -68,6 +78,12 @@ export type ArchiveAdminInvitationOperationResponse =
   paths["/api/admin/invitations/{invitationId}/archive"]["post"]["responses"]["200"]["content"]["application/json"];
 export type RegenerateInvitationTokenOperationResponse =
   paths["/api/admin/invitations/{invitationId}/regenerate-token"]["post"]["responses"]["200"]["content"]["application/json"];
+export type CreateAdminInviteeOperationResponse =
+  paths["/api/admin/invitations/{invitationId}/invitees"]["post"]["responses"]["201"]["content"]["application/json"];
+export type UpdateAdminInviteeOperationResponse =
+  paths["/api/admin/invitees/{inviteeId}"]["patch"]["responses"]["200"]["content"]["application/json"];
+export type ReplaceAdminInvitationEventsOperationResponse =
+  paths["/api/admin/invitations/{invitationId}/events"]["put"]["responses"]["200"]["content"]["application/json"];
 export type GetAdminInvitationPublicUrlResponse =
   paths["/api/admin/invitations/{invitationId}/public-url"]["get"]["responses"]["200"]["content"]["application/json"];
 

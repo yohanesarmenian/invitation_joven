@@ -63,6 +63,11 @@ describe("OpenAPI contract", () => {
       document.paths[
         "/api/admin/invitations/{invitationId}/regenerate-token"
       ];
+    const adminInvitationInviteesPath =
+      document.paths["/api/admin/invitations/{invitationId}/invitees"];
+    const adminInviteePath = document.paths["/api/admin/invitees/{inviteeId}"];
+    const adminInvitationEventsPath =
+      document.paths["/api/admin/invitations/{invitationId}/events"];
     const schemas = document.components?.schemas ?? {};
 
     expect(getOperation).toBeDefined();
@@ -165,16 +170,43 @@ describe("OpenAPI contract", () => {
     expect(adminInvitationRegenerateTokenPath?.post?.responses).toHaveProperty(
       "409",
     );
+    expect(adminInvitationInviteesPath?.post).toBeDefined();
+    expect(adminInvitationInviteesPath?.post?.requestBody).toBeDefined();
+    expect(adminInvitationInviteesPath?.post?.responses).toHaveProperty("201");
+    expect(adminInvitationInviteesPath?.post?.responses).toHaveProperty("400");
+    expect(adminInvitationInviteesPath?.post?.responses).toHaveProperty("401");
+    expect(adminInvitationInviteesPath?.post?.responses).toHaveProperty("403");
+    expect(adminInvitationInviteesPath?.post?.responses).toHaveProperty("404");
+    expect(adminInvitationInviteesPath?.post?.responses).toHaveProperty("409");
+    expect(adminInviteePath?.patch).toBeDefined();
+    expect(adminInviteePath?.patch?.requestBody).toBeDefined();
+    expect(adminInviteePath?.patch?.responses).toHaveProperty("200");
+    expect(adminInviteePath?.patch?.responses).toHaveProperty("400");
+    expect(adminInviteePath?.patch?.responses).toHaveProperty("401");
+    expect(adminInviteePath?.patch?.responses).toHaveProperty("403");
+    expect(adminInviteePath?.patch?.responses).toHaveProperty("404");
+    expect(adminInviteePath?.patch?.responses).toHaveProperty("409");
+    expect(adminInviteePath?.delete).toBeDefined();
+    expect(adminInviteePath?.delete?.responses).toHaveProperty("204");
+    expect(adminInviteePath?.delete?.responses).toHaveProperty("400");
+    expect(adminInviteePath?.delete?.responses).toHaveProperty("401");
+    expect(adminInviteePath?.delete?.responses).toHaveProperty("403");
+    expect(adminInviteePath?.delete?.responses).toHaveProperty("409");
+    expect(adminInvitationEventsPath?.put).toBeDefined();
+    expect(adminInvitationEventsPath?.put?.requestBody).toBeDefined();
+    expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("200");
+    expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("400");
+    expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("401");
+    expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("403");
+    expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("404");
+    expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("409");
     expect(document.paths["/api/admin/auth/bootstrap"]).toBeUndefined();
-    expect(
-      document.paths["/api/admin/invitations/{invitationId}/invitees"],
-    ).toBeUndefined();
-    expect(
-      document.paths["/api/admin/invitations/{invitationId}/events"],
-    ).toBeUndefined();
     expect(document.paths["/api/admin/rsvps"]).toBeUndefined();
     expect(document.paths["/api/admin/messages"]).toBeUndefined();
     expect(document.paths["/api/admin/events/{eventId}"]).toBeUndefined();
+    expect(
+      document.paths["/api/admin/invitations/{invitationId}/invitees/order"],
+    ).toBeUndefined();
     expect(publicGuestMessagePath?.get).toBeUndefined();
     expect(publicGuestMessagePath?.put).toBeUndefined();
     expect(publicGuestMessagePath?.patch).toBeUndefined();
@@ -197,6 +229,11 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("UpdateAdminInvitationRequestDto");
     expect(schemas).toHaveProperty("ArchiveAdminInvitationResponseDto");
     expect(schemas).toHaveProperty("RegenerateInvitationTokenRequestDto");
+    expect(schemas).toHaveProperty("CreateAdminInviteeRequestDto");
+    expect(schemas).toHaveProperty("UpdateAdminInviteeRequestDto");
+    expect(schemas).toHaveProperty("AdminInviteeMutationDto");
+    expect(schemas).toHaveProperty("ReplaceAdminInvitationEventsRequestDto");
+    expect(schemas).toHaveProperty("ReplaceAdminInvitationEventsResponseDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     const adminSchemas = Object.fromEntries(
       Object.entries(schemas).filter(([name]) => name.startsWith("Admin")),
@@ -442,6 +479,43 @@ describe("OpenAPI contract", () => {
         }),
       },
       required: ["expectedTokenVersion"],
+    });
+    expect(schemas.CreateAdminInviteeRequestDto).toMatchObject({
+      properties: expect.objectContaining({
+        category: expect.objectContaining({ enum: ["ADULT", "CHILD"] }),
+        fullName: expect.objectContaining({ type: "string" }),
+        label: expect.objectContaining({ nullable: true }),
+      }),
+      required: ["fullName", "category"],
+    });
+    expect(schemas.UpdateAdminInviteeRequestDto).toMatchObject({
+      properties: expect.objectContaining({
+        expectedUpdatedAt: expect.objectContaining({
+          format: "date-time",
+          type: "string",
+        }),
+      }),
+      required: ["expectedUpdatedAt"],
+    });
+    expect(schemas.AdminInviteeMutationDto).toMatchObject({
+      properties: expect.objectContaining({
+        createdAt: expect.objectContaining({ format: "date-time" }),
+        displayOrder: expect.objectContaining({ type: "number" }),
+        invitationId: expect.objectContaining({ format: "uuid" }),
+        updatedAt: expect.objectContaining({ format: "date-time" }),
+      }),
+    });
+    expect(schemas.ReplaceAdminInvitationEventsRequestDto).toMatchObject({
+      properties: {
+        eventIds: expect.objectContaining({ type: "array" }),
+      },
+      required: ["eventIds"],
+    });
+    expect(schemas.ReplaceAdminInvitationEventsResponseDto).toMatchObject({
+      properties: {
+        eligibility: expect.objectContaining({ type: "array" }),
+      },
+      required: ["eligibility"],
     });
     expect(JSON.stringify(schemas.ArchiveAdminInvitationResponseDto)).not.toContain(
       "reason",
