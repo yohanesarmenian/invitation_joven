@@ -55,6 +55,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get admin dashboard metrics */
+        get: operations["AdminReadController_getDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List admin event catalog */
+        get: operations["AdminReadController_getEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List admin invitations */
+        get: operations["AdminReadController_listInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get admin invitation detail */
+        get: operations["AdminReadController_getInvitationDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/invitations/{invitationId}/public-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current public invitation URL */
+        get: operations["AdminReadController_getInvitationPublicUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public/invitations/{publicCredential}": {
         parameters: {
             query?: never;
@@ -159,6 +244,148 @@ export interface components {
             requestId: string;
             /** Format: date-time */
             timestamp: string;
+        };
+        AdminDashboardInvitationMetricsDto: {
+            active: number;
+            archived: number;
+            openedActive: number;
+        };
+        AdminDashboardRsvpMetricsDto: {
+            pending: number;
+            accepted: number;
+            declined: number;
+        };
+        AdminDashboardEventDto: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+        };
+        AdminDashboardExpectedByEventDto: {
+            event: components["schemas"]["AdminDashboardEventDto"];
+            expectedAttendeeCount: number;
+        };
+        AdminDashboardResponseDto: {
+            invitations: components["schemas"]["AdminDashboardInvitationMetricsDto"];
+            rsvp: components["schemas"]["AdminDashboardRsvpMetricsDto"];
+            expectedByEvent: components["schemas"]["AdminDashboardExpectedByEventDto"][];
+        };
+        AdminEventDto: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+            isActive: boolean;
+            displayOrder: number;
+        };
+        AdminEventsResponseDto: {
+            events: components["schemas"]["AdminEventDto"][];
+        };
+        AdminInvitationListItemDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            greetingName: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "ARCHIVED";
+            /** @enum {string} */
+            rsvpStatus: "PENDING" | "ACCEPTED" | "DECLINED";
+            inviteeCount: number;
+            openCount: number;
+            /** Format: date-time */
+            lastOpenedAt: string | null;
+            /** Format: date-time */
+            rsvpDeadlineAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            archivedAt: string | null;
+        };
+        AdminPageMetadataDto: {
+            number: number;
+            pageSize: number;
+            totalItems: number;
+            totalPages: number;
+        };
+        AdminInvitationListResponseDto: {
+            items: components["schemas"]["AdminInvitationListItemDto"][];
+            page: components["schemas"]["AdminPageMetadataDto"];
+        };
+        AdminInviteeDetailDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+            /** @enum {string} */
+            category: "ADULT" | "CHILD";
+            label: string | null;
+            displayOrder: number;
+        };
+        AdminInvitationEligibilityDto: {
+            event: components["schemas"]["AdminEventDto"];
+        };
+        AdminInvitationRsvpSummaryDto: {
+            /** @enum {string} */
+            status: "PENDING" | "ACCEPTED" | "DECLINED";
+            version: number;
+            /** Format: date-time */
+            submittedAt: string | null;
+            /** Format: date-time */
+            lastUpdatedAt: string;
+        };
+        AdminGuestMessageSummaryDto: {
+            total: number;
+            hidden: number;
+        };
+        AdminCheckinPassMetadataDto: {
+            /** @enum {string} */
+            status: "ACTIVE" | "REVOKED" | "EXPIRED";
+            credentialVersion: number;
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            revokedAt: string | null;
+            revocationReason: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+        };
+        AdminInvitationDetailDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            greetingName: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "ARCHIVED";
+            allowPlusOne: boolean;
+            maxAdditionalChildren: number;
+            /** Format: date-time */
+            rsvpDeadlineAt: string | null;
+            notes: string | null;
+            publicTokenVersion: number;
+            openCount: number;
+            /** Format: date-time */
+            firstOpenedAt: string | null;
+            /** Format: date-time */
+            lastOpenedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            archivedAt: string | null;
+            invitees: components["schemas"]["AdminInviteeDetailDto"][];
+            eligibility: components["schemas"]["AdminInvitationEligibilityDto"][];
+            rsvp: components["schemas"]["AdminInvitationRsvpSummaryDto"] | null;
+            messages: components["schemas"]["AdminGuestMessageSummaryDto"];
+            checkinPasses: components["schemas"]["AdminCheckinPassMetadataDto"][];
+        };
+        AdminInvitationDetailResponseDto: {
+            invitation: components["schemas"]["AdminInvitationDetailDto"];
+        };
+        AdminInvitationPublicUrlResponseDto: {
+            publicUrl: string;
+            publicTokenVersion: number;
         };
         PublicInvitationEventDto: {
             /** Format: uuid */
@@ -386,6 +613,173 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminReadController_getDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDashboardResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminReadController_getEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEventsResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminReadController_listInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInvitationListResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminReadController_getInvitationDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInvitationDetailResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminReadController_getInvitationPublicUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminInvitationPublicUrlResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

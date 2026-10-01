@@ -1,0 +1,470 @@
+import { timingSafeEqual } from "node:crypto";
+import { Inject, Injectable } from "@nestjs/common";
+import type { Prisma } from "../generated/prisma/client.js";
+import {
+  InvitationStatus,
+  RSVPStatus,
+} from "../generated/prisma/client.js";
+import { conflict, notFound, validationError } from "../auth/auth-errors.js";
+import {
+  buildAdminPageMetadata,
+  parseAdminPagination,
+  parseAdminSearch,
+  parseAdminSort,
+} from "../common/admin-query.js";
+import { PrismaService } from "../database/prisma.service.js";
+import { CredentialService } from "../security/credential.service.js";
+import {
+  adminInvitationSortFields,
+  adminInvitationStatuses,
+  adminRsvpStatuses,
+  type AdminDashboardResponseDto,
+  type AdminEventsResponseDto,
+  type AdminInvitationDetailResponseDto,
+  type AdminInvitationListResponseDto,
+  type AdminInvitationPublicUrlResponseDto,
+  type AdminInvitationStatus,
+  type AdminRsvpStatus,
+} from "./dto/admin-read.dto.js";
+import { PublicInvitationBaseUrlService } from "./public-invitation-base-url.service.js";
+
+type QueryBag = Record<string, unknown>;
+
+type DashboardCountsRow = {
+  active: bigint | number;
+  archived: bigint | number;
+  openedActive: bigint | number;
+  pending: bigint | number;
+  accepted: bigint | number;
+  declined: bigint | number;
+};
+
+type ExpectedByEventRow = {
+  eventId: string;
+  slug: string;
+  name: string;
+  expectedAttendeeCount: bigint | number;
+};
+
+const INVITATION_SORT_MAP = {
+  createdAt: "createdAt",
+  displayName: "displayName",
+  lastOpenedAt: "lastOpenedAt",
+  status: "status",
+  updatedAt: "updatedAt",
+} satisfies Record<
+  (typeof adminInvitationSortFields)[number],
+  keyof Prisma.InvitationOrderByWithRelationInput
+>;
+
+function toIsoDate(value: Date | null): string | null {
+  return value?.toISOString() ?? null;
+}
+
+function toIsoDateRequired(value: Date): string {
+  return value.toISOString();
+}
+
+function toNumber(value: bigint | number): number {
+  return Number(value);
+}
+
+function parseStatusFilter(value: unknown): AdminInvitationStatus | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  if (Array.isArray(value) || !adminInvitationStatuses.includes(value as AdminInvitationStatus)) {
+    validationError();
+  }
+
+  return value as AdminInvitationStatus;
+}
+
+function parseRsvpStatusFilter(value: unknown): AdminRsvpStatus | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  if (Array.isArray(value) || !adminRsvpStatuses.includes(value as AdminRsvpStatus)) {
+    validationError();
+  }
+
+  return value as AdminRsvpStatus;
+}
+
+function credentialLookupHashesMatch(actual: string, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(actualBuffer, expectedBuffer)
+  );
+}
+
+@Injectable()
+export class AdminReadService {
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(CredentialService)
+    private readonly credentialService: CredentialService,
+    @Inject(PublicInvitationBaseUrlService)
+    private readonly publicBaseUrlService: PublicInvitationBaseUrlService,
+  ) {}
+
+  async getDashboard(): Promise<AdminDashboardResponseDto> {
+    const { countsRows, expectedRows } = await this.prisma.$transaction(
+      async (tx) => {
+        const countsRows = await tx.$queryRaw<DashboardCountsRow[]>`
+        SELECT
+          COUNT(*) FILTER (WHERE "i"."status" = 'ACTIVE')::int AS "active",
+          COUNT(*) FILTER (WHERE "i"."status" = 'ARCHIVED')::int AS "archived",
+          COUNT(*) FILTER (
+            WHERE "i"."status" = 'ACTIVE' AND "i"."open_count" > 0
+          )::int AS "openedActive",
+          COUNT(*) FILTER (
+            WHERE "i"."status" = 'ACTIVE'
+              AND ("r"."id" IS NULL OR "r"."status" = 'PENDING')
+          )::int AS "pending",
+          COUNT(*) FILTER (
+            WHERE "i"."status" = 'ACTIVE' AND "r"."status" = 'ACCEPTED'
+          )::int AS "accepted",
+          COUNT(*) FILTER (
+            WHERE "i"."status" = 'ACTIVE' AND "r"."status" = 'DECLINED'
+          )::int AS "declined"
+        FROM "invitations" "i"
+        LEFT JOIN "rsvps" "r" ON "r"."invitation_id" = "i"."id"
+      `;
+        const expectedRows = await tx.$queryRaw<ExpectedByEventRow[]>`
+        SELECT
+          "e"."id"::text AS "eventId",
+          "e"."slug",
+          "e"."name",
+          COALESCE(SUM("s"."expected_attendee_count"), 0)::int AS "expectedAttendeeCount"
+        FROM "rsvp_event_selections" "s"
+        INNER JOIN "rsvps" "r" ON "r"."id" = "s"."rsvp_id"
+        INNER JOIN "invitations" "i" ON "i"."id" = "r"."invitation_id"
+        INNER JOIN "events" "e" ON "e"."id" = "s"."event_id"
+        WHERE "i"."status" = 'ACTIVE'
+          AND "r"."status" = 'ACCEPTED'
+          AND "s"."attending" = true
+        GROUP BY "e"."id", "e"."slug", "e"."name", "e"."display_order"
+        ORDER BY "e"."display_order" ASC, "e"."id" ASC
+      `;
+
+        return { countsRows, expectedRows };
+      },
+    );
+    const counts = countsRows[0] ?? {
+      accepted: 0,
+      active: 0,
+      archived: 0,
+      declined: 0,
+      openedActive: 0,
+      pending: 0,
+    };
+
+    return {
+      expectedByEvent: expectedRows.map((row) => ({
+        event: {
+          id: row.eventId,
+          name: row.name,
+          slug: row.slug,
+        },
+        expectedAttendeeCount: toNumber(row.expectedAttendeeCount),
+      })),
+      invitations: {
+        active: toNumber(counts.active),
+        archived: toNumber(counts.archived),
+        openedActive: toNumber(counts.openedActive),
+      },
+      rsvp: {
+        accepted: toNumber(counts.accepted),
+        declined: toNumber(counts.declined),
+        pending: toNumber(counts.pending),
+      },
+    };
+  }
+
+  async getEvents(): Promise<AdminEventsResponseDto> {
+    const events = await this.prisma.event.findMany({
+      orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+      select: {
+        displayOrder: true,
+        id: true,
+        isActive: true,
+        name: true,
+        slug: true,
+      },
+    });
+
+    return { events };
+  }
+
+  async listInvitations(query: QueryBag): Promise<AdminInvitationListResponseDto> {
+    const page = parseAdminPagination(query);
+    const sort = parseAdminSort(query, adminInvitationSortFields, {
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    });
+    const search = parseAdminSearch(query);
+    const status = parseStatusFilter(query.status);
+    const rsvpStatus = parseRsvpStatusFilter(query.rsvpStatus);
+    const where = this.buildInvitationListWhere({ rsvpStatus, search, status });
+    const orderBy: Prisma.InvitationOrderByWithRelationInput[] = [
+      { [INVITATION_SORT_MAP[sort.sortBy]]: sort.sortOrder },
+      { id: "asc" },
+    ];
+    const { invitations, totalItems } = await this.prisma.$transaction(
+      async (tx) => {
+        const totalItems = await tx.invitation.count({ where });
+        const invitations = await tx.invitation.findMany({
+        orderBy,
+        skip: page.skip,
+        take: page.pageSize,
+        where,
+        select: {
+          _count: { select: { invitees: true } },
+          archivedAt: true,
+          createdAt: true,
+          displayName: true,
+          greetingName: true,
+          id: true,
+          lastOpenedAt: true,
+          openCount: true,
+          rsvp: { select: { status: true } },
+          rsvpDeadlineAt: true,
+          status: true,
+          updatedAt: true,
+        },
+      });
+
+        return { invitations, totalItems };
+      },
+    );
+
+    return {
+      items: invitations.map((invitation) => ({
+        archivedAt: toIsoDate(invitation.archivedAt),
+        createdAt: toIsoDateRequired(invitation.createdAt),
+        displayName: invitation.displayName,
+        greetingName: invitation.greetingName,
+        id: invitation.id,
+        inviteeCount: invitation._count.invitees,
+        lastOpenedAt: toIsoDate(invitation.lastOpenedAt),
+        openCount: invitation.openCount,
+        rsvpDeadlineAt: toIsoDate(invitation.rsvpDeadlineAt),
+        rsvpStatus: invitation.rsvp?.status ?? RSVPStatus.PENDING,
+        status: invitation.status,
+        updatedAt: toIsoDateRequired(invitation.updatedAt),
+      })),
+      page: buildAdminPageMetadata(page, totalItems),
+    };
+  }
+
+  async getInvitationDetail(
+    invitationId: string,
+  ): Promise<AdminInvitationDetailResponseDto> {
+    const { hiddenMessages, invitation, totalMessages } =
+      await this.prisma.$transaction(async (tx) => {
+        const invitation = await tx.invitation.findUnique({
+        where: { id: invitationId },
+        select: {
+          archivedAt: true,
+          allowPlusOne: true,
+          checkinPasses: {
+            orderBy: [{ issuedAt: "asc" }, { id: "asc" }],
+            select: {
+              credentialVersion: true,
+              expiresAt: true,
+              issuedAt: true,
+              revocationReason: true,
+              revokedAt: true,
+              status: true,
+            },
+          },
+          createdAt: true,
+          displayName: true,
+          firstOpenedAt: true,
+          greetingName: true,
+          id: true,
+          invitationEvents: {
+            orderBy: [{ event: { displayOrder: "asc" } }, { event: { id: "asc" } }],
+            select: {
+              event: {
+                select: {
+                  displayOrder: true,
+                  id: true,
+                  isActive: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+          invitees: {
+            orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+            select: {
+              category: true,
+              displayOrder: true,
+              fullName: true,
+              id: true,
+              label: true,
+            },
+          },
+          lastOpenedAt: true,
+          maxAdditionalChildren: true,
+          notes: true,
+          openCount: true,
+          publicTokenVersion: true,
+          rsvp: {
+            select: {
+              lastUpdatedAt: true,
+              status: true,
+              submittedAt: true,
+              version: true,
+            },
+          },
+          rsvpDeadlineAt: true,
+          status: true,
+          updatedAt: true,
+        },
+      });
+        const totalMessages = await tx.guestMessage.count({ where: { invitationId } });
+        const hiddenMessages = await tx.guestMessage.count({
+        where: { invitationId, isHidden: true },
+      });
+
+        return { hiddenMessages, invitation, totalMessages };
+      });
+
+    if (invitation === null) {
+      notFound();
+    }
+
+    return {
+      invitation: {
+        archivedAt: toIsoDate(invitation.archivedAt),
+        allowPlusOne: invitation.allowPlusOne,
+        checkinPasses: invitation.checkinPasses.map((pass) => ({
+          credentialVersion: pass.credentialVersion,
+          expiresAt: toIsoDate(pass.expiresAt),
+          issuedAt: toIsoDateRequired(pass.issuedAt),
+          revocationReason: pass.revocationReason,
+          revokedAt: toIsoDate(pass.revokedAt),
+          status: pass.status,
+        })),
+        createdAt: toIsoDateRequired(invitation.createdAt),
+        displayName: invitation.displayName,
+        eligibility: invitation.invitationEvents.map((invitationEvent) => ({
+          event: invitationEvent.event,
+        })),
+        firstOpenedAt: toIsoDate(invitation.firstOpenedAt),
+        greetingName: invitation.greetingName,
+        id: invitation.id,
+        invitees: invitation.invitees,
+        lastOpenedAt: toIsoDate(invitation.lastOpenedAt),
+        maxAdditionalChildren: invitation.maxAdditionalChildren,
+        messages: {
+          hidden: hiddenMessages,
+          total: totalMessages,
+        },
+        notes: invitation.notes,
+        openCount: invitation.openCount,
+        publicTokenVersion: invitation.publicTokenVersion,
+        rsvp:
+          invitation.rsvp === null
+            ? null
+            : {
+                lastUpdatedAt: toIsoDateRequired(invitation.rsvp.lastUpdatedAt),
+                status: invitation.rsvp.status,
+                submittedAt: toIsoDate(invitation.rsvp.submittedAt),
+                version: invitation.rsvp.version,
+              },
+        rsvpDeadlineAt: toIsoDate(invitation.rsvpDeadlineAt),
+        status: invitation.status,
+        updatedAt: toIsoDateRequired(invitation.updatedAt),
+      },
+    };
+  }
+
+  async getInvitationPublicUrl(
+    invitationId: string,
+  ): Promise<AdminInvitationPublicUrlResponseDto> {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: invitationId },
+      select: {
+        id: true,
+        publicTokenHash: true,
+        publicTokenVersion: true,
+        status: true,
+      },
+    });
+
+    if (invitation === null) {
+      notFound();
+    }
+
+    if (invitation.status !== InvitationStatus.ACTIVE) {
+      conflict("Invitation is archived.");
+    }
+
+    const credential = this.credentialService.deriveCredential({
+      namespace: "invitation",
+      stableId: invitation.id,
+      version: invitation.publicTokenVersion,
+    });
+    const hash = this.credentialService.hashCredential(credential);
+
+    if (!credentialLookupHashesMatch(hash, invitation.publicTokenHash)) {
+      throw new Error("Invitation public credential integrity check failed.");
+    }
+
+    return {
+      publicTokenVersion: invitation.publicTokenVersion,
+      publicUrl: this.publicBaseUrlService.buildInvitationUrl(credential),
+    };
+  }
+
+  private buildInvitationListWhere(input: {
+    rsvpStatus: AdminRsvpStatus | null;
+    search: string | null;
+    status: AdminInvitationStatus | null;
+  }): Prisma.InvitationWhereInput {
+    const and: Prisma.InvitationWhereInput[] = [];
+
+    if (input.status !== null) {
+      and.push({ status: input.status });
+    }
+
+    if (input.rsvpStatus === RSVPStatus.PENDING) {
+      and.push({
+        OR: [
+          { rsvp: { is: null } },
+          { rsvp: { is: { status: RSVPStatus.PENDING } } },
+        ],
+      });
+    } else if (input.rsvpStatus !== null) {
+      and.push({ rsvp: { is: { status: input.rsvpStatus } } });
+    }
+
+    if (input.search !== null) {
+      and.push({
+        OR: [
+          { displayName: { contains: input.search, mode: "insensitive" } },
+          { greetingName: { contains: input.search, mode: "insensitive" } },
+          {
+            invitees: {
+              some: {
+                fullName: { contains: input.search, mode: "insensitive" },
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    return and.length === 0 ? {} : { AND: and };
+  }
+}

@@ -3,6 +3,10 @@ import type { components, paths } from "./generated/schema.js";
 import {
   createInvitationApiClient,
   type AdminAuthResponse,
+  type AdminDashboardResponse,
+  type AdminInvitationDetailResponse,
+  type AdminInvitationListResponse,
+  type AdminInvitationPublicUrlResponse,
   type AdminLoginRequest,
   type PublicRsvpReadResponse,
   type SubmitPublicGuestMessageRequest,
@@ -146,5 +150,120 @@ describe("generated API client", () => {
     expect(JSON.stringify(response)).not.toContain("sessionToken");
     expect(JSON.stringify(response)).not.toContain("sessionTokenHash");
     expect(JSON.stringify(response)).not.toContain("csrfTokenHash");
+  });
+
+  it("exposes the admin read operations and safe response schemas", () => {
+    expect(assertApiPath("/api/admin/dashboard")).toBe("/api/admin/dashboard");
+    expect(assertApiPath("/api/admin/events")).toBe("/api/admin/events");
+    expect(assertApiPath("/api/admin/invitations")).toBe(
+      "/api/admin/invitations",
+    );
+    expect(assertApiPath("/api/admin/invitations/{invitationId}")).toBe(
+      "/api/admin/invitations/{invitationId}",
+    );
+    expect(
+      assertApiPath("/api/admin/invitations/{invitationId}/public-url"),
+    ).toBe("/api/admin/invitations/{invitationId}/public-url");
+
+    const dashboard: AdminDashboardResponse = {
+      expectedByEvent: [],
+      invitations: {
+        active: 1,
+        archived: 0,
+        openedActive: 1,
+      },
+      rsvp: {
+        accepted: 0,
+        declined: 0,
+        pending: 1,
+      },
+    };
+    const list: AdminInvitationListResponse = {
+      items: [
+        {
+          archivedAt: null,
+          createdAt: "2026-09-30T00:00:00.000Z",
+          displayName: "Example Household",
+          greetingName: null,
+          id: "11111111-1111-4111-8111-111111111111",
+          inviteeCount: 2,
+          lastOpenedAt: null,
+          openCount: 0,
+          rsvpDeadlineAt: null,
+          rsvpStatus: "PENDING",
+          status: "ACTIVE",
+          updatedAt: "2026-09-30T00:00:00.000Z",
+        },
+      ],
+      page: {
+        number: 1,
+        pageSize: 25,
+        totalItems: 1,
+        totalPages: 1,
+      },
+    };
+    const detail: AdminInvitationDetailResponse = {
+      invitation: {
+        archivedAt: null,
+        allowPlusOne: false,
+        checkinPasses: [],
+        createdAt: "2026-09-30T00:00:00.000Z",
+        displayName: "Example Household",
+        eligibility: [],
+        firstOpenedAt: null,
+        greetingName: null,
+        id: "11111111-1111-4111-8111-111111111111",
+        invitees: [],
+        lastOpenedAt: null,
+        maxAdditionalChildren: 0,
+        messages: {
+          hidden: 0,
+          total: 0,
+        },
+        notes: "admin notes",
+        openCount: 0,
+        publicTokenVersion: 1,
+        rsvp: null,
+        rsvpDeadlineAt: null,
+        status: "ACTIVE",
+        updatedAt: "2026-09-30T00:00:00.000Z",
+      },
+    };
+    const detailWithRsvp: AdminInvitationDetailResponse = {
+      invitation: {
+        ...detail.invitation,
+        rsvp: {
+          lastUpdatedAt: "2026-09-30T02:01:00.000Z",
+          status: "ACCEPTED",
+          submittedAt: "2026-09-30T02:00:00.000Z",
+          version: 1,
+        },
+      },
+    };
+    const publicUrl: AdminInvitationPublicUrlResponse = {
+      publicTokenVersion: 1,
+      publicUrl: "https://invite.example.com/i/abc",
+    };
+
+    expect(dashboard.invitations.active).toBe(1);
+    expect(list.items[0]?.rsvpStatus).toBe("PENDING");
+    expect(detail.invitation.notes).toBe("admin notes");
+    expect(Object.keys(detailWithRsvp.invitation.rsvp ?? {}).sort()).toEqual([
+      "lastUpdatedAt",
+      "status",
+      "submittedAt",
+      "version",
+    ]);
+    expect(publicUrl.publicUrl).toContain("/i/");
+    expect(JSON.stringify(list)).not.toContain("notes");
+    expect(JSON.stringify(list)).not.toContain("publicTokenVersion");
+    expect(JSON.stringify(detail)).not.toContain("publicUrl");
+    expect(JSON.stringify(detail)).not.toContain("publicTokenHash");
+    expect(JSON.stringify(detail)).not.toContain("qrPayload");
+    expect(JSON.stringify(detail)).not.toContain("tokenHash");
+    expect(JSON.stringify(detailWithRsvp)).not.toContain("attendeeQuantityTotal");
+    expect(JSON.stringify(detailWithRsvp)).not.toContain("eventSelections");
+    expect(JSON.stringify(detailWithRsvp)).not.toContain("dietaryNotes");
+    expect(JSON.stringify(detailWithRsvp)).not.toContain("guestNote");
   });
 });
