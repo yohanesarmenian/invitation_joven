@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { components, paths } from "./generated/schema.js";
 import {
   createInvitationApiClient,
+  type AdminInviteeMutationResponse,
   type AdminAuthResponse,
   type AdminDashboardResponse,
   type ArchiveAdminInvitationResponse,
+  type CreateAdminInviteeRequest,
   type CreateAdminInvitationRequest,
   type CreateAdminInvitationResponse,
   type AdminInvitationDetailResponse,
@@ -13,9 +15,12 @@ import {
   type AdminLoginRequest,
   type PublicRsvpReadResponse,
   type RegenerateInvitationTokenRequest,
+  type ReplaceAdminInvitationEventsRequest,
+  type ReplaceAdminInvitationEventsResponse,
   type SubmitPublicGuestMessageRequest,
   type SubmitPublicGuestMessageResponse,
   type SubmitPublicRsvpRequest,
+  type UpdateAdminInviteeRequest,
   type UpdateAdminInvitationRequest,
 } from "./index.js";
 
@@ -175,6 +180,15 @@ describe("generated API client", () => {
     expect(
       assertApiPath("/api/admin/invitations/{invitationId}/regenerate-token"),
     ).toBe("/api/admin/invitations/{invitationId}/regenerate-token");
+    expect(
+      assertApiPath("/api/admin/invitations/{invitationId}/invitees"),
+    ).toBe("/api/admin/invitations/{invitationId}/invitees");
+    expect(assertApiPath("/api/admin/invitees/{inviteeId}")).toBe(
+      "/api/admin/invitees/{inviteeId}",
+    );
+    expect(
+      assertApiPath("/api/admin/invitations/{invitationId}/events"),
+    ).toBe("/api/admin/invitations/{invitationId}/events");
 
     const dashboard: AdminDashboardResponse = {
       expectedByEvent: [],
@@ -290,6 +304,41 @@ describe("generated API client", () => {
     const regenerateRequest: RegenerateInvitationTokenRequest = {
       expectedTokenVersion: 1,
     };
+    const createInviteeRequest: CreateAdminInviteeRequest = {
+      category: "ADULT",
+      fullName: "New Guest",
+      label: null,
+    };
+    const inviteeResponse: AdminInviteeMutationResponse = {
+      category: "ADULT",
+      createdAt: "2026-09-30T00:00:00.000Z",
+      displayOrder: 0,
+      fullName: "New Guest",
+      id: "22222222-2222-4222-8222-222222222222",
+      invitationId: detail.invitation.id,
+      label: null,
+      updatedAt: "2026-09-30T00:00:00.000Z",
+    };
+    const updateInviteeRequest: UpdateAdminInviteeRequest = {
+      expectedUpdatedAt: inviteeResponse.updatedAt,
+      label: "VIP",
+    };
+    const replaceEventsRequest: ReplaceAdminInvitationEventsRequest = {
+      eventIds: ["33333333-3333-4333-8333-333333333333"],
+    };
+    const replaceEventsResponse: ReplaceAdminInvitationEventsResponse = {
+      eligibility: [
+        {
+          event: {
+            displayOrder: 1,
+            id: replaceEventsRequest.eventIds[0]!,
+            isActive: true,
+            name: "Ceremony",
+            slug: "ceremony",
+          },
+        },
+      ],
+    };
 
     expect(dashboard.invitations.active).toBe(1);
     expect(list.items[0]?.rsvpStatus).toBe("PENDING");
@@ -311,6 +360,12 @@ describe("generated API client", () => {
     ]);
     expect(JSON.stringify(archiveResponse)).not.toContain("reason");
     expect(regenerateRequest.expectedTokenVersion).toBe(1);
+    expect(createInviteeRequest.category).toBe("ADULT");
+    expect(updateInviteeRequest.expectedUpdatedAt).toBe(inviteeResponse.updatedAt);
+    expect(inviteeResponse.invitationId).toBe(detail.invitation.id);
+    expect(replaceEventsResponse.eligibility[0]?.event.id).toBe(
+      replaceEventsRequest.eventIds[0],
+    );
     expect(JSON.stringify(list)).not.toContain("notes");
     expect(JSON.stringify(list)).not.toContain("publicTokenVersion");
     expect(JSON.stringify(detail)).not.toContain("publicUrl");
@@ -323,5 +378,9 @@ describe("generated API client", () => {
     expect(JSON.stringify(detailWithRsvp)).not.toContain("guestNote");
     expect(JSON.stringify(createResponse)).not.toContain("publicTokenHash");
     expect(JSON.stringify(publicUrl)).not.toContain("publicTokenHash");
+    expect(JSON.stringify(inviteeResponse)).not.toContain("dietaryNotes");
+    expect(JSON.stringify(inviteeResponse)).not.toContain("guestNote");
+    expect(JSON.stringify(replaceEventsResponse)).not.toContain("publicTokenHash");
+    expect(JSON.stringify(replaceEventsResponse)).not.toContain("qrPayload");
   });
 });

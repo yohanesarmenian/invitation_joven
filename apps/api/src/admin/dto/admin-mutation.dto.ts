@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   AdminInvitationDetailDto,
+  AdminInvitationEligibilityDto,
   adminInviteeCategories,
   type AdminInviteeCategory,
   adminInvitationStatuses,
@@ -97,4 +98,65 @@ export class ArchiveAdminInvitationResponseDto {
 export class RegenerateInvitationTokenRequestDto {
   @ApiProperty({ minimum: 1, type: Number })
   expectedTokenVersion: number;
+}
+
+export class CreateAdminInviteeRequestDto {
+  @ApiProperty({ type: String })
+  fullName: string;
+
+  @ApiProperty({ enum: adminInviteeCategories, type: String })
+  category: AdminInviteeCategory;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  label?: string | null;
+}
+
+export class UpdateAdminInviteeRequestDto {
+  @ApiProperty({ format: "date-time", type: String })
+  expectedUpdatedAt: string;
+
+  @ApiPropertyOptional({ type: String })
+  fullName?: string;
+
+  @ApiPropertyOptional({ enum: adminInviteeCategories, type: String })
+  category?: AdminInviteeCategory;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  label?: string | null;
+}
+
+export class AdminInviteeMutationDto {
+  @ApiProperty({ format: "uuid", type: String })
+  id: string;
+
+  @ApiProperty({ format: "uuid", type: String })
+  invitationId: string;
+
+  @ApiProperty({ type: String })
+  fullName: string;
+
+  @ApiProperty({ enum: adminInviteeCategories, type: String })
+  category: AdminInviteeCategory;
+
+  @ApiProperty({ nullable: true, type: String })
+  label: string | null;
+
+  @ApiProperty({ type: Number })
+  displayOrder: number;
+
+  @ApiProperty({ format: "date-time", type: String })
+  createdAt: string;
+
+  @ApiProperty({ format: "date-time", type: String })
+  updatedAt: string;
+}
+
+export class ReplaceAdminInvitationEventsRequestDto {
+  @ApiProperty({ format: "uuid", isArray: true, type: String })
+  eventIds: string[];
+}
+
+export class ReplaceAdminInvitationEventsResponseDto {
+  @ApiProperty({ type: () => [AdminInvitationEligibilityDto] })
+  eligibility: AdminInvitationEligibilityDto[];
 }
