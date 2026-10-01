@@ -29,6 +29,16 @@ export type AdminInvitationDetailResponse =
   components["schemas"]["AdminInvitationDetailResponseDto"];
 export type AdminInvitationPublicUrlResponse =
   components["schemas"]["AdminInvitationPublicUrlResponseDto"];
+export type CreateAdminInvitationRequest =
+  components["schemas"]["CreateAdminInvitationRequestDto"];
+export type CreateAdminInvitationResponse =
+  components["schemas"]["CreateAdminInvitationResponseDto"];
+export type UpdateAdminInvitationRequest =
+  components["schemas"]["UpdateAdminInvitationRequestDto"];
+export type ArchiveAdminInvitationResponse =
+  components["schemas"]["ArchiveAdminInvitationResponseDto"];
+export type RegenerateInvitationTokenRequest =
+  components["schemas"]["RegenerateInvitationTokenRequestDto"];
 export type ApiErrorEnvelope = components["schemas"]["ApiErrorEnvelopeDto"];
 export type GetPublicInvitationResponse =
   paths["/api/public/invitations/{publicCredential}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -48,8 +58,16 @@ export type GetAdminEventsResponse =
   paths["/api/admin/events"]["get"]["responses"]["200"]["content"]["application/json"];
 export type GetAdminInvitationsResponse =
   paths["/api/admin/invitations"]["get"]["responses"]["200"]["content"]["application/json"];
+export type CreateAdminInvitationOperationResponse =
+  paths["/api/admin/invitations"]["post"]["responses"]["201"]["content"]["application/json"];
 export type GetAdminInvitationDetailResponse =
   paths["/api/admin/invitations/{invitationId}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type UpdateAdminInvitationOperationResponse =
+  paths["/api/admin/invitations/{invitationId}"]["patch"]["responses"]["200"]["content"]["application/json"];
+export type ArchiveAdminInvitationOperationResponse =
+  paths["/api/admin/invitations/{invitationId}/archive"]["post"]["responses"]["200"]["content"]["application/json"];
+export type RegenerateInvitationTokenOperationResponse =
+  paths["/api/admin/invitations/{invitationId}/regenerate-token"]["post"]["responses"]["200"]["content"]["application/json"];
 export type GetAdminInvitationPublicUrlResponse =
   paths["/api/admin/invitations/{invitationId}/public-url"]["get"]["responses"]["200"]["content"]["application/json"];
 
