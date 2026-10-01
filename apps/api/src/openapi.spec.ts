@@ -68,6 +68,10 @@ describe("OpenAPI contract", () => {
     const adminInviteePath = document.paths["/api/admin/invitees/{inviteeId}"];
     const adminInvitationEventsPath =
       document.paths["/api/admin/invitations/{invitationId}/events"];
+    const adminRsvpsPath = document.paths["/api/admin/rsvps"];
+    const adminRsvpDetailPath = document.paths["/api/admin/rsvps/{rsvpId}"];
+    const adminInvitationRsvpPath =
+      document.paths["/api/admin/invitations/{invitationId}/rsvp"];
     const schemas = document.components?.schemas ?? {};
 
     expect(getOperation).toBeDefined();
@@ -200,8 +204,25 @@ describe("OpenAPI contract", () => {
     expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("403");
     expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("404");
     expect(adminInvitationEventsPath?.put?.responses).toHaveProperty("409");
+    expect(adminRsvpsPath?.get).toBeDefined();
+    expect(adminRsvpsPath?.get?.responses).toHaveProperty("200");
+    expect(adminRsvpsPath?.get?.responses).toHaveProperty("400");
+    expect(adminRsvpsPath?.get?.responses).toHaveProperty("401");
+    expect(adminRsvpDetailPath?.get).toBeDefined();
+    expect(adminRsvpDetailPath?.get?.responses).toHaveProperty("200");
+    expect(adminRsvpDetailPath?.get?.responses).toHaveProperty("400");
+    expect(adminRsvpDetailPath?.get?.responses).toHaveProperty("401");
+    expect(adminRsvpDetailPath?.get?.responses).toHaveProperty("404");
+    expect(adminInvitationRsvpPath?.put).toBeDefined();
+    expect(adminInvitationRsvpPath?.put?.requestBody).toBeDefined();
+    expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("200");
+    expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("400");
+    expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("401");
+    expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("403");
+    expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("404");
+    expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("409");
+    expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("422");
     expect(document.paths["/api/admin/auth/bootstrap"]).toBeUndefined();
-    expect(document.paths["/api/admin/rsvps"]).toBeUndefined();
     expect(document.paths["/api/admin/messages"]).toBeUndefined();
     expect(document.paths["/api/admin/events/{eventId}"]).toBeUndefined();
     expect(
@@ -234,6 +255,9 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("AdminInviteeMutationDto");
     expect(schemas).toHaveProperty("ReplaceAdminInvitationEventsRequestDto");
     expect(schemas).toHaveProperty("ReplaceAdminInvitationEventsResponseDto");
+    expect(schemas).toHaveProperty("AdminRsvpListResponseDto");
+    expect(schemas).toHaveProperty("AdminRsvpDetailResponseDto");
+    expect(schemas).toHaveProperty("OverrideAdminRsvpRequestDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     const adminSchemas = Object.fromEntries(
       Object.entries(schemas).filter(([name]) => name.startsWith("Admin")),
@@ -392,7 +416,7 @@ describe("OpenAPI contract", () => {
       }),
     });
     expect(schemas).toHaveProperty("AdminInvitationRsvpSummaryDto");
-    expect(schemas).not.toHaveProperty("AdminRsvpDetailDto");
+    expect(schemas).toHaveProperty("AdminRsvpDetailDto");
     const adminInvitationRsvpSummarySchema = schemas.AdminInvitationRsvpSummaryDto as
       | {
           properties: Record<string, unknown>;
@@ -516,6 +540,43 @@ describe("OpenAPI contract", () => {
         eligibility: expect.objectContaining({ type: "array" }),
       },
       required: ["eligibility"],
+    });
+    expect(schemas.AdminRsvpListItemDto).toMatchObject({
+      properties: expect.objectContaining({
+        attendeeCount: expect.objectContaining({ type: "number" }),
+        attendingEventCount: expect.objectContaining({ type: "number" }),
+        submittedByAdmin: expect.objectContaining({ type: "boolean" }),
+      }),
+    });
+    expect(JSON.stringify(schemas.AdminRsvpListItemDto)).not.toContain(
+      "dietaryNotes",
+    );
+    expect(JSON.stringify(schemas.AdminRsvpListItemDto)).not.toContain(
+      "guestNote",
+    );
+    expect(schemas.AdminRsvpDetailDto).toMatchObject({
+      properties: expect.objectContaining({
+        adminUser: expect.objectContaining({
+          $ref: "#/components/schemas/AdminRsvpAdminUserDto",
+        }),
+        attendees: expect.objectContaining({ type: "array" }),
+        checkinPasses: expect.objectContaining({ type: "array" }),
+        dietaryNotes: expect.objectContaining({ nullable: true }),
+        eventSelections: expect.objectContaining({ type: "array" }),
+        guestNote: expect.objectContaining({ nullable: true }),
+        overrideReason: expect.objectContaining({ type: "string" }),
+      }),
+    });
+    expect(schemas.OverrideAdminRsvpRequestDto).toMatchObject({
+      properties: expect.objectContaining({
+        expectedVersion: expect.objectContaining({ nullable: true }),
+        overrideReason: expect.objectContaining({
+          maxLength: 500,
+          type: "string",
+        }),
+        status: expect.objectContaining({ enum: ["ACCEPTED", "DECLINED"] }),
+      }),
+      required: expect.arrayContaining(["expectedVersion", "overrideReason"]),
     });
     expect(JSON.stringify(schemas.ArchiveAdminInvitationResponseDto)).not.toContain(
       "reason",

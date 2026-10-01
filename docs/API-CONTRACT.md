@@ -1070,7 +1070,7 @@ Item:
       "status": "ACCEPTED",
       "version": 3,
       "attendeeCount": 4,
-      "attendingEventCount": 2,
+      "attendingEventCount": 1,
       "createdAt": "2026-09-20T00:00:00.000Z",
       "updatedAt": "2026-09-29T10:15:00.000Z",
       "submittedByAdmin": false
@@ -1081,6 +1081,8 @@ Item:
 ```
 
 `submittedByAdmin` is a boolean derived from `submittedByAdminUserId != null`. No pass credential material appears in the list.
+
+`attendeeCount` is `SUM(RSVPAttendee.quantity)`, not the number of attendee rows. `attendingEventCount` is the count of `RSVPEventSelection` rows where `attending = true`, not the total selection-row count.
 
 ### Get RSVP detail
 
@@ -1124,7 +1126,7 @@ It **must not** bypass: the `ACTIVE` invitation requirement, event eligibility, 
 
 The override uses the **same underlying RSVP lifecycle implementation** as the public path. `CheckinPass` semantics are not forked: the existing service must be reused or its transaction body extracted so an invitation-id entry point shares one implementation. A second, parallel RSVP state machine is not introduced.
 
-Every successful OWNER override writes `submittedByAdminUserId` = the current OWNER id and `adminOverrideReason` = the normalized `overrideReason`. These two columns already exist; the override is their only Phase 8 writer.
+Every successful OWNER override writes `submittedByAdminUserId` = the current OWNER id and `adminOverrideReason` = the normalized `overrideReason`. These two columns describe attribution for the **current** RSVP state, not an append-only audit history. A later successful public RSVP mutation clears both columns in the same successful RSVP write, so `submittedByAdmin` becomes `false`. Failed public mutations, including stale `expectedVersion`, eligibility, composition, deadline, or capacity failures, leave both attribution columns unchanged.
 
 `guestNote` is **not** writable in the Phase 8 override. Its existing value is preserved. `dietaryNotes` follows the existing canonical RSVP rules, including clearing to `null` on decline.
 

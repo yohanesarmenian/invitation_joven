@@ -827,6 +827,98 @@
         ]
       }
     },
+    "/api/admin/invitations/{invitationId}/rsvp": {
+      "put": {
+        "operationId": "AdminMutationController_overrideRsvp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideAdminRsvpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRsvpDetailResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Override admin RSVP",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/admin/dashboard": {
       "get": {
         "operationId": "AdminReadController_getDashboard",
@@ -886,6 +978,100 @@
           }
         },
         "summary": "List admin event catalog",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/rsvps": {
+      "get": {
+        "operationId": "AdminReadController_listRsvps",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRsvpListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List admin RSVPs",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/rsvps/{rsvpId}": {
+      "get": {
+        "operationId": "AdminReadController_getRsvpDetail",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRsvpDetailResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get admin RSVP detail",
         "tags": [
           "Admin"
         ]
@@ -1931,6 +2117,289 @@
           "eligibility"
         ]
       },
+      "SubmitPublicRsvpEventSelectionDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attending": {
+            "type": "boolean"
+          },
+          "expectedAttendeeCount": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "eventId",
+          "attending",
+          "expectedAttendeeCount"
+        ]
+      },
+      "SubmitPublicRsvpAttendeeDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "NAMED_INVITEE",
+              "PLUS_ONE",
+              "ADDITIONAL_CHILD"
+            ]
+          },
+          "inviteeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "type",
+          "quantity"
+        ]
+      },
+      "OverrideAdminRsvpRequestDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "eventSelections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmitPublicRsvpEventSelectionDto"
+            }
+          },
+          "attendees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmitPublicRsvpAttendeeDto"
+            }
+          },
+          "dietaryNotes": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "overrideReason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "status",
+          "eventSelections",
+          "attendees",
+          "overrideReason"
+        ]
+      },
+      "AdminRsvpInvitationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "status"
+        ]
+      },
+      "AdminRsvpEventSelectionDto": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/AdminEventDto"
+          },
+          "attending": {
+            "type": "boolean"
+          },
+          "expectedAttendeeCount": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "event",
+          "attending",
+          "expectedAttendeeCount"
+        ]
+      },
+      "AdminRsvpAttendeeDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "NAMED_INVITEE",
+              "PLUS_ONE",
+              "ADDITIONAL_CHILD"
+            ]
+          },
+          "inviteeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "type",
+          "inviteeId",
+          "displayName",
+          "quantity"
+        ]
+      },
+      "AdminRsvpAdminUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ]
+      },
+      "AdminRsvpDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invitation": {
+            "$ref": "#/components/schemas/AdminRsvpInvitationSummaryDto"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "version": {
+            "type": "number",
+            "minimum": 1
+          },
+          "eventSelections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRsvpEventSelectionDto"
+            }
+          },
+          "attendees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRsvpAttendeeDto"
+            }
+          },
+          "dietaryNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "guestNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "submittedByAdmin": {
+            "type": "boolean"
+          },
+          "adminUser": {
+            "$ref": "#/components/schemas/AdminRsvpAdminUserDto"
+          },
+          "overrideReason": {
+            "type": "string"
+          },
+          "checkinPasses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCheckinPassMetadataDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "invitation",
+          "status",
+          "version",
+          "eventSelections",
+          "attendees",
+          "dietaryNotes",
+          "guestNote",
+          "submittedAt",
+          "createdAt",
+          "updatedAt",
+          "submittedByAdmin",
+          "checkinPasses"
+        ]
+      },
+      "AdminRsvpDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "rsvp": {
+            "$ref": "#/components/schemas/AdminRsvpDetailDto"
+          }
+        },
+        "required": [
+          "rsvp"
+        ]
+      },
       "AdminDashboardInvitationMetricsDto": {
         "type": "object",
         "properties": {
@@ -2047,6 +2516,106 @@
           "events"
         ]
       },
+      "AdminRsvpListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invitation": {
+            "$ref": "#/components/schemas/AdminRsvpInvitationSummaryDto"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "version": {
+            "type": "number",
+            "minimum": 1
+          },
+          "attendeeCount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "attendingEventCount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "submittedByAdmin": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "invitation",
+          "status",
+          "version",
+          "attendeeCount",
+          "attendingEventCount",
+          "createdAt",
+          "updatedAt",
+          "submittedByAdmin"
+        ]
+      },
+      "AdminPageMetadataDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "maximum": 100,
+            "minimum": 1
+          },
+          "totalItems": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "number",
+          "pageSize",
+          "totalItems",
+          "totalPages"
+        ]
+      },
+      "AdminRsvpListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRsvpListItemDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/AdminPageMetadataDto"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
       "AdminInvitationListItemDto": {
         "type": "object",
         "properties": {
@@ -2121,34 +2690,6 @@
           "createdAt",
           "updatedAt",
           "archivedAt"
-        ]
-      },
-      "AdminPageMetadataDto": {
-        "type": "object",
-        "properties": {
-          "number": {
-            "type": "number",
-            "minimum": 1
-          },
-          "pageSize": {
-            "type": "number",
-            "maximum": 100,
-            "minimum": 1
-          },
-          "totalItems": {
-            "type": "number",
-            "minimum": 0
-          },
-          "totalPages": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "number",
-          "pageSize",
-          "totalItems",
-          "totalPages"
         ]
       },
       "AdminInvitationListResponseDto": {
@@ -2477,53 +3018,6 @@
         "required": [
           "rsvp",
           "checkinPass"
-        ]
-      },
-      "SubmitPublicRsvpEventSelectionDto": {
-        "type": "object",
-        "properties": {
-          "eventId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "attending": {
-            "type": "boolean"
-          },
-          "expectedAttendeeCount": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "eventId",
-          "attending",
-          "expectedAttendeeCount"
-        ]
-      },
-      "SubmitPublicRsvpAttendeeDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": [
-              "NAMED_INVITEE",
-              "PLUS_ONE",
-              "ADDITIONAL_CHILD"
-            ]
-          },
-          "inviteeId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "quantity": {
-            "type": "number",
-            "minimum": 1
-          }
-        },
-        "required": [
-          "type",
-          "quantity"
         ]
       },
       "SubmitPublicRsvpRequestDto": {

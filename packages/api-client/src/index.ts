@@ -49,6 +49,12 @@ export type ReplaceAdminInvitationEventsRequest =
   components["schemas"]["ReplaceAdminInvitationEventsRequestDto"];
 export type ReplaceAdminInvitationEventsResponse =
   components["schemas"]["ReplaceAdminInvitationEventsResponseDto"];
+export type OverrideAdminRsvpRequest =
+  components["schemas"]["OverrideAdminRsvpRequestDto"];
+export type AdminRsvpListResponse =
+  components["schemas"]["AdminRsvpListResponseDto"];
+export type AdminRsvpDetailResponse =
+  components["schemas"]["AdminRsvpDetailResponseDto"];
 export type ApiErrorEnvelope = components["schemas"]["ApiErrorEnvelopeDto"];
 export type GetPublicInvitationResponse =
   paths["/api/public/invitations/{publicCredential}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -84,6 +90,12 @@ export type UpdateAdminInviteeOperationResponse =
   paths["/api/admin/invitees/{inviteeId}"]["patch"]["responses"]["200"]["content"]["application/json"];
 export type ReplaceAdminInvitationEventsOperationResponse =
   paths["/api/admin/invitations/{invitationId}/events"]["put"]["responses"]["200"]["content"]["application/json"];
+export type OverrideAdminRsvpOperationResponse =
+  paths["/api/admin/invitations/{invitationId}/rsvp"]["put"]["responses"]["200"]["content"]["application/json"];
+export type GetAdminRsvpsResponse =
+  paths["/api/admin/rsvps"]["get"]["responses"]["200"]["content"]["application/json"];
+export type GetAdminRsvpDetailResponse =
+  paths["/api/admin/rsvps/{rsvpId}"]["get"]["responses"]["200"]["content"]["application/json"];
 export type GetAdminInvitationPublicUrlResponse =
   paths["/api/admin/invitations/{invitationId}/public-url"]["get"]["responses"]["200"]["content"]["application/json"];
 

@@ -621,7 +621,7 @@ Schema capability per admin area:
 | Public URL / regeneration | `Invitation.public_token_version`, `Invitation.public_token_hash` | Invitation row lock plus `expectedTokenVersion` compare | None |
 | Invitee create/update/delete | `Invitee`, `RSVPAttendee.invitee_id` FK `Restrict` | Invitation row lock for create; `expectedUpdatedAt` for update | None |
 | Eligibility replacement | `InvitationEvent`, `RSVPEventSelection` | Invitation row lock; reject if a selection references a removed event | None |
-| RSVP debug/override | `RSVP.version`, `RSVP.submitted_by_admin_user_id`, `RSVP.admin_override_reason` | Invitation row lock plus `expectedVersion` compare | **Yes** — both columns are written |
+| RSVP debug/override | `RSVP.version`, `RSVP.submitted_by_admin_user_id`, `RSVP.admin_override_reason` | Invitation row lock plus `expectedVersion` compare | **Yes** — OWNER override writes both columns; a later successful public RSVP clears both because they describe current-state attribution |
 | Guest message moderation | `GuestMessage.is_hidden` | None needed; set-to-value | **No** |
 
 Known schema limitations, accepted for the MVP rather than fixed:
@@ -629,7 +629,7 @@ Known schema limitations, accepted for the MVP rather than fixed:
 - **`Invitation` has no `version` column.** Invitation and Invitee update concurrency uses `expectedUpdatedAt` instead of an integer version. `RSVP` keeps its `version`.
 - **`Invitee` has no soft-delete or active state.** Deletion is hard delete and is blocked while an `RSVPAttendee` references the invitee.
 - **`GuestMessage` has no moderation actor or timestamp.** Hide/unhide is unattributed. `is_hidden` exists; `updated_at`, `hidden_at`, and `hidden_by_admin_user_id` do not.
-- **No generic admin audit-log table exists**, and Phase 8 does not add one. Actor attribution is available only where the schema already carries it: `RSVP.submitted_by_admin_user_id` (written by the OWNER override), `CheckinRecord.confirmed_by_admin_user_id` and `GuestImportBatch.committed_by_admin_user_id` (later phases).
+- **No generic admin audit-log table exists**, and Phase 8 does not add one. Actor attribution is available only where the schema already carries it: `RSVP.submitted_by_admin_user_id` (written by the OWNER override and cleared by a later successful public RSVP mutation), `CheckinRecord.confirmed_by_admin_user_id` and `GuestImportBatch.committed_by_admin_user_id` (later phases).
 - **`RSVP.admin_override_reason` and `RSVP.guest_note` had no writer before Phase 8.** The OWNER RSVP override becomes the first writer of `admin_override_reason`. `guest_note` stays unwritten in Phase 8.
 - **Token regeneration needs no idempotency column.** Derivation is deterministic from `CREDENTIAL_SECRET`, `Invitation.id`, and `public_token_version`, so the current link is always re-derivable and a lost response needs no stored key.
 

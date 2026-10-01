@@ -177,6 +177,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/invitations/{invitationId}/rsvp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Override admin RSVP */
+        put: operations["AdminMutationController_overrideRsvp"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/dashboard": {
         parameters: {
             query?: never;
@@ -203,6 +220,40 @@ export interface paths {
         };
         /** List admin event catalog */
         get: operations["AdminReadController_getEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/rsvps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List admin RSVPs */
+        get: operations["AdminReadController_listRsvps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/rsvps/{rsvpId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get admin RSVP detail */
+        get: operations["AdminReadController_getRsvpDetail"];
         put?: never;
         post?: never;
         delete?: never;
@@ -497,6 +548,79 @@ export interface components {
         ReplaceAdminInvitationEventsResponseDto: {
             eligibility: components["schemas"]["AdminInvitationEligibilityDto"][];
         };
+        SubmitPublicRsvpEventSelectionDto: {
+            /** Format: uuid */
+            eventId: string;
+            attending: boolean;
+            expectedAttendeeCount: number;
+        };
+        SubmitPublicRsvpAttendeeDto: {
+            /** @enum {string} */
+            type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD";
+            /** Format: uuid */
+            inviteeId?: string | null;
+            quantity: number;
+        };
+        OverrideAdminRsvpRequestDto: {
+            expectedVersion: number | null;
+            /** @enum {string} */
+            status: "ACCEPTED" | "DECLINED";
+            eventSelections: components["schemas"]["SubmitPublicRsvpEventSelectionDto"][];
+            attendees: components["schemas"]["SubmitPublicRsvpAttendeeDto"][];
+            dietaryNotes?: string | null;
+            overrideReason: string;
+        };
+        AdminRsvpInvitationSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "ARCHIVED";
+        };
+        AdminRsvpEventSelectionDto: {
+            event: components["schemas"]["AdminEventDto"];
+            attending: boolean;
+            expectedAttendeeCount: number;
+        };
+        AdminRsvpAttendeeDto: {
+            /** @enum {string} */
+            type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD";
+            /** Format: uuid */
+            inviteeId: string | null;
+            displayName: string | null;
+            quantity: number;
+        };
+        AdminRsvpAdminUserDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+        };
+        AdminRsvpDetailDto: {
+            /** Format: uuid */
+            id: string;
+            invitation: components["schemas"]["AdminRsvpInvitationSummaryDto"];
+            /** @enum {string} */
+            status: "PENDING" | "ACCEPTED" | "DECLINED";
+            version: number;
+            eventSelections: components["schemas"]["AdminRsvpEventSelectionDto"][];
+            attendees: components["schemas"]["AdminRsvpAttendeeDto"][];
+            dietaryNotes: string | null;
+            guestNote: string | null;
+            /** Format: date-time */
+            submittedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            submittedByAdmin: boolean;
+            adminUser?: components["schemas"]["AdminRsvpAdminUserDto"];
+            overrideReason?: string;
+            checkinPasses: components["schemas"]["AdminCheckinPassMetadataDto"][];
+        };
+        AdminRsvpDetailResponseDto: {
+            rsvp: components["schemas"]["AdminRsvpDetailDto"];
+        };
         AdminDashboardInvitationMetricsDto: {
             active: number;
             archived: number;
@@ -525,6 +649,31 @@ export interface components {
         AdminEventsResponseDto: {
             events: components["schemas"]["AdminEventDto"][];
         };
+        AdminRsvpListItemDto: {
+            /** Format: uuid */
+            id: string;
+            invitation: components["schemas"]["AdminRsvpInvitationSummaryDto"];
+            /** @enum {string} */
+            status: "PENDING" | "ACCEPTED" | "DECLINED";
+            version: number;
+            attendeeCount: number;
+            attendingEventCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            submittedByAdmin: boolean;
+        };
+        AdminPageMetadataDto: {
+            number: number;
+            pageSize: number;
+            totalItems: number;
+            totalPages: number;
+        };
+        AdminRsvpListResponseDto: {
+            items: components["schemas"]["AdminRsvpListItemDto"][];
+            page: components["schemas"]["AdminPageMetadataDto"];
+        };
         AdminInvitationListItemDto: {
             /** Format: uuid */
             id: string;
@@ -546,12 +695,6 @@ export interface components {
             updatedAt: string;
             /** Format: date-time */
             archivedAt: string | null;
-        };
-        AdminPageMetadataDto: {
-            number: number;
-            pageSize: number;
-            totalItems: number;
-            totalPages: number;
         };
         AdminInvitationListResponseDto: {
             items: components["schemas"]["AdminInvitationListItemDto"][];
@@ -630,19 +773,6 @@ export interface components {
         PublicRsvpReadResponseDto: {
             rsvp: components["schemas"]["PublicRsvpStateDto"] | null;
             checkinPass: components["schemas"]["PublicCheckinPassDto"] | null;
-        };
-        SubmitPublicRsvpEventSelectionDto: {
-            /** Format: uuid */
-            eventId: string;
-            attending: boolean;
-            expectedAttendeeCount: number;
-        };
-        SubmitPublicRsvpAttendeeDto: {
-            /** @enum {string} */
-            type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD";
-            /** Format: uuid */
-            inviteeId?: string | null;
-            quantity: number;
         };
         SubmitPublicRsvpRequestDto: {
             expectedVersion: number | null;
@@ -1340,6 +1470,77 @@ export interface operations {
             };
         };
     };
+    AdminMutationController_overrideRsvp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OverrideAdminRsvpRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRsvpDetailResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
     AdminReadController_getDashboard: {
         parameters: {
             query?: never;
@@ -1385,6 +1586,84 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminReadController_listRsvps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRsvpListResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminReadController_getRsvpDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRsvpDetailResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

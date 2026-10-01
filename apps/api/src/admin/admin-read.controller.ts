@@ -17,6 +17,9 @@ import {
   AdminInvitationListQueryDto,
   AdminInvitationListResponseDto,
   AdminInvitationPublicUrlResponseDto,
+  AdminRsvpDetailResponseDto,
+  AdminRsvpListQueryDto,
+  AdminRsvpListResponseDto,
 } from "./dto/admin-read.dto.js";
 
 @ApiTags("Admin")
@@ -40,6 +43,29 @@ export class AdminReadController {
   @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
   async getEvents(): Promise<AdminEventsResponseDto> {
     return this.adminReadService.getEvents();
+  }
+
+  @Get("rsvps")
+  @ApiOperation({ summary: "List admin RSVPs" })
+  @ApiOkResponse({ type: AdminRsvpListResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  async listRsvps(
+    @Query() query: AdminRsvpListQueryDto,
+  ): Promise<AdminRsvpListResponseDto> {
+    return this.adminReadService.listRsvps(query as Record<string, unknown>);
+  }
+
+  @Get("rsvps/:rsvpId")
+  @ApiOperation({ summary: "Get admin RSVP detail" })
+  @ApiOkResponse({ type: AdminRsvpDetailResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  async getRsvpDetail(
+    @Param("rsvpId") rsvpId: string,
+  ): Promise<AdminRsvpDetailResponseDto> {
+    return this.adminReadService.getRsvpDetail(rsvpId);
   }
 
   @Get("invitations")

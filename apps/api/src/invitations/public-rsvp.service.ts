@@ -7,6 +7,7 @@ import {
   RSVPAttendeeType,
   RSVPStatus,
 } from "../generated/prisma/client.js";
+import { conflict, notFound } from "../auth/auth-errors.js";
 import { PrismaService } from "../database/prisma.service.js";
 import {
   CREDENTIAL_LOOKUP_HASH_PATTERN,
@@ -56,6 +57,17 @@ export type SubmitPublicRsvpCommand = {
   dietaryNotes?: string | null;
 };
 
+export type SubmitAdminRsvpOverrideCommand = {
+  invitationId: string;
+  submittedByAdminUserId: string;
+  overrideReason: string;
+  expectedVersion: number | null;
+  status: PublicRsvpMutationStatus;
+  eventSelections: PublicRsvpEventSelectionInput[];
+  attendees: PublicRsvpAttendeeInput[];
+  dietaryNotes?: string | null;
+};
+
 export type PublicRsvpMutationResult = {
   rsvp: {
     status: RSVPStatus;
@@ -83,6 +95,27 @@ export type PublicRsvpMutationResult = {
 export type PublicRsvpReadResult = {
   rsvp: PublicRsvpMutationResult["rsvp"] | null;
   checkinPass: PublicRsvpMutationResult["checkinPass"];
+};
+
+type RsvpLifecycleCommand = {
+  expectedVersion: number | null;
+  status: PublicRsvpMutationStatus;
+  eventSelections: PublicRsvpEventSelectionInput[];
+  attendees: PublicRsvpAttendeeInput[];
+  dietaryNotes?: string | null;
+};
+
+type AdminRsvpAttribution = {
+  submittedByAdminUserId: string;
+  adminOverrideReason: string;
+};
+
+type RsvpAttributionPolicy =
+  | { mode: "PUBLIC" }
+  | { mode: "ADMIN"; attribution: AdminRsvpAttribution };
+
+type RsvpLifecycleMutationResult = PublicRsvpMutationResult & {
+  rsvpId: string;
 };
 
 interface LockedInvitationForRsvpRow {
@@ -234,7 +267,7 @@ function validateExpectedVersion(
 }
 
 function validateAcceptedInput(
-  command: SubmitPublicRsvpCommand,
+  command: RsvpLifecycleCommand,
   invitation: LockedInvitationForRsvpRow,
   state: InvitationMutationState,
 ): AcceptedValidation {
@@ -411,6 +444,34 @@ async function lockInvitationForRsvp(
   return invitation;
 }
 
+async function lockInvitationForAdminRsvp(
+  tx: Prisma.TransactionClient,
+  invitationId: string,
+): Promise<LockedInvitationForRsvpRow> {
+  const rows = await tx.$queryRaw<LockedInvitationForRsvpRow[]>`
+    SELECT
+      "id",
+      "status"::text AS "status",
+      "rsvp_deadline_at" AS "rsvpDeadlineAt",
+      "allow_plus_one" AS "allowPlusOne",
+      "max_additional_children" AS "maxAdditionalChildren"
+    FROM "invitations"
+    WHERE "id" = ${invitationId}::uuid
+    FOR UPDATE
+  `;
+  const invitation = rows[0];
+
+  if (!invitation) {
+    notFound();
+  }
+
+  if (invitation.status !== InvitationStatus.ACTIVE) {
+    conflict("Invitation is archived.");
+  }
+
+  return invitation;
+}
+
 async function readMutationState(
   tx: Prisma.TransactionClient,
   invitationId: string,
@@ -461,6 +522,15 @@ async function readMutationState(
             status: rsvp.status,
             version: rsvp.version,
           },
+  };
+}
+
+function toPublicMutationResult(
+  result: RsvpLifecycleMutationResult,
+): PublicRsvpMutationResult {
+  return {
+    checkinPass: result.checkinPass,
+    rsvp: result.rsvp,
   };
 }
 
@@ -563,9 +633,32 @@ export class PublicRsvpService {
     const credential = validatePublicCredential(command.publicCredential);
     const lookupHash = this.credentialService.hashCredential(credential);
 
-    return this.prisma.$transaction((tx) =>
+    const result = await this.prisma.$transaction((tx) =>
       this.submitPublicRsvpInTransaction(tx, lookupHash, command),
     );
+
+    return toPublicMutationResult(result);
+  }
+
+  async submitAdminRsvpOverride(
+    command: SubmitAdminRsvpOverrideCommand,
+  ): Promise<{ rsvpId: string }> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const invitation = await lockInvitationForAdminRsvp(tx, command.invitationId);
+
+      return this.submitRsvpForLockedInvitation(tx, invitation, command, {
+        attributionPolicy: {
+          attribution: {
+            adminOverrideReason: command.overrideReason,
+            submittedByAdminUserId: command.submittedByAdminUserId,
+          },
+          mode: "ADMIN",
+        },
+        enforceDeadline: false,
+      });
+    });
+
+    return { rsvpId: result.rsvpId };
   }
 
   async retrievePublicRsvp(
@@ -585,11 +678,28 @@ export class PublicRsvpService {
     tx: Prisma.TransactionClient,
     lookupHash: CredentialLookupHash,
     command: SubmitPublicRsvpCommand,
-  ): Promise<PublicRsvpMutationResult> {
+  ): Promise<RsvpLifecycleMutationResult> {
     const invitation = await lockInvitationForRsvp(tx, lookupHash);
+
+    return this.submitRsvpForLockedInvitation(tx, invitation, command, {
+      attributionPolicy: { mode: "PUBLIC" },
+      enforceDeadline: true,
+    });
+  }
+
+  private async submitRsvpForLockedInvitation(
+    tx: Prisma.TransactionClient,
+    invitation: LockedInvitationForRsvpRow,
+    command: RsvpLifecycleCommand,
+    policy: {
+      attributionPolicy: RsvpAttributionPolicy;
+      enforceDeadline: boolean;
+    },
+  ): Promise<RsvpLifecycleMutationResult> {
     const mutationTime = this.currentTime();
 
     if (
+      policy.enforceDeadline &&
       invitation.rsvpDeadlineAt !== null &&
       mutationTime.getTime() > invitation.rsvpDeadlineAt.getTime()
     ) {
@@ -600,7 +710,13 @@ export class PublicRsvpService {
     validateExpectedVersion(command.expectedVersion, state.rsvp);
 
     if (command.status === RSVPStatus.DECLINED) {
-      return this.applyDeclinedMutation(tx, invitation.id, state, mutationTime);
+      return this.applyDeclinedMutation(
+        tx,
+        invitation.id,
+        state,
+        mutationTime,
+        policy.attributionPolicy,
+      );
     }
 
     if (command.status !== RSVPStatus.ACCEPTED) {
@@ -614,6 +730,7 @@ export class PublicRsvpService {
       state,
       accepted,
       mutationTime,
+      policy.attributionPolicy,
     );
   }
 
@@ -623,8 +740,10 @@ export class PublicRsvpService {
     state: InvitationMutationState,
     accepted: AcceptedValidation,
     mutationTime: Date,
-  ): Promise<PublicRsvpMutationResult> {
+    attributionPolicy: RsvpAttributionPolicy,
+  ): Promise<RsvpLifecycleMutationResult> {
     const rsvp = await this.createOrUpdateRsvp(tx, {
+      attributionPolicy,
       dietaryNotes: accepted.dietaryNotes,
       invitationId,
       mutationTime,
@@ -673,6 +792,7 @@ export class PublicRsvpService {
         status: RSVPStatus.ACCEPTED,
         version: rsvp.version,
       },
+      rsvpId: rsvp.id,
     };
   }
 
@@ -681,8 +801,10 @@ export class PublicRsvpService {
     invitationId: string,
     state: InvitationMutationState,
     mutationTime: Date,
-  ): Promise<PublicRsvpMutationResult> {
+    attributionPolicy: RsvpAttributionPolicy,
+  ): Promise<RsvpLifecycleMutationResult> {
     const rsvp = await this.createOrUpdateRsvp(tx, {
+      attributionPolicy,
       dietaryNotes: null,
       invitationId,
       mutationTime,
@@ -716,6 +838,7 @@ export class PublicRsvpService {
         status: RSVPStatus.DECLINED,
         version: rsvp.version,
       },
+      rsvpId: rsvp.id,
     };
   }
 
@@ -727,11 +850,26 @@ export class PublicRsvpService {
       mutationTime: Date;
       state: InvitationMutationState;
       status: PublicRsvpMutationStatus;
+      attributionPolicy: RsvpAttributionPolicy;
     },
   ): Promise<{ id: string; version: number }> {
+    const adminAttributionData =
+      input.attributionPolicy.mode === "PUBLIC"
+        ? {
+            adminOverrideReason: null,
+            submittedByAdminUserId: null,
+          }
+        : {
+            adminOverrideReason:
+              input.attributionPolicy.attribution.adminOverrideReason,
+            submittedByAdminUserId:
+              input.attributionPolicy.attribution.submittedByAdminUserId,
+          };
+
     if (input.state.rsvp === null) {
       return tx.rSVP.create({
         data: {
+          ...adminAttributionData,
           dietaryNotes: input.dietaryNotes,
           invitationId: input.invitationId,
           lastUpdatedAt: input.mutationTime,
@@ -748,6 +886,7 @@ export class PublicRsvpService {
 
     return tx.rSVP.update({
       data: {
+        ...adminAttributionData,
         dietaryNotes: input.dietaryNotes,
         lastUpdatedAt: input.mutationTime,
         status: input.status,
