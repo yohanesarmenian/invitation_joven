@@ -1,10 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
-import {
-  InvitationStatus,
-  RSVPStatus,
-} from "../generated/prisma/client.js";
+import { InvitationStatus, RSVPStatus } from "../generated/prisma/client.js";
 import { conflict, notFound, validationError } from "../auth/auth-errors.js";
 import {
   buildAdminPageMetadata,
@@ -15,12 +12,18 @@ import {
 import { PrismaService } from "../database/prisma.service.js";
 import { CredentialService } from "../security/credential.service.js";
 import {
+  adminGuestMessageHiddenFilters,
+  adminGuestMessageSortFields,
   adminInvitationSortFields,
   adminInvitationStatuses,
   adminRsvpSortFields,
   adminRsvpStatuses,
   type AdminDashboardResponseDto,
   type AdminEventsResponseDto,
+  type AdminGuestMessageHiddenFilter,
+  type AdminGuestMessageItemDto,
+  type AdminGuestMessageListResponseDto,
+  type AdminGuestMessageSortField,
   type AdminInvitationDetailResponseDto,
   type AdminInvitationListResponseDto,
   type AdminInvitationPublicUrlResponseDto,
@@ -64,7 +67,24 @@ const RSVP_SORT_MAP = {
   createdAt: "createdAt",
   status: "status",
   updatedAt: "lastUpdatedAt",
-} satisfies Record<AdminRsvpSortField, keyof Prisma.RSVPOrderByWithRelationInput>;
+} satisfies Record<
+  AdminRsvpSortField,
+  keyof Prisma.RSVPOrderByWithRelationInput
+>;
+const GUEST_MESSAGE_SORT_MAP = {
+  createdAt: "createdAt",
+} satisfies Record<
+  AdminGuestMessageSortField,
+  keyof Prisma.GuestMessageOrderByWithRelationInput
+>;
+const MESSAGE_LIST_QUERY_FIELDS = new Set([
+  "hidden",
+  "invitationId",
+  "page",
+  "pageSize",
+  "sortBy",
+  "sortOrder",
+]);
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -85,7 +105,10 @@ function parseStatusFilter(value: unknown): AdminInvitationStatus | null {
     return null;
   }
 
-  if (Array.isArray(value) || !adminInvitationStatuses.includes(value as AdminInvitationStatus)) {
+  if (
+    Array.isArray(value) ||
+    !adminInvitationStatuses.includes(value as AdminInvitationStatus)
+  ) {
     validationError();
   }
 
@@ -97,7 +120,10 @@ function parseRsvpStatusFilter(value: unknown): AdminRsvpStatus | null {
     return null;
   }
 
-  if (Array.isArray(value) || !adminRsvpStatuses.includes(value as AdminRsvpStatus)) {
+  if (
+    Array.isArray(value) ||
+    !adminRsvpStatuses.includes(value as AdminRsvpStatus)
+  ) {
     validationError();
   }
 
@@ -109,11 +135,40 @@ function parseOptionalUuid(value: unknown): string | null {
     return null;
   }
 
-  if (Array.isArray(value) || typeof value !== "string" || !UUID_PATTERN.test(value)) {
+  if (
+    Array.isArray(value) ||
+    typeof value !== "string" ||
+    !UUID_PATTERN.test(value)
+  ) {
     validationError();
   }
 
   return value;
+}
+
+function assertMessageListQueryFields(query: QueryBag): void {
+  for (const key of Object.keys(query)) {
+    if (!MESSAGE_LIST_QUERY_FIELDS.has(key)) {
+      validationError();
+    }
+  }
+}
+
+function parseHiddenFilter(value: unknown): AdminGuestMessageHiddenFilter {
+  if (value === undefined || value === null || value === "") {
+    return "all";
+  }
+
+  if (
+    Array.isArray(value) ||
+    !adminGuestMessageHiddenFilters.includes(
+      value as AdminGuestMessageHiddenFilter,
+    )
+  ) {
+    validationError();
+  }
+
+  return value as AdminGuestMessageHiddenFilter;
 }
 
 function assertUuid(value: string): void {
@@ -122,7 +177,10 @@ function assertUuid(value: string): void {
   }
 }
 
-function credentialLookupHashesMatch(actual: string, expected: string): boolean {
+function credentialLookupHashesMatch(
+  actual: string,
+  expected: string,
+): boolean {
   const actualBuffer = Buffer.from(actual, "utf8");
   const expectedBuffer = Buffer.from(expected, "utf8");
 
@@ -130,6 +188,27 @@ function credentialLookupHashesMatch(actual: string, expected: string): boolean 
     actualBuffer.length === expectedBuffer.length &&
     timingSafeEqual(actualBuffer, expectedBuffer)
   );
+}
+
+function mapGuestMessageItem(input: {
+  authorName: string | null;
+  createdAt: Date;
+  id: string;
+  invitation: {
+    displayName: string;
+    id: string;
+  };
+  isHidden: boolean;
+  message: string;
+}): AdminGuestMessageItemDto {
+  return {
+    authorName: input.authorName,
+    createdAt: toIsoDateRequired(input.createdAt),
+    id: input.id,
+    invitation: input.invitation,
+    isHidden: input.isHidden,
+    message: input.message,
+  };
 }
 
 @Injectable()
@@ -231,6 +310,47 @@ export class AdminReadService {
     return { events };
   }
 
+  async listGuestMessages(
+    query: QueryBag,
+  ): Promise<AdminGuestMessageListResponseDto> {
+    assertMessageListQueryFields(query);
+
+    return this.listGuestMessagesForFilter({
+      hidden: parseHiddenFilter(query.hidden),
+      invitationId: parseOptionalUuid(query.invitationId),
+      query,
+    });
+  }
+
+  async listInvitationGuestMessages(
+    invitationId: string,
+    query: QueryBag,
+  ): Promise<AdminGuestMessageListResponseDto> {
+    assertUuid(invitationId);
+    assertMessageListQueryFields(query);
+
+    const queryInvitationId = parseOptionalUuid(query.invitationId);
+
+    if (queryInvitationId !== null && queryInvitationId !== invitationId) {
+      validationError();
+    }
+
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: invitationId },
+      select: { id: true },
+    });
+
+    if (invitation === null) {
+      notFound();
+    }
+
+    return this.listGuestMessagesForFilter({
+      hidden: parseHiddenFilter(query.hidden),
+      invitationId,
+      query,
+    });
+  }
+
   async listRsvps(query: QueryBag): Promise<AdminRsvpListResponseDto> {
     const page = parseAdminPagination(query);
     const sort = parseAdminSort(query, adminRsvpSortFields, {
@@ -295,6 +415,57 @@ export class AdminReadService {
     };
   }
 
+  private async listGuestMessagesForFilter(input: {
+    hidden: AdminGuestMessageHiddenFilter;
+    invitationId: string | null;
+    query: QueryBag;
+  }): Promise<AdminGuestMessageListResponseDto> {
+    const page = parseAdminPagination(input.query);
+    const sort = parseAdminSort(input.query, adminGuestMessageSortFields, {
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    });
+    const where = this.buildGuestMessageListWhere({
+      hidden: input.hidden,
+      invitationId: input.invitationId,
+    });
+    const orderBy: Prisma.GuestMessageOrderByWithRelationInput[] = [
+      { [GUEST_MESSAGE_SORT_MAP[sort.sortBy]]: sort.sortOrder },
+      { id: "asc" },
+    ];
+    const { messages, totalItems } = await this.prisma.$transaction(
+      async (tx) => {
+        const totalItems = await tx.guestMessage.count({ where });
+        const messages = await tx.guestMessage.findMany({
+          orderBy,
+          skip: page.skip,
+          take: page.pageSize,
+          where,
+          select: {
+            authorName: true,
+            createdAt: true,
+            id: true,
+            invitation: {
+              select: {
+                displayName: true,
+                id: true,
+              },
+            },
+            isHidden: true,
+            message: true,
+          },
+        });
+
+        return { messages, totalItems };
+      },
+    );
+
+    return {
+      items: messages.map(mapGuestMessageItem),
+      page: buildAdminPageMetadata(page, totalItems),
+    };
+  }
+
   async getRsvpDetail(rsvpId: string): Promise<AdminRsvpDetailResponseDto> {
     assertUuid(rsvpId);
     const rsvp = await this.prisma.rSVP.findUnique({
@@ -324,7 +495,10 @@ export class AdminReadService {
         createdAt: true,
         dietaryNotes: true,
         eventSelections: {
-          orderBy: [{ event: { displayOrder: "asc" } }, { event: { id: "asc" } }],
+          orderBy: [
+            { event: { displayOrder: "asc" } },
+            { event: { id: "asc" } },
+          ],
           select: {
             attending: true,
             event: {
@@ -403,7 +577,9 @@ export class AdminReadService {
     };
   }
 
-  async listInvitations(query: QueryBag): Promise<AdminInvitationListResponseDto> {
+  async listInvitations(
+    query: QueryBag,
+  ): Promise<AdminInvitationListResponseDto> {
     const page = parseAdminPagination(query);
     const sort = parseAdminSort(query, adminInvitationSortFields, {
       sortBy: "createdAt",
@@ -421,25 +597,25 @@ export class AdminReadService {
       async (tx) => {
         const totalItems = await tx.invitation.count({ where });
         const invitations = await tx.invitation.findMany({
-        orderBy,
-        skip: page.skip,
-        take: page.pageSize,
-        where,
-        select: {
-          _count: { select: { invitees: true } },
-          archivedAt: true,
-          createdAt: true,
-          displayName: true,
-          greetingName: true,
-          id: true,
-          lastOpenedAt: true,
-          openCount: true,
-          rsvp: { select: { status: true } },
-          rsvpDeadlineAt: true,
-          status: true,
-          updatedAt: true,
-        },
-      });
+          orderBy,
+          skip: page.skip,
+          take: page.pageSize,
+          where,
+          select: {
+            _count: { select: { invitees: true } },
+            archivedAt: true,
+            createdAt: true,
+            displayName: true,
+            greetingName: true,
+            id: true,
+            lastOpenedAt: true,
+            openCount: true,
+            rsvp: { select: { status: true } },
+            rsvpDeadlineAt: true,
+            status: true,
+            updatedAt: true,
+          },
+        });
 
         return { invitations, totalItems };
       },
@@ -470,72 +646,77 @@ export class AdminReadService {
     const { hiddenMessages, invitation, totalMessages } =
       await this.prisma.$transaction(async (tx) => {
         const invitation = await tx.invitation.findUnique({
-        where: { id: invitationId },
-        select: {
-          archivedAt: true,
-          allowPlusOne: true,
-          checkinPasses: {
-            orderBy: [{ issuedAt: "asc" }, { id: "asc" }],
-            select: {
-              credentialVersion: true,
-              expiresAt: true,
-              issuedAt: true,
-              revocationReason: true,
-              revokedAt: true,
-              status: true,
+          where: { id: invitationId },
+          select: {
+            archivedAt: true,
+            allowPlusOne: true,
+            checkinPasses: {
+              orderBy: [{ issuedAt: "asc" }, { id: "asc" }],
+              select: {
+                credentialVersion: true,
+                expiresAt: true,
+                issuedAt: true,
+                revocationReason: true,
+                revokedAt: true,
+                status: true,
+              },
             },
-          },
-          createdAt: true,
-          displayName: true,
-          firstOpenedAt: true,
-          greetingName: true,
-          id: true,
-          invitationEvents: {
-            orderBy: [{ event: { displayOrder: "asc" } }, { event: { id: "asc" } }],
-            select: {
-              event: {
-                select: {
-                  displayOrder: true,
-                  id: true,
-                  isActive: true,
-                  name: true,
-                  slug: true,
+            createdAt: true,
+            displayName: true,
+            firstOpenedAt: true,
+            greetingName: true,
+            id: true,
+            invitationEvents: {
+              orderBy: [
+                { event: { displayOrder: "asc" } },
+                { event: { id: "asc" } },
+              ],
+              select: {
+                event: {
+                  select: {
+                    displayOrder: true,
+                    id: true,
+                    isActive: true,
+                    name: true,
+                    slug: true,
+                  },
                 },
               },
             },
-          },
-          invitees: {
-            orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
-            select: {
-              category: true,
-              displayOrder: true,
-              fullName: true,
-              id: true,
-              label: true,
+            invitees: {
+              orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+              select: {
+                category: true,
+                displayOrder: true,
+                fullName: true,
+                id: true,
+                label: true,
+              },
             },
-          },
-          lastOpenedAt: true,
-          maxAdditionalChildren: true,
-          notes: true,
-          openCount: true,
-          publicTokenVersion: true,
-          rsvp: {
-            select: {
-              lastUpdatedAt: true,
-              status: true,
-              submittedAt: true,
-              version: true,
+            lastOpenedAt: true,
+            maxAdditionalChildren: true,
+            notes: true,
+            openCount: true,
+            publicTokenVersion: true,
+            rsvp: {
+              select: {
+                lastUpdatedAt: true,
+                status: true,
+                submittedAt: true,
+                version: true,
+              },
             },
+            rsvpDeadlineAt: true,
+            status: true,
+            updatedAt: true,
           },
-          rsvpDeadlineAt: true,
-          status: true,
-          updatedAt: true,
-        },
-      });
-        const totalMessages = await tx.guestMessage.count({ where: { invitationId } });
+        });
+        const totalMessages = await tx.guestMessage.count({
+          where: { invitationId },
+        });
         const hiddenMessages = await tx.guestMessage.count({
-        where: { invitationId, isHidden: true },
-      });
+          where: { invitationId, isHidden: true },
+        });
 
         return { hiddenMessages, invitation, totalMessages };
       });
@@ -700,6 +881,25 @@ export class AdminReadService {
           ],
         },
       });
+    }
+
+    return and.length === 0 ? {} : { AND: and };
+  }
+
+  private buildGuestMessageListWhere(input: {
+    hidden: AdminGuestMessageHiddenFilter;
+    invitationId: string | null;
+  }): Prisma.GuestMessageWhereInput {
+    const and: Prisma.GuestMessageWhereInput[] = [];
+
+    if (input.invitationId !== null) {
+      and.push({ invitationId: input.invitationId });
+    }
+
+    if (input.hidden === "visible") {
+      and.push({ isHidden: false });
+    } else if (input.hidden === "hidden") {
+      and.push({ isHidden: true });
     }
 
     return and.length === 0 ? {} : { AND: and };

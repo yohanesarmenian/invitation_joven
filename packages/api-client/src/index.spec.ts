@@ -5,6 +5,7 @@ import {
   type AdminInviteeMutationResponse,
   type AdminAuthResponse,
   type AdminDashboardResponse,
+  type AdminGuestMessageListResponse,
   type ArchiveAdminInvitationResponse,
   type CreateAdminInviteeRequest,
   type CreateAdminInvitationRequest,
@@ -23,6 +24,8 @@ import {
   type SubmitPublicGuestMessageRequest,
   type SubmitPublicGuestMessageResponse,
   type SubmitPublicRsvpRequest,
+  type UpdateAdminGuestMessageRequest,
+  type UpdateAdminGuestMessageResponse,
   type UpdateAdminInviteeRequest,
   type UpdateAdminInvitationRequest,
 } from "./index.js";
@@ -184,9 +187,9 @@ describe("generated API client", () => {
     expect(
       assertApiPath("/api/admin/invitations/{invitationId}/public-url"),
     ).toBe("/api/admin/invitations/{invitationId}/public-url");
-    expect(
-      assertApiPath("/api/admin/invitations/{invitationId}/archive"),
-    ).toBe("/api/admin/invitations/{invitationId}/archive");
+    expect(assertApiPath("/api/admin/invitations/{invitationId}/archive")).toBe(
+      "/api/admin/invitations/{invitationId}/archive",
+    );
     expect(
       assertApiPath("/api/admin/invitations/{invitationId}/regenerate-token"),
     ).toBe("/api/admin/invitations/{invitationId}/regenerate-token");
@@ -196,12 +199,19 @@ describe("generated API client", () => {
     expect(assertApiPath("/api/admin/invitees/{inviteeId}")).toBe(
       "/api/admin/invitees/{inviteeId}",
     );
+    expect(assertApiPath("/api/admin/invitations/{invitationId}/events")).toBe(
+      "/api/admin/invitations/{invitationId}/events",
+    );
+    expect(assertApiPath("/api/admin/invitations/{invitationId}/rsvp")).toBe(
+      "/api/admin/invitations/{invitationId}/rsvp",
+    );
+    expect(assertApiPath("/api/admin/messages")).toBe("/api/admin/messages");
     expect(
-      assertApiPath("/api/admin/invitations/{invitationId}/events"),
-    ).toBe("/api/admin/invitations/{invitationId}/events");
-    expect(
-      assertApiPath("/api/admin/invitations/{invitationId}/rsvp"),
-    ).toBe("/api/admin/invitations/{invitationId}/rsvp");
+      assertApiPath("/api/admin/invitations/{invitationId}/messages"),
+    ).toBe("/api/admin/invitations/{invitationId}/messages");
+    expect(assertApiPath("/api/admin/messages/{messageId}")).toBe(
+      "/api/admin/messages/{messageId}",
+    );
     expect(assertApiPath("/api/admin/rsvps")).toBe("/api/admin/rsvps");
     expect(assertApiPath("/api/admin/rsvps/{rsvpId}")).toBe(
       "/api/admin/rsvps/{rsvpId}",
@@ -218,6 +228,13 @@ describe("generated API client", () => {
     expect(
       assertApiMethod("/api/admin/invitations/{invitationId}/rsvp", "put"),
     ).toBe("put");
+    expect(assertApiMethod("/api/admin/messages", "get")).toBe("get");
+    expect(
+      assertApiMethod("/api/admin/invitations/{invitationId}/messages", "get"),
+    ).toBe("get");
+    expect(assertApiMethod("/api/admin/messages/{messageId}", "patch")).toBe(
+      "patch",
+    );
 
     const dashboard: AdminDashboardResponse = {
       expectedByEvent: [],
@@ -463,6 +480,34 @@ describe("generated API client", () => {
         version: 1,
       },
     };
+    const guestMessages: AdminGuestMessageListResponse = {
+      items: [
+        {
+          authorName: "Guest Author",
+          createdAt: "2026-09-30T00:00:00.000Z",
+          id: "66666666-6666-4666-8666-666666666666",
+          invitation: {
+            displayName: "Example Household",
+            id: detail.invitation.id,
+          },
+          isHidden: false,
+          message: "Congratulations!",
+        },
+      ],
+      page: {
+        number: 1,
+        pageSize: 25,
+        totalItems: 1,
+        totalPages: 1,
+      },
+    };
+    const updateGuestMessageRequest: UpdateAdminGuestMessageRequest = {
+      isHidden: true,
+    };
+    const updateGuestMessageResponse: UpdateAdminGuestMessageResponse = {
+      ...guestMessages.items[0]!,
+      isHidden: true,
+    };
 
     expect(dashboard.invitations.active).toBe(1);
     expect(list.items[0]?.rsvpStatus).toBe("PENDING");
@@ -485,7 +530,9 @@ describe("generated API client", () => {
     expect(JSON.stringify(archiveResponse)).not.toContain("reason");
     expect(regenerateRequest.expectedTokenVersion).toBe(1);
     expect(createInviteeRequest.category).toBe("ADULT");
-    expect(updateInviteeRequest.expectedUpdatedAt).toBe(inviteeResponse.updatedAt);
+    expect(updateInviteeRequest.expectedUpdatedAt).toBe(
+      inviteeResponse.updatedAt,
+    );
     expect(inviteeResponse.invitationId).toBe(detail.invitation.id);
     expect(replaceEventsResponse.eligibility[0]?.event.id).toBe(
       replaceEventsRequest.eventIds[0],
@@ -494,13 +541,18 @@ describe("generated API client", () => {
     expect(overrideRsvpRequest.overrideReason).toBe("Guest replied by phone");
     expect(adminRsvpList.items[0]?.attendeeCount).toBe(1);
     expect(adminRsvpDetail.rsvp.adminUser?.email).toBe("owner@example.com");
+    expect(guestMessages.items[0]?.isHidden).toBe(false);
+    expect(updateGuestMessageRequest.isHidden).toBe(true);
+    expect(updateGuestMessageResponse.isHidden).toBe(true);
     expect(JSON.stringify(list)).not.toContain("notes");
     expect(JSON.stringify(list)).not.toContain("publicTokenVersion");
     expect(JSON.stringify(detail)).not.toContain("publicUrl");
     expect(JSON.stringify(detail)).not.toContain("publicTokenHash");
     expect(JSON.stringify(detail)).not.toContain("qrPayload");
     expect(JSON.stringify(detail)).not.toContain("tokenHash");
-    expect(JSON.stringify(detailWithRsvp)).not.toContain("attendeeQuantityTotal");
+    expect(JSON.stringify(detailWithRsvp)).not.toContain(
+      "attendeeQuantityTotal",
+    );
     expect(JSON.stringify(detailWithRsvp)).not.toContain("eventSelections");
     expect(JSON.stringify(detailWithRsvp)).not.toContain("dietaryNotes");
     expect(JSON.stringify(detailWithRsvp)).not.toContain("guestNote");
@@ -508,12 +560,25 @@ describe("generated API client", () => {
     expect(JSON.stringify(publicUrl)).not.toContain("publicTokenHash");
     expect(JSON.stringify(inviteeResponse)).not.toContain("dietaryNotes");
     expect(JSON.stringify(inviteeResponse)).not.toContain("guestNote");
-    expect(JSON.stringify(replaceEventsResponse)).not.toContain("publicTokenHash");
+    expect(JSON.stringify(replaceEventsResponse)).not.toContain(
+      "publicTokenHash",
+    );
     expect(JSON.stringify(replaceEventsResponse)).not.toContain("qrPayload");
     expect(JSON.stringify(adminRsvpList)).not.toContain("dietaryNotes");
     expect(JSON.stringify(adminRsvpList)).not.toContain("guestNote");
     expect(JSON.stringify(adminRsvpDetail)).not.toContain("qrPayload");
     expect(JSON.stringify(adminRsvpDetail)).not.toContain("tokenHash");
     expect(JSON.stringify(adminRsvpDetail)).not.toContain("publicTokenHash");
+    expect(JSON.stringify(guestMessages)).not.toContain("publicTokenHash");
+    expect(JSON.stringify(guestMessages)).not.toContain("qrPayload");
+    expect(JSON.stringify(guestMessages)).not.toContain("tokenHash");
+    expect(JSON.stringify(guestMessages)).not.toContain("dietaryNotes");
+    expect(JSON.stringify(guestMessages)).not.toContain("guestNote");
+    expect(JSON.stringify(updateGuestMessageResponse)).not.toContain(
+      "hiddenAt",
+    );
+    expect(JSON.stringify(updateGuestMessageResponse)).not.toContain(
+      "moderationReason",
+    );
   });
 });

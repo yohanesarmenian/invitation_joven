@@ -73,6 +73,23 @@ export interface paths {
         patch: operations["AdminInviteeMutationController_updateInvitee"];
         trace?: never;
     };
+    "/api/admin/messages/{messageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Moderate admin guest message */
+        patch: operations["AdminMessageMutationController_updateGuestMessageVisibility"];
+        trace?: never;
+    };
     "/api/admin/invitations": {
         parameters: {
             query?: never;
@@ -228,6 +245,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List admin guest messages */
+        get: operations["AdminReadController_listGuestMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/rsvps": {
         parameters: {
             query?: never;
@@ -254,6 +288,23 @@ export interface paths {
         };
         /** Get admin RSVP detail */
         get: operations["AdminReadController_getRsvpDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/invitations/{invitationId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List admin guest messages for an invitation */
+        get: operations["AdminReadController_listInvitationGuestMessages"];
         put?: never;
         post?: never;
         delete?: never;
@@ -406,6 +457,24 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        UpdateAdminGuestMessageRequestDto: {
+            isHidden: boolean;
+        };
+        AdminGuestMessageInvitationSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+        };
+        AdminGuestMessageItemDto: {
+            /** Format: uuid */
+            id: string;
+            invitation: components["schemas"]["AdminGuestMessageInvitationSummaryDto"];
+            authorName: string | null;
+            message: string;
+            /** Format: date-time */
+            createdAt: string;
+            isHidden: boolean;
         };
         CreateAdminInvitationInviteeDto: {
             fullName: string;
@@ -649,6 +718,16 @@ export interface components {
         AdminEventsResponseDto: {
             events: components["schemas"]["AdminEventDto"][];
         };
+        AdminPageMetadataDto: {
+            number: number;
+            pageSize: number;
+            totalItems: number;
+            totalPages: number;
+        };
+        AdminGuestMessageListResponseDto: {
+            items: components["schemas"]["AdminGuestMessageItemDto"][];
+            page: components["schemas"]["AdminPageMetadataDto"];
+        };
         AdminRsvpListItemDto: {
             /** Format: uuid */
             id: string;
@@ -663,12 +742,6 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             submittedByAdmin: boolean;
-        };
-        AdminPageMetadataDto: {
-            number: number;
-            pageSize: number;
-            totalItems: number;
-            totalPages: number;
         };
         AdminRsvpListResponseDto: {
             items: components["schemas"]["AdminRsvpListItemDto"][];
@@ -1025,6 +1098,61 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminMessageMutationController_updateGuestMessageVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAdminGuestMessageRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGuestMessageItemDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1595,6 +1723,41 @@ export interface operations {
             };
         };
     };
+    AdminReadController_listGuestMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGuestMessageListResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
     AdminReadController_listRsvps: {
         parameters: {
             query?: never;
@@ -1645,6 +1808,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminRsvpDetailResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    AdminReadController_listInvitationGuestMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGuestMessageListResponseDto"];
                 };
             };
             400: {

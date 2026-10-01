@@ -68,9 +68,7 @@
           }
         },
         "summary": "Admin login",
-        "tags": [
-          "Admin Auth"
-        ]
+        "tags": ["Admin Auth"]
       }
     },
     "/api/admin/auth/me": {
@@ -100,9 +98,7 @@
           }
         },
         "summary": "Get current admin session",
-        "tags": [
-          "Admin Auth"
-        ]
+        "tags": ["Admin Auth"]
       }
     },
     "/api/admin/auth/logout": {
@@ -135,9 +131,7 @@
           }
         },
         "summary": "Log out current admin session",
-        "tags": [
-          "Admin Auth"
-        ]
+        "tags": ["Admin Auth"]
       }
     },
     "/api/admin/invitees/{inviteeId}": {
@@ -217,9 +211,7 @@
           }
         },
         "summary": "Update admin invitee",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       },
       "delete": {
         "operationId": "AdminInviteeMutationController_deleteInvitee",
@@ -270,9 +262,77 @@
           }
         },
         "summary": "Delete admin invitee",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
+      }
+    },
+    "/api/admin/messages/{messageId}": {
+      "patch": {
+        "operationId": "AdminMessageMutationController_updateGuestMessageVisibility",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAdminGuestMessageRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminGuestMessageItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Moderate admin guest message",
+        "tags": ["Admin"]
       }
     },
     "/api/admin/invitations": {
@@ -342,9 +402,7 @@
           }
         },
         "summary": "Create admin invitation",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       },
       "get": {
         "operationId": "AdminReadController_listInvitations",
@@ -382,9 +440,7 @@
           }
         },
         "summary": "List admin invitations",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/invitations/{invitationId}": {
@@ -464,9 +520,7 @@
           }
         },
         "summary": "Update admin invitation",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       },
       "get": {
         "operationId": "AdminReadController_getInvitationDetail",
@@ -504,9 +558,7 @@
           }
         },
         "summary": "Get admin invitation detail",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/invitations/{invitationId}/archive": {
@@ -576,9 +628,7 @@
           }
         },
         "summary": "Archive admin invitation",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/invitations/{invitationId}/regenerate-token": {
@@ -658,9 +708,7 @@
           }
         },
         "summary": "Regenerate admin invitation public URL",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/invitations/{invitationId}/invitees": {
@@ -740,9 +788,7 @@
           }
         },
         "summary": "Create admin invitation invitee",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/invitations/{invitationId}/events": {
@@ -822,9 +868,7 @@
           }
         },
         "summary": "Replace admin invitation eligibility",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/invitations/{invitationId}/rsvp": {
@@ -914,9 +958,7 @@
           }
         },
         "summary": "Override admin RSVP",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/dashboard": {
@@ -946,9 +988,7 @@
           }
         },
         "summary": "Get admin dashboard metrics",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/events": {
@@ -978,9 +1018,47 @@
           }
         },
         "summary": "List admin event catalog",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
+      }
+    },
+    "/api/admin/messages": {
+      "get": {
+        "operationId": "AdminReadController_listGuestMessages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminGuestMessageListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List admin guest messages",
+        "tags": ["Admin"]
       }
     },
     "/api/admin/rsvps": {
@@ -1020,9 +1098,7 @@
           }
         },
         "summary": "List admin RSVPs",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/admin/rsvps/{rsvpId}": {
@@ -1072,9 +1148,57 @@
           }
         },
         "summary": "Get admin RSVP detail",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
+      }
+    },
+    "/api/admin/invitations/{invitationId}/messages": {
+      "get": {
+        "operationId": "AdminReadController_listInvitationGuestMessages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminGuestMessageListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List admin guest messages for an invitation",
+        "tags": ["Admin"]
       }
     },
     "/api/admin/invitations/{invitationId}/public-url": {
@@ -1124,9 +1248,7 @@
           }
         },
         "summary": "Get current public invitation URL",
-        "tags": [
-          "Admin"
-        ]
+        "tags": ["Admin"]
       }
     },
     "/api/public/invitations/{publicCredential}": {
@@ -1168,9 +1290,7 @@
           }
         },
         "summary": "Retrieve a public invitation",
-        "tags": [
-          "Public Invitations"
-        ]
+        "tags": ["Public Invitations"]
       }
     },
     "/api/public/invitations/{publicCredential}/rsvp": {
@@ -1212,9 +1332,7 @@
           }
         },
         "summary": "Retrieve public RSVP state",
-        "tags": [
-          "Public Invitations"
-        ]
+        "tags": ["Public Invitations"]
       },
       "put": {
         "operationId": "PublicInvitationController_submitPublicRsvp",
@@ -1294,9 +1412,7 @@
           }
         },
         "summary": "Create or update public RSVP",
-        "tags": [
-          "Public Invitations"
-        ]
+        "tags": ["Public Invitations"]
       }
     },
     "/api/public/invitations/{publicCredential}/messages": {
@@ -1358,9 +1474,7 @@
           }
         },
         "summary": "Submit a public guest message",
-        "tags": [
-          "Public Guest Messages"
-        ]
+        "tags": ["Public Guest Messages"]
       }
     },
     "/health": {
@@ -1372,9 +1486,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "Health"
-        ]
+        "tags": ["Health"]
       }
     }
   },
@@ -1401,10 +1513,7 @@
             "minLength": 15
           }
         },
-        "required": [
-          "email",
-          "password"
-        ]
+        "required": ["email", "password"]
       },
       "AdminAuthUserDto": {
         "type": "object",
@@ -1418,16 +1527,10 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "OWNER"
-            ]
+            "enum": ["OWNER"]
           }
         },
-        "required": [
-          "id",
-          "email",
-          "role"
-        ]
+        "required": ["id", "email", "role"]
       },
       "AdminAuthSessionDto": {
         "type": "object",
@@ -1437,9 +1540,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "expiresAt"
-        ]
+        "required": ["expiresAt"]
       },
       "AdminAuthResponseDto": {
         "type": "object",
@@ -1454,11 +1555,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "user",
-          "session",
-          "csrfToken"
-        ]
+        "required": ["user", "session", "csrfToken"]
       },
       "ApiErrorDto": {
         "type": "object",
@@ -1475,11 +1572,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "code",
-          "message",
-          "details"
-        ]
+        "required": ["code", "message", "details"]
       },
       "ApiErrorEnvelopeDto": {
         "type": "object",
@@ -1495,11 +1588,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "error",
-          "requestId",
-          "timestamp"
-        ]
+        "required": ["error", "requestId", "timestamp"]
       },
       "UpdateAdminInviteeRequestDto": {
         "type": "object",
@@ -1513,19 +1602,14 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "ADULT",
-              "CHILD"
-            ]
+            "enum": ["ADULT", "CHILD"]
           },
           "label": {
             "type": "string",
             "nullable": true
           }
         },
-        "required": [
-          "expectedUpdatedAt"
-        ]
+        "required": ["expectedUpdatedAt"]
       },
       "AdminInviteeMutationDto": {
         "type": "object",
@@ -1543,10 +1627,7 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "ADULT",
-              "CHILD"
-            ]
+            "enum": ["ADULT", "CHILD"]
           },
           "label": {
             "type": "string",
@@ -1575,6 +1656,62 @@
           "updatedAt"
         ]
       },
+      "UpdateAdminGuestMessageRequestDto": {
+        "type": "object",
+        "properties": {
+          "isHidden": {
+            "type": "boolean"
+          }
+        },
+        "required": ["isHidden"]
+      },
+      "AdminGuestMessageInvitationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "displayName"]
+      },
+      "AdminGuestMessageItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invitation": {
+            "$ref": "#/components/schemas/AdminGuestMessageInvitationSummaryDto"
+          },
+          "authorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isHidden": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "invitation",
+          "authorName",
+          "message",
+          "createdAt",
+          "isHidden"
+        ]
+      },
       "CreateAdminInvitationInviteeDto": {
         "type": "object",
         "properties": {
@@ -1583,20 +1720,14 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "ADULT",
-              "CHILD"
-            ]
+            "enum": ["ADULT", "CHILD"]
           },
           "label": {
             "type": "string",
             "nullable": true
           }
         },
-        "required": [
-          "fullName",
-          "category"
-        ]
+        "required": ["fullName", "category"]
       },
       "CreateAdminInvitationRequestDto": {
         "type": "object",
@@ -1661,10 +1792,7 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "ADULT",
-              "CHILD"
-            ]
+            "enum": ["ADULT", "CHILD"]
           },
           "label": {
             "type": "string",
@@ -1674,13 +1802,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "id",
-          "fullName",
-          "category",
-          "label",
-          "displayOrder"
-        ]
+        "required": ["id", "fullName", "category", "label", "displayOrder"]
       },
       "AdminEventDto": {
         "type": "object",
@@ -1702,13 +1824,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "id",
-          "slug",
-          "name",
-          "isActive",
-          "displayOrder"
-        ]
+        "required": ["id", "slug", "name", "isActive", "displayOrder"]
       },
       "AdminInvitationEligibilityDto": {
         "type": "object",
@@ -1717,20 +1833,14 @@
             "$ref": "#/components/schemas/AdminEventDto"
           }
         },
-        "required": [
-          "event"
-        ]
+        "required": ["event"]
       },
       "AdminInvitationRsvpSummaryDto": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "PENDING",
-              "ACCEPTED",
-              "DECLINED"
-            ]
+            "enum": ["PENDING", "ACCEPTED", "DECLINED"]
           },
           "version": {
             "type": "number",
@@ -1746,12 +1856,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "status",
-          "version",
-          "submittedAt",
-          "lastUpdatedAt"
-        ]
+        "required": ["status", "version", "submittedAt", "lastUpdatedAt"]
       },
       "AdminGuestMessageSummaryDto": {
         "type": "object",
@@ -1765,21 +1870,14 @@
             "minimum": 0
           }
         },
-        "required": [
-          "total",
-          "hidden"
-        ]
+        "required": ["total", "hidden"]
       },
       "AdminCheckinPassMetadataDto": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ACTIVE",
-              "REVOKED",
-              "EXPIRED"
-            ]
+            "enum": ["ACTIVE", "REVOKED", "EXPIRED"]
           },
           "credentialVersion": {
             "type": "number",
@@ -1829,10 +1927,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "ACTIVE",
-              "ARCHIVED"
-            ]
+            "enum": ["ACTIVE", "ARCHIVED"]
           },
           "allowPlusOne": {
             "type": "boolean"
@@ -1949,11 +2044,7 @@
             "minimum": 1
           }
         },
-        "required": [
-          "invitation",
-          "publicUrl",
-          "publicTokenVersion"
-        ]
+        "required": ["invitation", "publicUrl", "publicTokenVersion"]
       },
       "UpdateAdminInvitationRequestDto": {
         "type": "object",
@@ -1986,9 +2077,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "expectedUpdatedAt"
-        ]
+        "required": ["expectedUpdatedAt"]
       },
       "AdminInvitationDetailResponseDto": {
         "type": "object",
@@ -1997,9 +2086,7 @@
             "$ref": "#/components/schemas/AdminInvitationDetailDto"
           }
         },
-        "required": [
-          "invitation"
-        ]
+        "required": ["invitation"]
       },
       "ArchiveAdminInvitationSummaryDto": {
         "type": "object",
@@ -2010,21 +2097,14 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "ACTIVE",
-              "ARCHIVED"
-            ]
+            "enum": ["ACTIVE", "ARCHIVED"]
           },
           "archivedAt": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": [
-          "id",
-          "status",
-          "archivedAt"
-        ]
+        "required": ["id", "status", "archivedAt"]
       },
       "ArchiveAdminInvitationResponseDto": {
         "type": "object",
@@ -2033,9 +2113,7 @@
             "$ref": "#/components/schemas/ArchiveAdminInvitationSummaryDto"
           }
         },
-        "required": [
-          "invitation"
-        ]
+        "required": ["invitation"]
       },
       "RegenerateInvitationTokenRequestDto": {
         "type": "object",
@@ -2045,9 +2123,7 @@
             "minimum": 1
           }
         },
-        "required": [
-          "expectedTokenVersion"
-        ]
+        "required": ["expectedTokenVersion"]
       },
       "AdminInvitationPublicUrlResponseDto": {
         "type": "object",
@@ -2060,10 +2136,7 @@
             "minimum": 1
           }
         },
-        "required": [
-          "publicUrl",
-          "publicTokenVersion"
-        ]
+        "required": ["publicUrl", "publicTokenVersion"]
       },
       "CreateAdminInviteeRequestDto": {
         "type": "object",
@@ -2073,20 +2146,14 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "ADULT",
-              "CHILD"
-            ]
+            "enum": ["ADULT", "CHILD"]
           },
           "label": {
             "type": "string",
             "nullable": true
           }
         },
-        "required": [
-          "fullName",
-          "category"
-        ]
+        "required": ["fullName", "category"]
       },
       "ReplaceAdminInvitationEventsRequestDto": {
         "type": "object",
@@ -2099,9 +2166,7 @@
             }
           }
         },
-        "required": [
-          "eventIds"
-        ]
+        "required": ["eventIds"]
       },
       "ReplaceAdminInvitationEventsResponseDto": {
         "type": "object",
@@ -2113,9 +2178,7 @@
             }
           }
         },
-        "required": [
-          "eligibility"
-        ]
+        "required": ["eligibility"]
       },
       "SubmitPublicRsvpEventSelectionDto": {
         "type": "object",
@@ -2132,22 +2195,14 @@
             "minimum": 0
           }
         },
-        "required": [
-          "eventId",
-          "attending",
-          "expectedAttendeeCount"
-        ]
+        "required": ["eventId", "attending", "expectedAttendeeCount"]
       },
       "SubmitPublicRsvpAttendeeDto": {
         "type": "object",
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "NAMED_INVITEE",
-              "PLUS_ONE",
-              "ADDITIONAL_CHILD"
-            ]
+            "enum": ["NAMED_INVITEE", "PLUS_ONE", "ADDITIONAL_CHILD"]
           },
           "inviteeId": {
             "type": "string",
@@ -2159,10 +2214,7 @@
             "minimum": 1
           }
         },
-        "required": [
-          "type",
-          "quantity"
-        ]
+        "required": ["type", "quantity"]
       },
       "OverrideAdminRsvpRequestDto": {
         "type": "object",
@@ -2174,10 +2226,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "ACCEPTED",
-              "DECLINED"
-            ]
+            "enum": ["ACCEPTED", "DECLINED"]
           },
           "eventSelections": {
             "type": "array",
@@ -2221,17 +2270,10 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "ACTIVE",
-              "ARCHIVED"
-            ]
+            "enum": ["ACTIVE", "ARCHIVED"]
           }
         },
-        "required": [
-          "id",
-          "displayName",
-          "status"
-        ]
+        "required": ["id", "displayName", "status"]
       },
       "AdminRsvpEventSelectionDto": {
         "type": "object",
@@ -2247,22 +2289,14 @@
             "minimum": 0
           }
         },
-        "required": [
-          "event",
-          "attending",
-          "expectedAttendeeCount"
-        ]
+        "required": ["event", "attending", "expectedAttendeeCount"]
       },
       "AdminRsvpAttendeeDto": {
         "type": "object",
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "NAMED_INVITEE",
-              "PLUS_ONE",
-              "ADDITIONAL_CHILD"
-            ]
+            "enum": ["NAMED_INVITEE", "PLUS_ONE", "ADDITIONAL_CHILD"]
           },
           "inviteeId": {
             "type": "string",
@@ -2278,12 +2312,7 @@
             "minimum": 1
           }
         },
-        "required": [
-          "type",
-          "inviteeId",
-          "displayName",
-          "quantity"
-        ]
+        "required": ["type", "inviteeId", "displayName", "quantity"]
       },
       "AdminRsvpAdminUserDto": {
         "type": "object",
@@ -2297,10 +2326,7 @@
             "format": "email"
           }
         },
-        "required": [
-          "id",
-          "email"
-        ]
+        "required": ["id", "email"]
       },
       "AdminRsvpDetailDto": {
         "type": "object",
@@ -2314,11 +2340,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "PENDING",
-              "ACCEPTED",
-              "DECLINED"
-            ]
+            "enum": ["PENDING", "ACCEPTED", "DECLINED"]
           },
           "version": {
             "type": "number",
@@ -2396,9 +2418,7 @@
             "$ref": "#/components/schemas/AdminRsvpDetailDto"
           }
         },
-        "required": [
-          "rsvp"
-        ]
+        "required": ["rsvp"]
       },
       "AdminDashboardInvitationMetricsDto": {
         "type": "object",
@@ -2416,11 +2436,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "active",
-          "archived",
-          "openedActive"
-        ]
+        "required": ["active", "archived", "openedActive"]
       },
       "AdminDashboardRsvpMetricsDto": {
         "type": "object",
@@ -2438,11 +2454,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "pending",
-          "accepted",
-          "declined"
-        ]
+        "required": ["pending", "accepted", "declined"]
       },
       "AdminDashboardEventDto": {
         "type": "object",
@@ -2458,11 +2470,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "slug",
-          "name"
-        ]
+        "required": ["id", "slug", "name"]
       },
       "AdminDashboardExpectedByEventDto": {
         "type": "object",
@@ -2475,10 +2483,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "event",
-          "expectedAttendeeCount"
-        ]
+        "required": ["event", "expectedAttendeeCount"]
       },
       "AdminDashboardResponseDto": {
         "type": "object",
@@ -2496,11 +2501,7 @@
             }
           }
         },
-        "required": [
-          "invitations",
-          "rsvp",
-          "expectedByEvent"
-        ]
+        "required": ["invitations", "rsvp", "expectedByEvent"]
       },
       "AdminEventsResponseDto": {
         "type": "object",
@@ -2512,9 +2513,45 @@
             }
           }
         },
-        "required": [
-          "events"
-        ]
+        "required": ["events"]
+      },
+      "AdminPageMetadataDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "maximum": 100,
+            "minimum": 1
+          },
+          "totalItems": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": ["number", "pageSize", "totalItems", "totalPages"]
+      },
+      "AdminGuestMessageListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminGuestMessageItemDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/AdminPageMetadataDto"
+          }
+        },
+        "required": ["items", "page"]
       },
       "AdminRsvpListItemDto": {
         "type": "object",
@@ -2528,11 +2565,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "PENDING",
-              "ACCEPTED",
-              "DECLINED"
-            ]
+            "enum": ["PENDING", "ACCEPTED", "DECLINED"]
           },
           "version": {
             "type": "number",
@@ -2570,34 +2603,6 @@
           "submittedByAdmin"
         ]
       },
-      "AdminPageMetadataDto": {
-        "type": "object",
-        "properties": {
-          "number": {
-            "type": "number",
-            "minimum": 1
-          },
-          "pageSize": {
-            "type": "number",
-            "maximum": 100,
-            "minimum": 1
-          },
-          "totalItems": {
-            "type": "number",
-            "minimum": 0
-          },
-          "totalPages": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "number",
-          "pageSize",
-          "totalItems",
-          "totalPages"
-        ]
-      },
       "AdminRsvpListResponseDto": {
         "type": "object",
         "properties": {
@@ -2611,10 +2616,7 @@
             "$ref": "#/components/schemas/AdminPageMetadataDto"
           }
         },
-        "required": [
-          "items",
-          "page"
-        ]
+        "required": ["items", "page"]
       },
       "AdminInvitationListItemDto": {
         "type": "object",
@@ -2632,18 +2634,11 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "ACTIVE",
-              "ARCHIVED"
-            ]
+            "enum": ["ACTIVE", "ARCHIVED"]
           },
           "rsvpStatus": {
             "type": "string",
-            "enum": [
-              "PENDING",
-              "ACCEPTED",
-              "DECLINED"
-            ]
+            "enum": ["PENDING", "ACCEPTED", "DECLINED"]
           },
           "inviteeCount": {
             "type": "number",
@@ -2705,10 +2700,7 @@
             "$ref": "#/components/schemas/AdminPageMetadataDto"
           }
         },
-        "required": [
-          "items",
-          "page"
-        ]
+        "required": ["items", "page"]
       },
       "PublicInvitationEventDto": {
         "type": "object",
@@ -2763,17 +2755,10 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "ADULT",
-              "CHILD"
-            ]
+            "enum": ["ADULT", "CHILD"]
           }
         },
-        "required": [
-          "id",
-          "fullName",
-          "category"
-        ]
+        "required": ["id", "fullName", "category"]
       },
       "PublicInvitationRulesDto": {
         "type": "object",
@@ -2786,31 +2771,21 @@
             "minimum": 0
           }
         },
-        "required": [
-          "allowPlusOne",
-          "maxAdditionalChildren"
-        ]
+        "required": ["allowPlusOne", "maxAdditionalChildren"]
       },
       "PublicInvitationRsvpDto": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "PENDING",
-              "ACCEPTED",
-              "DECLINED"
-            ]
+            "enum": ["PENDING", "ACCEPTED", "DECLINED"]
           },
           "version": {
             "type": "number",
             "minimum": 1
           }
         },
-        "required": [
-          "status",
-          "version"
-        ]
+        "required": ["status", "version"]
       },
       "PublicInvitationDto": {
         "type": "object",
@@ -2869,9 +2844,7 @@
             "$ref": "#/components/schemas/PublicInvitationDto"
           }
         },
-        "required": [
-          "invitation"
-        ]
+        "required": ["invitation"]
       },
       "PublicRsvpEventSelectionDto": {
         "type": "object",
@@ -2888,22 +2861,14 @@
             "minimum": 0
           }
         },
-        "required": [
-          "eventId",
-          "attending",
-          "expectedAttendeeCount"
-        ]
+        "required": ["eventId", "attending", "expectedAttendeeCount"]
       },
       "PublicRsvpAttendeeDto": {
         "type": "object",
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "NAMED_INVITEE",
-              "PLUS_ONE",
-              "ADDITIONAL_CHILD"
-            ]
+            "enum": ["NAMED_INVITEE", "PLUS_ONE", "ADDITIONAL_CHILD"]
           },
           "inviteeId": {
             "type": "string",
@@ -2915,22 +2880,14 @@
             "minimum": 1
           }
         },
-        "required": [
-          "type",
-          "inviteeId",
-          "quantity"
-        ]
+        "required": ["type", "inviteeId", "quantity"]
       },
       "PublicRsvpStateDto": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "PENDING",
-              "ACCEPTED",
-              "DECLINED"
-            ]
+            "enum": ["PENDING", "ACCEPTED", "DECLINED"]
           },
           "version": {
             "type": "number",
@@ -2971,9 +2928,7 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ACTIVE"
-            ]
+            "enum": ["ACTIVE"]
           },
           "issuedAt": {
             "type": "string",
@@ -2987,11 +2942,7 @@
             "pattern": "^[A-Za-z0-9_-]{43}$"
           }
         },
-        "required": [
-          "status",
-          "issuedAt",
-          "qrPayload"
-        ]
+        "required": ["status", "issuedAt", "qrPayload"]
       },
       "PublicRsvpReadResponseDto": {
         "type": "object",
@@ -3015,10 +2966,7 @@
             ]
           }
         },
-        "required": [
-          "rsvp",
-          "checkinPass"
-        ]
+        "required": ["rsvp", "checkinPass"]
       },
       "SubmitPublicRsvpRequestDto": {
         "type": "object",
@@ -3030,10 +2978,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "ACCEPTED",
-              "DECLINED"
-            ]
+            "enum": ["ACCEPTED", "DECLINED"]
           },
           "eventSelections": {
             "type": "array",
@@ -3076,10 +3021,7 @@
             ]
           }
         },
-        "required": [
-          "rsvp",
-          "checkinPass"
-        ]
+        "required": ["rsvp", "checkinPass"]
       },
       "SubmitPublicGuestMessageRequestDto": {
         "type": "object",
@@ -3094,9 +3036,7 @@
             "maxLength": 1000
           }
         },
-        "required": [
-          "message"
-        ]
+        "required": ["message"]
       },
       "PublicGuestMessageDto": {
         "type": "object",
@@ -3106,9 +3046,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "createdAt"
-        ]
+        "required": ["createdAt"]
       },
       "PublicGuestMessageResponseDto": {
         "type": "object",
@@ -3117,9 +3055,7 @@
             "$ref": "#/components/schemas/PublicGuestMessageDto"
           }
         },
-        "required": [
-          "message"
-        ]
+        "required": ["message"]
       }
     }
   }

@@ -60,9 +60,7 @@ describe("OpenAPI contract", () => {
     const adminInvitationArchivePath =
       document.paths["/api/admin/invitations/{invitationId}/archive"];
     const adminInvitationRegenerateTokenPath =
-      document.paths[
-        "/api/admin/invitations/{invitationId}/regenerate-token"
-      ];
+      document.paths["/api/admin/invitations/{invitationId}/regenerate-token"];
     const adminInvitationInviteesPath =
       document.paths["/api/admin/invitations/{invitationId}/invitees"];
     const adminInviteePath = document.paths["/api/admin/invitees/{inviteeId}"];
@@ -72,6 +70,10 @@ describe("OpenAPI contract", () => {
     const adminRsvpDetailPath = document.paths["/api/admin/rsvps/{rsvpId}"];
     const adminInvitationRsvpPath =
       document.paths["/api/admin/invitations/{invitationId}/rsvp"];
+    const adminMessagesPath = document.paths["/api/admin/messages"];
+    const adminInvitationMessagesPath =
+      document.paths["/api/admin/invitations/{invitationId}/messages"];
+    const adminMessagePath = document.paths["/api/admin/messages/{messageId}"];
     const schemas = document.components?.schemas ?? {};
 
     expect(getOperation).toBeDefined();
@@ -222,8 +224,54 @@ describe("OpenAPI contract", () => {
     expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("404");
     expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("409");
     expect(adminInvitationRsvpPath?.put?.responses).toHaveProperty("422");
+    expect(adminMessagesPath?.get).toBeDefined();
+    expect(adminMessagesPath?.get?.responses).toHaveProperty("200");
+    expect(adminMessagesPath?.get?.responses).toHaveProperty("400");
+    expect(adminMessagesPath?.get?.responses).toHaveProperty("401");
+    expect(adminMessagesPath?.delete).toBeUndefined();
+    expect(adminMessagesPath?.post).toBeUndefined();
+    expect(adminInvitationMessagesPath?.get).toBeDefined();
+    expect(adminInvitationMessagesPath?.get?.responses).toHaveProperty("200");
+    expect(adminInvitationMessagesPath?.get?.responses).toHaveProperty("400");
+    expect(adminInvitationMessagesPath?.get?.responses).toHaveProperty("401");
+    expect(adminInvitationMessagesPath?.get?.responses).toHaveProperty("404");
+    expect(adminInvitationMessagesPath?.delete).toBeUndefined();
+    expect(adminInvitationMessagesPath?.post).toBeUndefined();
+    expect(adminMessagePath?.patch).toBeDefined();
+    expect(adminMessagePath?.patch?.requestBody).toBeDefined();
+    expect(adminMessagePath?.patch?.responses).toHaveProperty("200");
+    expect(adminMessagePath?.patch?.responses).toHaveProperty("400");
+    expect(adminMessagePath?.patch?.responses).toHaveProperty("401");
+    expect(adminMessagePath?.patch?.responses).toHaveProperty("403");
+    expect(adminMessagePath?.patch?.responses).toHaveProperty("404");
+    expect(adminMessagePath?.delete).toBeUndefined();
+    expect(adminMessagesPath?.get?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          in: "query",
+          name: "hidden",
+          schema: expect.objectContaining({
+            enum: ["all", "visible", "hidden"],
+          }),
+        }),
+        expect.objectContaining({
+          in: "query",
+          name: "invitationId",
+          schema: expect.objectContaining({ format: "uuid" }),
+        }),
+        expect.objectContaining({
+          in: "query",
+          name: "sortBy",
+          schema: expect.objectContaining({ enum: ["createdAt"] }),
+        }),
+        expect.objectContaining({
+          in: "query",
+          name: "sortOrder",
+          schema: expect.objectContaining({ enum: ["asc", "desc"] }),
+        }),
+      ]),
+    );
     expect(document.paths["/api/admin/auth/bootstrap"]).toBeUndefined();
-    expect(document.paths["/api/admin/messages"]).toBeUndefined();
     expect(document.paths["/api/admin/events/{eventId}"]).toBeUndefined();
     expect(
       document.paths["/api/admin/invitations/{invitationId}/invitees/order"],
@@ -258,6 +306,9 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("AdminRsvpListResponseDto");
     expect(schemas).toHaveProperty("AdminRsvpDetailResponseDto");
     expect(schemas).toHaveProperty("OverrideAdminRsvpRequestDto");
+    expect(schemas).toHaveProperty("AdminGuestMessageListResponseDto");
+    expect(schemas).toHaveProperty("AdminGuestMessageItemDto");
+    expect(schemas).toHaveProperty("UpdateAdminGuestMessageRequestDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     const adminSchemas = Object.fromEntries(
       Object.entries(schemas).filter(([name]) => name.startsWith("Admin")),
@@ -417,12 +468,13 @@ describe("OpenAPI contract", () => {
     });
     expect(schemas).toHaveProperty("AdminInvitationRsvpSummaryDto");
     expect(schemas).toHaveProperty("AdminRsvpDetailDto");
-    const adminInvitationRsvpSummarySchema = schemas.AdminInvitationRsvpSummaryDto as
-      | {
-          properties: Record<string, unknown>;
-          required: string[];
-        }
-      | undefined;
+    const adminInvitationRsvpSummarySchema =
+      schemas.AdminInvitationRsvpSummaryDto as
+        | {
+            properties: Record<string, unknown>;
+            required: string[];
+          }
+        | undefined;
 
     expect(adminInvitationRsvpSummarySchema).toBeDefined();
     expect(schemas.AdminInvitationDetailDto).toMatchObject({
@@ -437,12 +489,9 @@ describe("OpenAPI contract", () => {
         }),
       }),
     });
-    expect(Object.keys(adminInvitationRsvpSummarySchema!.properties).sort()).toEqual([
-      "lastUpdatedAt",
-      "status",
-      "submittedAt",
-      "version",
-    ]);
+    expect(
+      Object.keys(adminInvitationRsvpSummarySchema!.properties).sort(),
+    ).toEqual(["lastUpdatedAt", "status", "submittedAt", "version"]);
     expect(adminInvitationRsvpSummarySchema!.required.sort()).toEqual([
       "lastUpdatedAt",
       "status",
@@ -578,8 +627,55 @@ describe("OpenAPI contract", () => {
       }),
       required: expect.arrayContaining(["expectedVersion", "overrideReason"]),
     });
-    expect(JSON.stringify(schemas.ArchiveAdminInvitationResponseDto)).not.toContain(
-      "reason",
+    expect(
+      JSON.stringify(schemas.ArchiveAdminInvitationResponseDto),
+    ).not.toContain("reason");
+    expect(schemas.AdminGuestMessageItemDto).toMatchObject({
+      properties: expect.objectContaining({
+        authorName: expect.objectContaining({ nullable: true, type: "string" }),
+        createdAt: expect.objectContaining({
+          format: "date-time",
+          type: "string",
+        }),
+        id: expect.objectContaining({ format: "uuid", type: "string" }),
+        invitation: expect.objectContaining({
+          $ref: "#/components/schemas/AdminGuestMessageInvitationSummaryDto",
+        }),
+        isHidden: expect.objectContaining({ type: "boolean" }),
+        message: expect.objectContaining({ type: "string" }),
+      }),
+    });
+    expect(schemas.AdminGuestMessageListResponseDto).toMatchObject({
+      properties: {
+        items: expect.objectContaining({
+          items: expect.objectContaining({
+            $ref: "#/components/schemas/AdminGuestMessageItemDto",
+          }),
+          type: "array",
+        }),
+        page: expect.objectContaining({
+          $ref: "#/components/schemas/AdminPageMetadataDto",
+        }),
+      },
+      required: ["items", "page"],
+    });
+    expect(schemas.UpdateAdminGuestMessageRequestDto).toMatchObject({
+      properties: {
+        isHidden: expect.objectContaining({ type: "boolean" }),
+      },
+      required: ["isHidden"],
+    });
+    expect(JSON.stringify(schemas.AdminGuestMessageItemDto)).not.toContain(
+      "hiddenAt",
     );
+    expect(JSON.stringify(schemas.AdminGuestMessageItemDto)).not.toContain(
+      "moderationReason",
+    );
+    expect(
+      JSON.stringify(schemas.UpdateAdminGuestMessageRequestDto),
+    ).not.toContain("message");
+    expect(
+      JSON.stringify(schemas.UpdateAdminGuestMessageRequestDto),
+    ).not.toContain("authorName");
   });
 });

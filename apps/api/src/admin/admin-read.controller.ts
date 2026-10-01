@@ -13,6 +13,8 @@ import { AdminReadService } from "./admin-read.service.js";
 import {
   AdminDashboardResponseDto,
   AdminEventsResponseDto,
+  AdminGuestMessageListQueryDto,
+  AdminGuestMessageListResponseDto,
   AdminInvitationDetailResponseDto,
   AdminInvitationListQueryDto,
   AdminInvitationListResponseDto,
@@ -26,7 +28,8 @@ import {
 @Controller("api/admin")
 export class AdminReadController {
   constructor(
-    @Inject(AdminReadService) private readonly adminReadService: AdminReadService,
+    @Inject(AdminReadService)
+    private readonly adminReadService: AdminReadService,
   ) {}
 
   @Get("dashboard")
@@ -43,6 +46,19 @@ export class AdminReadController {
   @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
   async getEvents(): Promise<AdminEventsResponseDto> {
     return this.adminReadService.getEvents();
+  }
+
+  @Get("messages")
+  @ApiOperation({ summary: "List admin guest messages" })
+  @ApiOkResponse({ type: AdminGuestMessageListResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  async listGuestMessages(
+    @Query() query: AdminGuestMessageListQueryDto,
+  ): Promise<AdminGuestMessageListResponseDto> {
+    return this.adminReadService.listGuestMessages(
+      query as Record<string, unknown>,
+    );
   }
 
   @Get("rsvps")
@@ -76,7 +92,9 @@ export class AdminReadController {
   async listInvitations(
     @Query() query: AdminInvitationListQueryDto,
   ): Promise<AdminInvitationListResponseDto> {
-    return this.adminReadService.listInvitations(query as Record<string, unknown>);
+    return this.adminReadService.listInvitations(
+      query as Record<string, unknown>,
+    );
   }
 
   @Get("invitations/:invitationId")
@@ -88,6 +106,22 @@ export class AdminReadController {
     @Param("invitationId") invitationId: string,
   ): Promise<AdminInvitationDetailResponseDto> {
     return this.adminReadService.getInvitationDetail(invitationId);
+  }
+
+  @Get("invitations/:invitationId/messages")
+  @ApiOperation({ summary: "List admin guest messages for an invitation" })
+  @ApiOkResponse({ type: AdminGuestMessageListResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  async listInvitationGuestMessages(
+    @Param("invitationId") invitationId: string,
+    @Query() query: AdminGuestMessageListQueryDto,
+  ): Promise<AdminGuestMessageListResponseDto> {
+    return this.adminReadService.listInvitationGuestMessages(
+      invitationId,
+      query as Record<string, unknown>,
+    );
   }
 
   @Get("invitations/:invitationId/public-url")

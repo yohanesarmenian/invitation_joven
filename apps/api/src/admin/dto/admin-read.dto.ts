@@ -26,8 +26,24 @@ export const adminInvitationSortFields = [
 export type AdminInvitationSortField =
   (typeof adminInvitationSortFields)[number];
 
-export const adminRsvpSortFields = ["createdAt", "updatedAt", "status"] as const;
+export const adminRsvpSortFields = [
+  "createdAt",
+  "updatedAt",
+  "status",
+] as const;
 export type AdminRsvpSortField = (typeof adminRsvpSortFields)[number];
+
+export const adminGuestMessageHiddenFilters = [
+  "all",
+  "visible",
+  "hidden",
+] as const;
+export type AdminGuestMessageHiddenFilter =
+  (typeof adminGuestMessageHiddenFilters)[number];
+
+export const adminGuestMessageSortFields = ["createdAt"] as const;
+export type AdminGuestMessageSortField =
+  (typeof adminGuestMessageSortFields)[number];
 
 export class AdminPageMetadataDto {
   @ApiProperty({ minimum: 1, type: Number })
@@ -257,6 +273,62 @@ export class AdminRsvpListResponseDto {
   page: AdminPageMetadataDto;
 }
 
+export class AdminGuestMessageListQueryDto {
+  @ApiPropertyOptional({ enum: adminGuestMessageHiddenFilters, type: String })
+  hidden?: AdminGuestMessageHiddenFilter;
+
+  @ApiPropertyOptional({ format: "uuid", type: String })
+  invitationId?: string;
+
+  @ApiPropertyOptional({ enum: adminGuestMessageSortFields, type: String })
+  sortBy?: AdminGuestMessageSortField;
+
+  @ApiPropertyOptional({ enum: ["asc", "desc"], type: String })
+  sortOrder?: "asc" | "desc";
+
+  @ApiPropertyOptional({ minimum: 1, type: Number })
+  page?: number;
+
+  @ApiPropertyOptional({ maximum: 100, minimum: 1, type: Number })
+  pageSize?: number;
+}
+
+export class AdminGuestMessageInvitationSummaryDto {
+  @ApiProperty({ format: "uuid", type: String })
+  id: string;
+
+  @ApiProperty({ type: String })
+  displayName: string;
+}
+
+export class AdminGuestMessageItemDto {
+  @ApiProperty({ format: "uuid", type: String })
+  id: string;
+
+  @ApiProperty({ type: () => AdminGuestMessageInvitationSummaryDto })
+  invitation: AdminGuestMessageInvitationSummaryDto;
+
+  @ApiProperty({ nullable: true, type: String })
+  authorName: string | null;
+
+  @ApiProperty({ type: String })
+  message: string;
+
+  @ApiProperty({ format: "date-time", type: String })
+  createdAt: string;
+
+  @ApiProperty({ type: Boolean })
+  isHidden: boolean;
+}
+
+export class AdminGuestMessageListResponseDto {
+  @ApiProperty({ type: () => [AdminGuestMessageItemDto] })
+  items: AdminGuestMessageItemDto[];
+
+  @ApiProperty({ type: () => AdminPageMetadataDto })
+  page: AdminPageMetadataDto;
+}
+
 export class AdminInviteeDetailDto {
   @ApiProperty({ format: "uuid", type: String })
   id: string;
@@ -333,7 +405,10 @@ export class AdminRsvpEventSelectionDto {
 }
 
 export class AdminRsvpAttendeeDto {
-  @ApiProperty({ enum: ["NAMED_INVITEE", "PLUS_ONE", "ADDITIONAL_CHILD"], type: String })
+  @ApiProperty({
+    enum: ["NAMED_INVITEE", "PLUS_ONE", "ADDITIONAL_CHILD"],
+    type: String,
+  })
   type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD";
 
   @ApiProperty({ format: "uuid", nullable: true, type: String })
