@@ -167,6 +167,11 @@ export class ReplaceAdminInvitationEventsResponseDto {
   eligibility: AdminInvitationEligibilityDto[];
 }
 
+export class UpdateAdminGuestMessageRequestDto {
+  @ApiProperty({ type: Boolean })
+  isHidden: boolean;
+}
+
 export class OverrideAdminRsvpRequestDto {
   @ApiProperty({ nullable: true, minimum: 1, type: Number })
   expectedVersion: number | null;

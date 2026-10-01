@@ -15,10 +15,8 @@ export type SubmitPublicGuestMessageRequest =
   components["schemas"]["SubmitPublicGuestMessageRequestDto"];
 export type SubmitPublicGuestMessageResponse =
   components["schemas"]["PublicGuestMessageResponseDto"];
-export type AdminLoginRequest =
-  components["schemas"]["AdminLoginRequestDto"];
-export type AdminAuthResponse =
-  components["schemas"]["AdminAuthResponseDto"];
+export type AdminLoginRequest = components["schemas"]["AdminLoginRequestDto"];
+export type AdminAuthResponse = components["schemas"]["AdminAuthResponseDto"];
 export type AdminDashboardResponse =
   components["schemas"]["AdminDashboardResponseDto"];
 export type AdminEventsResponse =
@@ -55,6 +53,12 @@ export type AdminRsvpListResponse =
   components["schemas"]["AdminRsvpListResponseDto"];
 export type AdminRsvpDetailResponse =
   components["schemas"]["AdminRsvpDetailResponseDto"];
+export type AdminGuestMessageListResponse =
+  components["schemas"]["AdminGuestMessageListResponseDto"];
+export type UpdateAdminGuestMessageRequest =
+  components["schemas"]["UpdateAdminGuestMessageRequestDto"];
+export type UpdateAdminGuestMessageResponse =
+  components["schemas"]["AdminGuestMessageItemDto"];
 export type ApiErrorEnvelope = components["schemas"]["ApiErrorEnvelopeDto"];
 export type GetPublicInvitationResponse =
   paths["/api/public/invitations/{publicCredential}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -98,6 +102,12 @@ export type GetAdminRsvpDetailResponse =
   paths["/api/admin/rsvps/{rsvpId}"]["get"]["responses"]["200"]["content"]["application/json"];
 export type GetAdminInvitationPublicUrlResponse =
   paths["/api/admin/invitations/{invitationId}/public-url"]["get"]["responses"]["200"]["content"]["application/json"];
+export type GetAdminGuestMessagesResponse =
+  paths["/api/admin/messages"]["get"]["responses"]["200"]["content"]["application/json"];
+export type GetAdminInvitationGuestMessagesResponse =
+  paths["/api/admin/invitations/{invitationId}/messages"]["get"]["responses"]["200"]["content"]["application/json"];
+export type UpdateAdminGuestMessageOperationResponse =
+  paths["/api/admin/messages/{messageId}"]["patch"]["responses"]["200"]["content"]["application/json"];
 
 export function createInvitationApiClient(
   options?: Parameters<typeof createClient<paths>>[0],

@@ -43,13 +43,7 @@ type AdminRoute = {
 };
 
 type AdminHttpMethod =
-  | "DELETE"
-  | "GET"
-  | "HEAD"
-  | "OPTIONS"
-  | "PATCH"
-  | "POST"
-  | "PUT";
+  "DELETE" | "GET" | "HEAD" | "OPTIONS" | "PATCH" | "POST" | "PUT";
 
 function asArray<T>(value: T | T[] | undefined): T[] {
   if (value === undefined) {
@@ -100,12 +94,12 @@ function discoverAdminRoutes(app: NestFastifyApplication): AdminRoute[] {
 
         const handler = prototype[key] as object;
         const method = Reflect.getMetadata(METHOD_METADATA, handler) as
-          | RequestMethod
-          | undefined;
+          RequestMethod | undefined;
         const routePaths = asArray<string>(
           Reflect.getMetadata(PATH_METADATA, handler),
         );
-        const methodName = method === undefined ? undefined : methodNames[method];
+        const methodName =
+          method === undefined ? undefined : methodNames[method];
 
         if (methodName === undefined) {
           continue;
@@ -125,7 +119,9 @@ function discoverAdminRoutes(app: NestFastifyApplication): AdminRoute[] {
   }
 
   return routes.sort((left, right) =>
-    `${left.method} ${left.path}`.localeCompare(`${right.method} ${right.path}`),
+    `${left.method} ${left.path}`.localeCompare(
+      `${right.method} ${right.path}`,
+    ),
   );
 }
 
@@ -343,12 +339,15 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(19);
+    expect(routes).toHaveLength(22);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "POST /api/admin/invitations",
         "POST /api/admin/invitations/:invitationId/invitees",
         "DELETE /api/admin/invitees/:inviteeId",
+        "GET /api/admin/messages",
+        "GET /api/admin/invitations/:invitationId/messages",
+        "PATCH /api/admin/messages/:messageId",
       ]),
     );
     expect(routeNames).toEqual([
@@ -358,11 +357,14 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/events",
       "GET /api/admin/invitations",
       "GET /api/admin/invitations/:invitationId",
+      "GET /api/admin/invitations/:invitationId/messages",
       "GET /api/admin/invitations/:invitationId/public-url",
+      "GET /api/admin/messages",
       "GET /api/admin/rsvps",
       "GET /api/admin/rsvps/:rsvpId",
       "PATCH /api/admin/invitations/:invitationId",
       "PATCH /api/admin/invitees/:inviteeId",
+      "PATCH /api/admin/messages/:messageId",
       "POST /api/admin/auth/login",
       "POST /api/admin/auth/logout",
       "POST /api/admin/invitations",
@@ -375,16 +377,22 @@ describe("admin read HTTP integration", () => {
 
     for (const route of routes.filter(
       (candidate) =>
-        !(candidate.method === "POST" && candidate.path === "/api/admin/auth/login"),
+        !(
+          candidate.method === "POST" &&
+          candidate.path === "/api/admin/auth/login"
+        ),
     )) {
-      const response = await app.getHttpAdapter().getInstance().inject({
-        headers:
-          route.method === "POST"
-            ? { origin: ADMIN_ORIGIN, "x-csrf-token": session.csrfToken }
-            : {},
-        method: route.method,
-        url: materializeRoute(route.path, invitation.id),
-      });
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers:
+            route.method === "POST"
+              ? { origin: ADMIN_ORIGIN, "x-csrf-token": session.csrfToken }
+              : {},
+          method: route.method,
+          url: materializeRoute(route.path, invitation.id),
+        });
 
       expect(response.statusCode, `${route.method} ${route.path}`).toBe(401);
       expect(response.json()).toMatchObject({
@@ -392,12 +400,15 @@ describe("admin read HTTP integration", () => {
       });
     }
 
-    const login = await app.getHttpAdapter().getInstance().inject({
-      headers: { origin: ADMIN_ORIGIN },
-      method: "POST",
-      payload: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
-      url: "/api/admin/auth/login",
-    });
+    const login = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { origin: ADMIN_ORIGIN },
+        method: "POST",
+        payload: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
+        url: "/api/admin/auth/login",
+      });
     expect(login.statusCode).toBe(200);
 
     const unsafeRoutes = routes.filter(
@@ -405,10 +416,13 @@ describe("admin read HTTP integration", () => {
         ["POST", "PUT", "PATCH", "DELETE"].includes(route.method) &&
         !(route.method === "POST" && route.path === "/api/admin/auth/login"),
     );
-    expect(unsafeRoutes.map((route) => `${route.method} ${route.path}`)).toEqual([
+    expect(
+      unsafeRoutes.map((route) => `${route.method} ${route.path}`),
+    ).toEqual([
       "DELETE /api/admin/invitees/:inviteeId",
       "PATCH /api/admin/invitations/:invitationId",
       "PATCH /api/admin/invitees/:inviteeId",
+      "PATCH /api/admin/messages/:messageId",
       "POST /api/admin/auth/logout",
       "POST /api/admin/invitations",
       "POST /api/admin/invitations/:invitationId/archive",
@@ -419,29 +433,38 @@ describe("admin read HTTP integration", () => {
     ]);
 
     for (const route of unsafeRoutes) {
-      const missingCsrf = await app.getHttpAdapter().getInstance().inject({
-        headers: { cookie: session.cookie, origin: ADMIN_ORIGIN },
-        method: route.method,
-        url: materializeRoute(route.path, invitation.id),
-      });
-      const wrongCsrf = await app.getHttpAdapter().getInstance().inject({
-        headers: {
-          cookie: session.cookie,
-          origin: ADMIN_ORIGIN,
-          "x-csrf-token": "wrong",
-        },
-        method: route.method,
-        url: materializeRoute(route.path, invitation.id),
-      });
-      const badOrigin = await app.getHttpAdapter().getInstance().inject({
-        headers: {
-          cookie: session.cookie,
-          origin: "http://localhost:3001.evil.test",
-          "x-csrf-token": session.csrfToken,
-        },
-        method: route.method,
-        url: materializeRoute(route.path, invitation.id),
-      });
+      const missingCsrf = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: { cookie: session.cookie, origin: ADMIN_ORIGIN },
+          method: route.method,
+          url: materializeRoute(route.path, invitation.id),
+        });
+      const wrongCsrf = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: {
+            cookie: session.cookie,
+            origin: ADMIN_ORIGIN,
+            "x-csrf-token": "wrong",
+          },
+          method: route.method,
+          url: materializeRoute(route.path, invitation.id),
+        });
+      const badOrigin = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: {
+            cookie: session.cookie,
+            origin: "http://localhost:3001.evil.test",
+            "x-csrf-token": session.csrfToken,
+          },
+          method: route.method,
+          url: materializeRoute(route.path, invitation.id),
+        });
 
       for (const response of [missingCsrf, wrongCsrf, badOrigin]) {
         expect(response.statusCode).toBe(403);
@@ -451,12 +474,18 @@ describe("admin read HTTP integration", () => {
       }
     }
 
-    for (const path of ["/api/admin/dashboard", `/api/admin/invitations/${invitation.id}`]) {
-      const response = await app.getHttpAdapter().getInstance().inject({
-        headers: { cookie: session.cookie },
-        method: "GET",
-        url: path,
-      });
+    for (const path of [
+      "/api/admin/dashboard",
+      `/api/admin/invitations/${invitation.id}`,
+    ]) {
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: { cookie: session.cookie },
+          method: "GET",
+          url: path,
+        });
 
       expect(response.statusCode, path).toBe(200);
     }
@@ -519,33 +548,45 @@ describe("admin read HTTP integration", () => {
           attending: true,
           eventId: ceremony.id,
           expectedAttendeeCount: 2,
-          rsvpId: rsvps.find((rsvp) => rsvp.invitationId === acceptedA.invitation.id)!.id,
+          rsvpId: rsvps.find(
+            (rsvp) => rsvp.invitationId === acceptedA.invitation.id,
+          )!.id,
         },
         {
           attending: true,
           eventId: reception.id,
           expectedAttendeeCount: 3,
-          rsvpId: rsvps.find((rsvp) => rsvp.invitationId === acceptedA.invitation.id)!.id,
+          rsvpId: rsvps.find(
+            (rsvp) => rsvp.invitationId === acceptedA.invitation.id,
+          )!.id,
         },
         {
           attending: true,
           eventId: reception.id,
           expectedAttendeeCount: 4,
-          rsvpId: rsvps.find((rsvp) => rsvp.invitationId === acceptedB.invitation.id)!.id,
+          rsvpId: rsvps.find(
+            (rsvp) => rsvp.invitationId === acceptedB.invitation.id,
+          )!.id,
         },
       ],
     });
 
-    const dashboard = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: "/api/admin/dashboard",
-    });
-    const events = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: "/api/admin/events",
-    });
+    const dashboard = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: "/api/admin/dashboard",
+      });
+    const events = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: "/api/admin/events",
+      });
 
     expect(dashboard.statusCode).toBe(200);
     expect(dashboard.json()).toEqual({
@@ -621,47 +662,69 @@ describe("admin read HTTP integration", () => {
       publicTokenVersion: 7,
     });
 
-    const list = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: "/api/admin/invitations?page=1&pageSize=2&sortBy=displayName&sortOrder=asc",
-    });
-    const searchInvitee = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: "/api/admin/invitations?search=twin&pageSize=100",
-    });
-    const pending = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: "/api/admin/invitations?rsvpStatus=PENDING",
-    });
-    const invalidPage = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: "/api/admin/invitations?pageSize=101",
-    });
-    const invalidSort = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: "/api/admin/invitations?sortBy=notes",
-    });
-    const tooLongSearch = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: `/api/admin/invitations?search=${encodeURIComponent("🙂".repeat(101))}`,
-    });
-    const noSensitiveSearch = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: `/api/admin/invitations?search=${twins.invitation.id}`,
-    });
+    const list = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: "/api/admin/invitations?page=1&pageSize=2&sortBy=displayName&sortOrder=asc",
+      });
+    const searchInvitee = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: "/api/admin/invitations?search=twin&pageSize=100",
+      });
+    const pending = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: "/api/admin/invitations?rsvpStatus=PENDING",
+      });
+    const invalidPage = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: "/api/admin/invitations?pageSize=101",
+      });
+    const invalidSort = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: "/api/admin/invitations?sortBy=notes",
+      });
+    const tooLongSearch = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: `/api/admin/invitations?search=${encodeURIComponent("🙂".repeat(101))}`,
+      });
+    const noSensitiveSearch = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: `/api/admin/invitations?search=${twins.invitation.id}`,
+      });
 
     expect(list.statusCode).toBe(200);
-    expect(list.json().items.map((item: { displayName: string }) => item.displayName)).toEqual([
-      "Archer Family",
-      "Smith Family",
-    ]);
+    expect(
+      list
+        .json()
+        .items.map((item: { displayName: string }) => item.displayName),
+    ).toEqual(["Archer Family", "Smith Family"]);
     expect(list.json().page).toEqual({
       number: 1,
       pageSize: 2,
@@ -677,9 +740,9 @@ describe("admin read HTTP integration", () => {
     });
     expect(searchInvitee.body).not.toContain("publicTokenVersion");
     expect(searchInvitee.body).not.toContain("private notes");
-    expect(pending.json().items.map((item: { id: string }) => item.id)).toEqual([
-      twins.invitation.id,
-    ]);
+    expect(pending.json().items.map((item: { id: string }) => item.id)).toEqual(
+      [twins.invitation.id],
+    );
     expect(noSensitiveSearch.json().items).toHaveLength(0);
 
     for (const response of [invalidPage, invalidSort, tooLongSearch]) {
@@ -762,21 +825,30 @@ describe("admin read HTTP integration", () => {
       displayName: "No RSVP Detail Household",
     });
 
-    const response = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: `/api/admin/invitations/${invitation.id}`,
-    });
-    const noRsvpResponse = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: `/api/admin/invitations/${noRsvpInvitation.invitation.id}`,
-    });
-    const missing = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: `/api/admin/invitations/${randomUUID()}`,
-    });
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: `/api/admin/invitations/${invitation.id}`,
+      });
+    const noRsvpResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: `/api/admin/invitations/${noRsvpInvitation.invitation.id}`,
+      });
+    const missing = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: `/api/admin/invitations/${randomUUID()}`,
+      });
     const body = response.json();
     const rsvpForbiddenFields = [
       "id",
@@ -802,10 +874,11 @@ describe("admin read HTTP integration", () => {
       publicTokenVersion: 3,
       status: "ARCHIVED",
     });
-    expect(body.invitation.invitees.map((item: { fullName: string }) => item.fullName)).toEqual([
-      "Adult Guest",
-      "Child Guest",
-    ]);
+    expect(
+      body.invitation.invitees.map(
+        (item: { fullName: string }) => item.fullName,
+      ),
+    ).toEqual(["Adult Guest", "Child Guest"]);
     expect(body.invitation.eligibility[0].event).toMatchObject({
       id: event.id,
       name: "Ceremony",
@@ -855,41 +928,56 @@ describe("admin read HTTP integration", () => {
       status: InvitationStatus.ARCHIVED,
     });
 
-    const response = await app.getHttpAdapter().getInstance().inject({
-      headers: {
-        cookie: session.cookie,
-        host: "evil.example.test",
-        origin: "http://evil.example.test",
-      },
-      method: "GET",
-      url: `/api/admin/invitations/${active.invitation.id}/public-url`,
-    });
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: {
+          cookie: session.cookie,
+          host: "evil.example.test",
+          origin: "http://evil.example.test",
+        },
+        method: "GET",
+        url: `/api/admin/invitations/${active.invitation.id}/public-url`,
+      });
     const afterPublicUrl = await prisma.invitation.findUniqueOrThrow({
       where: { id: active.invitation.id },
     });
-    const publicLookup = await app.getHttpAdapter().getInstance().inject({
-      method: "GET",
-      url: `/api/public/invitations/${active.publicCredential}`,
-    });
-    const archivedResponse = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: `/api/admin/invitations/${archived.invitation.id}/public-url`,
-    });
-    const missingResponse = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: `/api/admin/invitations/${randomUUID()}/public-url`,
-    });
+    const publicLookup = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "GET",
+        url: `/api/public/invitations/${active.publicCredential}`,
+      });
+    const archivedResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: `/api/admin/invitations/${archived.invitation.id}/public-url`,
+      });
+    const missingResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: `/api/admin/invitations/${randomUUID()}/public-url`,
+      });
     await prisma.invitation.update({
       data: { publicTokenHash: `mismatch-${randomUUID()}` },
       where: { id: active.invitation.id },
     });
-    const mismatch = await app.getHttpAdapter().getInstance().inject({
-      headers: { cookie: session.cookie },
-      method: "GET",
-      url: `/api/admin/invitations/${active.invitation.id}/public-url`,
-    });
+    const mismatch = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: session.cookie },
+        method: "GET",
+        url: `/api/admin/invitations/${active.invitation.id}/public-url`,
+      });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
@@ -929,19 +1017,37 @@ describe("admin read HTTP integration", () => {
       const cookieName =
         nodeEnv === "production" ? "__Host-admin_session" : "admin_session";
 
-      return app.getHttpAdapter().getInstance().inject({
-        headers: { cookie: `${cookieName}=${session.sessionToken}` },
-        method: "GET",
-        url: `/api/admin/invitations/${invitation.id}/public-url`,
-      });
+      return app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: { cookie: `${cookieName}=${session.sessionToken}` },
+          method: "GET",
+          url: `/api/admin/invitations/${invitation.id}/public-url`,
+        });
     }
 
     const local = await requestWithConfig("test", "http://localhost:3000/");
-    const https = await requestWithConfig("production", "https://invite.example.com");
-    const prodHttp = await requestWithConfig("production", "http://localhost:3000");
-    const path = await requestWithConfig("test", "https://invite.example.com/path");
-    const query = await requestWithConfig("test", "https://invite.example.com?x=1");
-    const fragment = await requestWithConfig("test", "https://invite.example.com#x");
+    const https = await requestWithConfig(
+      "production",
+      "https://invite.example.com",
+    );
+    const prodHttp = await requestWithConfig(
+      "production",
+      "http://localhost:3000",
+    );
+    const path = await requestWithConfig(
+      "test",
+      "https://invite.example.com/path",
+    );
+    const query = await requestWithConfig(
+      "test",
+      "https://invite.example.com?x=1",
+    );
+    const fragment = await requestWithConfig(
+      "test",
+      "https://invite.example.com#x",
+    );
     const credentials = await requestWithConfig(
       "test",
       "https://user:pass@invite.example.com",
@@ -955,7 +1061,14 @@ describe("admin read HTTP integration", () => {
     expect(local.json().publicUrl).toMatch(/^http:\/\/localhost:3000\/i\//);
     expect(https.statusCode).toBe(200);
 
-    for (const response of [prodHttp, path, query, fragment, credentials, wildcard]) {
+    for (const response of [
+      prodHttp,
+      path,
+      query,
+      fragment,
+      credentials,
+      wildcard,
+    ]) {
       expect(response.statusCode).toBe(500);
     }
   });

@@ -16,6 +16,7 @@ import {
 import { CredentialService } from "../security/credential.service.js";
 import { AdminReadService } from "./admin-read.service.js";
 import {
+  type AdminGuestMessageItemDto,
   type AdminRsvpDetailResponseDto,
   type AdminInvitationDetailResponseDto,
   type AdminInvitationPublicUrlResponseDto,
@@ -64,6 +65,7 @@ const OVERRIDE_RSVP_FIELDS = new Set([
   "overrideReason",
   "status",
 ]);
+const UPDATE_GUEST_MESSAGE_FIELDS = new Set(["isHidden"]);
 const OVERRIDE_REASON_MAX_CODE_POINTS = 500;
 
 type PlainObject = Record<string, unknown>;
@@ -111,6 +113,10 @@ type NormalizedAdminRsvpOverrideInput = Omit<
   "invitationId" | "submittedByAdminUserId"
 >;
 
+type NormalizedGuestMessageUpdateInput = {
+  isHidden: boolean;
+};
+
 type LockedInvitationRow = {
   id: string;
   archivedAt: Date | null;
@@ -135,11 +141,7 @@ type InviteeMutationRow = {
 };
 
 function isPlainObject(value: unknown): value is PlainObject {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function assertKnownKeys(
@@ -432,6 +434,22 @@ function normalizeAdminRsvpOverrideInput(
   };
 }
 
+function normalizeGuestMessageUpdateInput(
+  body: unknown,
+): NormalizedGuestMessageUpdateInput {
+  if (!isPlainObject(body)) {
+    validationError();
+  }
+
+  assertKnownKeys(body, UPDATE_GUEST_MESSAGE_FIELDS);
+
+  if (!Object.hasOwn(body, "isHidden")) {
+    validationError();
+  }
+
+  return { isHidden: normalizeBoolean(body.isHidden) };
+}
+
 function normalizeInviteeInput(body: unknown): NormalizedInviteeInput {
   if (!isPlainObject(body)) {
     validationError();
@@ -493,7 +511,10 @@ function normalizeUpdateInput(body: unknown): NormalizedUpdateInput {
     validationError();
   }
 
-  assertKnownKeys(body, new Set(["expectedUpdatedAt", ...WRITABLE_UPDATE_FIELDS]));
+  assertKnownKeys(
+    body,
+    new Set(["expectedUpdatedAt", ...WRITABLE_UPDATE_FIELDS]),
+  );
 
   if (!Object.hasOwn(body, "expectedUpdatedAt")) {
     validationError();
@@ -565,7 +586,9 @@ function normalizeExpectedTokenVersion(body: unknown): number {
   return body.expectedTokenVersion;
 }
 
-function normalizeInviteeUpdateInput(body: unknown): NormalizedInviteeUpdateInput {
+function normalizeInviteeUpdateInput(
+  body: unknown,
+): NormalizedInviteeUpdateInput {
   if (!isPlainObject(body)) {
     validationError();
   }
@@ -638,6 +661,30 @@ function mapInviteeMutation(row: InviteeMutationRow): AdminInviteeMutationDto {
   };
 }
 
+function mapAdminGuestMessageItem(row: {
+  authorName: string | null;
+  createdAt: Date;
+  id: string;
+  invitation: {
+    displayName: string;
+    id: string;
+  };
+  isHidden: boolean;
+  message: string;
+}): AdminGuestMessageItemDto {
+  return {
+    authorName: row.authorName,
+    createdAt: row.createdAt.toISOString(),
+    id: row.id,
+    invitation: {
+      displayName: row.invitation.displayName,
+      id: row.invitation.id,
+    },
+    isHidden: row.isHidden,
+    message: row.message,
+  };
+}
+
 function isPrismaKnownErrorCode(error: unknown, code: string): boolean {
   return (
     typeof error === "object" &&
@@ -661,7 +708,9 @@ export class AdminMutationService {
     private readonly publicRsvpService: PublicRsvpService,
   ) {}
 
-  async createInvitation(body: unknown): Promise<CreateAdminInvitationResponseDto> {
+  async createInvitation(
+    body: unknown,
+  ): Promise<CreateAdminInvitationResponseDto> {
     const input = normalizeCreateInput(body);
     const id = randomUUID();
     const publicTokenVersion = 1;
@@ -839,7 +888,9 @@ export class AdminMutationService {
 
     return {
       publicTokenVersion: result.publicTokenVersion,
-      publicUrl: this.publicBaseUrlService.buildInvitationUrl(result.credential),
+      publicUrl: this.publicBaseUrlService.buildInvitationUrl(
+        result.credential,
+      ),
     };
   }
 
@@ -1012,7 +1063,9 @@ export class AdminMutationService {
       }
 
       if (
-        events.some((event) => !event.isActive && !currentEventIds.has(event.id))
+        events.some(
+          (event) => !event.isActive && !currentEventIds.has(event.id),
+        )
       ) {
         validationError();
       }
@@ -1094,6 +1147,46 @@ export class AdminMutationService {
     return this.adminReadService.getRsvpDetail(rsvpId);
   }
 
+  async updateGuestMessageVisibility(
+    messageId: string,
+    body: unknown,
+  ): Promise<AdminGuestMessageItemDto> {
+    assertUuid(messageId);
+    const input = normalizeGuestMessageUpdateInput(body);
+
+    const result = await this.prisma.guestMessage.updateMany({
+      data: { isHidden: input.isHidden },
+      where: { id: messageId },
+    });
+
+    if (result.count === 0) {
+      notFound();
+    }
+
+    const message = await this.prisma.guestMessage.findUnique({
+      select: {
+        authorName: true,
+        createdAt: true,
+        id: true,
+        invitation: {
+          select: {
+            displayName: true,
+            id: true,
+          },
+        },
+        isHidden: true,
+        message: true,
+      },
+      where: { id: messageId },
+    });
+
+    if (message === null) {
+      notFound();
+    }
+
+    return mapAdminGuestMessageItem(message);
+  }
+
   private async assertActiveEvents(
     tx: Prisma.TransactionClient,
     eventIds: readonly string[],
@@ -1103,7 +1196,10 @@ export class AdminMutationService {
       where: { id: { in: [...eventIds] } },
     });
 
-    if (events.length !== eventIds.length || events.some((event) => !event.isActive)) {
+    if (
+      events.length !== eventIds.length ||
+      events.some((event) => !event.isActive)
+    ) {
       validationError();
     }
   }

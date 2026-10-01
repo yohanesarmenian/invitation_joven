@@ -4,6 +4,7 @@ import { InvitationsModule } from "../invitations/invitations.module.js";
 import { SecurityModule } from "../security/security.module.js";
 import {
   AdminInviteeMutationController,
+  AdminMessageMutationController,
   AdminMutationController,
 } from "./admin-mutation.controller.js";
 import { AdminMutationService } from "./admin-mutation.service.js";
@@ -14,6 +15,7 @@ import { PublicInvitationBaseUrlService } from "./public-invitation-base-url.ser
 @Module({
   controllers: [
     AdminInviteeMutationController,
+    AdminMessageMutationController,
     AdminMutationController,
     AdminReadController,
   ],

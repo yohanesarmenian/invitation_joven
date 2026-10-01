@@ -31,6 +31,7 @@ import { ApiErrorEnvelopeDto } from "../common/api-error.dto.js";
 import { isPublicRsvpDomainError } from "../invitations/public-rsvp.errors.js";
 import { AdminMutationService } from "./admin-mutation.service.js";
 import {
+  AdminGuestMessageItemDto,
   AdminInvitationDetailResponseDto,
   AdminInvitationPublicUrlResponseDto,
   AdminRsvpDetailResponseDto,
@@ -45,6 +46,7 @@ import {
   RegenerateInvitationTokenRequestDto,
   ReplaceAdminInvitationEventsRequestDto,
   ReplaceAdminInvitationEventsResponseDto,
+  UpdateAdminGuestMessageRequestDto,
   UpdateAdminInviteeRequestDto,
   UpdateAdminInvitationRequestDto,
 } from "./dto/admin-mutation.dto.js";
@@ -118,7 +120,10 @@ export class AdminMutationController {
     @Param("invitationId") invitationId: string,
     @Body() body: RegenerateInvitationTokenRequestDto,
   ): Promise<AdminInvitationPublicUrlResponseDto> {
-    return this.adminMutationService.regenerateInvitationToken(invitationId, body);
+    return this.adminMutationService.regenerateInvitationToken(
+      invitationId,
+      body,
+    );
   }
 
   @Post(":invitationId/invitees")
@@ -151,7 +156,10 @@ export class AdminMutationController {
     @Param("invitationId") invitationId: string,
     @Body() body: ReplaceAdminInvitationEventsRequestDto,
   ): Promise<ReplaceAdminInvitationEventsResponseDto> {
-    return this.adminMutationService.replaceInvitationEvents(invitationId, body);
+    return this.adminMutationService.replaceInvitationEvents(
+      invitationId,
+      body,
+    );
   }
 
   @Put(":invitationId/rsvp")
@@ -237,5 +245,33 @@ export class AdminInviteeMutationController {
   @ApiConflictResponse({ type: ApiErrorEnvelopeDto })
   async deleteInvitee(@Param("inviteeId") inviteeId: string): Promise<void> {
     await this.adminMutationService.deleteInvitee(inviteeId);
+  }
+}
+
+@ApiTags("Admin")
+@Controller("api/admin/messages")
+export class AdminMessageMutationController {
+  constructor(
+    @Inject(AdminMutationService)
+    private readonly adminMutationService: AdminMutationService,
+  ) {}
+
+  @Patch(":messageId")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Moderate admin guest message" })
+  @ApiBody({ type: UpdateAdminGuestMessageRequestDto })
+  @ApiOkResponse({ type: AdminGuestMessageItemDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  async updateGuestMessageVisibility(
+    @Param("messageId") messageId: string,
+    @Body() body: UpdateAdminGuestMessageRequestDto,
+  ): Promise<AdminGuestMessageItemDto> {
+    return this.adminMutationService.updateGuestMessageVisibility(
+      messageId,
+      body,
+    );
   }
 }
