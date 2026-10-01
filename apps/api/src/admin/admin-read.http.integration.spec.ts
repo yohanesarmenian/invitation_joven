@@ -350,8 +350,12 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/invitations",
       "GET /api/admin/invitations/:invitationId",
       "GET /api/admin/invitations/:invitationId/public-url",
+      "PATCH /api/admin/invitations/:invitationId",
       "POST /api/admin/auth/login",
       "POST /api/admin/auth/logout",
+      "POST /api/admin/invitations",
+      "POST /api/admin/invitations/:invitationId/archive",
+      "POST /api/admin/invitations/:invitationId/regenerate-token",
     ]);
 
     for (const route of routes.filter(
@@ -387,7 +391,11 @@ describe("admin read HTTP integration", () => {
         !(route.method === "POST" && route.path === "/api/admin/auth/login"),
     );
     expect(unsafeRoutes.map((route) => `${route.method} ${route.path}`)).toEqual([
+      "PATCH /api/admin/invitations/:invitationId",
       "POST /api/admin/auth/logout",
+      "POST /api/admin/invitations",
+      "POST /api/admin/invitations/:invitationId/archive",
+      "POST /api/admin/invitations/:invitationId/regenerate-token",
     ]);
 
     for (const route of unsafeRoutes) {

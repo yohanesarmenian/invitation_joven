@@ -140,6 +140,394 @@
         ]
       }
     },
+    "/api/admin/invitations": {
+      "post": {
+        "operationId": "AdminMutationController_createInvitation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdminInvitationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAdminInvitationResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create admin invitation",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "get": {
+        "operationId": "AdminReadController_listInvitations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminInvitationListResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List admin invitations",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/invitations/{invitationId}": {
+      "patch": {
+        "operationId": "AdminMutationController_updateInvitation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAdminInvitationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminInvitationDetailResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update admin invitation",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "get": {
+        "operationId": "AdminReadController_getInvitationDetail",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminInvitationDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get admin invitation detail",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/invitations/{invitationId}/archive": {
+      "post": {
+        "operationId": "AdminMutationController_archiveInvitation",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveAdminInvitationResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Archive admin invitation",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/admin/invitations/{invitationId}/regenerate-token": {
+      "post": {
+        "operationId": "AdminMutationController_regenerateInvitationToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegenerateInvitationTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminInvitationPublicUrlResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Regenerate admin invitation public URL",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/admin/dashboard": {
       "get": {
         "operationId": "AdminReadController_getDashboard",
@@ -199,90 +587,6 @@
           }
         },
         "summary": "List admin event catalog",
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/api/admin/invitations": {
-      "get": {
-        "operationId": "AdminReadController_listInvitations",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminInvitationListResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List admin invitations",
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/api/admin/invitations/{invitationId}": {
-      "get": {
-        "operationId": "AdminReadController_getInvitationDetail",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminInvitationDetailResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get admin invitation detail",
         "tags": [
           "Admin"
         ]
@@ -712,157 +1016,32 @@
           "timestamp"
         ]
       },
-      "AdminDashboardInvitationMetricsDto": {
+      "CreateAdminInvitationInviteeDto": {
         "type": "object",
         "properties": {
-          "active": {
-            "type": "number",
-            "minimum": 0
+          "fullName": {
+            "type": "string"
           },
-          "archived": {
-            "type": "number",
-            "minimum": 0
-          },
-          "openedActive": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "active",
-          "archived",
-          "openedActive"
-        ]
-      },
-      "AdminDashboardRsvpMetricsDto": {
-        "type": "object",
-        "properties": {
-          "pending": {
-            "type": "number",
-            "minimum": 0
-          },
-          "accepted": {
-            "type": "number",
-            "minimum": 0
-          },
-          "declined": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "pending",
-          "accepted",
-          "declined"
-        ]
-      },
-      "AdminDashboardEventDto": {
-        "type": "object",
-        "properties": {
-          "id": {
+          "category": {
             "type": "string",
-            "format": "uuid"
+            "enum": [
+              "ADULT",
+              "CHILD"
+            ]
           },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "slug",
-          "name"
-        ]
-      },
-      "AdminDashboardExpectedByEventDto": {
-        "type": "object",
-        "properties": {
-          "event": {
-            "$ref": "#/components/schemas/AdminDashboardEventDto"
-          },
-          "expectedAttendeeCount": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "event",
-          "expectedAttendeeCount"
-        ]
-      },
-      "AdminDashboardResponseDto": {
-        "type": "object",
-        "properties": {
-          "invitations": {
-            "$ref": "#/components/schemas/AdminDashboardInvitationMetricsDto"
-          },
-          "rsvp": {
-            "$ref": "#/components/schemas/AdminDashboardRsvpMetricsDto"
-          },
-          "expectedByEvent": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AdminDashboardExpectedByEventDto"
-            }
-          }
-        },
-        "required": [
-          "invitations",
-          "rsvp",
-          "expectedByEvent"
-        ]
-      },
-      "AdminEventDto": {
-        "type": "object",
-        "properties": {
-          "id": {
+          "label": {
             "type": "string",
-            "format": "uuid"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "displayOrder": {
-            "type": "number"
+            "nullable": true
           }
         },
         "required": [
-          "id",
-          "slug",
-          "name",
-          "isActive",
-          "displayOrder"
+          "fullName",
+          "category"
         ]
       },
-      "AdminEventsResponseDto": {
+      "CreateAdminInvitationRequestDto": {
         "type": "object",
         "properties": {
-          "events": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AdminEventDto"
-            }
-          }
-        },
-        "required": [
-          "events"
-        ]
-      },
-      "AdminInvitationListItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
           "displayName": {
             "type": "string"
           },
@@ -870,112 +1049,45 @@
             "type": "string",
             "nullable": true
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "ACTIVE",
-              "ARCHIVED"
-            ]
+          "allowPlusOne": {
+            "type": "boolean"
           },
-          "rsvpStatus": {
-            "type": "string",
-            "enum": [
-              "PENDING",
-              "ACCEPTED",
-              "DECLINED"
-            ]
-          },
-          "inviteeCount": {
+          "maxAdditionalChildren": {
             "type": "number",
             "minimum": 0
-          },
-          "openCount": {
-            "type": "number",
-            "minimum": 0
-          },
-          "lastOpenedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
           },
           "rsvpDeadlineAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true
           },
-          "createdAt": {
+          "notes": {
             "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "archivedAt": {
-            "type": "string",
-            "format": "date-time",
             "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "displayName",
-          "greetingName",
-          "status",
-          "rsvpStatus",
-          "inviteeCount",
-          "openCount",
-          "lastOpenedAt",
-          "rsvpDeadlineAt",
-          "createdAt",
-          "updatedAt",
-          "archivedAt"
-        ]
-      },
-      "AdminPageMetadataDto": {
-        "type": "object",
-        "properties": {
-          "number": {
-            "type": "number",
-            "minimum": 1
           },
-          "pageSize": {
-            "type": "number",
-            "maximum": 100,
-            "minimum": 1
-          },
-          "totalItems": {
-            "type": "number",
-            "minimum": 0
-          },
-          "totalPages": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "number",
-          "pageSize",
-          "totalItems",
-          "totalPages"
-        ]
-      },
-      "AdminInvitationListResponseDto": {
-        "type": "object",
-        "properties": {
-          "items": {
+          "eventIds": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AdminInvitationListItemDto"
+              "type": "string",
+              "format": "uuid"
             }
           },
-          "page": {
-            "$ref": "#/components/schemas/AdminPageMetadataDto"
+          "invitees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateAdminInvitationInviteeDto"
+            }
           }
         },
         "required": [
-          "items",
-          "page"
+          "displayName",
+          "greetingName",
+          "allowPlusOne",
+          "maxAdditionalChildren",
+          "rsvpDeadlineAt",
+          "notes",
+          "eventIds",
+          "invitees"
         ]
       },
       "AdminInviteeDetailDto": {
@@ -1008,6 +1120,34 @@
           "fullName",
           "category",
           "label",
+          "displayOrder"
+        ]
+      },
+      "AdminEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "isActive",
           "displayOrder"
         ]
       },
@@ -1236,6 +1376,61 @@
           "checkinPasses"
         ]
       },
+      "CreateAdminInvitationResponseDto": {
+        "type": "object",
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/AdminInvitationDetailDto"
+          },
+          "publicUrl": {
+            "type": "string"
+          },
+          "publicTokenVersion": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "invitation",
+          "publicUrl",
+          "publicTokenVersion"
+        ]
+      },
+      "UpdateAdminInvitationRequestDto": {
+        "type": "object",
+        "properties": {
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "greetingName": {
+            "type": "string",
+            "nullable": true
+          },
+          "allowPlusOne": {
+            "type": "boolean"
+          },
+          "maxAdditionalChildren": {
+            "type": "number",
+            "minimum": 0
+          },
+          "rsvpDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "expectedUpdatedAt"
+        ]
+      },
       "AdminInvitationDetailResponseDto": {
         "type": "object",
         "properties": {
@@ -1245,6 +1440,54 @@
         },
         "required": [
           "invitation"
+        ]
+      },
+      "ArchiveAdminInvitationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED"
+            ]
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "archivedAt"
+        ]
+      },
+      "ArchiveAdminInvitationResponseDto": {
+        "type": "object",
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/ArchiveAdminInvitationSummaryDto"
+          }
+        },
+        "required": [
+          "invitation"
+        ]
+      },
+      "RegenerateInvitationTokenRequestDto": {
+        "type": "object",
+        "properties": {
+          "expectedTokenVersion": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "expectedTokenVersion"
         ]
       },
       "AdminInvitationPublicUrlResponseDto": {
@@ -1261,6 +1504,244 @@
         "required": [
           "publicUrl",
           "publicTokenVersion"
+        ]
+      },
+      "AdminDashboardInvitationMetricsDto": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "number",
+            "minimum": 0
+          },
+          "archived": {
+            "type": "number",
+            "minimum": 0
+          },
+          "openedActive": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "active",
+          "archived",
+          "openedActive"
+        ]
+      },
+      "AdminDashboardRsvpMetricsDto": {
+        "type": "object",
+        "properties": {
+          "pending": {
+            "type": "number",
+            "minimum": 0
+          },
+          "accepted": {
+            "type": "number",
+            "minimum": 0
+          },
+          "declined": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "pending",
+          "accepted",
+          "declined"
+        ]
+      },
+      "AdminDashboardEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ]
+      },
+      "AdminDashboardExpectedByEventDto": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/AdminDashboardEventDto"
+          },
+          "expectedAttendeeCount": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "event",
+          "expectedAttendeeCount"
+        ]
+      },
+      "AdminDashboardResponseDto": {
+        "type": "object",
+        "properties": {
+          "invitations": {
+            "$ref": "#/components/schemas/AdminDashboardInvitationMetricsDto"
+          },
+          "rsvp": {
+            "$ref": "#/components/schemas/AdminDashboardRsvpMetricsDto"
+          },
+          "expectedByEvent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminDashboardExpectedByEventDto"
+            }
+          }
+        },
+        "required": [
+          "invitations",
+          "rsvp",
+          "expectedByEvent"
+        ]
+      },
+      "AdminEventsResponseDto": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminEventDto"
+            }
+          }
+        },
+        "required": [
+          "events"
+        ]
+      },
+      "AdminInvitationListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "greetingName": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED"
+            ]
+          },
+          "rsvpStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "inviteeCount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "openCount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "lastOpenedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "rsvpDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "greetingName",
+          "status",
+          "rsvpStatus",
+          "inviteeCount",
+          "openCount",
+          "lastOpenedAt",
+          "rsvpDeadlineAt",
+          "createdAt",
+          "updatedAt",
+          "archivedAt"
+        ]
+      },
+      "AdminPageMetadataDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "maximum": 100,
+            "minimum": 1
+          },
+          "totalItems": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "number",
+          "pageSize",
+          "totalItems",
+          "totalPages"
+        ]
+      },
+      "AdminInvitationListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminInvitationListItemDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/AdminPageMetadataDto"
+          }
+        },
+        "required": [
+          "items",
+          "page"
         ]
       },
       "PublicInvitationEventDto": {

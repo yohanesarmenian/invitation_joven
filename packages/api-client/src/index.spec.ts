@@ -4,14 +4,19 @@ import {
   createInvitationApiClient,
   type AdminAuthResponse,
   type AdminDashboardResponse,
+  type ArchiveAdminInvitationResponse,
+  type CreateAdminInvitationRequest,
+  type CreateAdminInvitationResponse,
   type AdminInvitationDetailResponse,
   type AdminInvitationListResponse,
   type AdminInvitationPublicUrlResponse,
   type AdminLoginRequest,
   type PublicRsvpReadResponse,
+  type RegenerateInvitationTokenRequest,
   type SubmitPublicGuestMessageRequest,
   type SubmitPublicGuestMessageResponse,
   type SubmitPublicRsvpRequest,
+  type UpdateAdminInvitationRequest,
 } from "./index.js";
 
 function assertApiPath(path: keyof paths): keyof paths {
@@ -164,6 +169,12 @@ describe("generated API client", () => {
     expect(
       assertApiPath("/api/admin/invitations/{invitationId}/public-url"),
     ).toBe("/api/admin/invitations/{invitationId}/public-url");
+    expect(
+      assertApiPath("/api/admin/invitations/{invitationId}/archive"),
+    ).toBe("/api/admin/invitations/{invitationId}/archive");
+    expect(
+      assertApiPath("/api/admin/invitations/{invitationId}/regenerate-token"),
+    ).toBe("/api/admin/invitations/{invitationId}/regenerate-token");
 
     const dashboard: AdminDashboardResponse = {
       expectedByEvent: [],
@@ -244,6 +255,41 @@ describe("generated API client", () => {
       publicTokenVersion: 1,
       publicUrl: "https://invite.example.com/i/abc",
     };
+    const createRequest: CreateAdminInvitationRequest = {
+      allowPlusOne: true,
+      displayName: "Created Household",
+      eventIds: ["11111111-1111-4111-8111-111111111111"],
+      greetingName: null,
+      invitees: [
+        {
+          category: "ADULT",
+          fullName: "Adult Guest",
+          label: null,
+        },
+      ],
+      maxAdditionalChildren: 0,
+      notes: null,
+      rsvpDeadlineAt: null,
+    };
+    const createResponse: CreateAdminInvitationResponse = {
+      invitation: detail.invitation,
+      publicTokenVersion: 1,
+      publicUrl: "https://invite.example.com/i/abc",
+    };
+    const updateRequest: UpdateAdminInvitationRequest = {
+      displayName: "Edited Household",
+      expectedUpdatedAt: detail.invitation.updatedAt,
+    };
+    const archiveResponse: ArchiveAdminInvitationResponse = {
+      invitation: {
+        archivedAt: "2026-09-30T01:00:00.000Z",
+        id: detail.invitation.id,
+        status: "ARCHIVED",
+      },
+    };
+    const regenerateRequest: RegenerateInvitationTokenRequest = {
+      expectedTokenVersion: 1,
+    };
 
     expect(dashboard.invitations.active).toBe(1);
     expect(list.items[0]?.rsvpStatus).toBe("PENDING");
@@ -255,6 +301,16 @@ describe("generated API client", () => {
       "version",
     ]);
     expect(publicUrl.publicUrl).toContain("/i/");
+    expect(createRequest.invitees[0]?.category).toBe("ADULT");
+    expect(createResponse.publicUrl).toContain("/i/");
+    expect(updateRequest.expectedUpdatedAt).toBe(detail.invitation.updatedAt);
+    expect(Object.keys(archiveResponse.invitation).sort()).toEqual([
+      "archivedAt",
+      "id",
+      "status",
+    ]);
+    expect(JSON.stringify(archiveResponse)).not.toContain("reason");
+    expect(regenerateRequest.expectedTokenVersion).toBe(1);
     expect(JSON.stringify(list)).not.toContain("notes");
     expect(JSON.stringify(list)).not.toContain("publicTokenVersion");
     expect(JSON.stringify(detail)).not.toContain("publicUrl");
@@ -265,5 +321,7 @@ describe("generated API client", () => {
     expect(JSON.stringify(detailWithRsvp)).not.toContain("eventSelections");
     expect(JSON.stringify(detailWithRsvp)).not.toContain("dietaryNotes");
     expect(JSON.stringify(detailWithRsvp)).not.toContain("guestNote");
+    expect(JSON.stringify(createResponse)).not.toContain("publicTokenHash");
+    expect(JSON.stringify(publicUrl)).not.toContain("publicTokenHash");
   });
 });
