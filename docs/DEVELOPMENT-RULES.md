@@ -82,7 +82,7 @@ Admin management rules (locked in Phase 8 Slice 8D0):
 - Invitee deletion is hard delete, permitted only when no `RSVPAttendee` references the invitee. There is no soft-delete or inactive invitee state, and none is added.
 - Editing an Invitee never rewrites an existing `RSVPAttendee` snapshot. Correct submitted RSVP composition through the RSVP override flow.
 - The OWNER RSVP override reuses the public RSVP lifecycle implementation and must not fork `CheckinPass` semantics. It may bypass `rsvpDeadlineAt`; it must not bypass `ACTIVE`, eligibility, composition, capacity, transition, pass-lifecycle, or `expectedVersion` rules.
-- Every successful OWNER RSVP override writes `submittedByAdminUserId` and `adminOverrideReason`. `guestNote` is not written in Phase 8.
+- Every successful OWNER RSVP override writes `submittedByAdminUserId` and `adminOverrideReason`. These fields describe the current RSVP state: a later successful public RSVP clears both, while failed public mutations preserve both. `guestNote` is not written in Phase 8.
 - Phase 8 adds no generic audit-log table. Invitation, invitee, eligibility, archive, regeneration, and guest-message-moderation mutations carry no actor attribution, and `GuestMessage` moderation carries no actor or timestamp. These are declared MVP limitations, not omissions to fix silently.
 - Phase 8 does not own the Event catalog. Only `InvitationEvent` eligibility is managed. No `Event` create/update/delete route is added.
 - `isHidden` is an internal moderation flag with no public guest-facing effect, because no public message wall exists. Do not imply one.

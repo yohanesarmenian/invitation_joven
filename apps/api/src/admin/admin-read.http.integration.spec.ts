@@ -343,6 +343,14 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
+    expect(routes).toHaveLength(19);
+    expect(routeNames).toEqual(
+      expect.arrayContaining([
+        "POST /api/admin/invitations",
+        "POST /api/admin/invitations/:invitationId/invitees",
+        "DELETE /api/admin/invitees/:inviteeId",
+      ]),
+    );
     expect(routeNames).toEqual([
       "DELETE /api/admin/invitees/:inviteeId",
       "GET /api/admin/auth/me",
@@ -351,6 +359,8 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/invitations",
       "GET /api/admin/invitations/:invitationId",
       "GET /api/admin/invitations/:invitationId/public-url",
+      "GET /api/admin/rsvps",
+      "GET /api/admin/rsvps/:rsvpId",
       "PATCH /api/admin/invitations/:invitationId",
       "PATCH /api/admin/invitees/:inviteeId",
       "POST /api/admin/auth/login",
@@ -360,6 +370,7 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/invitations/:invitationId/invitees",
       "POST /api/admin/invitations/:invitationId/regenerate-token",
       "PUT /api/admin/invitations/:invitationId/events",
+      "PUT /api/admin/invitations/:invitationId/rsvp",
     ]);
 
     for (const route of routes.filter(
@@ -404,6 +415,7 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/invitations/:invitationId/invitees",
       "POST /api/admin/invitations/:invitationId/regenerate-token",
       "PUT /api/admin/invitations/:invitationId/events",
+      "PUT /api/admin/invitations/:invitationId/rsvp",
     ]);
 
     for (const route of unsafeRoutes) {

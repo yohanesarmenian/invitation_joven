@@ -17,6 +17,7 @@ import { CredentialService } from "../security/credential.service.js";
 import {
   adminInvitationSortFields,
   adminInvitationStatuses,
+  adminRsvpSortFields,
   adminRsvpStatuses,
   type AdminDashboardResponseDto,
   type AdminEventsResponseDto,
@@ -24,6 +25,9 @@ import {
   type AdminInvitationListResponseDto,
   type AdminInvitationPublicUrlResponseDto,
   type AdminInvitationStatus,
+  type AdminRsvpDetailResponseDto,
+  type AdminRsvpListResponseDto,
+  type AdminRsvpSortField,
   type AdminRsvpStatus,
 } from "./dto/admin-read.dto.js";
 import { PublicInvitationBaseUrlService } from "./public-invitation-base-url.service.js";
@@ -56,6 +60,13 @@ const INVITATION_SORT_MAP = {
   (typeof adminInvitationSortFields)[number],
   keyof Prisma.InvitationOrderByWithRelationInput
 >;
+const RSVP_SORT_MAP = {
+  createdAt: "createdAt",
+  status: "status",
+  updatedAt: "lastUpdatedAt",
+} satisfies Record<AdminRsvpSortField, keyof Prisma.RSVPOrderByWithRelationInput>;
+const UUID_PATTERN =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 function toIsoDate(value: Date | null): string | null {
   return value?.toISOString() ?? null;
@@ -91,6 +102,24 @@ function parseRsvpStatusFilter(value: unknown): AdminRsvpStatus | null {
   }
 
   return value as AdminRsvpStatus;
+}
+
+function parseOptionalUuid(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  if (Array.isArray(value) || typeof value !== "string" || !UUID_PATTERN.test(value)) {
+    validationError();
+  }
+
+  return value;
+}
+
+function assertUuid(value: string): void {
+  if (!UUID_PATTERN.test(value)) {
+    validationError();
+  }
 }
 
 function credentialLookupHashesMatch(actual: string, expected: string): boolean {
@@ -200,6 +229,178 @@ export class AdminReadService {
     });
 
     return { events };
+  }
+
+  async listRsvps(query: QueryBag): Promise<AdminRsvpListResponseDto> {
+    const page = parseAdminPagination(query);
+    const sort = parseAdminSort(query, adminRsvpSortFields, {
+      sortBy: "updatedAt",
+      sortOrder: "desc",
+    });
+    const search = parseAdminSearch(query);
+    const status = parseRsvpStatusFilter(query.status);
+    const eventId = parseOptionalUuid(query.eventId);
+    const where = this.buildRsvpListWhere({ eventId, search, status });
+    const orderBy: Prisma.RSVPOrderByWithRelationInput[] = [
+      { [RSVP_SORT_MAP[sort.sortBy]]: sort.sortOrder },
+      { id: "asc" },
+    ];
+    const { rsvps, totalItems } = await this.prisma.$transaction(async (tx) => {
+      const totalItems = await tx.rSVP.count({ where });
+      const rsvps = await tx.rSVP.findMany({
+        orderBy,
+        skip: page.skip,
+        take: page.pageSize,
+        where,
+        select: {
+          attendees: { select: { quantity: true } },
+          createdAt: true,
+          eventSelections: { select: { attending: true } },
+          id: true,
+          invitation: {
+            select: {
+              displayName: true,
+              id: true,
+              status: true,
+            },
+          },
+          lastUpdatedAt: true,
+          status: true,
+          submittedByAdminUserId: true,
+          version: true,
+        },
+      });
+
+      return { rsvps, totalItems };
+    });
+
+    return {
+      items: rsvps.map((rsvp) => ({
+        attendeeCount: rsvp.attendees.reduce(
+          (total, attendee) => total + attendee.quantity,
+          0,
+        ),
+        attendingEventCount: rsvp.eventSelections.filter(
+          (selection) => selection.attending,
+        ).length,
+        createdAt: toIsoDateRequired(rsvp.createdAt),
+        id: rsvp.id,
+        invitation: rsvp.invitation,
+        status: rsvp.status,
+        submittedByAdmin: rsvp.submittedByAdminUserId !== null,
+        updatedAt: toIsoDateRequired(rsvp.lastUpdatedAt),
+        version: rsvp.version,
+      })),
+      page: buildAdminPageMetadata(page, totalItems),
+    };
+  }
+
+  async getRsvpDetail(rsvpId: string): Promise<AdminRsvpDetailResponseDto> {
+    assertUuid(rsvpId);
+    const rsvp = await this.prisma.rSVP.findUnique({
+      where: { id: rsvpId },
+      select: {
+        adminOverrideReason: true,
+        attendees: {
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          select: {
+            attendeeType: true,
+            displayName: true,
+            inviteeId: true,
+            quantity: true,
+          },
+        },
+        checkinPasses: {
+          orderBy: [{ issuedAt: "asc" }, { id: "asc" }],
+          select: {
+            credentialVersion: true,
+            expiresAt: true,
+            issuedAt: true,
+            revocationReason: true,
+            revokedAt: true,
+            status: true,
+          },
+        },
+        createdAt: true,
+        dietaryNotes: true,
+        eventSelections: {
+          orderBy: [{ event: { displayOrder: "asc" } }, { event: { id: "asc" } }],
+          select: {
+            attending: true,
+            event: {
+              select: {
+                displayOrder: true,
+                id: true,
+                isActive: true,
+                name: true,
+                slug: true,
+              },
+            },
+            expectedAttendeeCount: true,
+          },
+        },
+        guestNote: true,
+        id: true,
+        invitation: {
+          select: {
+            displayName: true,
+            id: true,
+            status: true,
+          },
+        },
+        lastUpdatedAt: true,
+        status: true,
+        submittedAt: true,
+        submittedByAdminUser: {
+          select: {
+            email: true,
+            id: true,
+          },
+        },
+        submittedByAdminUserId: true,
+        version: true,
+      },
+    });
+
+    if (rsvp === null) {
+      notFound();
+    }
+
+    return {
+      rsvp: {
+        adminUser: rsvp.submittedByAdminUser ?? undefined,
+        attendees: rsvp.attendees.map((attendee) => ({
+          displayName: attendee.displayName,
+          inviteeId: attendee.inviteeId,
+          quantity: attendee.quantity,
+          type: attendee.attendeeType,
+        })),
+        checkinPasses: rsvp.checkinPasses.map((pass) => ({
+          credentialVersion: pass.credentialVersion,
+          expiresAt: toIsoDate(pass.expiresAt),
+          issuedAt: toIsoDateRequired(pass.issuedAt),
+          revocationReason: pass.revocationReason,
+          revokedAt: toIsoDate(pass.revokedAt),
+          status: pass.status,
+        })),
+        createdAt: toIsoDateRequired(rsvp.createdAt),
+        dietaryNotes: rsvp.dietaryNotes,
+        eventSelections: rsvp.eventSelections.map((selection) => ({
+          attending: selection.attending,
+          event: selection.event,
+          expectedAttendeeCount: selection.expectedAttendeeCount,
+        })),
+        guestNote: rsvp.guestNote,
+        id: rsvp.id,
+        invitation: rsvp.invitation,
+        overrideReason: rsvp.adminOverrideReason ?? undefined,
+        status: rsvp.status,
+        submittedAt: toIsoDate(rsvp.submittedAt),
+        submittedByAdmin: rsvp.submittedByAdminUserId !== null,
+        updatedAt: toIsoDateRequired(rsvp.lastUpdatedAt),
+        version: rsvp.version,
+      },
+    };
   }
 
   async listInvitations(query: QueryBag): Promise<AdminInvitationListResponseDto> {
@@ -462,6 +663,42 @@ export class AdminReadService {
             },
           },
         ],
+      });
+    }
+
+    return and.length === 0 ? {} : { AND: and };
+  }
+
+  private buildRsvpListWhere(input: {
+    eventId: string | null;
+    search: string | null;
+    status: AdminRsvpStatus | null;
+  }): Prisma.RSVPWhereInput {
+    const and: Prisma.RSVPWhereInput[] = [];
+
+    if (input.status !== null) {
+      and.push({ status: input.status });
+    }
+
+    if (input.eventId !== null) {
+      and.push({ eventSelections: { some: { eventId: input.eventId } } });
+    }
+
+    if (input.search !== null) {
+      and.push({
+        invitation: {
+          OR: [
+            { displayName: { contains: input.search, mode: "insensitive" } },
+            { greetingName: { contains: input.search, mode: "insensitive" } },
+            {
+              invitees: {
+                some: {
+                  fullName: { contains: input.search, mode: "insensitive" },
+                },
+              },
+            },
+          ],
+        },
       });
     }
 

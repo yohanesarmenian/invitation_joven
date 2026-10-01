@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
+  publicRsvpMutationStatuses,
+  SubmitPublicRsvpAttendeeDto,
+  SubmitPublicRsvpEventSelectionDto,
+  type PublicRsvpMutationStatus,
+} from "../../invitations/dto/public-rsvp.dto.js";
+import {
   AdminInvitationDetailDto,
   AdminInvitationEligibilityDto,
   adminInviteeCategories,
@@ -159,4 +165,24 @@ export class ReplaceAdminInvitationEventsRequestDto {
 export class ReplaceAdminInvitationEventsResponseDto {
   @ApiProperty({ type: () => [AdminInvitationEligibilityDto] })
   eligibility: AdminInvitationEligibilityDto[];
+}
+
+export class OverrideAdminRsvpRequestDto {
+  @ApiProperty({ nullable: true, minimum: 1, type: Number })
+  expectedVersion: number | null;
+
+  @ApiProperty({ enum: publicRsvpMutationStatuses, type: String })
+  status: PublicRsvpMutationStatus;
+
+  @ApiProperty({ type: () => [SubmitPublicRsvpEventSelectionDto] })
+  eventSelections: SubmitPublicRsvpEventSelectionDto[];
+
+  @ApiProperty({ type: () => [SubmitPublicRsvpAttendeeDto] })
+  attendees: SubmitPublicRsvpAttendeeDto[];
+
+  @ApiPropertyOptional({ maxLength: 500, nullable: true, type: String })
+  dietaryNotes?: string | null;
+
+  @ApiProperty({ maxLength: 500, type: String })
+  overrideReason: string;
 }

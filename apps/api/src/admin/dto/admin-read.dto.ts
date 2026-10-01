@@ -26,6 +26,9 @@ export const adminInvitationSortFields = [
 export type AdminInvitationSortField =
   (typeof adminInvitationSortFields)[number];
 
+export const adminRsvpSortFields = ["createdAt", "updatedAt", "status"] as const;
+export type AdminRsvpSortField = (typeof adminRsvpSortFields)[number];
+
 export class AdminPageMetadataDto {
   @ApiProperty({ minimum: 1, type: Number })
   number: number;
@@ -183,6 +186,77 @@ export class AdminInvitationListResponseDto {
   page: AdminPageMetadataDto;
 }
 
+export class AdminRsvpListQueryDto {
+  @ApiPropertyOptional({ enum: adminRsvpStatuses, type: String })
+  status?: AdminRsvpStatus;
+
+  @ApiPropertyOptional({ format: "uuid", type: String })
+  eventId?: string;
+
+  @ApiPropertyOptional({ maxLength: 100, type: String })
+  search?: string;
+
+  @ApiPropertyOptional({ enum: adminRsvpSortFields, type: String })
+  sortBy?: AdminRsvpSortField;
+
+  @ApiPropertyOptional({ enum: ["asc", "desc"], type: String })
+  sortOrder?: "asc" | "desc";
+
+  @ApiPropertyOptional({ minimum: 1, type: Number })
+  page?: number;
+
+  @ApiPropertyOptional({ maximum: 100, minimum: 1, type: Number })
+  pageSize?: number;
+}
+
+export class AdminRsvpInvitationSummaryDto {
+  @ApiProperty({ format: "uuid", type: String })
+  id: string;
+
+  @ApiProperty({ type: String })
+  displayName: string;
+
+  @ApiProperty({ enum: adminInvitationStatuses, type: String })
+  status: AdminInvitationStatus;
+}
+
+export class AdminRsvpListItemDto {
+  @ApiProperty({ format: "uuid", type: String })
+  id: string;
+
+  @ApiProperty({ type: () => AdminRsvpInvitationSummaryDto })
+  invitation: AdminRsvpInvitationSummaryDto;
+
+  @ApiProperty({ enum: adminRsvpStatuses, type: String })
+  status: AdminRsvpStatus;
+
+  @ApiProperty({ minimum: 1, type: Number })
+  version: number;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  attendeeCount: number;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  attendingEventCount: number;
+
+  @ApiProperty({ format: "date-time", type: String })
+  createdAt: string;
+
+  @ApiProperty({ format: "date-time", type: String })
+  updatedAt: string;
+
+  @ApiProperty({ type: Boolean })
+  submittedByAdmin: boolean;
+}
+
+export class AdminRsvpListResponseDto {
+  @ApiProperty({ type: () => [AdminRsvpListItemDto] })
+  items: AdminRsvpListItemDto[];
+
+  @ApiProperty({ type: () => AdminPageMetadataDto })
+  page: AdminPageMetadataDto;
+}
+
 export class AdminInviteeDetailDto {
   @ApiProperty({ format: "uuid", type: String })
   id: string;
@@ -245,6 +319,91 @@ export class AdminCheckinPassMetadataDto {
 
   @ApiProperty({ format: "date-time", nullable: true, type: String })
   expiresAt: string | null;
+}
+
+export class AdminRsvpEventSelectionDto {
+  @ApiProperty({ type: () => AdminEventDto })
+  event: AdminEventDto;
+
+  @ApiProperty({ type: Boolean })
+  attending: boolean;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  expectedAttendeeCount: number;
+}
+
+export class AdminRsvpAttendeeDto {
+  @ApiProperty({ enum: ["NAMED_INVITEE", "PLUS_ONE", "ADDITIONAL_CHILD"], type: String })
+  type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD";
+
+  @ApiProperty({ format: "uuid", nullable: true, type: String })
+  inviteeId: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  displayName: string | null;
+
+  @ApiProperty({ minimum: 1, type: Number })
+  quantity: number;
+}
+
+export class AdminRsvpAdminUserDto {
+  @ApiProperty({ format: "uuid", type: String })
+  id: string;
+
+  @ApiProperty({ format: "email", type: String })
+  email: string;
+}
+
+export class AdminRsvpDetailDto {
+  @ApiProperty({ format: "uuid", type: String })
+  id: string;
+
+  @ApiProperty({ type: () => AdminRsvpInvitationSummaryDto })
+  invitation: AdminRsvpInvitationSummaryDto;
+
+  @ApiProperty({ enum: adminRsvpStatuses, type: String })
+  status: AdminRsvpStatus;
+
+  @ApiProperty({ minimum: 1, type: Number })
+  version: number;
+
+  @ApiProperty({ type: () => [AdminRsvpEventSelectionDto] })
+  eventSelections: AdminRsvpEventSelectionDto[];
+
+  @ApiProperty({ type: () => [AdminRsvpAttendeeDto] })
+  attendees: AdminRsvpAttendeeDto[];
+
+  @ApiProperty({ nullable: true, type: String })
+  dietaryNotes: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  guestNote: string | null;
+
+  @ApiProperty({ format: "date-time", nullable: true, type: String })
+  submittedAt: string | null;
+
+  @ApiProperty({ format: "date-time", type: String })
+  createdAt: string;
+
+  @ApiProperty({ format: "date-time", type: String })
+  updatedAt: string;
+
+  @ApiProperty({ type: Boolean })
+  submittedByAdmin: boolean;
+
+  @ApiPropertyOptional({ type: () => AdminRsvpAdminUserDto })
+  adminUser?: AdminRsvpAdminUserDto;
+
+  @ApiPropertyOptional({ type: String })
+  overrideReason?: string;
+
+  @ApiProperty({ type: () => [AdminCheckinPassMetadataDto] })
+  checkinPasses: AdminCheckinPassMetadataDto[];
+}
+
+export class AdminRsvpDetailResponseDto {
+  @ApiProperty({ type: () => AdminRsvpDetailDto })
+  rsvp: AdminRsvpDetailDto;
 }
 
 export class AdminInvitationDetailDto {

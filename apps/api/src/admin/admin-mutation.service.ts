@@ -4,12 +4,19 @@ import type { Prisma } from "../generated/prisma/client.js";
 import {
   InvitationStatus,
   InviteeCategory,
+  RSVPAttendeeType,
+  RSVPStatus,
 } from "../generated/prisma/client.js";
 import { conflict, notFound, validationError } from "../auth/auth-errors.js";
 import { PrismaService } from "../database/prisma.service.js";
+import {
+  PublicRsvpService,
+  type SubmitAdminRsvpOverrideCommand,
+} from "../invitations/public-rsvp.service.js";
 import { CredentialService } from "../security/credential.service.js";
 import { AdminReadService } from "./admin-read.service.js";
 import {
+  type AdminRsvpDetailResponseDto,
   type AdminInvitationDetailResponseDto,
   type AdminInvitationPublicUrlResponseDto,
 } from "./dto/admin-read.dto.js";
@@ -49,6 +56,15 @@ const UPDATE_INVITEE_FIELDS = new Set([
   "label",
 ]);
 const REPLACE_EVENTS_FIELDS = new Set(["eventIds"]);
+const OVERRIDE_RSVP_FIELDS = new Set([
+  "attendees",
+  "dietaryNotes",
+  "eventSelections",
+  "expectedVersion",
+  "overrideReason",
+  "status",
+]);
+const OVERRIDE_REASON_MAX_CODE_POINTS = 500;
 
 type PlainObject = Record<string, unknown>;
 
@@ -89,6 +105,11 @@ type NormalizedInviteeUpdateInput = {
     label?: string | null;
   };
 };
+
+type NormalizedAdminRsvpOverrideInput = Omit<
+  SubmitAdminRsvpOverrideCommand,
+  "invitationId" | "submittedByAdminUserId"
+>;
 
 type LockedInvitationRow = {
   id: string;
@@ -174,6 +195,18 @@ function normalizeBoolean(value: unknown): boolean {
   return value;
 }
 
+function normalizeExpectedVersion(value: unknown): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 1) {
+    return value;
+  }
+
+  validationError();
+}
+
 function normalizeNonNegativeInteger(value: unknown): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
     validationError();
@@ -254,6 +287,149 @@ function normalizeReplacementEventIds(value: unknown): string[] {
   }
 
   return eventIds;
+}
+
+function normalizeOverrideReason(value: unknown): string {
+  const normalized = normalizeRequiredText(value);
+
+  if ([...normalized].length > OVERRIDE_REASON_MAX_CODE_POINTS) {
+    validationError();
+  }
+
+  return normalized;
+}
+
+function normalizeRsvpStatus(
+  value: unknown,
+): NormalizedAdminRsvpOverrideInput["status"] {
+  if (value === RSVPStatus.ACCEPTED || value === RSVPStatus.DECLINED) {
+    return value;
+  }
+
+  validationError();
+}
+
+function normalizeRsvpEventSelections(
+  value: unknown,
+): NormalizedAdminRsvpOverrideInput["eventSelections"] {
+  if (!Array.isArray(value)) {
+    validationError();
+  }
+
+  return value.map((selection) => {
+    if (!isPlainObject(selection)) {
+      validationError();
+    }
+
+    assertKnownKeys(
+      selection,
+      new Set(["attending", "eventId", "expectedAttendeeCount"]),
+    );
+
+    if (typeof selection.attending !== "boolean") {
+      validationError();
+    }
+
+    if (
+      typeof selection.eventId !== "string" ||
+      !UUID_PATTERN.test(selection.eventId)
+    ) {
+      validationError();
+    }
+
+    if (
+      typeof selection.expectedAttendeeCount !== "number" ||
+      !Number.isSafeInteger(selection.expectedAttendeeCount) ||
+      selection.expectedAttendeeCount < 0
+    ) {
+      validationError();
+    }
+
+    return {
+      attending: selection.attending,
+      eventId: selection.eventId,
+      expectedAttendeeCount: selection.expectedAttendeeCount,
+    };
+  });
+}
+
+function normalizeRsvpAttendees(
+  value: unknown,
+): NormalizedAdminRsvpOverrideInput["attendees"] {
+  if (!Array.isArray(value)) {
+    validationError();
+  }
+
+  return value.map((attendee) => {
+    if (!isPlainObject(attendee)) {
+      validationError();
+    }
+
+    assertKnownKeys(attendee, new Set(["inviteeId", "quantity", "type"]));
+
+    if (
+      attendee.type !== RSVPAttendeeType.NAMED_INVITEE &&
+      attendee.type !== RSVPAttendeeType.PLUS_ONE &&
+      attendee.type !== RSVPAttendeeType.ADDITIONAL_CHILD
+    ) {
+      validationError();
+    }
+
+    if (
+      attendee.inviteeId !== undefined &&
+      attendee.inviteeId !== null &&
+      (typeof attendee.inviteeId !== "string" ||
+        !UUID_PATTERN.test(attendee.inviteeId))
+    ) {
+      validationError();
+    }
+
+    if (
+      typeof attendee.quantity !== "number" ||
+      !Number.isSafeInteger(attendee.quantity) ||
+      attendee.quantity < 1
+    ) {
+      validationError();
+    }
+
+    return {
+      inviteeId: attendee.inviteeId,
+      quantity: attendee.quantity,
+      type: attendee.type,
+    };
+  });
+}
+
+function normalizeAdminRsvpOverrideInput(
+  body: unknown,
+): NormalizedAdminRsvpOverrideInput {
+  if (!isPlainObject(body)) {
+    validationError();
+  }
+
+  assertKnownKeys(body, OVERRIDE_RSVP_FIELDS);
+
+  if (
+    !Object.hasOwn(body, "expectedVersion") ||
+    !Object.hasOwn(body, "status") ||
+    !Object.hasOwn(body, "eventSelections") ||
+    !Object.hasOwn(body, "attendees") ||
+    !Object.hasOwn(body, "overrideReason")
+  ) {
+    validationError();
+  }
+
+  return {
+    attendees: normalizeRsvpAttendees(body.attendees),
+    dietaryNotes:
+      body.dietaryNotes === undefined
+        ? undefined
+        : normalizeNullableText(body.dietaryNotes),
+    eventSelections: normalizeRsvpEventSelections(body.eventSelections),
+    expectedVersion: normalizeExpectedVersion(body.expectedVersion),
+    overrideReason: normalizeOverrideReason(body.overrideReason),
+    status: normalizeRsvpStatus(body.status),
+  };
 }
 
 function normalizeInviteeInput(body: unknown): NormalizedInviteeInput {
@@ -481,6 +657,8 @@ export class AdminMutationService {
     private readonly publicBaseUrlService: PublicInvitationBaseUrlService,
     @Inject(AdminReadService)
     private readonly adminReadService: AdminReadService,
+    @Inject(PublicRsvpService)
+    private readonly publicRsvpService: PublicRsvpService,
   ) {}
 
   async createInvitation(body: unknown): Promise<CreateAdminInvitationResponseDto> {
@@ -897,6 +1075,23 @@ export class AdminMutationService {
     });
 
     return { eligibility };
+  }
+
+  async overrideRsvp(
+    invitationId: string,
+    body: unknown,
+    adminUserId: string,
+  ): Promise<AdminRsvpDetailResponseDto> {
+    assertUuid(invitationId);
+    assertUuid(adminUserId);
+    const input = normalizeAdminRsvpOverrideInput(body);
+    const { rsvpId } = await this.publicRsvpService.submitAdminRsvpOverride({
+      ...input,
+      invitationId,
+      submittedByAdminUserId: adminUserId,
+    });
+
+    return this.adminReadService.getRsvpDetail(rsvpId);
   }
 
   private async assertActiveEvents(

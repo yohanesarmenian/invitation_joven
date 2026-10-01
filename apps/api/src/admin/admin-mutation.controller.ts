@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   HttpCode,
@@ -8,6 +9,8 @@ import {
   Patch,
   Post,
   Put,
+  Req,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -21,12 +24,16 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from "@nestjs/swagger";
+import type { RequestWithAdminContext } from "../common/admin-security.guard.js";
 import { ApiErrorEnvelopeDto } from "../common/api-error.dto.js";
+import { isPublicRsvpDomainError } from "../invitations/public-rsvp.errors.js";
 import { AdminMutationService } from "./admin-mutation.service.js";
 import {
   AdminInvitationDetailResponseDto,
   AdminInvitationPublicUrlResponseDto,
+  AdminRsvpDetailResponseDto,
 } from "./dto/admin-read.dto.js";
 import {
   AdminInviteeMutationDto,
@@ -34,6 +41,7 @@ import {
   CreateAdminInviteeRequestDto,
   CreateAdminInvitationRequestDto,
   CreateAdminInvitationResponseDto,
+  OverrideAdminRsvpRequestDto,
   RegenerateInvitationTokenRequestDto,
   ReplaceAdminInvitationEventsRequestDto,
   ReplaceAdminInvitationEventsResponseDto,
@@ -144,6 +152,53 @@ export class AdminMutationController {
     @Body() body: ReplaceAdminInvitationEventsRequestDto,
   ): Promise<ReplaceAdminInvitationEventsResponseDto> {
     return this.adminMutationService.replaceInvitationEvents(invitationId, body);
+  }
+
+  @Put(":invitationId/rsvp")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Override admin RSVP" })
+  @ApiBody({ type: OverrideAdminRsvpRequestDto })
+  @ApiOkResponse({ type: AdminRsvpDetailResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  @ApiConflictResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnprocessableEntityResponse({ type: ApiErrorEnvelopeDto })
+  async overrideRsvp(
+    @Param("invitationId") invitationId: string,
+    @Body() body: OverrideAdminRsvpRequestDto,
+    @Req() request: RequestWithAdminContext,
+  ): Promise<AdminRsvpDetailResponseDto> {
+    const adminUserId = request.admin?.user.id;
+
+    if (adminUserId === undefined) {
+      throw new Error("Admin context missing after security guard.");
+    }
+
+    try {
+      return await this.adminMutationService.overrideRsvp(
+        invitationId,
+        body,
+        adminUserId,
+      );
+    } catch (error) {
+      if (isPublicRsvpDomainError(error)) {
+        const response = {
+          code: error.code,
+          details: error.details,
+          message: error.message,
+        };
+
+        if (error.httpStatus === 409) {
+          throw new ConflictException(response);
+        }
+
+        throw new UnprocessableEntityException(response);
+      }
+
+      throw error;
+    }
   }
 }
 

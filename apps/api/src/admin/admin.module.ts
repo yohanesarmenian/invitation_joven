@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "../database/database.module.js";
+import { InvitationsModule } from "../invitations/invitations.module.js";
 import { SecurityModule } from "../security/security.module.js";
 import {
   AdminInviteeMutationController,
@@ -16,7 +17,7 @@ import { PublicInvitationBaseUrlService } from "./public-invitation-base-url.ser
     AdminMutationController,
     AdminReadController,
   ],
-  imports: [DatabaseModule, SecurityModule],
+  imports: [DatabaseModule, InvitationsModule, SecurityModule],
   providers: [
     AdminMutationService,
     AdminReadService,

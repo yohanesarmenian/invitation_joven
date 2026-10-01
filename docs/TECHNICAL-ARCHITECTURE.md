@@ -511,6 +511,7 @@ Phase 5 contract lock:
 - `ACCEPTED` requires at least one eligible attending event (`InvitationEvent` is the authoritative eligibility relation). Accepted with zero attending events returns `422 EVENT_NOT_SELECTED`.
 - `dietaryNotes` is household-level: trimmed, maximum 500 characters after trimming, empty after trimming normalizes to `null`.
 - `guestNote` is outside the Phase 5 public RSVP contract. It is not accepted, mutated, or cleared by RSVP accept/decline, and it stays separate from Guest Message work.
+- A successful public RSVP mutation clears current admin attribution (`submittedByAdminUserId` and `adminOverrideReason`) in the same successful RSVP write. Failed public mutations leave both columns unchanged.
 - Public RSVP create and update are both allowed up to and including the cutoff instant and both rejected afterwards with `422 RSVP_DEADLINE_PASSED`. The cutoff instant is `Invitation.rsvp_deadline_at`; the Phase 5 public baseline is `2026-12-25T16:59:59Z`. Public invitation GET remains available after the cutoff. Phase 5 defines no public post-deadline override.
 - The RSVP mutation and the CheckinPass lifecycle happen in the same Invitation-scoped transaction.
 
@@ -717,7 +718,7 @@ Eligibility is replaced declaratively, in one transaction. Removal is rejected o
 
 The OWNER override reuses the public RSVP lifecycle implementation. Extracting or reusing the existing transaction body is required; a second parallel state machine would let the admin path drift from the public one, and `CheckinPass` issuance/revocation is exactly where that drift would be invisible until check-in day.
 
-The override may bypass `rsvpDeadlineAt` — that is its purpose — and it must not bypass `ACTIVE`, eligibility, composition, capacity, transition, pass-lifecycle, or `expectedVersion` rules. Every successful override writes `submittedByAdminUserId` and `adminOverrideReason`, making the RSVP override the only Phase 8 mutation with actor attribution. `guestNote` stays read-only.
+The override may bypass `rsvpDeadlineAt` — that is its purpose — and it must not bypass `ACTIVE`, eligibility, composition, capacity, transition, pass-lifecycle, or `expectedVersion` rules. Every successful override writes `submittedByAdminUserId` and `adminOverrideReason`, making the RSVP override the only Phase 8 mutation that can mark the current RSVP state as OWNER-submitted. These columns are current-state attribution, not audit history: a later successful public RSVP mutation clears both fields, while failed public mutations preserve them. `guestNote` stays read-only.
 
 ### Guest message moderation
 

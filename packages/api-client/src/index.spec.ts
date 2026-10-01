@@ -12,7 +12,10 @@ import {
   type AdminInvitationDetailResponse,
   type AdminInvitationListResponse,
   type AdminInvitationPublicUrlResponse,
+  type AdminRsvpDetailResponse,
+  type AdminRsvpListResponse,
   type AdminLoginRequest,
+  type OverrideAdminRsvpRequest,
   type PublicRsvpReadResponse,
   type RegenerateInvitationTokenRequest,
   type ReplaceAdminInvitationEventsRequest,
@@ -26,6 +29,13 @@ import {
 
 function assertApiPath(path: keyof paths): keyof paths {
   return path;
+}
+
+function assertApiMethod<TPath extends keyof paths>(
+  _path: TPath,
+  method: keyof paths[TPath],
+): keyof paths[TPath] {
+  return method;
 }
 
 describe("generated API client", () => {
@@ -189,6 +199,25 @@ describe("generated API client", () => {
     expect(
       assertApiPath("/api/admin/invitations/{invitationId}/events"),
     ).toBe("/api/admin/invitations/{invitationId}/events");
+    expect(
+      assertApiPath("/api/admin/invitations/{invitationId}/rsvp"),
+    ).toBe("/api/admin/invitations/{invitationId}/rsvp");
+    expect(assertApiPath("/api/admin/rsvps")).toBe("/api/admin/rsvps");
+    expect(assertApiPath("/api/admin/rsvps/{rsvpId}")).toBe(
+      "/api/admin/rsvps/{rsvpId}",
+    );
+    expect(assertApiMethod("/api/admin/invitations", "post")).toBe("post");
+    expect(
+      assertApiMethod("/api/admin/invitations/{invitationId}/invitees", "post"),
+    ).toBe("post");
+    expect(assertApiMethod("/api/admin/invitees/{inviteeId}", "delete")).toBe(
+      "delete",
+    );
+    expect(assertApiMethod("/api/admin/rsvps", "get")).toBe("get");
+    expect(assertApiMethod("/api/admin/rsvps/{rsvpId}", "get")).toBe("get");
+    expect(
+      assertApiMethod("/api/admin/invitations/{invitationId}/rsvp", "put"),
+    ).toBe("put");
 
     const dashboard: AdminDashboardResponse = {
       expectedByEvent: [],
@@ -339,6 +368,101 @@ describe("generated API client", () => {
         },
       ],
     };
+    const overrideRsvpRequest: OverrideAdminRsvpRequest = {
+      attendees: [
+        {
+          inviteeId: "22222222-2222-4222-8222-222222222222",
+          quantity: 1,
+          type: "NAMED_INVITEE",
+        },
+      ],
+      dietaryNotes: null,
+      eventSelections: [
+        {
+          attending: true,
+          eventId: "33333333-3333-4333-8333-333333333333",
+          expectedAttendeeCount: 1,
+        },
+      ],
+      expectedVersion: null,
+      overrideReason: "Guest replied by phone",
+      status: "ACCEPTED",
+    };
+    const adminRsvpList: AdminRsvpListResponse = {
+      items: [
+        {
+          attendeeCount: 1,
+          attendingEventCount: 1,
+          createdAt: "2026-09-30T00:00:00.000Z",
+          id: "44444444-4444-4444-8444-444444444444",
+          invitation: {
+            displayName: "Example Household",
+            id: detail.invitation.id,
+            status: "ACTIVE",
+          },
+          status: "ACCEPTED",
+          submittedByAdmin: true,
+          updatedAt: "2026-09-30T00:00:00.000Z",
+          version: 1,
+        },
+      ],
+      page: {
+        number: 1,
+        pageSize: 25,
+        totalItems: 1,
+        totalPages: 1,
+      },
+    };
+    const adminRsvpDetail: AdminRsvpDetailResponse = {
+      rsvp: {
+        adminUser: {
+          email: "owner@example.com",
+          id: "55555555-5555-4555-8555-555555555555",
+        },
+        attendees: [
+          {
+            displayName: null,
+            inviteeId: "22222222-2222-4222-8222-222222222222",
+            quantity: 1,
+            type: "NAMED_INVITEE",
+          },
+        ],
+        checkinPasses: [
+          {
+            credentialVersion: 1,
+            expiresAt: null,
+            issuedAt: "2026-09-30T00:00:00.000Z",
+            revocationReason: null,
+            revokedAt: null,
+            status: "ACTIVE",
+          },
+        ],
+        createdAt: "2026-09-30T00:00:00.000Z",
+        dietaryNotes: null,
+        eventSelections: [
+          {
+            attending: true,
+            event: {
+              displayOrder: 1,
+              id: "33333333-3333-4333-8333-333333333333",
+              isActive: true,
+              name: "Ceremony",
+              slug: "ceremony",
+            },
+            expectedAttendeeCount: 1,
+          },
+        ],
+        guestNote: "Read-only note",
+        id: adminRsvpList.items[0]!.id,
+        invitation: adminRsvpList.items[0]!.invitation,
+        overrideReason: overrideRsvpRequest.overrideReason,
+        status: "ACCEPTED",
+        submittedAt: "2026-09-30T00:00:00.000Z",
+        submittedByAdmin: true,
+        updatedAt: "2026-09-30T00:00:00.000Z",
+        version: 1,
+      },
+    };
 
     expect(dashboard.invitations.active).toBe(1);
     expect(list.items[0]?.rsvpStatus).toBe("PENDING");
@@ -366,6 +490,10 @@ describe("generated API client", () => {
     expect(replaceEventsResponse.eligibility[0]?.event.id).toBe(
       replaceEventsRequest.eventIds[0],
     );
+    expect(overrideRsvpRequest.expectedVersion).toBeNull();
+    expect(overrideRsvpRequest.overrideReason).toBe("Guest replied by phone");
+    expect(adminRsvpList.items[0]?.attendeeCount).toBe(1);
+    expect(adminRsvpDetail.rsvp.adminUser?.email).toBe("owner@example.com");
     expect(JSON.stringify(list)).not.toContain("notes");
     expect(JSON.stringify(list)).not.toContain("publicTokenVersion");
     expect(JSON.stringify(detail)).not.toContain("publicUrl");
@@ -382,5 +510,10 @@ describe("generated API client", () => {
     expect(JSON.stringify(inviteeResponse)).not.toContain("guestNote");
     expect(JSON.stringify(replaceEventsResponse)).not.toContain("publicTokenHash");
     expect(JSON.stringify(replaceEventsResponse)).not.toContain("qrPayload");
+    expect(JSON.stringify(adminRsvpList)).not.toContain("dietaryNotes");
+    expect(JSON.stringify(adminRsvpList)).not.toContain("guestNote");
+    expect(JSON.stringify(adminRsvpDetail)).not.toContain("qrPayload");
+    expect(JSON.stringify(adminRsvpDetail)).not.toContain("tokenHash");
+    expect(JSON.stringify(adminRsvpDetail)).not.toContain("publicTokenHash");
   });
 });
