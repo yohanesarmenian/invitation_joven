@@ -287,7 +287,11 @@ test("logout CSRF recovery reads once and waits for explicit retry", async ({
       methods.push(request.method());
   });
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Select Sign out again");
+  await expect(
+    page
+      .getByRole("complementary", { name: "Admin workspace" })
+      .getByRole("status"),
+  ).toContainText("Select Sign out again");
   expect(methods).toEqual(["POST", "GET"]);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL("http://localhost:3001/login");

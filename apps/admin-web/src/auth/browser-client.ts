@@ -36,7 +36,7 @@ export async function signIn(
     return { ok: false, message: loginFailure(0) };
   }
 }
-async function currentSession(): Promise<SessionResult> {
+export async function currentSession(): Promise<SessionResult> {
   try {
     const { data, response } = await client().GET("/api/admin/auth/me");
     if (response.status === 401) return { kind: "unauthenticated" };
