@@ -1,6 +1,7 @@
-// Isolated test server: locked auth and dashboard reads only.
+// Isolated test server for the locked auth and implemented admin operations.
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
+import { mockInvitations } from "./mock-invitations";
 import type { AdminAuthResponse } from "@wedding-invitation/api-client/src/index";
 const sessions = new Map<
   string,
@@ -79,6 +80,11 @@ createServer(async (request, response) => {
     .find((value) => value.startsWith("admin_session="))
     ?.slice("admin_session=".length);
   const session = cookie ? sessions.get(cookie) : undefined;
+  if (await mockInvitations(request, response, session)) {
+    if (session?.email.startsWith("list-ended") && cookie)
+      sessions.delete(cookie);
+    return;
+  }
   if (request.url === "/api/admin/dashboard" && request.method === "GET") {
     if (!session) {
       fail(401, "UNAUTHENTICATED");
