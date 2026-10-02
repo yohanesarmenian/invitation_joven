@@ -1,4 +1,4 @@
-// Isolated test server: only the three locked auth endpoints, no management APIs.
+// Isolated test server: locked auth and dashboard reads only.
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import type { AdminAuthResponse } from "@wedding-invitation/api-client/src/index";
@@ -79,6 +79,63 @@ createServer(async (request, response) => {
     .find((value) => value.startsWith("admin_session="))
     ?.slice("admin_session=".length);
   const session = cookie ? sessions.get(cookie) : undefined;
+  if (request.url === "/api/admin/dashboard" && request.method === "GET") {
+    if (!session) {
+      fail(401, "UNAUTHENTICATED");
+      return;
+    }
+    if (session.email === "dashboard-ended@example.com") {
+      sessions.delete(cookie!);
+      fail(401, "UNAUTHENTICATED");
+      return;
+    }
+    if (session.email === "dashboard-forbidden@example.com") {
+      fail(403, "FORBIDDEN");
+      return;
+    }
+    if (session.email === "dashboard-error@example.com") {
+      fail(500, "INTERNAL_ERROR");
+      return;
+    }
+    if (session.email === "dashboard-malformed@example.com") {
+      response.end(JSON.stringify({ invitations: {} }));
+      return;
+    }
+    if (session.email === "dashboard-slow@example.com")
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+    const empty = session.email === "dashboard-empty@example.com";
+    response.end(
+      JSON.stringify({
+        invitations: {
+          active: empty ? 0 : 7,
+          archived: empty ? 0 : 2,
+          openedActive: empty ? 0 : 5,
+        },
+        rsvp: {
+          pending: empty ? 0 : 3,
+          accepted: empty ? 0 : 9,
+          declined: empty ? 0 : 4,
+        },
+        expectedByEvent: empty
+          ? []
+          : [
+              {
+                event: {
+                  id: "event-1",
+                  slug: "ceremony",
+                  name: "Wedding ceremony",
+                },
+                expectedAttendeeCount: 11,
+              },
+              {
+                event: { id: "event-2", slug: "reception", name: "Reception" },
+                expectedAttendeeCount: 6,
+              },
+            ],
+      }),
+    );
+    return;
+  }
   if (request.url === "/api/admin/auth/me" && request.method === "GET") {
     if (!session) {
       fail(401, "UNAUTHENTICATED");

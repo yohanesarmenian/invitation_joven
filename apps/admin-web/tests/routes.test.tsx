@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 const { session } = vi.hoisted(() => ({ session: vi.fn() }));
 vi.mock("../src/auth/server-session", () => ({ getServerSession: session }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
   redirect: (path: string) => {
     throw new Error(`redirect:${path}`);
   },

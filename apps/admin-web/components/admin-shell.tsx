@@ -1,4 +1,5 @@
 import { LogoutButton } from "./logout-button";
+import { AdminNavigation } from "./admin-navigation";
 export function AdminShell({
   email,
   csrfToken,
@@ -13,16 +14,19 @@ export function AdminShell({
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <header className="admin-header">
-        <div>
-          <p className="brand">Wedding Invitation Admin</p>
+      <aside className="admin-sidebar" aria-label="Admin workspace">
+        <p className="brand">
+          Wedding Invitation<span>Admin</span>
+        </p>
+        <AdminNavigation />
+        <div className="admin-account">
           <p className="identity">
             <span>OWNER</span> {email}
           </p>
+          <LogoutButton csrfToken={csrfToken} />
         </div>
-        <LogoutButton csrfToken={csrfToken} />
-      </header>
-      <main id="main-content" tabIndex={-1}>
+      </aside>
+      <main id="main-content" className="admin-main" tabIndex={-1}>
         {children}
       </main>
     </div>

@@ -1,10 +1,12 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createInvitationApiClient } from "@wedding-invitation/api-client/src/index";
 import { getAdminApiBaseUrl } from "./api-config";
 import { readAuth, type SessionResult } from "./auth-state";
 
-export async function getServerSession(): Promise<SessionResult> {
+// React cache is scoped to this server render, never shared between requests.
+export const getServerSession = cache(async (): Promise<SessionResult> => {
   try {
     const cookieName =
       process.env.NODE_ENV === "production"
@@ -24,4 +26,4 @@ export async function getServerSession(): Promise<SessionResult> {
   } catch {
     return { kind: "unavailable" };
   }
-}
+});
