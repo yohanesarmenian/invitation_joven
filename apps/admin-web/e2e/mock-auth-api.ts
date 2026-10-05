@@ -2,6 +2,7 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { mockInvitations } from "./mock-invitations";
+import { mockMessages } from "./mock-messages";
 import { mockRsvps } from "./mock-rsvps";
 import type { AdminAuthResponse } from "@wedding-invitation/api-client/src/index";
 const sessions = new Map<
@@ -81,6 +82,11 @@ createServer(async (request, response) => {
     .find((value) => value.startsWith("admin_session="))
     ?.slice("admin_session=".length);
   const session = cookie ? sessions.get(cookie) : undefined;
+  if (await mockMessages(request, response, session)) {
+    if (session?.email.startsWith("message-ended") && cookie)
+      sessions.delete(cookie);
+    return;
+  }
   if (await mockRsvps(request, response, session)) {
     if (session?.email.startsWith("rsvp-ended") && cookie)
       sessions.delete(cookie);

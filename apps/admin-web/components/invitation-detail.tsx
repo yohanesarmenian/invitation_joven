@@ -170,7 +170,19 @@ export function InvitationDetail({
             },
             {
               label: "Guest messages",
-              value: `${invitation.messages.total} total, ${invitation.messages.hidden} hidden`,
+              value: (
+                <>
+                  {invitation.messages.total} total, {invitation.messages.hidden}{" "}
+                  hidden
+                  <Link
+                    className="detail-inline-link"
+                    href={`/messages?invitationId=${invitation.id}`}
+                    prefetch={false}
+                  >
+                    View messages
+                  </Link>
+                </>
+              ),
             },
             { label: "Open count", value: invitation.openCount },
             {
