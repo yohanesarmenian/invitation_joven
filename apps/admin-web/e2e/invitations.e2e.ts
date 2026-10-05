@@ -261,7 +261,9 @@ test("detail maps safe projections and loads public link only on demand", async 
     page.getByRole("heading", { name: "Invitation detail", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Sample guest", { exact: true })).toBeVisible();
-  await expect(page.getByText("Reception", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: /Reception/ }),
+  ).toBeVisible();
   await expect(page.getByText("2 total, 1 hidden")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("publicTokenHash");
   await expect(page.locator("body")).not.toContainText("qrPayload");
@@ -273,6 +275,148 @@ test("detail maps safe projections and loads public link only on demand", async 
   expect(
     await page.evaluate(() => localStorage.length + sessionStorage.length),
   ).toBe(0);
+});
+
+test("detail manages invitees and event eligibility with explicit conflict recovery", async ({
+  page,
+}) => {
+  await login(page, "invitee-event-owner@example.com");
+  await page.goto("/invitations");
+  await page
+    .getByRole("link", { name: "Household 01", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Invitation detail", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: /Old event/ }),
+  ).toBeDisabled();
+
+  let inviteePosts = 0;
+  let createPayload: unknown;
+  let createSecure = false;
+  await page.route("**/api/admin/invitations/*/invitees", async (route) => {
+    inviteePosts++;
+    createPayload = route.request().postDataJSON();
+    const headers = await route.request().allHeaders();
+    createSecure =
+      Boolean(headers["x-csrf-token"]) &&
+      headers.origin === "http://localhost:3001" &&
+      !headers["idempotency-key"];
+    await route.fulfill({ response: await route.fetch() });
+  });
+  await page.getByRole("button", { name: "Add invitee", exact: true }).click();
+  await page.getByLabel("Full name (required)").fill("Sample guest");
+  await page.getByLabel("Category").selectOption("ADULT");
+  await page.getByLabel("Label").fill("  duplicate  ");
+  await page
+    .getByRole("button", { name: "Add invitee", exact: true })
+    .last()
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect(page).toHaveURL(/inviteeCreated=1/);
+  expect(inviteePosts).toBe(1);
+  expect(createSecure).toBe(true);
+  expect(createPayload).toEqual({
+    fullName: "Sample guest",
+    category: "ADULT",
+    label: "duplicate",
+  });
+  await page.unroute("**/api/admin/invitations/*/invitees");
+  await expect(page.getByText("Invitee added.")).toBeVisible();
+  await expect(page.getByText("Sample guest")).toHaveCount(2);
+
+  let patchPayload: unknown;
+  await page.route("**/api/admin/invitees/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.continue();
+      return;
+    }
+    patchPayload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 409,
+      json: { error: { code: "CONFLICT", message: "private" } },
+    });
+  });
+  await page
+    .getByRole("row", { name: /Sample guest Adult None/ })
+    .getByRole("button", { name: "Edit" })
+    .click();
+  await page.getByLabel("Full name (required)").fill("Edited guest");
+  await page.getByLabel("Category").selectOption("CHILD");
+  await page.getByLabel("Label").fill("Child");
+  await page.getByRole("button", { name: "Save invitee" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "changed elsewhere" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Full name (required)")).toHaveValue(
+    "Edited guest",
+  );
+  expect(patchPayload).toEqual({
+    expectedUpdatedAt: "2026-10-01T00:00:01.000Z",
+    fullName: "Edited guest",
+    category: "CHILD",
+    label: "Child",
+  });
+  await page.unroute("**/api/admin/invitees/*");
+  await page.getByRole("button", { name: "Save invitee" }).click();
+  await expect(page).toHaveURL(/inviteeUpdated=1/);
+  await expect(page.getByText("Invitee updated.")).toBeVisible();
+  await expect(page.getByText("Edited guest", { exact: true })).toBeVisible();
+
+  await page
+    .getByRole("row", { name: /Edited guest Child Child/ })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Delete invitee" })
+    .getByRole("button", { name: "Delete invitee" })
+    .click();
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "referenced by RSVP attendance" }),
+  ).toBeVisible();
+  await expect(page.getByText("Edited guest", { exact: true })).toBeVisible();
+
+  await page
+    .getByRole("row", { name: /Sample child Child Child/ })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Delete invitee" })
+    .getByRole("button", { name: "Delete invitee" })
+    .click();
+  await expect(page).toHaveURL(/inviteeDeleted=1/);
+  await expect(page.getByText("Invitee deleted.")).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: /Sample child Child Child/ }),
+  ).toHaveCount(0);
+
+  let eventPayload: unknown;
+  await page.route("**/api/admin/invitations/*/events", async (route) => {
+    eventPayload = route.request().postDataJSON();
+    await route.fulfill({ response: await route.fetch() });
+  });
+  await page.getByRole("checkbox", { name: /Reception/ }).uncheck();
+  await page.getByRole("button", { name: "Save event eligibility" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "conflict" }),
+  ).toBeVisible();
+  expect(eventPayload).toEqual({ eventIds: [events[1]!.id] });
+  await expect(
+    page.getByRole("checkbox", { name: /Reception/ }),
+  ).not.toBeChecked();
+  await page.getByRole("checkbox", { name: /Reception/ }).check();
+  await page.getByRole("checkbox", { name: /Ceremony/ }).uncheck();
+  await page.getByRole("button", { name: "Save event eligibility" }).click();
+  await expect(page).toHaveURL(/eventsUpdated=1/);
+  expect(eventPayload).toEqual({ eventIds: [events[0]!.id] });
+  await expect(page.getByText("Event eligibility updated.")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("private");
+  await expect(page.locator("body")).not.toContainText("csrf");
 });
 
 test("edit sends expectedUpdatedAt, preserves conflict values, and refreshes after success", async ({

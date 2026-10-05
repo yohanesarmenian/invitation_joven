@@ -1,14 +1,24 @@
 "use client";
 import {
   createInvitationApiClient,
+  type AdminInviteeMutationResponse,
   type AdminInvitationDetailResponse,
   type AdminInvitationPublicUrlResponse,
   type ArchiveAdminInvitationResponse,
+  type CreateAdminInviteeRequest,
+  type ReplaceAdminInvitationEventsRequest,
+  type ReplaceAdminInvitationEventsResponse,
+  type UpdateAdminInviteeRequest,
   type UpdateAdminInvitationRequest,
 } from "@wedding-invitation/api-client/src/index";
 import { currentSession } from "../auth/browser-client";
 import { errorCode, FORBIDDEN } from "../auth/auth-state";
-import { isInvitationDetail, isPublicUrl } from "./contract";
+import {
+  isInvitationDetail,
+  isInvitationEventsMutation,
+  isInviteeMutation,
+  isPublicUrl,
+} from "./contract";
 
 export const UNCERTAIN_REGENERATION =
   "The link may already have been regenerated. Refresh the current public link before attempting another regeneration.";
@@ -43,6 +53,24 @@ export type RegenerateTokenResult =
   | { kind: "csrf"; csrfToken: string; message: string }
   | { kind: "rejected"; message: string; reload?: boolean };
 
+export type InviteeMutationResult =
+  | { kind: "created" | "updated"; data: AdminInviteeMutationResponse }
+  | { kind: "conflict" | "validation" | "not-found" | "session-ended" | "uncertain" }
+  | { kind: "csrf"; csrfToken: string; message: string }
+  | { kind: "rejected"; message: string; reload?: boolean };
+
+export type DeleteInviteeResult =
+  | { kind: "deleted" }
+  | { kind: "conflict" | "not-found" | "session-ended" | "uncertain" }
+  | { kind: "csrf"; csrfToken: string; message: string }
+  | { kind: "rejected"; message: string; reload?: boolean };
+
+export type ReplaceInvitationEventsResult =
+  | { kind: "updated"; data: ReplaceAdminInvitationEventsResponse }
+  | { kind: "conflict" | "validation" | "not-found" | "session-ended" | "uncertain" }
+  | { kind: "csrf"; csrfToken: string; message: string }
+  | { kind: "rejected"; message: string; reload?: boolean };
+
 function client() {
   return createInvitationApiClient({
     credentials: "same-origin",
@@ -58,6 +86,12 @@ const publicUrlPath = (invitationId: string) =>
   `/api/admin/invitations/${encodeURIComponent(invitationId)}/public-url` as "/api/admin/invitations/{invitationId}/public-url";
 const regeneratePath = (invitationId: string) =>
   `/api/admin/invitations/${encodeURIComponent(invitationId)}/regenerate-token` as "/api/admin/invitations/{invitationId}/regenerate-token";
+const inviteesPath = (invitationId: string) =>
+  `/api/admin/invitations/${encodeURIComponent(invitationId)}/invitees` as "/api/admin/invitations/{invitationId}/invitees";
+const inviteePath = (inviteeId: string) =>
+  `/api/admin/invitees/${encodeURIComponent(inviteeId)}` as "/api/admin/invitees/{inviteeId}";
+const invitationEventsPath = (invitationId: string) =>
+  `/api/admin/invitations/${encodeURIComponent(invitationId)}/events` as "/api/admin/invitations/{invitationId}/events";
 
 async function csrfRecovery(): Promise<RetrySession> {
   const session = await currentSession();
@@ -200,6 +234,124 @@ export async function regenerateInvitationToken(
       return { kind: "rejected", message: FORBIDDEN };
     if (response.status === 404) return { kind: "not-found" };
     if (response.status === 409) return { kind: "conflict" };
+    return { kind: "uncertain" };
+  } catch {
+    return { kind: "uncertain" };
+  }
+}
+
+export async function createInvitee(
+  invitationId: string,
+  body: CreateAdminInviteeRequest,
+  csrfToken: string,
+): Promise<InviteeMutationResult> {
+  try {
+    const { data, error, response } = await client().POST(
+      inviteesPath(invitationId),
+      {
+        body,
+        headers: { "X-CSRF-Token": csrfToken },
+      },
+    );
+    if (response.status === 201)
+      return isInviteeMutation(data)
+        ? { kind: "created", data }
+        : { kind: "uncertain" };
+    if (response.status === 401) return { kind: "session-ended" };
+    if (response.status === 403 && errorCode(error) === "CSRF_INVALID")
+      return csrfRecovery();
+    if (response.status === 403)
+      return { kind: "rejected", message: FORBIDDEN };
+    if (response.status === 404) return { kind: "not-found" };
+    if (response.status === 409) return { kind: "conflict" };
+    if (response.status === 400 && errorCode(error) === "VALIDATION_ERROR")
+      return { kind: "validation" };
+    return { kind: "uncertain" };
+  } catch {
+    return { kind: "uncertain" };
+  }
+}
+
+export async function updateInvitee(
+  inviteeId: string,
+  body: UpdateAdminInviteeRequest,
+  csrfToken: string,
+): Promise<InviteeMutationResult> {
+  try {
+    const { data, error, response } = await client().PATCH(
+      inviteePath(inviteeId),
+      {
+        body,
+        headers: { "X-CSRF-Token": csrfToken },
+      },
+    );
+    if (response.status === 200)
+      return isInviteeMutation(data)
+        ? { kind: "updated", data }
+        : { kind: "uncertain" };
+    if (response.status === 401) return { kind: "session-ended" };
+    if (response.status === 403 && errorCode(error) === "CSRF_INVALID")
+      return csrfRecovery();
+    if (response.status === 403)
+      return { kind: "rejected", message: FORBIDDEN };
+    if (response.status === 404) return { kind: "not-found" };
+    if (response.status === 409) return { kind: "conflict" };
+    if (response.status === 400 && errorCode(error) === "VALIDATION_ERROR")
+      return { kind: "validation" };
+    return { kind: "uncertain" };
+  } catch {
+    return { kind: "uncertain" };
+  }
+}
+
+export async function deleteInvitee(
+  inviteeId: string,
+  csrfToken: string,
+): Promise<DeleteInviteeResult> {
+  try {
+    const { error, response } = await client().DELETE(inviteePath(inviteeId), {
+      headers: { "X-CSRF-Token": csrfToken },
+    });
+    if (response.status === 204) return { kind: "deleted" };
+    if (response.status === 401) return { kind: "session-ended" };
+    if (response.status === 403 && errorCode(error) === "CSRF_INVALID")
+      return csrfRecovery();
+    if (response.status === 403)
+      return { kind: "rejected", message: FORBIDDEN };
+    if (response.status === 404) return { kind: "not-found" };
+    if (response.status === 409) return { kind: "conflict" };
+    return { kind: "uncertain" };
+  } catch {
+    return { kind: "uncertain" };
+  }
+}
+
+export async function replaceInvitationEvents(
+  invitationId: string,
+  body: ReplaceAdminInvitationEventsRequest,
+  csrfToken: string,
+): Promise<ReplaceInvitationEventsResult> {
+  try {
+    const { data, error, response } = await client().PUT(
+      invitationEventsPath(invitationId),
+      {
+        body,
+        headers: { "X-CSRF-Token": csrfToken },
+      },
+    );
+    if (response.status === 200)
+      return isInvitationEventsMutation(data)
+        ? { kind: "updated", data }
+        : { kind: "uncertain" };
+    if (response.status === 401) return { kind: "session-ended" };
+    if (response.status === 403 && errorCode(error) === "CSRF_INVALID")
+      return csrfRecovery();
+    if (response.status === 403)
+      return { kind: "rejected", message: FORBIDDEN };
+    if (response.status === 404) return { kind: "not-found" };
+    if (response.status === 409) return { kind: "conflict" };
+    if (response.status === 400 && errorCode(error) === "VALIDATION_ERROR")
+      return { kind: "validation" };
     return { kind: "uncertain" };
   } catch {
     return { kind: "uncertain" };

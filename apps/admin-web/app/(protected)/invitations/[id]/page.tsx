@@ -3,7 +3,10 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "../../../../src/auth/server-session";
 import { SESSION_ENDED_PATH } from "../../../../src/auth/auth-state";
-import { getInvitationDetail } from "../../../../src/invitations/server-invitations";
+import {
+  getEvents,
+  getInvitationDetail,
+} from "../../../../src/invitations/server-invitations";
 import { InvitationReadError } from "../../../../components/invitation-list";
 import { InvitationDetail } from "../../../../components/invitation-detail";
 
@@ -14,8 +17,12 @@ export async function DetailContent({
   csrfToken: string;
   id: string;
 }) {
-  const result = await getInvitationDetail(id);
+  const [result, eventResult] = await Promise.all([
+    getInvitationDetail(id),
+    getEvents(),
+  ]);
   if (result.kind === "unauthenticated") redirect(SESSION_ENDED_PATH);
+  if (eventResult.kind === "unauthenticated") redirect(SESSION_ENDED_PATH);
   if (result.kind === "not-found")
     return (
       <section className="dashboard-error" role="alert">
@@ -33,9 +40,17 @@ export async function DetailContent({
         href={`/invitations/${id}`}
       />
     );
+  if (eventResult.kind !== "ready")
+    return (
+      <InvitationReadError
+        forbidden={eventResult.kind === "forbidden"}
+        href={`/invitations/${id}`}
+      />
+    );
   return (
     <InvitationDetail
       csrfToken={csrfToken}
+      events={eventResult.data.events}
       invitation={result.data.invitation}
     />
   );
@@ -71,6 +86,26 @@ export default async function InvitationDetailPage({
       {search.archived === "1" && (
         <p className="notice" role="status">
           Invitation archived.
+        </p>
+      )}
+      {search.inviteeCreated === "1" && (
+        <p className="notice" role="status">
+          Invitee added.
+        </p>
+      )}
+      {search.inviteeUpdated === "1" && (
+        <p className="notice" role="status">
+          Invitee updated.
+        </p>
+      )}
+      {search.inviteeDeleted === "1" && (
+        <p className="notice" role="status">
+          Invitee deleted.
+        </p>
+      )}
+      {search.eventsUpdated === "1" && (
+        <p className="notice" role="status">
+          Event eligibility updated.
         </p>
       )}
       <Suspense fallback={<p role="status">Loading invitation detail...</p>}>

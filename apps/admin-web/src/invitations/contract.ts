@@ -1,7 +1,9 @@
 import type {
   AdminEventsResponse,
+  AdminInviteeMutationResponse,
   AdminInvitationDetailResponse,
   AdminInvitationPublicUrlResponse,
+  ReplaceAdminInvitationEventsResponse,
 } from "@wedding-invitation/api-client/src/index";
 
 const object = (v: unknown): v is Record<string, unknown> =>
@@ -38,7 +40,23 @@ function isInvitee(v: unknown) {
     typeof v.fullName === "string" &&
     (v.category === "ADULT" || v.category === "CHILD") &&
     (v.label === null || typeof v.label === "string") &&
-    count(v.displayOrder)
+    count(v.displayOrder) &&
+    date(v.updatedAt)
+  );
+}
+export function isInviteeMutation(
+  v: unknown,
+): v is AdminInviteeMutationResponse {
+  return (
+    object(v) &&
+    isUuid(v.id) &&
+    isUuid(v.invitationId) &&
+    typeof v.fullName === "string" &&
+    (v.category === "ADULT" || v.category === "CHILD") &&
+    (v.label === null || typeof v.label === "string") &&
+    count(v.displayOrder) &&
+    date(v.createdAt) &&
+    date(v.updatedAt)
   );
 }
 function isEvent(v: unknown) {
@@ -121,5 +139,15 @@ export function isPublicUrl(
     typeof v.publicUrl === "string" &&
     v.publicUrl.length > 0 &&
     positiveCount(v.publicTokenVersion)
+  );
+}
+
+export function isInvitationEventsMutation(
+  v: unknown,
+): v is ReplaceAdminInvitationEventsResponse {
+  return (
+    object(v) &&
+    Array.isArray(v.eligibility) &&
+    v.eligibility.every(isEligibility)
   );
 }
