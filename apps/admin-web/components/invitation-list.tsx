@@ -131,7 +131,9 @@ export function InvitationList({
                 {items.map((item) => (
                   <tr key={item.id}>
                     <th scope="row">
-                      {item.displayName}
+                      <Link href={`/invitations/${item.id}`} prefetch={false}>
+                        {item.displayName}
+                      </Link>
                       {item.greetingName && (
                         <span className="greeting-name">
                           {item.greetingName}
