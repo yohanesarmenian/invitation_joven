@@ -104,6 +104,134 @@ test("RSVP detail renders snapshots and safe pass metadata only", async ({
   await expect(page.locator("body")).not.toContainText("publicTokenHash");
 });
 
+test("OWNER override validates, confirms, submits once, and reloads detail", async ({
+  page,
+}) => {
+  const puts: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PUT" &&
+      /\/api\/admin\/invitations\/[^/]+\/rsvp$/.test(request.url())
+    )
+      puts.push(request.postData() ?? "");
+  });
+  await login(page);
+  await page.goto("/rsvps/aaaaaaaa-aaaa-4aaa-8aaa-000000000001");
+  await page.getByRole("button", { name: "Override RSVP" }).click();
+  await expect(
+    page.getByText("Current guest note is read-only"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Review override" }).click();
+  await expect(page.getByText("Enter an override reason.")).toBeVisible();
+  await page
+    .getByLabel("Override reason (required)")
+    .fill("Guest called the owner");
+  await page.getByLabel("Declined").check();
+  await page.getByRole("button", { name: "Review override" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Override RSVP" }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog", { name: "Override RSVP" })
+    .getByRole("button", { name: "Override RSVP" })
+    .dblclick();
+  await expect(page).toHaveURL(/rsvpOverridden=1/);
+  await expect(page.getByText("Declined v4")).toBeVisible();
+  await expect(page.getByText("Guest called the owner")).toBeVisible();
+  expect(puts).toHaveLength(1);
+  expect(JSON.parse(puts[0]!)).toMatchObject({
+    attendees: [],
+    dietaryNotes: null,
+    eventSelections: [],
+    expectedVersion: 3,
+    overrideReason: "Guest called the owner",
+    status: "DECLINED",
+  });
+  expect(puts[0]).not.toContain("guestNote");
+  expect(puts[0]).not.toContain("adminUser");
+});
+
+test("OWNER override stale conflict preserves form values and requires reload", async ({
+  page,
+}) => {
+  const puts: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PUT" &&
+      /\/api\/admin\/invitations\/[^/]+\/rsvp$/.test(request.url())
+    )
+      puts.push(request.postData() ?? "");
+  });
+  await login(page, "rsvp-conflict@example.com");
+  await page.goto("/rsvps/aaaaaaaa-aaaa-4aaa-8aaa-000000000001");
+  await page.getByRole("button", { name: "Override RSVP" }).click();
+  await page.getByLabel("Override reason (required)").fill("Stale operator note");
+  await page.getByRole("button", { name: "Review override" }).click();
+  await page
+    .getByRole("dialog", { name: "Override RSVP" })
+    .getByRole("button", { name: "Override RSVP" })
+    .click();
+  await expect(page.getByText("This RSVP changed elsewhere.")).toBeVisible();
+  await expect(page.getByLabel("Override reason (required)")).toHaveValue(
+    "Stale operator note",
+  );
+  await expect(page.locator(".dashboard-retry")).toHaveText(
+    "Reload current RSVP detail",
+  );
+  expect(puts).toHaveLength(1);
+});
+
+test("OWNER override CSRF refresh and uncertain outcomes do not replay", async ({
+  page,
+}) => {
+  const csrfPuts: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PUT" &&
+      /\/api\/admin\/invitations\/[^/]+\/rsvp$/.test(request.url())
+    )
+      csrfPuts.push(request.postData() ?? "");
+  });
+  await login(page, "rsvp-csrf@example.com");
+  await page.goto("/rsvps/aaaaaaaa-aaaa-4aaa-8aaa-000000000001");
+  await page.getByRole("button", { name: "Override RSVP" }).click();
+  await page.getByLabel("Override reason (required)").fill("Refresh token only");
+  await page.getByRole("button", { name: "Review override" }).click();
+  await page
+    .getByRole("dialog", { name: "Override RSVP" })
+    .getByRole("button", { name: "Override RSVP" })
+    .click();
+  await expect(
+    page.getByText("Your session was refreshed. The RSVP override was not replayed."),
+  ).toBeVisible();
+  expect(csrfPuts).toHaveLength(1);
+
+  const uncertainPuts: string[] = [];
+  page.removeAllListeners("request");
+  page.on("request", (request) => {
+    if (
+      request.method() === "PUT" &&
+      /\/api\/admin\/invitations\/[^/]+\/rsvp$/.test(request.url())
+    )
+      uncertainPuts.push(request.postData() ?? "");
+  });
+  await page.context().clearCookies();
+  await login(page, "rsvp-uncertain@example.com");
+  await page.goto("/rsvps/aaaaaaaa-aaaa-4aaa-8aaa-000000000001");
+  await page.getByRole("button", { name: "Override RSVP" }).click();
+  await page.getByLabel("Override reason (required)").fill("Uncertain note");
+  await page.getByRole("button", { name: "Review override" }).click();
+  await page
+    .getByRole("dialog", { name: "Override RSVP" })
+    .getByRole("button", { name: "Override RSVP" })
+    .click();
+  await expect(page.getByText("could not be confirmed")).toBeVisible();
+  await expect(page.locator(".dashboard-retry")).toHaveText(
+    "Reload current RSVP detail",
+  );
+  expect(uncertainPuts).toHaveLength(1);
+});
+
 for (const [email, title] of [
   ["rsvp-error@example.com", "Unable to load RSVPs"],
   ["rsvp-forbidden@example.com", "RSVP access unavailable"],

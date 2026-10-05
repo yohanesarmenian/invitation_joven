@@ -130,9 +130,16 @@ it.each([
 ] as const)("renders bounded RSVP detail read state %s", async (kind, copy) => {
   read.mockResolvedValue({ kind });
   const html = renderToStaticMarkup(
-    await RsvpDetailContent({ id: rsvpDetail.rsvp.id }),
+    await RsvpDetailContent({ csrfToken: auth.csrfToken, id: rsvpDetail.rsvp.id }),
   );
   expect(html).toContain(copy);
   expect(html).not.toContain("Private backend diagnostic");
   expect(html).not.toContain("qrPayload");
+});
+
+it("withholds override form when supporting invitation context is unavailable", () => {
+  const html = renderToStaticMarkup(<RsvpDetail rsvp={rsvpDetail.rsvp} />);
+  expect(html).toContain("OWNER RSVP override");
+  expect(html).toContain("Supporting invitation data was unavailable");
+  expect(html).not.toContain("<form");
 });
