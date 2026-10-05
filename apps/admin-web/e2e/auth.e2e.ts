@@ -312,7 +312,11 @@ test("forbidden logout stays in shell with authorization error", async ({
 }) => {
   await login(page, "forbidden@example.com");
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(
+    page
+      .getByRole("complementary", { name: "Admin workspace" })
+      .getByRole("status"),
+  ).toHaveText(
     "You are not authorized to perform this action.",
   );
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
@@ -383,7 +387,11 @@ test("network logout failure keeps shell and requires an explicit retry", async 
     await route.abort("connectionfailed");
   });
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(
+    page
+      .getByRole("complementary", { name: "Admin workspace" })
+      .getByRole("status"),
+  ).toHaveText(
     "Unable to sign out. Please try again.",
   );
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
