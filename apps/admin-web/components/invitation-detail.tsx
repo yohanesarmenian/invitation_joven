@@ -1,9 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { AdminInvitationDetailResponse } from "@wedding-invitation/api-client/src/index";
+import type {
+  AdminEventsResponse,
+  AdminInvitationDetailResponse,
+} from "@wedding-invitation/api-client/src/index";
+import { InviteeEventManagement } from "./invitee-event-management";
 import { InvitationActions } from "./invitation-actions";
 
 type Invitation = AdminInvitationDetailResponse["invitation"];
+type EventOption = AdminEventsResponse["events"][number];
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Jakarta",
@@ -46,9 +51,11 @@ function DefinitionList({
 
 export function InvitationDetail({
   csrfToken,
+  events,
   invitation,
 }: {
   csrfToken: string;
+  events: EventOption[];
   invitation: Invitation;
 }) {
   return (
@@ -125,46 +132,11 @@ export function InvitationDetail({
           ]}
         />
       </section>
-      <section className="detail-section">
-        <div className="section-heading">
-          <h2>Invitees</h2>
-          <p>Read-only for this slice.</p>
-        </div>
-        <div className="detail-table-scroll">
-          <table className="detail-table">
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Category</th>
-                <th scope="col">Label</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invitation.invitees.map((invitee) => (
-                <tr key={invitee.id}>
-                  <th scope="row">{invitee.fullName}</th>
-                  <td>{invitee.category === "ADULT" ? "Adult" : "Child"}</td>
-                  <td>{invitee.label ?? "None"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section className="detail-section">
-        <div className="section-heading">
-          <h2>Eligible events</h2>
-          <p>Read-only for this slice.</p>
-        </div>
-        <ul className="detail-cards">
-          {invitation.eligibility.map(({ event }) => (
-            <li key={event.id}>
-              <strong>{event.name}</strong>
-              <span>{event.isActive ? "Active event" : "Inactive event"}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <InviteeEventManagement
+        csrfToken={csrfToken}
+        events={events}
+        invitation={invitation}
+      />
       <section className="detail-section">
         <div className="section-heading">
           <h2>RSVP, messages, and activity</h2>

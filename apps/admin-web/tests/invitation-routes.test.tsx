@@ -28,7 +28,7 @@ import {
 } from "../components/invitation-list";
 import { parseInvitationQuery } from "../src/invitations/query";
 import { auth } from "./fixtures";
-import { detail, list } from "./invitation-fixtures";
+import { detail, events, list } from "./invitation-fixtures";
 const query = parseInvitationQuery({})!;
 beforeEach(() => {
   session.mockReset();
@@ -99,7 +99,11 @@ it("gates detail and edit pages before data access", async () => {
 });
 it("maps detail fields and excludes sensitive values", () => {
   const html = renderToStaticMarkup(
-    <InvitationDetail csrfToken="csrf" invitation={detail.invitation} />,
+    <InvitationDetail
+      csrfToken="csrf"
+      events={events}
+      invitation={detail.invitation}
+    />,
   );
   for (const value of [
     "Sample household",
@@ -107,6 +111,10 @@ it("maps detail fields and excludes sensitive values", () => {
     "Sample guest",
     "Sample child",
     "Reception",
+    "Old event",
+    "Inactive",
+    "Add invitee",
+    "Save event eligibility",
     "accepted v2",
     "2 total, 1 hidden",
     "ACTIVE",

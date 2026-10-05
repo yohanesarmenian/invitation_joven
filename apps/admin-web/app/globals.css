@@ -647,6 +647,25 @@ button:disabled {
   color: #536078;
   font-weight: 500;
 }
+.invitee-management-table {
+  min-width: 720px;
+}
+.invitee-management-table th:last-child,
+.invitee-management-table td:last-child {
+  width: 34%;
+}
+.management-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
 .detail-cards {
   display: grid;
   gap: 0.75rem;
@@ -727,6 +746,27 @@ button:disabled {
   margin: 0 0 0.75rem;
   font-size: 1.25rem;
 }
+.invitation-dialog-form select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.65rem;
+  border: 1px solid #6d7b8f;
+  border-radius: 0.4rem;
+  background: white;
+  color: var(--admin-navy);
+  font: inherit;
+}
+.event-management-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+}
+.event-state {
+  display: block;
+  color: #536078;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
 .invitation-edit .form-actions button {
   width: auto;
 }
@@ -759,13 +799,19 @@ button:disabled {
     flex-direction: column;
   }
   .lifecycle-actions button,
+  .management-heading button,
   .detail-actions a,
   .form-actions a,
   .form-actions button,
   .public-url-control button,
-  .dialog-actions button {
+  .dialog-actions button,
+  .table-actions button {
     justify-content: center;
     width: 100%;
+  }
+  .table-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
   .invitation-actions {
     align-items: stretch;
