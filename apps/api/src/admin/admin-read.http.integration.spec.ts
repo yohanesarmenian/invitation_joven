@@ -776,10 +776,11 @@ describe("admin read HTTP integration", () => {
     const rsvp = await prisma.rSVP.findUniqueOrThrow({
       where: { invitationId: invitation.id },
     });
-    const invitee = await prisma.invitee.findFirstOrThrow({
+    const invitees = await prisma.invitee.findMany({
       where: { invitationId: invitation.id },
       orderBy: { displayOrder: "asc" },
     });
+    const invitee = invitees[0]!;
     await prisma.rSVPAttendee.create({
       data: {
         attendeeType: RSVPAttendeeType.NAMED_INVITEE,
@@ -879,6 +880,24 @@ describe("admin read HTTP integration", () => {
         (item: { fullName: string }) => item.fullName,
       ),
     ).toEqual(["Adult Guest", "Child Guest"]);
+    expect(body.invitation.invitees).toEqual([
+      expect.objectContaining({
+        category: "ADULT",
+        displayOrder: 0,
+        fullName: "Adult Guest",
+        id: invitees[0]!.id,
+        label: "Parent",
+        updatedAt: invitees[0]!.updatedAt.toISOString(),
+      }),
+      expect.objectContaining({
+        category: "CHILD",
+        displayOrder: 1,
+        fullName: "Child Guest",
+        id: invitees[1]!.id,
+        label: null,
+        updatedAt: invitees[1]!.updatedAt.toISOString(),
+      }),
+    ]);
     expect(body.invitation.eligibility[0].event).toMatchObject({
       id: event.id,
       name: "Ceremony",

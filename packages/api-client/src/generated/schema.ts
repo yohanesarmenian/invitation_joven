@@ -501,6 +501,8 @@ export interface components {
             category: "ADULT" | "CHILD";
             label: string | null;
             displayOrder: number;
+            /** Format: date-time */
+            updatedAt: string;
         };
         AdminEventDto: {
             /** Format: uuid */

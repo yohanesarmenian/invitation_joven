@@ -529,13 +529,24 @@ describe("admin invitee and eligibility HTTP integration", () => {
     const beforeInvitation = await prisma.invitation.findUniqueOrThrow({
       where: { id: invitation.id },
     });
+    const detail = await app.getHttpAdapter().getInstance().inject({
+      headers: { cookie: session.cookie },
+      method: "GET",
+      url: `/api/admin/invitations/${invitation.id}`,
+    });
+    const detailInvitee = detail
+      .json()
+      .invitation.invitees.find(
+        (item: { id: string }) => item.id === invitee.id,
+      );
+    const loadedUpdatedAt = detailInvitee.updatedAt;
 
     const updated = await app.getHttpAdapter().getInstance().inject({
       headers: ownerHeaders(session),
       method: "PATCH",
       payload: {
         category: "CHILD",
-        expectedUpdatedAt: invitee.updatedAt.toISOString(),
+        expectedUpdatedAt: loadedUpdatedAt,
         fullName: "  Updated Name ",
         label: "",
       },
@@ -545,7 +556,7 @@ describe("admin invitee and eligibility HTTP integration", () => {
       headers: ownerHeaders(session),
       method: "PATCH",
       payload: {
-        expectedUpdatedAt: invitee.updatedAt.toISOString(),
+        expectedUpdatedAt: loadedUpdatedAt,
         fullName: "Stale Name",
       },
       url: `/api/admin/invitees/${invitee.id}`,

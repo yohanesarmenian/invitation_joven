@@ -284,7 +284,16 @@ describe("generated API client", () => {
         firstOpenedAt: null,
         greetingName: null,
         id: "11111111-1111-4111-8111-111111111111",
-        invitees: [],
+        invitees: [
+          {
+            category: "ADULT",
+            displayOrder: 0,
+            fullName: "Adult Guest",
+            id: "22222222-2222-4222-8222-222222222222",
+            label: null,
+            updatedAt: "2026-09-30T00:00:00.000Z",
+          },
+        ],
         lastOpenedAt: null,
         maxAdditionalChildren: 0,
         messages: {
@@ -366,7 +375,7 @@ describe("generated API client", () => {
       updatedAt: "2026-09-30T00:00:00.000Z",
     };
     const updateInviteeRequest: UpdateAdminInviteeRequest = {
-      expectedUpdatedAt: inviteeResponse.updatedAt,
+      expectedUpdatedAt: detail.invitation.invitees[0]!.updatedAt,
       label: "VIP",
     };
     const replaceEventsRequest: ReplaceAdminInvitationEventsRequest = {
@@ -531,7 +540,7 @@ describe("generated API client", () => {
     expect(regenerateRequest.expectedTokenVersion).toBe(1);
     expect(createInviteeRequest.category).toBe("ADULT");
     expect(updateInviteeRequest.expectedUpdatedAt).toBe(
-      inviteeResponse.updatedAt,
+      detail.invitation.invitees[0]?.updatedAt,
     );
     expect(inviteeResponse.invitationId).toBe(detail.invitation.id);
     expect(replaceEventsResponse.eligibility[0]?.event.id).toBe(

@@ -232,6 +232,7 @@ export async function mockInvitations(
         category: invitee.category,
         label: invitee.label ?? null,
         displayOrder: index + 1,
+        updatedAt: row.updatedAt,
       })),
       eligibility: body.eventIds.map((eventId) => ({
         event: events.find((event) => event.id === eventId) ?? events[0]!,
