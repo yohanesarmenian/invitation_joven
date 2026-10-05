@@ -156,7 +156,11 @@ export async function mockInvitations(
       const parts = url.pathname.split("/");
       const id = parts[4];
       const action = parts[5];
-      const current = id ? details.get(stateKey(session.email, id)) : undefined;
+      let current = id ? details.get(stateKey(session.email, id)) : undefined;
+      if (!current && id === detail.invitation.id) {
+        current = cloneDetail(detail.invitation);
+        details.set(stateKey(session.email, id), current);
+      }
       if (!current) {
         fail(404, "NOT_FOUND");
         return true;

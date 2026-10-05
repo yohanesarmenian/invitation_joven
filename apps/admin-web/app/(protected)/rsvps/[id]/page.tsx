@@ -4,10 +4,17 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "../../../../src/auth/server-session";
 import { SESSION_ENDED_PATH } from "../../../../src/auth/auth-state";
 import { getRsvpDetail } from "../../../../src/rsvps/server-rsvps";
+import { getInvitationDetail } from "../../../../src/invitations/server-invitations";
 import { RsvpReadError } from "../../../../components/rsvp-list";
 import { RsvpDetail } from "../../../../components/rsvp-detail";
 
-export async function RsvpDetailContent({ id }: { id: string }) {
+export async function RsvpDetailContent({
+  csrfToken,
+  id,
+}: {
+  csrfToken: string;
+  id: string;
+}) {
   const result = await getRsvpDetail(id);
   if (result.kind === "unauthenticated") redirect(SESSION_ENDED_PATH);
   if (result.kind === "not-found")
@@ -27,7 +34,14 @@ export async function RsvpDetailContent({ id }: { id: string }) {
         href={`/rsvps/${id}`}
       />
     );
-  return <RsvpDetail rsvp={result.data.rsvp} />;
+  const invitation = await getInvitationDetail(result.data.rsvp.invitation.id);
+  return (
+    <RsvpDetail
+      csrfToken={csrfToken}
+      invitation={invitation.kind === "ready" ? invitation.data.invitation : undefined}
+      rsvp={result.data.rsvp}
+    />
+  );
 }
 
 export default async function RsvpDetailPage({
@@ -51,7 +65,7 @@ export default async function RsvpDetailPage({
         </Link>
       </header>
       <Suspense fallback={<p role="status">Loading RSVP detail...</p>}>
-        <RsvpDetailContent id={id} />
+        <RsvpDetailContent csrfToken={session.auth.csrfToken} id={id} />
       </Suspense>
     </>
   );

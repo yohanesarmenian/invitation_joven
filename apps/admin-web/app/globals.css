@@ -723,6 +723,52 @@ button:disabled {
   overflow-wrap: anywhere;
   resize: vertical;
 }
+.rsvp-override-form {
+  display: grid;
+  gap: 1rem;
+}
+.rsvp-override-form fieldset {
+  border: 1px solid #e3e6ec;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.rsvp-override-form legend {
+  color: var(--admin-navy);
+  font-weight: 700;
+  padding: 0 0.25rem;
+}
+.rsvp-override-form textarea {
+  width: 100%;
+  min-height: 96px;
+  border: 1px solid #6d7b8f;
+  border-radius: 0.4rem;
+  padding: 0.65rem;
+  font: inherit;
+  resize: vertical;
+}
+.override-grid,
+.event-override-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.event-override-row {
+  align-items: end;
+  border-top: 1px solid #e3e6ec;
+  padding: 0.75rem 0;
+}
+.event-override-row:first-of-type {
+  border-top: 0;
+}
+.override-grid input,
+.event-override-row input[type="number"] {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #6d7b8f;
+  border-radius: 0.4rem;
+  padding: 0.55rem;
+  font: inherit;
+}
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -812,6 +858,10 @@ button:disabled {
   .table-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+  .override-grid,
+  .event-override-row {
+    grid-template-columns: minmax(0, 1fr);
   }
   .invitation-actions {
     align-items: stretch;

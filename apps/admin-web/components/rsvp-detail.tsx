@@ -1,8 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { AdminRsvpDetailResponse } from "@wedding-invitation/api-client/src/index";
+import type {
+  AdminInvitationDetailResponse,
+  AdminRsvpDetailResponse,
+} from "@wedding-invitation/api-client/src/index";
+import { RsvpOverrideForm } from "./rsvp-override-form";
 
 type Rsvp = AdminRsvpDetailResponse["rsvp"];
+type Invitation = AdminInvitationDetailResponse["invitation"];
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Jakarta",
@@ -55,7 +60,15 @@ function attendeeLabel(type: Rsvp["attendees"][number]["type"]) {
       : "Additional child";
 }
 
-export function RsvpDetail({ rsvp }: { rsvp: Rsvp }) {
+export function RsvpDetail({
+  csrfToken,
+  invitation,
+  rsvp,
+}: {
+  csrfToken?: string;
+  invitation?: Invitation;
+  rsvp: Rsvp;
+}) {
   return (
     <div className="invitation-detail">
       <section className="detail-section">
@@ -223,6 +236,23 @@ export function RsvpDetail({ rsvp }: { rsvp: Rsvp }) {
           ]}
         />
       </section>
+      {invitation && csrfToken ? (
+        <RsvpOverrideForm
+          csrfToken={csrfToken}
+          invitation={invitation}
+          rsvp={rsvp}
+        />
+      ) : (
+        <section className="detail-section lifecycle-section">
+          <div className="section-heading">
+            <h2>OWNER RSVP override</h2>
+            <p>Supporting invitation data was unavailable.</p>
+          </div>
+          <p className="notice" role="alert">
+            Reload this RSVP detail before attempting an OWNER override.
+          </p>
+        </section>
+      )}
       <section className="detail-section">
         <div className="section-heading">
           <h2>Check-in pass lifecycle</h2>
