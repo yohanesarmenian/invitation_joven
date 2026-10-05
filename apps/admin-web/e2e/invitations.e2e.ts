@@ -249,6 +249,126 @@ test("create exact body, event order, duplicate names, double-submit and fresh s
   ).toBe(0);
   await expect(page.locator("body")).not.toContainText("synthetic-create-only");
 });
+test("detail maps safe projections and loads public link only on demand", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/invitations");
+  await page
+    .getByRole("link", { name: "Household 01", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Invitation detail", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Sample guest", { exact: true })).toBeVisible();
+  await expect(page.getByText("Reception", { exact: true })).toBeVisible();
+  await expect(page.getByText("2 total, 1 hidden")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("publicTokenHash");
+  await expect(page.locator("body")).not.toContainText("qrPayload");
+  await expect(page.locator("#publicUrl")).toHaveCount(0);
+  await page.getByRole("button", { name: "View public link" }).click();
+  await expect(page.locator("#publicUrl")).toContainText(
+    "http://localhost:3000/i/mock-",
+  );
+  expect(
+    await page.evaluate(() => localStorage.length + sessionStorage.length),
+  ).toBe(0);
+});
+
+test("edit sends expectedUpdatedAt, preserves conflict values, and refreshes after success", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/invitations");
+  await page
+    .getByRole("link", { name: "Household 01", exact: true })
+    .click();
+  await page.getByRole("link", { name: "Edit invitation" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Edit invitation", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Display name (required)").fill("Edited household");
+  await page.getByLabel("Maximum additional children (required)").fill("2");
+  await page.getByLabel("Allow one plus-one guest").check();
+  let patchBody: unknown;
+  await page.route("**/api/admin/invitations/*", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.continue();
+      return;
+    }
+    patchBody = JSON.parse(route.request().postData() ?? "null");
+    await route.fulfill({
+      status: 409,
+      json: { error: { code: "CONFLICT", message: "private" } },
+    });
+  });
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(
+    page.getByRole("form", { name: "Edit invitation" }).getByRole("alert"),
+  ).toContainText("changed elsewhere");
+  await expect(page.getByLabel("Display name (required)")).toHaveValue(
+    "Edited household",
+  );
+  expect(patchBody).toMatchObject({
+    allowPlusOne: true,
+    displayName: "Edited household",
+    expectedUpdatedAt: "2026-10-01T00:00:00.000Z",
+    maxAdditionalChildren: 2,
+  });
+  await page.unroute("**/api/admin/invitations/*");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page).toHaveURL(/updated=1/);
+  await expect(page.getByText("Edited household", { exact: true })).toBeVisible();
+});
+
+test("archive confirmation and regeneration lost-response recovery stay explicit", async ({
+  page,
+}) => {
+  await login(page, "lifecycle-owner@example.com");
+  await page.goto("/invitations");
+  await page
+    .getByRole("link", { name: "Household 01", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Regenerate public link" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Regenerate public link" }),
+  ).toBeVisible();
+  let regeneratePosts = 0;
+  await page.route("**/api/admin/invitations/*/regenerate-token", (route) => {
+    regeneratePosts++;
+    return route.abort("connectionreset");
+  });
+  await page
+    .getByRole("button", { name: "Regenerate public link", exact: true })
+    .last()
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Refresh current link" }),
+  ).toBeVisible();
+  expect(regeneratePosts).toBe(1);
+  await page.unroute("**/api/admin/invitations/*/regenerate-token");
+  await page.getByRole("button", { name: "Refresh current link" }).click();
+  await expect(page.locator("#publicUrl")).toContainText(
+    "http://localhost:3000/i/mock-",
+  );
+  expect(regeneratePosts).toBe(1);
+  await page.getByRole("button", { name: "Archive invitation" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Archive invitation" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Archive invitation", exact: true })
+    .last()
+    .click();
+  await expect(page).toHaveURL(/archived=1/);
+  await expect(page.getByText("Invitation archived.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "View public link" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("link", { name: "Edit invitation" }),
+  ).toHaveCount(0);
+});
 test("client validation focuses errors without POST, dynamic remove retains rows", async ({
   page,
 }) => {

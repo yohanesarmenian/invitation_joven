@@ -1,5 +1,6 @@
 import type {
   AdminEventsResponse,
+  AdminInvitationDetailResponse,
   AdminInvitationListResponse,
   CreateAdminInvitationRequest,
 } from "@wedding-invitation/api-client/src/index";
@@ -53,4 +54,57 @@ export const body: CreateAdminInvitationRequest = {
   notes: null,
   eventIds: [events[0]!.id],
   invitees: [{ fullName: "Sample guest", category: "ADULT", label: null }],
+};
+export const detail: AdminInvitationDetailResponse = {
+  invitation: {
+    id: item.id,
+    displayName: item.displayName,
+    greetingName: item.greetingName,
+    status: "ACTIVE",
+    allowPlusOne: false,
+    maxAdditionalChildren: 0,
+    rsvpDeadlineAt: item.rsvpDeadlineAt,
+    notes: "Internal note",
+    publicTokenVersion: 1,
+    openCount: item.openCount,
+    firstOpenedAt: "2026-10-01T16:30:00.000Z",
+    lastOpenedAt: item.lastOpenedAt,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    archivedAt: null,
+    invitees: [
+      {
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        fullName: "Sample guest",
+        category: "ADULT",
+        label: null,
+        displayOrder: 1,
+      },
+      {
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        fullName: "Sample child",
+        category: "CHILD",
+        label: "Child",
+        displayOrder: 2,
+      },
+    ],
+    eligibility: [{ event: events[0]! }, { event: events[1]! }],
+    rsvp: {
+      status: "ACCEPTED",
+      version: 2,
+      submittedAt: "2026-10-01T17:00:00.000Z",
+      lastUpdatedAt: "2026-10-01T17:10:00.000Z",
+    },
+    messages: { total: 2, hidden: 1 },
+    checkinPasses: [
+      {
+        status: "ACTIVE",
+        credentialVersion: 1,
+        issuedAt: "2026-10-01T17:20:00.000Z",
+        revokedAt: null,
+        revocationReason: null,
+        expiresAt: null,
+      },
+    ],
+  },
 };

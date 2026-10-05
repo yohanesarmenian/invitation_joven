@@ -3,14 +3,16 @@ import { cookies } from "next/headers";
 import {
   createInvitationApiClient,
   type AdminEventsResponse,
+  type AdminInvitationDetailResponse,
   type AdminInvitationListResponse,
 } from "@wedding-invitation/api-client/src/index";
 import { getAdminApiBaseUrl } from "../auth/api-config";
+import { isEvents, isInvitationDetail } from "./contract";
 import { queryString, type InvitationQuery } from "./query";
 
 export type ReadResult<T> =
   | { kind: "ready"; data: T }
-  | { kind: "unauthenticated" | "forbidden" | "unavailable" };
+  | { kind: "unauthenticated" | "forbidden" | "not-found" | "unavailable" };
 const object = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 const count = (v: unknown): v is number =>
@@ -53,22 +55,6 @@ export function isInvitationList(v: unknown): v is AdminInvitationListResponse {
     )
   );
 }
-export function isEvents(v: unknown): v is AdminEventsResponse {
-  return (
-    object(v) &&
-    Array.isArray(v.events) &&
-    v.events.every(
-      (event) =>
-        object(event) &&
-        uuid(event.id) &&
-        typeof event.slug === "string" &&
-        typeof event.name === "string" &&
-        typeof event.isActive === "boolean" &&
-        typeof event.displayOrder === "number" &&
-        Number.isSafeInteger(event.displayOrder),
-    )
-  );
-}
 async function clientForRead(query?: InvitationQuery) {
   const name =
     process.env.NODE_ENV === "production"
@@ -100,6 +86,7 @@ function result<T>(
 ): ReadResult<T> {
   if (status === 401) return { kind: "unauthenticated" };
   if (status === 403) return { kind: "forbidden" };
+  if (status === 404) return { kind: "not-found" };
   return status === 200 && guard(data)
     ? { kind: "ready", data }
     : { kind: "unavailable" };
@@ -146,6 +133,19 @@ export async function getEvents(): Promise<ReadResult<AdminEventsResponse>> {
           },
         }
       : read;
+  } catch {
+    return { kind: "unavailable" };
+  }
+}
+export async function getInvitationDetail(
+  invitationId: string,
+): Promise<ReadResult<AdminInvitationDetailResponse>> {
+  if (!uuid(invitationId)) return { kind: "not-found" };
+  try {
+    const path =
+      `/api/admin/invitations/${encodeURIComponent(invitationId)}` as "/api/admin/invitations/{invitationId}";
+    const { data, response } = await (await clientForRead()).GET(path);
+    return result(response.status, data, isInvitationDetail);
   } catch {
     return { kind: "unavailable" };
   }

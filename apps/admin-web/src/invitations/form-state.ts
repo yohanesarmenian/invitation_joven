@@ -22,6 +22,14 @@ export function deadlineToIso(value: string): string | null {
         : `${value}.000`;
   return roundTrip.slice(0, -1) === normalized ? date.toISOString() : null;
 }
+export function isoToJakartaInput(value: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return new Date(date.getTime() + 7 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 19);
+}
 export function prepareInvitation(
   fields: CreateFields,
   events: AdminEventsResponse["events"],

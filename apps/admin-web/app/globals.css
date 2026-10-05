@@ -594,6 +594,142 @@ button:disabled {
 .invitation-create > button {
   width: auto;
 }
+.invitation-detail {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 980px;
+}
+.detail-section {
+  background: white;
+  border: 1px solid #dce0e7;
+  border-radius: 0.625rem;
+  padding: 1.5rem;
+  min-width: 0;
+}
+.detail-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.5rem;
+  margin: 0;
+}
+.detail-list > div {
+  min-width: 0;
+}
+.detail-list dt {
+  color: #536078;
+  font-size: 0.8125rem;
+  margin-bottom: 0.25rem;
+}
+.detail-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.detail-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.detail-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.875rem;
+}
+.detail-table th,
+.detail-table td {
+  border-top: 1px solid #e3e6ec;
+  padding: 0.85rem 0.6rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+.detail-table thead th {
+  color: #536078;
+  font-weight: 500;
+}
+.detail-cards {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.detail-cards li {
+  border: 1px solid #e3e6ec;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.detail-cards span {
+  display: block;
+  color: #536078;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+.lifecycle-section {
+  border-top: 4px solid var(--admin-coral);
+}
+.lifecycle-actions,
+.detail-actions,
+.form-actions,
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+.detail-actions,
+.form-actions {
+  margin-top: 0.5rem;
+}
+.invitation-secondary,
+.danger-secondary {
+  background: white;
+  color: var(--admin-navy);
+  border-color: #6d7b8f;
+}
+.danger-secondary {
+  border-color: #9f2020;
+  color: #7f1d1d;
+}
+.public-url-control {
+  margin-top: 1rem;
+}
+.public-url-control textarea {
+  width: 100%;
+  min-height: 88px;
+  border: 1px solid #6d7b8f;
+  border-radius: 0.4rem;
+  padding: 0.65rem;
+  font: inherit;
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #17243799;
+}
+.confirm-dialog {
+  width: min(100%, 32rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  background: white;
+  border: 1px solid #dce0e7;
+  border-radius: 0.625rem;
+  padding: 1.5rem;
+  box-shadow: 0 24px 80px #11182740;
+}
+.confirm-dialog h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+}
+.invitation-edit .form-actions button {
+  width: auto;
+}
 @media (max-width: 1000px) {
   .invitation-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -608,6 +744,28 @@ button:disabled {
   .invitation-filters,
   .create-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .detail-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail-section {
+    padding: 1rem;
+  }
+  .lifecycle-actions,
+  .detail-actions,
+  .form-actions,
+  .dialog-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .lifecycle-actions button,
+  .detail-actions a,
+  .form-actions a,
+  .form-actions button,
+  .public-url-control button,
+  .dialog-actions button {
+    justify-content: center;
+    width: 100%;
   }
   .invitation-actions {
     align-items: stretch;
