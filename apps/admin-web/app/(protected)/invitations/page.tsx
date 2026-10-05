@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { getServerSession } from "../../../src/auth/server-session";
 import {
   parseInvitationQuery,
@@ -16,6 +17,12 @@ export default async function InvitationsPage({
   if ((await getServerSession()).kind !== "authenticated") return null;
   const params = await searchParams;
   const query = parseInvitationQuery(params);
+  if (
+    query &&
+    typeof params.search === "string" &&
+    params.search !== (query.search ?? "")
+  )
+    redirect(`/invitations?${queryString(query)}`);
   return (
     <>
       <header className="dashboard-heading invitation-heading">
