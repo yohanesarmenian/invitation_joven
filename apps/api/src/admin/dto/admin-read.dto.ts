@@ -344,6 +344,9 @@ export class AdminInviteeDetailDto {
 
   @ApiProperty({ type: Number })
   displayOrder: number;
+
+  @ApiProperty({ format: "date-time", type: String })
+  updatedAt: string;
 }
 
 export class AdminInvitationEligibilityDto {

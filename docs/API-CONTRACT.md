@@ -798,7 +798,7 @@ Response fields: `id`, `displayName`, `greetingName`, `status`, `allowPlusOne`, 
 
 Embedded relations:
 
-- `invitees` — full invitee DTOs.
+- `invitees` — full invitee DTOs (`id`, `fullName`, `category`, `label`, `displayOrder`, `updatedAt`).
 - `eligibility` — current `InvitationEvent` rows with safe `Event` metadata (`id`, `slug`, `name`, `isActive`, `displayOrder`).
 - RSVP summary/detail sufficient for the invitation detail page, including `status` and `version`.
 - Message summary only: `total` and `hidden` counts.

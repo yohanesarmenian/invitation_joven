@@ -691,6 +691,7 @@ export class AdminReadService {
                 fullName: true,
                 id: true,
                 label: true,
+                updatedAt: true,
               },
             },
             lastOpenedAt: true,
@@ -745,7 +746,14 @@ export class AdminReadService {
         firstOpenedAt: toIsoDate(invitation.firstOpenedAt),
         greetingName: invitation.greetingName,
         id: invitation.id,
-        invitees: invitation.invitees,
+        invitees: invitation.invitees.map((invitee) => ({
+          category: invitee.category,
+          displayOrder: invitee.displayOrder,
+          fullName: invitee.fullName,
+          id: invitee.id,
+          label: invitee.label,
+          updatedAt: toIsoDateRequired(invitee.updatedAt),
+        })),
         lastOpenedAt: toIsoDate(invitation.lastOpenedAt),
         maxAdditionalChildren: invitation.maxAdditionalChildren,
         messages: {

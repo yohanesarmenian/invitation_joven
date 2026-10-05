@@ -79,6 +79,7 @@ export const detail: AdminInvitationDetailResponse = {
         category: "ADULT",
         label: null,
         displayOrder: 1,
+        updatedAt: "2026-10-01T00:00:01.000Z",
       },
       {
         id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
@@ -86,6 +87,7 @@ export const detail: AdminInvitationDetailResponse = {
         category: "CHILD",
         label: "Child",
         displayOrder: 2,
+        updatedAt: "2026-10-01T00:00:02.000Z",
       },
     ],
     eligibility: [{ event: events[0]! }, { event: events[1]! }],

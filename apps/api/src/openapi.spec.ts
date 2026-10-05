@@ -570,6 +570,23 @@ describe("OpenAPI contract", () => {
       }),
       required: ["expectedUpdatedAt"],
     });
+    expect(schemas.AdminInviteeDetailDto).toMatchObject({
+      properties: expect.objectContaining({
+        displayOrder: expect.objectContaining({ type: "number" }),
+        updatedAt: expect.objectContaining({
+          format: "date-time",
+          type: "string",
+        }),
+      }),
+      required: [
+        "id",
+        "fullName",
+        "category",
+        "label",
+        "displayOrder",
+        "updatedAt",
+      ],
+    });
     expect(schemas.AdminInviteeMutationDto).toMatchObject({
       properties: expect.objectContaining({
         createdAt: expect.objectContaining({ format: "date-time" }),
