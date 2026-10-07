@@ -7,17 +7,19 @@ import {
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import ExcelJS from "exceljs";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppModule } from "../app.module.js";
 import { configureApp } from "../app.setup.js";
 import { AdminPasswordService } from "../auth/password.service.js";
 import { AdminSessionTokenService } from "../auth/session-token.service.js";
 import { getDatabaseUrl } from "../database/database-url.js";
 import {
+  GuestImportPreviewStatus,
   GuestImportSourceFormat,
   InvitationStatus,
   PrismaClient,
 } from "../generated/prisma/client.js";
+import { CredentialService } from "../security/credential.service.js";
 
 const ADMIN_ORIGIN = "http://localhost:3001";
 const OWNER_EMAIL = "owner-import@example.com";
@@ -49,10 +51,10 @@ async function cleanDatabase() {
   await prisma.adminUser.deleteMany();
 }
 
-async function createOwnerAndSession() {
+async function createOwnerAndSession(email = OWNER_EMAIL) {
   const owner = await prisma.adminUser.create({
     data: {
-      email: OWNER_EMAIL,
+      email,
       passwordHash: await passwordService.hashPassword(OWNER_PASSWORD),
     },
   });
@@ -252,6 +254,23 @@ async function upload(
     method: "POST",
     payload: multipart.payload,
     url: "/api/admin/imports/guest/validate",
+  });
+}
+
+async function commitImport(
+  app: NestFastifyApplication,
+  session: OwnerSession,
+  body: unknown,
+  headers: Record<string, string> = ownerHeaders(session),
+) {
+  return app.getHttpAdapter().getInstance().inject({
+    headers: {
+      ...headers,
+      "content-type": "application/json",
+    },
+    method: "POST",
+    payload: JSON.stringify(body),
+    url: "/api/admin/imports/guest/commit",
   });
 }
 
@@ -636,5 +655,429 @@ describe("POST /api/admin/imports/guest/validate", () => {
 
     expect(response.statusCode).toBe(201);
     expect(warnings).toEqual([1, 1, 1, 0, 0]);
+  });
+
+  it("requires OWNER auth, Origin, and CSRF for JSON commit", async () => {
+    const session = await createOwnerAndSession();
+    const preview = await upload(app, session, validCsvFile());
+    const body = {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2],
+      previewId: preview.json().previewId,
+    };
+
+    const unauthenticated = await commitImport(app, session, body, {});
+    const missingOrigin = await commitImport(app, session, body, {
+      cookie: session.cookie,
+      "x-csrf-token": session.csrfToken,
+    });
+    const missingCsrf = await commitImport(app, session, body, {
+      cookie: session.cookie,
+      origin: ADMIN_ORIGIN,
+    });
+
+    expect(unauthenticated.statusCode).toBe(401);
+    expect(missingOrigin.statusCode).toBe(403);
+    expect(missingCsrf.statusCode).toBe(403);
+  });
+
+  it("atomically commits selected rows into invitation graphs, credentials, and one batch without RSVP side effects", async () => {
+    const session = await createOwnerAndSession();
+    const source = csv([
+      "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony",
+      validCsvRow("Commit Household One"),
+      validCsvRow("Commit Household Two"),
+    ]);
+    const preview = await upload(app, session, source);
+    const before = await counts();
+    const response = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2, 3],
+      previewId: preview.json().previewId,
+    });
+    const after = await counts();
+    const storedPreview = await prisma.guestImportPreview.findUniqueOrThrow({
+      where: { id: preview.json().previewId },
+    });
+    const createdInvitations = await prisma.invitation.findMany({
+      orderBy: { displayName: "asc" },
+      select: {
+        displayName: true,
+        id: true,
+        publicTokenHash: true,
+        publicTokenVersion: true,
+      },
+      where: {
+        displayName: { in: ["Commit Household One", "Commit Household Two"] },
+      },
+    });
+    const credentialService = app.get(CredentialService);
+    const firstCredential = credentialService.deriveCredential({
+      namespace: "invitation",
+      stableId: createdInvitations[0]?.id ?? "",
+      version: 1,
+    });
+    const publicLookup = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: `/api/public/invitations/${firstCredential}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      importBatch: {
+        createdInvitationCount: 2,
+        createdInviteeCount: 4,
+        id: expect.stringMatching(
+          /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+        ),
+        status: "COMMITTED",
+        warningCount: 0,
+      },
+    });
+    expect(JSON.stringify(response.json())).not.toContain("publicCredential");
+    expect(JSON.stringify(response.json())).not.toContain("publicUrl");
+    expect(JSON.stringify(response.json())).not.toContain("publicTokenHash");
+    expect(JSON.stringify(response.json())).not.toContain("normalizedRows");
+    expect(after).toMatchObject({
+      guestImportBatches: before.guestImportBatches + 1,
+      invitationEvents: before.invitationEvents + 2,
+      invitations: before.invitations + 2,
+      invitees: before.invitees + 4,
+      rsvpAttendees: before.rsvpAttendees,
+      rsvpEventSelections: before.rsvpEventSelections,
+      rsvps: before.rsvps,
+    });
+    expect(storedPreview.status).toBe(GuestImportPreviewStatus.COMMITTED);
+    expect(storedPreview.commitFingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(storedPreview.committedBatchId).toBe(response.json().importBatch.id);
+    expect(storedPreview.normalizedRows).toEqual([]);
+    expect(createdInvitations).toHaveLength(2);
+    expect(createdInvitations.map((invitation) => invitation.publicTokenVersion)).toEqual([
+      1,
+      1,
+    ]);
+    expect(
+      new Set(createdInvitations.map((invitation) => invitation.publicTokenHash))
+        .size,
+    ).toBe(2);
+    expect(createdInvitations[0]?.publicTokenHash).toBe(
+      credentialService.hashCredential(firstCredential),
+    );
+    expect(publicLookup.statusCode).toBe(200);
+  });
+
+  it("returns the existing batch for exact replay even after expiry and rejects a different replay", async () => {
+    const session = await createOwnerAndSession();
+    const preview = await upload(app, session, validCsvFile("Replay Household"));
+    const exactBody = {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2],
+      previewId: preview.json().previewId,
+    };
+    const first = await commitImport(app, session, exactBody);
+    await prisma.guestImportPreview.update({
+      data: { expiresAt: new Date(Date.now() - 60_000) },
+      where: { id: preview.json().previewId },
+    });
+    const beforeReplay = await counts();
+    const replay = await commitImport(app, session, exactBody);
+    const differentReplay = await commitImport(app, session, {
+      ...exactBody,
+      acknowledgedWarningRowNumbers: [2],
+    });
+    const afterReplay = await counts();
+
+    expect(first.statusCode).toBe(200);
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(first.json());
+    expect(differentReplay.statusCode).toBe(409);
+    expect(differentReplay.json().error.code).toBe(
+      "IMPORT_PREVIEW_ALREADY_COMMITTED",
+    );
+    expect(afterReplay).toEqual(beforeReplay);
+  });
+
+  it("treats array-order equivalent replay as the same canonical fingerprint", async () => {
+    const session = await createOwnerAndSession();
+    const source = csv([
+      "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony",
+      validCsvRow("Order Household One"),
+      validCsvRow("Order Household Two"),
+    ]);
+    const preview = await upload(app, session, source);
+    const first = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [3, 2],
+      previewId: preview.json().previewId,
+    });
+    const beforeReplay = await counts();
+    const replay = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2, 3],
+      previewId: preview.json().previewId,
+    });
+    const afterReplay = await counts();
+
+    expect(first.statusCode).toBe(200);
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(first.json());
+    expect(afterReplay).toEqual(beforeReplay);
+  });
+
+  it("validates selected rows, warning acknowledgements, preview ownership, and pending expiry before writing", async () => {
+    const session = await createOwnerAndSession();
+    const otherSession = await createOwnerAndSession("other-import@example.com");
+    await createInvitation("Needs Ack Household");
+    const warningPreview = await upload(
+      app,
+      session,
+      validCsvFile("needs ack household"),
+    );
+    const expiredPreview = await upload(
+      app,
+      session,
+      validCsvFile("Expired Household"),
+    );
+    await prisma.guestImportPreview.update({
+      data: { expiresAt: new Date(Date.now() - 60_000) },
+      where: { id: expiredPreview.json().previewId },
+    });
+    const before = await counts();
+
+    const missingAck = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2],
+      previewId: warningPreview.json().previewId,
+    });
+    const badAck = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [99],
+      includeRowNumbers: [2],
+      previewId: warningPreview.json().previewId,
+    });
+    const wrongOwner = await commitImport(app, otherSession, {
+      acknowledgedWarningRowNumbers: [2],
+      includeRowNumbers: [2],
+      previewId: warningPreview.json().previewId,
+    });
+    const expired = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2],
+      previewId: expiredPreview.json().previewId,
+    });
+    const withAck = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [2],
+      includeRowNumbers: [2],
+      previewId: warningPreview.json().previewId,
+    });
+
+    expect(missingAck.statusCode).toBe(400);
+    expect(badAck.statusCode).toBe(400);
+    expect(wrongOwner.statusCode).toBe(404);
+    expect(expired.statusCode).toBe(409);
+    expect(expired.json().error.code).toBe("IMPORT_PREVIEW_EXPIRED");
+    expect(withAck.statusCode).toBe(200);
+    expect(withAck.json().importBatch.warningCount).toBe(1);
+    expect(await counts()).toMatchObject({
+      guestImportBatches: before.guestImportBatches + 1,
+      invitations: before.invitations + 1,
+      invitees: before.invitees + 2,
+    });
+  });
+
+  it("revalidates current Events and duplicate warnings inside the commit transaction", async () => {
+    const session = await createOwnerAndSession();
+    const eventDriftPreview = await upload(
+      app,
+      session,
+      validCsvFile("Event Drift Household"),
+    );
+    await prisma.event.update({
+      data: { isActive: false },
+      where: { slug: "ceremony" },
+    });
+    const beforeEventDrift = await counts();
+    const eventDrift = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2],
+      previewId: eventDriftPreview.json().previewId,
+    });
+
+    await prisma.event.update({
+      data: { isActive: true },
+      where: { slug: "ceremony" },
+    });
+    const duplicateDriftPreview = await upload(
+      app,
+      session,
+      validCsvFile("Late Duplicate Household"),
+    );
+    await createInvitation(" late duplicate household ");
+    const beforeDuplicateDrift = await counts();
+    const duplicateDrift = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2],
+      previewId: duplicateDriftPreview.json().previewId,
+    });
+
+    expect(eventDrift.statusCode).toBe(409);
+    expect(eventDrift.json().error.code).toBe("IMPORT_PREVIEW_STALE");
+    expect(await counts()).toMatchObject({
+      guestImportBatches: beforeDuplicateDrift.guestImportBatches,
+      invitationEvents: beforeDuplicateDrift.invitationEvents,
+      invitees: beforeDuplicateDrift.invitees,
+      rsvps: beforeDuplicateDrift.rsvps,
+    });
+    expect(beforeDuplicateDrift.invitations).toBe(beforeEventDrift.invitations + 1);
+    expect(duplicateDrift.statusCode).toBe(409);
+    expect(duplicateDrift.json().error.code).toBe("IMPORT_PREVIEW_STALE");
+  });
+
+  it("serializes concurrent commits for the same preview without duplicate invitation writes", async () => {
+    const session = await createOwnerAndSession();
+    const source = csv([
+      "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony",
+      validCsvRow("Concurrent Household One"),
+      validCsvRow("Concurrent Household Two"),
+    ]);
+    const preview = await upload(app, session, source);
+    const before = await counts();
+    const responses = await Promise.all([
+      commitImport(app, session, {
+        acknowledgedWarningRowNumbers: [],
+        includeRowNumbers: [2],
+        previewId: preview.json().previewId,
+      }),
+      commitImport(app, session, {
+        acknowledgedWarningRowNumbers: [],
+        includeRowNumbers: [3],
+        previewId: preview.json().previewId,
+      }),
+    ]);
+    const after = await counts();
+
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([
+      200,
+      409,
+    ]);
+    expect(
+      responses.find((response) => response.statusCode === 409)?.json().error
+        .code,
+    ).toBe("IMPORT_PREVIEW_ALREADY_COMMITTED");
+    expect(after).toMatchObject({
+      guestImportBatches: before.guestImportBatches + 1,
+      invitations: before.invitations + 1,
+      invitees: before.invitees + 2,
+    });
+  });
+
+  it("returns one batch for concurrent same-fingerprint commits", async () => {
+    const session = await createOwnerAndSession();
+    const preview = await upload(
+      app,
+      session,
+      validCsvFile("Same Fingerprint Household"),
+    );
+    const before = await counts();
+    const body = {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: [2],
+      previewId: preview.json().previewId,
+    };
+    const responses = await Promise.all([
+      commitImport(app, session, body),
+      commitImport(app, session, body),
+    ]);
+    const after = await counts();
+    const batchIds = responses.map(
+      (response) => response.json().importBatch.id as string,
+    );
+
+    expect(responses.map((response) => response.statusCode)).toEqual([200, 200]);
+    expect(new Set(batchIds).size).toBe(1);
+    expect(after).toMatchObject({
+      guestImportBatches: before.guestImportBatches + 1,
+      invitations: before.invitations + 1,
+      invitees: before.invitees + 2,
+    });
+  });
+
+  it("rolls back the first inserted invitation graph when a later row fails inside the transaction", async () => {
+    const session = await createOwnerAndSession();
+    const source = csv([
+      "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony",
+      validCsvRow("Rollback Household One"),
+      validCsvRow("Rollback Household Two"),
+    ]);
+    const preview = await upload(app, session, source);
+    const before = await counts();
+    const credentialService = app.get(CredentialService);
+    const originalDeriveCredential =
+      credentialService.deriveCredential.bind(credentialService);
+    let deriveCount = 0;
+    const spy = vi
+      .spyOn(credentialService, "deriveCredential")
+      .mockImplementation((command) => {
+        deriveCount += 1;
+
+        if (deriveCount === 2) {
+          throw new Error("forced import rollback");
+        }
+
+        return originalDeriveCredential(command);
+      });
+
+    try {
+      const response = await commitImport(app, session, {
+        acknowledgedWarningRowNumbers: [],
+        includeRowNumbers: [2, 3],
+        previewId: preview.json().previewId,
+      });
+
+      expect(response.statusCode).toBe(500);
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(await counts()).toEqual(before);
+    await expect(
+      prisma.guestImportPreview.findUniqueOrThrow({
+        where: { id: preview.json().previewId },
+      }),
+    ).resolves.toMatchObject({
+      committedBatchId: null,
+      status: GuestImportPreviewStatus.PENDING,
+    });
+  });
+
+  it("commits the 500-row maximum against real PostgreSQL within one atomic batch", async () => {
+    const session = await createOwnerAndSession();
+    const rows = Array.from({ length: 500 }, (_value, index) =>
+      validCsvRow(`Bulk Household ${index.toString().padStart(3, "0")}`),
+    );
+    const preview = await upload(
+      app,
+      session,
+      csv([
+        "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony",
+        ...rows,
+      ]),
+      "bulk.csv",
+    );
+    const startedAt = Date.now();
+    const response = await commitImport(app, session, {
+      acknowledgedWarningRowNumbers: [],
+      includeRowNumbers: Array.from({ length: 500 }, (_value, index) => index + 2),
+      previewId: preview.json().previewId,
+    });
+    const durationMs = Date.now() - startedAt;
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().importBatch).toMatchObject({
+      createdInvitationCount: 500,
+      createdInviteeCount: 1000,
+      status: "COMMITTED",
+      warningCount: 0,
+    });
+    expect(durationMs).toBeGreaterThanOrEqual(0);
   });
 });

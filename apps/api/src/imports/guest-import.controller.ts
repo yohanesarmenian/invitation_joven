@@ -1,10 +1,12 @@
-import { Controller, Inject, Post, Req } from "@nestjs/common";
+import { Body, Controller, HttpCode, Inject, Post, Req } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
+  ApiConflictResponse,
   ApiConsumes,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -12,7 +14,11 @@ import {
 import { validationError } from "../auth/auth-errors.js";
 import type { RequestWithAdminContext } from "../common/admin-security.guard.js";
 import { ApiErrorEnvelopeDto } from "../common/api-error.dto.js";
-import { GuestImportValidateResponseDto } from "./dto/guest-import.dto.js";
+import {
+  GuestImportCommitRequestDto,
+  GuestImportCommitResponseDto,
+  GuestImportValidateResponseDto,
+} from "./dto/guest-import.dto.js";
 import { GuestImportService } from "./guest-import.service.js";
 
 type MultipartPart = {
@@ -110,6 +116,31 @@ export class GuestImportController {
     return this.guestImportService.validatePreview({
       createdByAdminUserId: adminUserId,
       source: file,
+    });
+  }
+
+  @Post("commit")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Commit guest import preview" })
+  @ApiBody({ type: GuestImportCommitRequestDto })
+  @ApiOkResponse({ type: GuestImportCommitResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  @ApiConflictResponse({ type: ApiErrorEnvelopeDto })
+  async commitGuestImport(
+    @Req() request: RequestWithAdminContext,
+    @Body() body: unknown,
+  ): Promise<GuestImportCommitResponseDto> {
+    const adminUserId = request.admin?.user.id;
+
+    if (adminUserId === undefined) {
+      throw new Error("Admin context missing after security guard.");
+    }
+
+    return this.guestImportService.commitPreview({
+      body,
+      committedByAdminUserId: adminUserId,
     });
   }
 }

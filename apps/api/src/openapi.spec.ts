@@ -9,11 +9,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AdminModule } from "./admin/admin.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { InvitationsModule } from "./invitations/invitations.module.js";
+import { ImportsModule } from "./imports/imports.module.js";
 import { MessagesModule } from "./messages/messages.module.js";
 import { createOpenApiDocument } from "./openapi.js";
 
 @Module({
-  imports: [AuthModule, AdminModule, InvitationsModule, MessagesModule],
+  imports: [AuthModule, AdminModule, ImportsModule, InvitationsModule, MessagesModule],
 })
 class OpenApiTestModule {}
 
@@ -74,6 +75,10 @@ describe("OpenAPI contract", () => {
     const adminInvitationMessagesPath =
       document.paths["/api/admin/invitations/{invitationId}/messages"];
     const adminMessagePath = document.paths["/api/admin/messages/{messageId}"];
+    const adminGuestImportValidatePath =
+      document.paths["/api/admin/imports/guest/validate"];
+    const adminGuestImportCommitPath =
+      document.paths["/api/admin/imports/guest/commit"];
     const schemas = document.components?.schemas ?? {};
 
     expect(getOperation).toBeDefined();
@@ -245,6 +250,23 @@ describe("OpenAPI contract", () => {
     expect(adminMessagePath?.patch?.responses).toHaveProperty("403");
     expect(adminMessagePath?.patch?.responses).toHaveProperty("404");
     expect(adminMessagePath?.delete).toBeUndefined();
+    expect(adminGuestImportValidatePath?.post).toBeDefined();
+    expect(adminGuestImportValidatePath?.post?.requestBody).toBeDefined();
+    expect(adminGuestImportValidatePath?.post?.responses).toHaveProperty("201");
+    expect(adminGuestImportValidatePath?.post?.responses).toHaveProperty("400");
+    expect(adminGuestImportValidatePath?.post?.responses).toHaveProperty("401");
+    expect(adminGuestImportValidatePath?.post?.responses).toHaveProperty("403");
+    expect(adminGuestImportCommitPath?.post).toBeDefined();
+    expect(adminGuestImportCommitPath?.post?.requestBody).toBeDefined();
+    expect(adminGuestImportCommitPath?.post?.responses).toHaveProperty("200");
+    expect(adminGuestImportCommitPath?.post?.responses).toHaveProperty("400");
+    expect(adminGuestImportCommitPath?.post?.responses).toHaveProperty("401");
+    expect(adminGuestImportCommitPath?.post?.responses).toHaveProperty("403");
+    expect(adminGuestImportCommitPath?.post?.responses).toHaveProperty("409");
+    expect(adminGuestImportCommitPath?.get).toBeUndefined();
+    expect(adminGuestImportCommitPath?.put).toBeUndefined();
+    expect(adminGuestImportCommitPath?.patch).toBeUndefined();
+    expect(adminGuestImportCommitPath?.delete).toBeUndefined();
     expect(adminMessagesPath?.get?.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -309,6 +331,9 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("AdminGuestMessageListResponseDto");
     expect(schemas).toHaveProperty("AdminGuestMessageItemDto");
     expect(schemas).toHaveProperty("UpdateAdminGuestMessageRequestDto");
+    expect(schemas).toHaveProperty("GuestImportValidateResponseDto");
+    expect(schemas).toHaveProperty("GuestImportCommitRequestDto");
+    expect(schemas).toHaveProperty("GuestImportCommitResponseDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     const adminSchemas = Object.fromEntries(
       Object.entries(schemas).filter(([name]) => name.startsWith("Admin")),
@@ -694,5 +719,39 @@ describe("OpenAPI contract", () => {
     expect(
       JSON.stringify(schemas.UpdateAdminGuestMessageRequestDto),
     ).not.toContain("authorName");
+    expect(schemas.GuestImportCommitRequestDto).toMatchObject({
+      properties: {
+        acknowledgedWarningRowNumbers: expect.objectContaining({
+          type: "array",
+        }),
+        includeRowNumbers: expect.objectContaining({ type: "array" }),
+        previewId: expect.objectContaining({
+          format: "uuid",
+          type: "string",
+        }),
+      },
+      required: [
+        "previewId",
+        "includeRowNumbers",
+        "acknowledgedWarningRowNumbers",
+      ],
+    });
+    expect(schemas.GuestImportBatchReceiptDto).toMatchObject({
+      properties: expect.objectContaining({
+        createdInvitationCount: expect.objectContaining({ type: "number" }),
+        createdInviteeCount: expect.objectContaining({ type: "number" }),
+        status: expect.objectContaining({ enum: ["COMMITTED"] }),
+        warningCount: expect.objectContaining({ type: "number" }),
+      }),
+    });
+    expect(JSON.stringify(schemas.GuestImportCommitResponseDto)).not.toContain(
+      "publicCredential",
+    );
+    expect(JSON.stringify(schemas.GuestImportCommitResponseDto)).not.toContain(
+      "publicUrl",
+    );
+    expect(JSON.stringify(schemas.GuestImportCommitResponseDto)).not.toContain(
+      "publicTokenHash",
+    );
   });
 });
