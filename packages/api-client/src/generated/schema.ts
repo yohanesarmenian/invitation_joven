@@ -382,6 +382,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/imports/guest/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit guest import preview */
+        post: operations["GuestImportController_commitGuestImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public/invitations/{publicCredential}/messages": {
         parameters: {
             query?: never;
@@ -910,6 +927,24 @@ export interface components {
             expiresAt: string;
             summary: components["schemas"]["GuestImportPreviewSummaryDto"];
             rows: components["schemas"]["GuestImportPreviewRowDto"][];
+        };
+        GuestImportCommitRequestDto: {
+            /** Format: uuid */
+            previewId: string;
+            includeRowNumbers: number[];
+            acknowledgedWarningRowNumbers: number[];
+        };
+        GuestImportBatchReceiptDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "COMMITTED";
+            createdInvitationCount: number;
+            createdInviteeCount: number;
+            warningCount: number;
+        };
+        GuestImportCommitResponseDto: {
+            importBatch: components["schemas"]["GuestImportBatchReceiptDto"];
         };
         SubmitPublicGuestMessageRequestDto: {
             authorName?: string | null;
@@ -2136,6 +2171,61 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    GuestImportController_commitGuestImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestImportCommitRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestImportCommitResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

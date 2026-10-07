@@ -1537,6 +1537,78 @@
         ]
       }
     },
+    "/api/admin/imports/guest/commit": {
+      "post": {
+        "operationId": "GuestImportController_commitGuestImport",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestImportCommitRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestImportCommitResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Commit guest import preview",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/public/invitations/{publicCredential}/messages": {
       "post": {
         "operationId": "PublicGuestMessageController_submitPublicGuestMessage",
@@ -3539,6 +3611,74 @@
           "expiresAt",
           "summary",
           "rows"
+        ]
+      },
+      "GuestImportCommitRequestDto": {
+        "type": "object",
+        "properties": {
+          "previewId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "includeRowNumbers": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "acknowledgedWarningRowNumbers": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "previewId",
+          "includeRowNumbers",
+          "acknowledgedWarningRowNumbers"
+        ]
+      },
+      "GuestImportBatchReceiptDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "COMMITTED"
+            ]
+          },
+          "createdInvitationCount": {
+            "type": "number"
+          },
+          "createdInviteeCount": {
+            "type": "number"
+          },
+          "warningCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "createdInvitationCount",
+          "createdInviteeCount",
+          "warningCount"
+        ]
+      },
+      "GuestImportCommitResponseDto": {
+        "type": "object",
+        "properties": {
+          "importBatch": {
+            "$ref": "#/components/schemas/GuestImportBatchReceiptDto"
+          }
+        },
+        "required": [
+          "importBatch"
         ]
       },
       "SubmitPublicGuestMessageRequestDto": {

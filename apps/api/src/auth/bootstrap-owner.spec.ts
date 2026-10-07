@@ -12,6 +12,7 @@ const passwordService = new AdminPasswordService();
 
 async function cleanAdminAuth() {
   await prisma.checkinRecord.deleteMany();
+  await prisma.guestImportPreview.deleteMany();
   await prisma.guestImportBatch.deleteMany();
   await prisma.rSVP.updateMany({
     data: { submittedByAdminUserId: null },

@@ -61,6 +61,10 @@ export type UpdateAdminGuestMessageResponse =
   components["schemas"]["AdminGuestMessageItemDto"];
 export type GuestImportValidateResponse =
   components["schemas"]["GuestImportValidateResponseDto"];
+export type GuestImportCommitRequest =
+  components["schemas"]["GuestImportCommitRequestDto"];
+export type GuestImportCommitResponse =
+  components["schemas"]["GuestImportCommitResponseDto"];
 export type ApiErrorEnvelope = components["schemas"]["ApiErrorEnvelopeDto"];
 export type GetPublicInvitationResponse =
   paths["/api/public/invitations/{publicCredential}"]["get"]["responses"]["200"]["content"]["application/json"];
@@ -114,6 +118,10 @@ export type ValidateGuestImportRequest =
   paths["/api/admin/imports/guest/validate"]["post"]["requestBody"]["content"]["multipart/form-data"];
 export type ValidateGuestImportResponse =
   paths["/api/admin/imports/guest/validate"]["post"]["responses"]["201"]["content"]["application/json"];
+export type CommitGuestImportRequest =
+  paths["/api/admin/imports/guest/commit"]["post"]["requestBody"]["content"]["application/json"];
+export type CommitGuestImportResponse =
+  paths["/api/admin/imports/guest/commit"]["post"]["responses"]["200"]["content"]["application/json"];
 
 export function createInvitationApiClient(
   options?: Parameters<typeof createClient<paths>>[0],

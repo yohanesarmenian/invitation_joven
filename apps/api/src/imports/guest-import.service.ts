@@ -1,22 +1,26 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { TextDecoder } from "node:util";
-import { Inject, Injectable } from "@nestjs/common";
+import { ConflictException, Inject, Injectable } from "@nestjs/common";
 import { parse as parseCsvSync } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import type { Prisma } from "../generated/prisma/client.js";
 import {
+  GuestImportStatus,
   GuestImportPreviewStatus,
   GuestImportSourceFormat,
   InviteeCategory,
 } from "../generated/prisma/client.js";
-import { validationError } from "../auth/auth-errors.js";
+import { notFound, validationError } from "../auth/auth-errors.js";
 import {
+  createAdminInvitationGraph,
   normalizeAdminCreateInvitationInput,
   type NormalizedCreateInput,
 } from "../admin/admin-mutation.service.js";
 import { PrismaService } from "../database/prisma.service.js";
+import { CredentialService } from "../security/credential.service.js";
 import type {
+  GuestImportCommitResponseDto,
   GuestImportIssueCode,
   GuestImportIssueDto,
   GuestImportPreviewRowDto,
@@ -64,10 +68,59 @@ type ValidatePreviewInput = {
   source: UploadSource;
 };
 
+type CommitPreviewInput = {
+  body: unknown;
+  committedByAdminUserId: string;
+};
+
 type HeaderPlan = {
   eventSlugs: string[];
   headers: string[];
 };
+
+type StoredPreviewRow = {
+  errors: GuestImportIssueDto[];
+  eventSlugs: string[];
+  input: StoredCreateInput | null;
+  parsed: GuestImportPreviewRowDto["parsed"] | null;
+  rowNumber: number;
+  status: GuestImportPreviewRowDto["status"];
+  warnings: GuestImportIssueDto[];
+};
+
+type StoredCreateInput = Omit<NormalizedCreateInput, "rsvpDeadlineAt"> & {
+  rsvpDeadlineAt: string | null;
+};
+
+type NormalizedCommitRequest = {
+  acknowledgedWarningRowNumbers: number[];
+  commitFingerprint: string;
+  includeRowNumbers: number[];
+  previewId: string;
+};
+
+type LockedPreviewRow = {
+  committedBatchId: string | null;
+  commitFingerprint: string | null;
+  createdByAdminUserId: string;
+  expiresAt: Date;
+  id: string;
+  normalizedRows: Prisma.JsonValue;
+  sanitizedSourceFilename: string;
+  sourceFormat: GuestImportSourceFormat;
+  status: GuestImportPreviewStatus;
+  summary: Prisma.JsonValue;
+};
+
+type BatchReceipt = GuestImportCommitResponseDto["importBatch"];
+
+const UUID_PATTERN =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const COMMIT_FIELDS = new Set([
+  "previewId",
+  "includeRowNumbers",
+  "acknowledgedWarningRowNumbers",
+]);
 
 function fileIssue(): never {
   validationError();
@@ -108,6 +161,114 @@ function sanitizeFilename(filename: string): string {
 
 function sourceDigest(buffer: Buffer): string {
   return createHash("sha256").update(buffer).digest("hex");
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertKnownKeys(
+  value: Record<string, unknown>,
+  allowed: ReadonlySet<string>,
+): void {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) {
+      validationError();
+    }
+  }
+}
+
+function assertUuid(value: string): void {
+  if (!UUID_PATTERN.test(value)) {
+    validationError();
+  }
+}
+
+function normalizeRowNumberArray(value: unknown, allowEmpty: boolean): number[] {
+  if (!Array.isArray(value) || (!allowEmpty && value.length === 0)) {
+    validationError();
+  }
+
+  const rowNumbers = value.map((rowNumber) => {
+    if (
+      typeof rowNumber !== "number" ||
+      !Number.isSafeInteger(rowNumber) ||
+      rowNumber < 1
+    ) {
+      validationError();
+    }
+
+    return rowNumber;
+  });
+
+  if (new Set(rowNumbers).size !== rowNumbers.length) {
+    validationError();
+  }
+
+  return rowNumbers;
+}
+
+function sortedUniqueNumbers(values: readonly number[]): number[] {
+  return [...new Set(values)].sort((left, right) => left - right);
+}
+
+function normalizeCommitRequest(body: unknown): NormalizedCommitRequest {
+  if (!isPlainObject(body)) {
+    validationError();
+  }
+
+  assertKnownKeys(body, COMMIT_FIELDS);
+
+  if (
+    !Object.hasOwn(body, "previewId") ||
+    !Object.hasOwn(body, "includeRowNumbers") ||
+    !Object.hasOwn(body, "acknowledgedWarningRowNumbers")
+  ) {
+    validationError();
+  }
+
+  if (typeof body.previewId !== "string") {
+    validationError();
+  }
+
+  assertUuid(body.previewId);
+  const includeRowNumbers = normalizeRowNumberArray(
+    body.includeRowNumbers,
+    false,
+  );
+  const acknowledgedWarningRowNumbers = normalizeRowNumberArray(
+    body.acknowledgedWarningRowNumbers,
+    true,
+  );
+  const canonical = JSON.stringify({
+    acknowledgedWarningRowNumbers: sortedUniqueNumbers(
+      acknowledgedWarningRowNumbers,
+    ),
+    includeRowNumbers: sortedUniqueNumbers(includeRowNumbers),
+    previewId: body.previewId,
+  });
+  const commitFingerprint = createHash("sha256")
+    .update(canonical)
+    .digest("hex");
+
+  return {
+    acknowledgedWarningRowNumbers,
+    commitFingerprint,
+    includeRowNumbers,
+    previewId: body.previewId,
+  };
+}
+
+function importConflict(code: string, message: string): never {
+  throw new ConflictException({
+    code,
+    details: null,
+    message,
+  });
+}
+
+function stalePreview(): never {
+  importConflict("IMPORT_PREVIEW_STALE", "Import preview is stale.");
 }
 
 function detectFormat(filename: string, buffer: Buffer): SourceFormat {
@@ -569,7 +730,11 @@ function summary(rows: readonly InternalRow[]): GuestImportPreviewSummaryDto {
 
 @Injectable()
 export class GuestImportService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(CredentialService)
+    private readonly credentialService: CredentialService,
+  ) {}
 
   async validatePreview(
     input: ValidatePreviewInput,
@@ -651,6 +816,358 @@ export class GuestImportService {
         warnings: row.warnings,
       })),
       summary: previewSummary,
+    };
+  }
+
+  async commitPreview(
+    input: CommitPreviewInput,
+  ): Promise<GuestImportCommitResponseDto> {
+    assertUuid(input.committedByAdminUserId);
+    const request = normalizeCommitRequest(input.body);
+
+    const importBatch = await this.prisma.$transaction(
+      async (tx) => {
+        const preview = await this.lockPreview(tx, request.previewId);
+
+        if (preview.createdByAdminUserId !== input.committedByAdminUserId) {
+          notFound();
+        }
+
+        if (preview.status === GuestImportPreviewStatus.COMMITTED) {
+          if (
+            preview.commitFingerprint === request.commitFingerprint &&
+            preview.committedBatchId !== null
+          ) {
+            return this.readBatchReceipt(tx, preview.committedBatchId);
+          }
+
+          importConflict(
+            "IMPORT_PREVIEW_ALREADY_COMMITTED",
+            "Import preview has already been committed.",
+          );
+        }
+
+        if (preview.status !== GuestImportPreviewStatus.PENDING) {
+          stalePreview();
+        }
+
+        if (preview.expiresAt.getTime() <= Date.now()) {
+          importConflict(
+            "IMPORT_PREVIEW_EXPIRED",
+            "Import preview has expired.",
+          );
+        }
+
+        const rows = this.parseStoredRows(preview.normalizedRows);
+        const selectedRows = this.selectRows(rows, request);
+        const preparedRows = await this.revalidateSelectedRows(
+          tx,
+          rows,
+          selectedRows,
+          request.acknowledgedWarningRowNumbers,
+        );
+        const createdInviteeCount = preparedRows.reduce(
+          (total, row) => total + row.input.invitees.length,
+          0,
+        );
+        const warningCount = selectedRows.filter(
+          (row) => row.warnings.length > 0,
+        ).length;
+
+        for (const row of preparedRows) {
+          await createAdminInvitationGraph(
+            tx,
+            this.credentialService,
+            row.input,
+          );
+        }
+
+        const batch = await tx.guestImportBatch.create({
+          data: {
+            committedByAdminUserId: input.committedByAdminUserId,
+            createdInvitationCount: preparedRows.length,
+            createdInviteeCount,
+            errorCount: 0,
+            rowCount: preparedRows.length,
+            sourceFilename: preview.sanitizedSourceFilename,
+            sourceFormat: preview.sourceFormat,
+            status: GuestImportStatus.COMMITTED,
+            summary: {
+              acknowledgedWarningRowNumbers: sortedUniqueNumbers(
+                request.acknowledgedWarningRowNumbers,
+              ),
+              committedRowNumbers: preparedRows.map((row) => row.rowNumber),
+              createdInvitationCount: preparedRows.length,
+              createdInviteeCount,
+              errorCount: 0,
+              sourceSummary: preview.summary,
+              warningCount,
+            } satisfies Prisma.InputJsonObject,
+            warningCount,
+          },
+          select: {
+            createdInvitationCount: true,
+            createdInviteeCount: true,
+            id: true,
+            status: true,
+            warningCount: true,
+          },
+        });
+
+        await tx.guestImportPreview.update({
+          data: {
+            commitFingerprint: request.commitFingerprint,
+            committedBatchId: batch.id,
+            normalizedRows: [] as unknown as Prisma.InputJsonValue,
+            status: GuestImportPreviewStatus.COMMITTED,
+          },
+          where: { id: preview.id },
+        });
+
+        return this.mapBatchReceipt(batch);
+      },
+      {
+        maxWait: 5000,
+        timeout: 60000,
+      },
+    );
+
+    return { importBatch };
+  }
+
+  private async lockPreview(
+    tx: Prisma.TransactionClient,
+    previewId: string,
+  ): Promise<LockedPreviewRow> {
+    const rows = await tx.$queryRaw<LockedPreviewRow[]>`
+      SELECT
+        "id",
+        "created_by_admin_user_id" AS "createdByAdminUserId",
+        "committed_batch_id" AS "committedBatchId",
+        "source_format"::text AS "sourceFormat",
+        "sanitized_source_filename" AS "sanitizedSourceFilename",
+        "normalized_rows" AS "normalizedRows",
+        "summary",
+        "status"::text AS "status",
+        "commit_fingerprint" AS "commitFingerprint",
+        "expires_at" AS "expiresAt"
+      FROM "guest_import_previews"
+      WHERE "id" = ${previewId}::uuid
+      FOR UPDATE
+    `;
+    const preview = rows[0];
+
+    if (preview === undefined) {
+      notFound();
+    }
+
+    return preview;
+  }
+
+  private async readBatchReceipt(
+    tx: Prisma.TransactionClient,
+    batchId: string,
+  ): Promise<BatchReceipt> {
+    const batch = await tx.guestImportBatch.findUnique({
+      select: {
+        createdInvitationCount: true,
+        createdInviteeCount: true,
+        id: true,
+        status: true,
+        warningCount: true,
+      },
+      where: { id: batchId },
+    });
+
+    if (batch === null) {
+      throw new Error("Committed import preview is missing its batch receipt.");
+    }
+
+    return this.mapBatchReceipt(batch);
+  }
+
+  private parseStoredRows(value: Prisma.JsonValue): StoredPreviewRow[] {
+    if (!Array.isArray(value)) {
+      stalePreview();
+    }
+
+    return value.map((row) => this.parseStoredRow(row));
+  }
+
+  private parseStoredRow(value: Prisma.JsonValue): StoredPreviewRow {
+    if (!isPlainObject(value)) {
+      stalePreview();
+    }
+
+    const rowNumber = value.rowNumber;
+    const status = value.status;
+    const errors = value.errors;
+    const warnings = value.warnings;
+    const eventSlugs = value.eventSlugs;
+    const input = value.input;
+
+    if (
+      typeof rowNumber !== "number" ||
+      !Number.isSafeInteger(rowNumber) ||
+      rowNumber < 1 ||
+      (status !== "VALID" &&
+        status !== "VALID_WITH_WARNINGS" &&
+        status !== "ERROR") ||
+      !Array.isArray(errors) ||
+      !Array.isArray(warnings) ||
+      !Array.isArray(eventSlugs) ||
+      !eventSlugs.every((slug) => typeof slug === "string")
+    ) {
+      stalePreview();
+    }
+
+    return {
+      errors: errors as unknown as GuestImportIssueDto[],
+      eventSlugs,
+      input: input === null ? null : this.parseStoredCreateInput(input),
+      parsed:
+        value.parsed === null || value.parsed === undefined
+          ? null
+          : (value.parsed as unknown as GuestImportPreviewRowDto["parsed"]),
+      rowNumber,
+      status,
+      warnings: warnings as unknown as GuestImportIssueDto[],
+    };
+  }
+
+  private parseStoredCreateInput(value: unknown): StoredCreateInput {
+    if (!isPlainObject(value)) {
+      stalePreview();
+    }
+
+    const normalized = normalizeAdminCreateInvitationInput(value);
+
+    return {
+      ...normalized,
+      rsvpDeadlineAt: normalized.rsvpDeadlineAt?.toISOString() ?? null,
+    };
+  }
+
+  private selectRows(
+    rows: readonly StoredPreviewRow[],
+    request: NormalizedCommitRequest,
+  ): StoredPreviewRow[] {
+    const rowsByNumber = new Map(rows.map((row) => [row.rowNumber, row]));
+    const acknowledgedRows = new Set(request.acknowledgedWarningRowNumbers);
+
+    for (const rowNumber of request.acknowledgedWarningRowNumbers) {
+      const row = rowsByNumber.get(rowNumber);
+
+      if (row === undefined || row.warnings.length === 0) {
+        validationError();
+      }
+    }
+
+    return request.includeRowNumbers.map((rowNumber) => {
+      const row = rowsByNumber.get(rowNumber);
+
+      if (row === undefined || row.input === null || row.errors.length > 0) {
+        validationError();
+      }
+
+      if (row.warnings.length > 0 && !acknowledgedRows.has(row.rowNumber)) {
+        validationError();
+      }
+
+      return row;
+    });
+  }
+
+  private async revalidateSelectedRows(
+    tx: Prisma.TransactionClient,
+    allRows: readonly StoredPreviewRow[],
+    selectedRows: readonly StoredPreviewRow[],
+    acknowledgedWarningRowNumbers: readonly number[],
+  ): Promise<Array<{ input: NormalizedCreateInput; rowNumber: number }>> {
+    const selectedSlugs = [
+      ...new Set(selectedRows.flatMap((row) => row.eventSlugs)),
+    ];
+    const events = await tx.event.findMany({
+      orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+      select: { id: true, isActive: true, slug: true },
+      where: { slug: { in: selectedSlugs } },
+    });
+    const eventsBySlug = new Map(events.map((event) => [event.slug, event]));
+    const acknowledgedRows = new Set(acknowledgedWarningRowNumbers);
+    const allValidKeys = allRows
+      .map((row) => row.input?.displayName)
+      .filter((displayName): displayName is string => displayName !== undefined)
+      .map(duplicateKey);
+    const rowKeyCounts = new Map<string, number>();
+
+    for (const key of allValidKeys) {
+      rowKeyCounts.set(key, (rowKeyCounts.get(key) ?? 0) + 1);
+    }
+
+    const existingInvitations = await tx.invitation.findMany({
+      select: { displayName: true },
+    });
+    const existingKeys = new Set(
+      existingInvitations.map((row) => duplicateKey(row.displayName)),
+    );
+
+    return selectedRows.map((row) => {
+      if (row.input === null) {
+        stalePreview();
+      }
+
+      const eventIds = row.eventSlugs.map((slug) => {
+        const event = eventsBySlug.get(slug);
+
+        if (event === undefined || !event.isActive) {
+          stalePreview();
+        }
+
+        return event.id;
+      });
+
+      const key = duplicateKey(row.input.displayName);
+      const hasDuplicateWarning = row.warnings.some(
+        (warning) => warning.code === "POSSIBLE_DUPLICATE",
+      );
+      const hasCurrentDuplicate =
+        existingKeys.has(key) || (rowKeyCounts.get(key) ?? 0) > 1;
+
+      if (
+        hasCurrentDuplicate &&
+        (!hasDuplicateWarning || !acknowledgedRows.has(row.rowNumber))
+      ) {
+        stalePreview();
+      }
+
+      try {
+        return {
+          input: normalizeAdminCreateInvitationInput({
+            ...row.input,
+            eventIds,
+            rsvpDeadlineAt: row.input.rsvpDeadlineAt,
+          }),
+          rowNumber: row.rowNumber,
+        };
+      } catch {
+        stalePreview();
+      }
+    });
+  }
+
+  private mapBatchReceipt(batch: {
+    createdInvitationCount: number;
+    createdInviteeCount: number;
+    id: string;
+    status: GuestImportStatus;
+    warningCount: number;
+  }): BatchReceipt {
+    return {
+      createdInvitationCount: batch.createdInvitationCount,
+      createdInviteeCount: batch.createdInviteeCount,
+      id: batch.id,
+      status: batch.status,
+      warningCount: batch.warningCount,
     };
   }
 

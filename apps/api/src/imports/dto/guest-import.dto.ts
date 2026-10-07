@@ -86,3 +86,36 @@ export class GuestImportValidateResponseDto {
   @ApiProperty({ type: () => [GuestImportPreviewRowDto] })
   rows: GuestImportPreviewRowDto[];
 }
+
+export class GuestImportCommitRequestDto {
+  @ApiProperty({ format: "uuid", type: String })
+  previewId: string;
+
+  @ApiProperty({ isArray: true, type: Number })
+  includeRowNumbers: number[];
+
+  @ApiProperty({ isArray: true, type: Number })
+  acknowledgedWarningRowNumbers: number[];
+}
+
+export class GuestImportBatchReceiptDto {
+  @ApiProperty({ format: "uuid", type: String })
+  id: string;
+
+  @ApiProperty({ enum: ["COMMITTED"], type: String })
+  status: "COMMITTED";
+
+  @ApiProperty({ type: Number })
+  createdInvitationCount: number;
+
+  @ApiProperty({ type: Number })
+  createdInviteeCount: number;
+
+  @ApiProperty({ type: Number })
+  warningCount: number;
+}
+
+export class GuestImportCommitResponseDto {
+  @ApiProperty({ type: () => GuestImportBatchReceiptDto })
+  importBatch: GuestImportBatchReceiptDto;
+}

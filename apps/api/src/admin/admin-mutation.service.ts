@@ -696,6 +696,83 @@ function isPrismaKnownErrorCode(error: unknown, code: string): boolean {
   );
 }
 
+export type CreatedAdminInvitationGraph = {
+  createdInviteeCount: number;
+  id: string;
+  publicCredential: string;
+  publicTokenVersion: number;
+};
+
+export async function assertActiveEventIds(
+  tx: Prisma.TransactionClient,
+  eventIds: readonly string[],
+): Promise<void> {
+  const events = await tx.event.findMany({
+    select: { id: true, isActive: true },
+    where: { id: { in: [...eventIds] } },
+  });
+
+  if (
+    events.length !== eventIds.length ||
+    events.some((event) => !event.isActive)
+  ) {
+    validationError();
+  }
+}
+
+export async function createAdminInvitationGraph(
+  tx: Prisma.TransactionClient,
+  credentialService: CredentialService,
+  input: NormalizedCreateInput,
+): Promise<CreatedAdminInvitationGraph> {
+  const id = randomUUID();
+  const publicTokenVersion = 1;
+  const publicCredential = credentialService.deriveCredential({
+    namespace: "invitation",
+    stableId: id,
+    version: publicTokenVersion,
+  });
+  const publicTokenHash = credentialService.hashCredential(publicCredential);
+
+  await assertActiveEventIds(tx, input.eventIds);
+  await tx.invitation.create({
+    data: {
+      allowPlusOne: input.allowPlusOne,
+      displayName: input.displayName,
+      greetingName: input.greetingName,
+      id,
+      maxAdditionalChildren: input.maxAdditionalChildren,
+      notes: input.notes,
+      publicTokenHash,
+      publicTokenVersion,
+      rsvpDeadlineAt: input.rsvpDeadlineAt,
+      status: InvitationStatus.ACTIVE,
+    },
+  });
+  await tx.invitationEvent.createMany({
+    data: input.eventIds.map((eventId) => ({
+      eventId,
+      invitationId: id,
+    })),
+  });
+  await tx.invitee.createMany({
+    data: input.invitees.map((invitee, index) => ({
+      category: invitee.category,
+      displayOrder: index,
+      fullName: invitee.fullName,
+      invitationId: id,
+      label: invitee.label,
+    })),
+  });
+
+  return {
+    createdInviteeCount: input.invitees.length,
+    id,
+    publicCredential,
+    publicTokenVersion,
+  };
+}
+
 @Injectable()
 export class AdminMutationService {
   constructor(
@@ -714,55 +791,18 @@ export class AdminMutationService {
     body: unknown,
   ): Promise<CreateAdminInvitationResponseDto> {
     const input = normalizeAdminCreateInvitationInput(body);
-    const id = randomUUID();
-    const publicTokenVersion = 1;
-    const publicCredential = this.credentialService.deriveCredential({
-      namespace: "invitation",
-      stableId: id,
-      version: publicTokenVersion,
-    });
-    const publicTokenHash =
-      this.credentialService.hashCredential(publicCredential);
+    const created = await this.prisma.$transaction((tx) =>
+      createAdminInvitationGraph(tx, this.credentialService, input),
+    );
 
-    await this.prisma.$transaction(async (tx) => {
-      await this.assertActiveEvents(tx, input.eventIds);
-      await tx.invitation.create({
-        data: {
-          allowPlusOne: input.allowPlusOne,
-          displayName: input.displayName,
-          greetingName: input.greetingName,
-          id,
-          maxAdditionalChildren: input.maxAdditionalChildren,
-          notes: input.notes,
-          publicTokenHash,
-          publicTokenVersion,
-          rsvpDeadlineAt: input.rsvpDeadlineAt,
-          status: InvitationStatus.ACTIVE,
-        },
-      });
-      await tx.invitationEvent.createMany({
-        data: input.eventIds.map((eventId) => ({
-          eventId,
-          invitationId: id,
-        })),
-      });
-      await tx.invitee.createMany({
-        data: input.invitees.map((invitee, index) => ({
-          category: invitee.category,
-          displayOrder: index,
-          fullName: invitee.fullName,
-          invitationId: id,
-          label: invitee.label,
-        })),
-      });
-    });
-
-    const detail = await this.adminReadService.getInvitationDetail(id);
+    const detail = await this.adminReadService.getInvitationDetail(created.id);
 
     return {
       invitation: detail.invitation,
-      publicTokenVersion,
-      publicUrl: this.publicBaseUrlService.buildInvitationUrl(publicCredential),
+      publicTokenVersion: created.publicTokenVersion,
+      publicUrl: this.publicBaseUrlService.buildInvitationUrl(
+        created.publicCredential,
+      ),
     };
   }
 
@@ -1187,23 +1227,6 @@ export class AdminMutationService {
     }
 
     return mapAdminGuestMessageItem(message);
-  }
-
-  private async assertActiveEvents(
-    tx: Prisma.TransactionClient,
-    eventIds: readonly string[],
-  ): Promise<void> {
-    const events = await tx.event.findMany({
-      select: { id: true, isActive: true },
-      where: { id: { in: [...eventIds] } },
-    });
-
-    if (
-      events.length !== eventIds.length ||
-      events.some((event) => !event.isActive)
-    ) {
-      validationError();
-    }
   }
 
   private inviteeMutationSelect() {

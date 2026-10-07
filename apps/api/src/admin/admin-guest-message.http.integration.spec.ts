@@ -31,6 +31,7 @@ type OwnerSession = Awaited<ReturnType<typeof createOwnerAndSession>>;
 
 async function cleanDatabase() {
   await prisma.checkinRecord.deleteMany();
+  await prisma.guestImportPreview.deleteMany();
   await prisma.guestImportBatch.deleteMany();
   await prisma.checkinPass.deleteMany();
   await prisma.rSVPEventSelection.deleteMany();
