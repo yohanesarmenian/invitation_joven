@@ -477,7 +477,7 @@ There is no top-level `/invitees`, `/events`, `/checkin`, `/imports`, or `/repor
 
 The authenticated shell exposes: Dashboard, Invitations, RSVPs, Messages, plus OWNER identity and Sign out.
 
-Imports, check-in, and reports are **not** rendered as disabled or placeholder navigation. Navigation for a phase that has not shipped must not exist.
+Imports, check-in, and reports are **not** rendered as disabled or placeholder navigation. Navigation for a phase that has not shipped must not exist. When Phase 9 ships, import is still reached from Invitations rather than from a new top-level Imports item; see "Import UI Contract".
 
 ### Required states per screen
 
@@ -521,6 +521,51 @@ The `/messages` page shows plain-text content, an `authorName` value or an expli
 - Admin management surfaces keep the existing accessibility baseline: labelled form controls, error associations, visible focus states, accessible names, semantic table markup, and status announcements for mutation outcomes.
 - Confirmation dialogs must be keyboard operable, must move focus into the dialog, must be dismissible, and must not rely on color alone to convey the destructive nature of the action.
 - Tables must not cause horizontal document overflow at the responsive widths already covered by the admin auth E2E suite.
+
+## Import UI Contract
+
+**Locked by Phase 9 Slice 9A at the route, state, and selection level.** Visual design, component choices, and copy below the required confirmation content remain implementation decisions.
+
+### Route and entry point
+
+| Route | Surface |
+| --- | --- |
+| `/invitations/import` | CSV/XLSX guest import |
+
+- The route is reached from an explicit **Import CSV/XLSX** action on `/invitations`. There is no top-level Imports navigation item.
+- On `/invitations/import`, the **Invitations** navigation section remains active, because import is invitation management.
+
+### States
+
+The screen defines these states explicitly:
+
+`IDLE`, `FILE_SELECTED`, `VALIDATING`, `PREVIEW_READY`, `COMMITTING`, `COMMIT_UNCERTAIN`, `SUCCESS`, `FAILURE`.
+
+- `IDLE` offers file selection plus a template download affordance and states the accepted formats and limits.
+- `FILE_SELECTED` shows the chosen file and requires explicit validation; selecting a file never uploads automatically.
+- `VALIDATING` locks submission.
+- `COMMITTING` locks submission and prevents a second commit request.
+- `COMMIT_UNCERTAIN` is a distinct state from `FAILURE`, because an uncertain outcome is not a known failure.
+- `SUCCESS` reports the committed batch summary.
+
+### Preview
+
+`PREVIEW_READY` displays:
+
+- The summary counts, the source file metadata, and the preview expiry information.
+- Each household row with its normalized household data, its invitees, and its eligible events.
+- Per-row errors and warnings, using the structured issue model rather than parsing free text.
+- Row selection state and warning acknowledgment state.
+
+`ERROR` rows cannot be selected. `VALID_WITH_WARNINGS` rows require explicit acknowledgment before they can be selected. Both rules are enforced server-side as well; client enforcement is never sufficient.
+
+Preview is a preview. The screen must not imply that rows already exist, and the summary must not be presented as a completed import.
+
+### Commit
+
+- Commit requires explicit confirmation and is never automatic.
+- An uncertain outcome (`COMMIT_UNCERTAIN`) presents an explicit recovery affordance that resubmits the **exact same** preview and selection. It must not auto-retry, and it must not present the outcome as a failure.
+- A stale-preview or expired-preview conflict sends the operator back to validation for a new preview rather than attempting to repair the committed selection.
 
 ## Accessibility
 

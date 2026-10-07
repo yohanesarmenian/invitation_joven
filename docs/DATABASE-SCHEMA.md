@@ -35,7 +35,7 @@ Primary keys are PostgreSQL UUIDs. For MVP, API DTOs may expose UUID identifiers
 
 ### Import audit
 
-`GuestImportBatch` records successful committed import provenance. Preview is not a committed batch. Failed-attempt persistence, if desired later, must occur outside the rolled-back domain transaction.
+`GuestImportPreview` holds short-lived validated preview state and is not business invitation data. `GuestImportBatch` records successful committed import provenance. A preview is not a committed batch. Failed-attempt persistence, if desired later, must occur outside the rolled-back domain transaction.
 
 ## ERD
 
@@ -57,6 +57,8 @@ erDiagram
   Event ||--o{ CheckinRecord : for_event
   AdminUser ||--o{ CheckinRecord : confirms
   AdminUser ||--o{ GuestImportBatch : commits
+  AdminUser ||--o{ GuestImportPreview : creates
+  GuestImportPreview ||--o| GuestImportBatch : commits_to
 ```
 
 ## Entities
@@ -418,6 +420,36 @@ Purpose: Successfully confirmed household attendance for one invitation and one 
   - Duplicate confirmation for the same invitation/event returns deterministic conflict.
 - Non-goal: invalid, revoked, duplicate, or rejected scan attempts are not persisted as CheckinRecord rows in MVP.
 
+### GuestImportPreview
+
+Purpose: Short-lived validated preview state produced by import validation, distinct from business invitation data and from a committed batch.
+
+**Phase 9 implementation note: this model does not exist in the current schema. Phase 9 requires a future Prisma migration to add it; Phase 9 Slice 9A adds no migration.**
+
+- Primary key: `id uuid`.
+- Foreign keys:
+  - `created_by_admin_user_id uuid -> AdminUser.id`.
+  - `committed_batch_id uuid -> GuestImportBatch.id` (nullable; set on successful commit).
+- Important fields:
+  - `source_format varchar`: `CSV`, `XLSX`.
+  - `sanitized_source_filename text`.
+  - `source_digest text`.
+  - `normalized_rows jsonb`: the authoritative commit source. The browser never reconstructs this payload.
+  - `summary jsonb`.
+  - `status varchar`: `PENDING`, `COMMITTED`.
+  - `commit_fingerprint text` (nullable).
+  - `created_at timestamptz`.
+  - `expires_at timestamptz`.
+- Constraints/indexes:
+  - Index `expires_at` for bounded opportunistic cleanup.
+  - Index `created_by_admin_user_id`.
+- Lifecycle:
+  - Created by import validation with a 30-minute lifetime.
+  - Bound to the creating OWNER; another admin session may not commit it.
+  - An expired uncommitted preview cannot commit and is never silently regenerated.
+  - After a successful commit the large normalized payload is cleared where practical, leaving only the minimal committed receipt and idempotency metadata.
+  - Raw uploaded CSV/XLSX bytes are never stored here, in `GuestImportBatch`, in the database, or in long-lived temporary storage.
+
 ### GuestImportBatch
 
 Purpose: Audit successful committed guest imports.
@@ -440,9 +472,10 @@ Purpose: Audit successful committed guest imports.
   - Check counts are non-negative.
   - Index `committed_at`.
 - Lifecycle:
-  - Created only as part of a successful import commit.
+  - Created only as part of a successful import commit, exactly one per committed preview.
   - Preview is not a GuestImportBatch.
-  - Failed-attempt persistence, if desired later, must be outside the rolled-back domain transaction.
+  - Failed attempts create no batch row. Failed-attempt persistence, if desired later, must occur outside the rolled-back domain transaction.
+  - Phase 9 MVP has no batch-history API.
 
 ## Key Invariants and Enforcement
 
@@ -601,7 +634,9 @@ Concurrent confirmations are guarded finally by unique `(invitation_id, event_id
 
 ### Guest import commit
 
-MVP commit is all-or-nothing for selected valid rows. The transaction creates invitations, invitees, invitation events, default RSVP state where used, invitation credential version/hash initialization, and successful import batch provenance. If any selected row fails commit, rollback the full selected import.
+MVP commit is all-or-nothing for selected valid rows. The transaction creates invitations, invitees, invitation events, invitation credential version/hash initialization, exactly one successful import batch, and the preview commit/receipt state required for idempotency. If any selected row fails commit, rollback the full selected import.
+
+Import does **not** create `RSVP`, `RSVPAttendee`, or `RSVPEventSelection` rows. A newly imported invitation follows the same lazy RSVP lifecycle as normal single-invitation creation, so no `RSVP` row exists before the first guest submission and the first submission is a create with `expectedVersion = null`.
 
 ## Phase 8 Admin Management
 
