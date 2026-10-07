@@ -6,6 +6,7 @@ import {
   type AdminAuthResponse,
   type AdminDashboardResponse,
   type AdminGuestMessageListResponse,
+  type GuestImportValidateResponse,
   type ArchiveAdminInvitationResponse,
   type CreateAdminInviteeRequest,
   type CreateAdminInvitationRequest,
@@ -28,6 +29,8 @@ import {
   type UpdateAdminGuestMessageResponse,
   type UpdateAdminInviteeRequest,
   type UpdateAdminInvitationRequest,
+  type ValidateGuestImportRequest,
+  type ValidateGuestImportResponse,
 } from "./index.js";
 
 function assertApiPath(path: keyof paths): keyof paths {
@@ -588,6 +591,52 @@ describe("generated API client", () => {
     );
     expect(JSON.stringify(updateGuestMessageResponse)).not.toContain(
       "moderationReason",
+    );
+  });
+
+  it("exposes the admin import validate multipart operation and preview schema", () => {
+    expect(assertApiPath("/api/admin/imports/guest/validate")).toBe(
+      "/api/admin/imports/guest/validate",
+    );
+    expect(
+      assertApiMethod("/api/admin/imports/guest/validate", "post"),
+    ).toBe("post");
+
+    const request: ValidateGuestImportRequest = {
+      file: "binary-file",
+    };
+    const response: ValidateGuestImportResponse = {
+      expiresAt: "2027-01-16T11:30:00.000Z",
+      previewId: "11111111-1111-4111-8111-111111111111",
+      rows: [
+        {
+          errors: [],
+          parsed: { displayName: "Example Household" },
+          rowNumber: 2,
+          status: "VALID_WITH_WARNINGS",
+          warnings: [
+            {
+              code: "POSSIBLE_DUPLICATE",
+              column: "displayName",
+              field: "displayName",
+              message: "Possible duplicate household by normalized display name.",
+              rowNumber: 2,
+            },
+          ],
+        },
+      ],
+      summary: {
+        errorRows: 0,
+        totalRows: 1,
+        validRows: 1,
+        warningRows: 1,
+      },
+    };
+    const aliasResponse: GuestImportValidateResponse = response;
+
+    expect(request.file).toBe("binary-file");
+    expect(aliasResponse.rows[0]?.warnings[0]?.code).toBe(
+      "POSSIBLE_DUPLICATE",
     );
   });
 });

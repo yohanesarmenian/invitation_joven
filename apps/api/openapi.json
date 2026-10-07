@@ -1465,6 +1465,78 @@
         ]
       }
     },
+    "/api/admin/imports/guest/validate": {
+      "post": {
+        "operationId": "GuestImportController_validateGuestImport",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestImportValidateResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Validate guest import preview",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/public/invitations/{publicCredential}/messages": {
       "post": {
         "operationId": "PublicGuestMessageController_submitPublicGuestMessage",
@@ -3329,6 +3401,144 @@
         "required": [
           "rsvp",
           "checkinPass"
+        ]
+      },
+      "GuestImportPreviewSummaryDto": {
+        "type": "object",
+        "properties": {
+          "totalRows": {
+            "type": "number"
+          },
+          "validRows": {
+            "type": "number"
+          },
+          "errorRows": {
+            "type": "number"
+          },
+          "warningRows": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "totalRows",
+          "validRows",
+          "errorRows",
+          "warningRows"
+        ]
+      },
+      "GuestImportIssueDto": {
+        "type": "object",
+        "properties": {
+          "rowNumber": {
+            "type": "number"
+          },
+          "column": {
+            "type": "string",
+            "nullable": true
+          },
+          "field": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "REQUIRED_FIELD",
+              "INVALID_VALUE",
+              "INVALID_JSON",
+              "INVALID_DATE",
+              "UNKNOWN_EVENT",
+              "INACTIVE_EVENT",
+              "INVALID_INVITEE",
+              "POSSIBLE_DUPLICATE"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rowNumber",
+          "column",
+          "field",
+          "code",
+          "message"
+        ]
+      },
+      "GuestImportParsedRowDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
+      "GuestImportPreviewRowDto": {
+        "type": "object",
+        "properties": {
+          "rowNumber": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "VALID_WITH_WARNINGS",
+              "ERROR"
+            ]
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuestImportIssueDto"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuestImportIssueDto"
+            }
+          },
+          "parsed": {
+            "$ref": "#/components/schemas/GuestImportParsedRowDto"
+          }
+        },
+        "required": [
+          "rowNumber",
+          "status",
+          "errors",
+          "warnings"
+        ]
+      },
+      "GuestImportValidateResponseDto": {
+        "type": "object",
+        "properties": {
+          "previewId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/GuestImportPreviewSummaryDto"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuestImportPreviewRowDto"
+            }
+          }
+        },
+        "required": [
+          "previewId",
+          "expiresAt",
+          "summary",
+          "rows"
         ]
       },
       "SubmitPublicGuestMessageRequestDto": {

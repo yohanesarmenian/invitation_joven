@@ -339,7 +339,7 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(22);
+    expect(routes).toHaveLength(23);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "POST /api/admin/invitations",
@@ -348,6 +348,7 @@ describe("admin read HTTP integration", () => {
         "GET /api/admin/messages",
         "GET /api/admin/invitations/:invitationId/messages",
         "PATCH /api/admin/messages/:messageId",
+        "POST /api/admin/imports/guest/validate",
       ]),
     );
     expect(routeNames).toEqual([
@@ -367,6 +368,7 @@ describe("admin read HTTP integration", () => {
       "PATCH /api/admin/messages/:messageId",
       "POST /api/admin/auth/login",
       "POST /api/admin/auth/logout",
+      "POST /api/admin/imports/guest/validate",
       "POST /api/admin/invitations",
       "POST /api/admin/invitations/:invitationId/archive",
       "POST /api/admin/invitations/:invitationId/invitees",
@@ -424,6 +426,7 @@ describe("admin read HTTP integration", () => {
       "PATCH /api/admin/invitees/:inviteeId",
       "PATCH /api/admin/messages/:messageId",
       "POST /api/admin/auth/logout",
+      "POST /api/admin/imports/guest/validate",
       "POST /api/admin/invitations",
       "POST /api/admin/invitations/:invitationId/archive",
       "POST /api/admin/invitations/:invitationId/invitees",

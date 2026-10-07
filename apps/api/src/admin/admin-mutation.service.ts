@@ -70,13 +70,13 @@ const OVERRIDE_REASON_MAX_CODE_POINTS = 500;
 
 type PlainObject = Record<string, unknown>;
 
-type NormalizedInviteeInput = {
+export type NormalizedInviteeInput = {
   category: InviteeCategory;
   fullName: string;
   label: string | null;
 };
 
-type NormalizedCreateInput = {
+export type NormalizedCreateInput = {
   allowPlusOne: boolean;
   displayName: string;
   eventIds: string[];
@@ -485,7 +485,9 @@ function normalizeInvitees(value: unknown): NormalizedInviteeInput[] {
   });
 }
 
-function normalizeCreateInput(body: unknown): NormalizedCreateInput {
+export function normalizeAdminCreateInvitationInput(
+  body: unknown,
+): NormalizedCreateInput {
   if (!isPlainObject(body)) {
     validationError();
   }
@@ -711,7 +713,7 @@ export class AdminMutationService {
   async createInvitation(
     body: unknown,
   ): Promise<CreateAdminInvitationResponseDto> {
-    const input = normalizeCreateInput(body);
+    const input = normalizeAdminCreateInvitationInput(body);
     const id = randomUUID();
     const publicTokenVersion = 1;
     const publicCredential = this.credentialService.deriveCredential({
