@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { AdminModule } from "./admin/admin.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { HealthModule } from "./health/health.module.js";
+import { ImportsModule } from "./imports/imports.module.js";
 import { InvitationsModule } from "./invitations/invitations.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
 import { MessagesModule } from "./messages/messages.module.js";
@@ -13,6 +14,7 @@ import { SecurityModule } from "./security/security.module.js";
     SecurityModule,
     AuthModule,
     AdminModule,
+    ImportsModule,
     InvitationsModule,
     MessagesModule,
     HealthModule,

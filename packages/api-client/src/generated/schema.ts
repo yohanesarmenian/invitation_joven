@@ -365,6 +365,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/imports/guest/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate guest import preview */
+        post: operations["GuestImportController_validateGuestImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public/invitations/{publicCredential}/messages": {
         parameters: {
             query?: never;
@@ -860,6 +877,39 @@ export interface components {
         PublicRsvpMutationResponseDto: {
             rsvp: components["schemas"]["PublicRsvpStateDto"];
             checkinPass: components["schemas"]["PublicCheckinPassDto"] | null;
+        };
+        GuestImportPreviewSummaryDto: {
+            totalRows: number;
+            validRows: number;
+            errorRows: number;
+            warningRows: number;
+        };
+        GuestImportIssueDto: {
+            rowNumber: number;
+            column: string | null;
+            field: string | null;
+            /** @enum {string} */
+            code: "REQUIRED_FIELD" | "INVALID_VALUE" | "INVALID_JSON" | "INVALID_DATE" | "UNKNOWN_EVENT" | "INACTIVE_EVENT" | "INVALID_INVITEE" | "POSSIBLE_DUPLICATE";
+            message: string;
+        };
+        GuestImportParsedRowDto: {
+            displayName: string;
+        };
+        GuestImportPreviewRowDto: {
+            rowNumber: number;
+            /** @enum {string} */
+            status: "VALID" | "VALID_WITH_WARNINGS" | "ERROR";
+            errors: components["schemas"]["GuestImportIssueDto"][];
+            warnings: components["schemas"]["GuestImportIssueDto"][];
+            parsed?: components["schemas"]["GuestImportParsedRowDto"];
+        };
+        GuestImportValidateResponseDto: {
+            /** Format: uuid */
+            previewId: string;
+            /** Format: date-time */
+            expiresAt: string;
+            summary: components["schemas"]["GuestImportPreviewSummaryDto"];
+            rows: components["schemas"]["GuestImportPreviewRowDto"][];
         };
         SubmitPublicGuestMessageRequestDto: {
             authorName?: string | null;
@@ -2036,6 +2086,56 @@ export interface operations {
             };
             /** @description RSVP domain validation failed. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    GuestImportController_validateGuestImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestImportValidateResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
