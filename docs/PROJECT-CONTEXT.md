@@ -42,7 +42,7 @@ Development Rules define how future changes move through this hierarchy. Impleme
 - Backend: NestJS, Fastify adapter, OpenAPI/Swagger, Prisma, PostgreSQL, Pino structured logging.
 - Security: Argon2id admin password hashing, opaque server-managed admin sessions, deterministic server-derived credentials, credential hashing at rest, and strict log redaction.
 - QR: backend-derived check-in credential, QR rendering library such as `qrcode`, browser scanner such as ZXing.
-- Import: CSV parser and ExcelJS or equivalent for XLSX import.
+- Import: CSV and XLSX parsers are not yet chosen. Phase 9B reviews maintenance, security, streaming/memory behavior, and OpenAPI compatibility before any dependency is added; no package is locked by the Phase 9A contract.
 - Testing: backend unit/integration tests, Vitest where appropriate, Playwright for E2E.
 - Deployment: Docker, GitHub Actions, VPS/self-host friendly, compatible with Coolify-style deployment.
 
@@ -84,7 +84,7 @@ In scope:
 - Accepted-RSVP household QR display.
 - Event-aware QR/manual check-in.
 - Admin dashboard.
-- CSV/XLSX guest import with validation preview.
+- CSV/XLSX guest import with validation preview. Create-only, one household per source row, at most 500 rows and 5 MiB per upload.
 - Basic reporting and CSV export.
 
 Out of scope:

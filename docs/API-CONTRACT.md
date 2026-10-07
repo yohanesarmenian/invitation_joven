@@ -1240,19 +1240,60 @@ Guest message content remains plain text in admin surfaces: no `dangerouslySetIn
 
 ## Admin Import Endpoints
 
-### Validate import
+**Phase ownership: Phase 9.** The template, parsing, preview, and commit contract is locked by Phase 9 Slice 9A. Import is **create-only**: it creates new `Invitation`, `Invitee`, and `InvitationEvent` rows and never updates, upserts, or merges an existing record. See `TECHNICAL-ARCHITECTURE.md` ("Import Architecture") for parser and validation responsibilities, and `DATABASE-SCHEMA.md` (`GuestImportPreview`, `GuestImportBatch`) for persistence consequences.
+
+### Import template
+
+Base columns, in this exact order, followed by zero or more event eligibility columns:
+
+| Column | Maps to |
+| --- | --- |
+| `displayName` | `Invitation.displayName` |
+| `greetingName` | `Invitation.greetingName` |
+| `allowPlusOne` | `Invitation.allowPlusOne` |
+| `maxAdditionalChildren` | `Invitation.maxAdditionalChildren` |
+| `rsvpDeadlineLocal` | normalized into `Invitation.rsvpDeadlineAt` |
+| `notes` | `Invitation.notes` |
+| `invitees` | `Invitee[]` |
+| `event:<slug>` (zero or more) | `InvitationEvent` eligibility |
+
+Header rules:
+
+- Matching is **exact** after removing an optional UTF-8 BOM from the first header. No aliases, no case-insensitive matching, no silent rename of a misspelled header.
+- Event eligibility columns use the stable spreadsheet-facing identifier `Event.slug`. Event UUIDs never appear in the template.
+- Backend-owned fields are never accepted from a spreadsheet: `id`, `status`, `publicCredential`, `publicTokenHash`, `publicTokenVersion`, `openCount`, `firstOpenedAt`, `lastOpenedAt`, `createdAt`, `updatedAt`, `archivedAt`, `displayOrder`, `GuestImportBatch` fields, RSVP fields, and `CheckinPass` fields.
+
+One source row is one household and equals one `Invitation`. `includeRowNumbers` therefore refers to source household row numbers, and no household spans multiple spreadsheet rows.
+
+### Value normalization
+
+- `allowPlusOne`, `event:<slug>`: boolean. Accepted textual literals are only `true` and `false`, trimmed and case-insensitive; XLSX native boolean cells are also accepted. `yes`/`no`, `y`/`n`, `1`/`0`, and `on`/`off` are rejected. A blank optional eligibility cell means `false`; a blank `allowPlusOne` is a validation error.
+- `maxAdditionalChildren`: non-negative safe integer. CSV accepts decimal integer text only; XLSX accepts an integer numeric cell or decimal integer text. Negative, fractional, `NaN`-like, and scientific strings are rejected.
+- `rsvpDeadlineLocal`: optional **text** in the exact format `YYYY-MM-DD HH:mm`, interpreted as `Asia/Jakarta` and normalized to a canonical UTC instant. Blank means `null`. The column is deliberately not named `rsvpDeadlineAt`. Ambiguous formats such as `16/01/2027` or `01/16/2027`, and Excel date-serial or date-formatted numeric cells, are rejected; workbook locale and timezone are never guessed.
+- `invitees`: JSON array of objects with exactly `fullName`, `category`, and optional `label`. `category` accepts `ADULT` and `CHILD`, trimmed and case-insensitive, canonicalized to the uppercase literal. `displayOrder` is not accepted; invitee display order is assigned server-side from array order starting at `0`. Duplicate invitee names are allowed and are not by themselves warnings. At least one invitee is required per imported household.
+
+### Validate import (preview)
 
 `POST /api/admin/imports/guest/validate`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER plus CSRF. Origin validation applies.
 
-Request: multipart upload with CSV or XLSX.
+Request: `multipart/form-data` carrying exactly one file.
+
+- Accepted: `.csv`, `.xlsx`.
+- Rejected: `.xls`, `.xlsm`, `.xlsb`, and arbitrary ZIP/Office payloads. Extension, declared media type where useful, and actual file signature/content are all validated; none is trusted alone.
+- CSV: UTF-8 (BOM allowed), comma delimiter, standard double-quote quoting with doubled-quote escaping, CRLF or LF, quoted multiline cells supported, first record is the header, completely blank records ignored, no delimiter auto-detection, no legacy codepage detection. Row numbers are record positions including the header, so the first data row is `2`; a multiline quoted cell does not create extra row numbers.
+- XLSX: `.xlsx` only, with a visible worksheet named exactly `Invitations`. Other worksheets are ignored. Header is row 1 and data starts at row 2. Missing or hidden target sheet is rejected. Within the target used range, formulas (and their cached values), merged cells, and Excel date-serial cells for `rsvpDeadlineLocal` are rejected. Formulas are never evaluated, external links are never followed, and the parser never makes network requests from workbook content.
+- Limits: maximum upload size **5 MiB**; maximum **500** household data rows counted after blank records are ignored. Exceeding either limit is rejected before business parsing. These are Phase 9 operational limits, not permanent domain limits. XLSX parsing uses bounded worksheet dimensions rather than trusting a workbook's declared range.
+
+Parsing and authoritative validation happen server-side; the browser is never the validation authority.
 
 Response:
 
 ```json
 {
   "previewId": "temporary_preview_id",
+  "expiresAt": "2027-01-16T11:30:00.000Z",
   "summary": {
     "totalRows": 100,
     "validRows": 95,
@@ -1266,31 +1307,49 @@ Response:
       "errors": [],
       "warnings": [
         {
+          "rowNumber": 2,
+          "column": "displayName",
+          "field": "displayName",
           "code": "POSSIBLE_DUPLICATE",
           "message": "Possible duplicate household by normalized display name."
         }
       ],
       "parsed": {
-        "displayName": "John & Jane Smith Family",
-        "invitees": []
+        "displayName": "John & Jane Smith Family"
       }
     }
   ]
 }
 ```
 
+Row statuses are `VALID`, `VALID_WITH_WARNINGS`, and `ERROR`. Each row issue is structured:
+
+```json
+{
+  "rowNumber": 2,
+  "column": "rsvpDeadlineLocal",
+  "field": "rsvpDeadlineAt",
+  "code": "INVALID_DATE",
+  "message": "..."
+}
+```
+
+`column` is the source spreadsheet column and `field` is the mapped domain field. Where an issue applies to the whole row, both are `null`. Clients never parse `message` to determine meaning.
+
+Row issue codes are a closed minimum vocabulary: `REQUIRED_FIELD`, `INVALID_VALUE`, `INVALID_JSON`, `INVALID_DATE`, `UNKNOWN_EVENT`, `INACTIVE_EVENT`, `INVALID_INVITEE`, `POSSIBLE_DUPLICATE`. File-level and template-level failures are normal admin API errors rather than synthetic row issues.
+
 Errors vs warnings:
 
 - Errors block committing a row.
-- Warnings require admin decision but do not automatically block.
-- Possible duplicates are warnings unless a true uniqueness constraint is violated.
-- Preview is not a committed `GuestImportBatch`.
+- Warnings require an explicit OWNER decision but do not automatically block.
+- Possible duplicates are warnings unless a true uniqueness constraint is violated, and are never merged automatically.
+- Preview is not a committed `GuestImportBatch`, and validation creates no business invitation data.
 
 ### Commit import
 
 `POST /api/admin/imports/guest/commit`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER plus CSRF. Origin validation applies. Content type is `application/json`.
 
 Request:
 
@@ -1301,6 +1360,14 @@ Request:
   "acknowledgedWarningRowNumbers": [2]
 }
 ```
+
+The parsed household payload is never sent back from the browser. The server commits from its own stored normalized preview.
+
+Selection rules:
+
+- `includeRowNumbers` must be non-empty, must contain unique row numbers, may contain `VALID` rows, and may contain `VALID_WITH_WARNINGS` rows only when those rows are also acknowledged. It must never include `ERROR` rows.
+- `acknowledgedWarningRowNumbers` must be unique and must refer to warning rows in the same preview. Acknowledgment never converts an error row into a valid row.
+- Server-side validation is authoritative; client-side enforcement alone is never sufficient.
 
 Response:
 
@@ -1316,13 +1383,28 @@ Response:
 }
 ```
 
-Transaction:
+Revalidation and transaction:
 
-- All selected valid rows commit atomically.
-- Invitation creation and credential-version/hash initialization occur in the same commit transaction.
-- Failure rolls back the selected import.
+- Commit revalidates inside the transaction: preview not expired, preview owned by the current OWNER, selected rows still valid, current Event still exists and is active when selected, canonical Invitation and Invitee business validation, and the warning/duplicate state needed for a safe commit.
+- If current state differs materially from preview — a new blocking error, a new unacknowledged warning, or changed event eligibility — commit performs **zero** business writes and returns a stale-preview conflict.
+- All selected rows commit in one transaction. Invitation creation, invitee creation, event eligibility, and credential version/hash initialization occur in that same transaction. If any selected row fails, all selected rows roll back; there is no partially imported selected set.
+- Exactly one successful `GuestImportBatch` is written per successful commit. Failed attempts create no batch row.
+- Import does not pre-create `RSVP`, `RSVPAttendee`, or `RSVPEventSelection`. An imported invitation follows the same lazy RSVP lifecycle as an invitation created through the admin create endpoint.
 
-Preview lifetime and idempotent commit semantics must be finalized before Phase 9 ships.
+Commit errors use the standard admin envelope:
+
+- `409 IMPORT_PREVIEW_STALE` — current state materially differs from the preview; a new preview is required.
+- `409 IMPORT_PREVIEW_EXPIRED` — the uncommitted preview passed its 30-minute lifetime. The preview is never silently regenerated; the file must be uploaded and validated again.
+- `409 IMPORT_PREVIEW_ALREADY_COMMITTED` — the preview was already committed with a different selection.
+
+Idempotency:
+
+- The preview is the idempotency boundary. A deterministic commit fingerprint is computed from the canonical `previewId` plus the sorted unique `includeRowNumbers` and `acknowledgedWarningRowNumbers`.
+- The first successful commit atomically marks the preview committed, records the fingerprint, links the committed `GuestImportBatch`, and stores the minimal committed receipt.
+- Re-committing the same preview with the same fingerprint returns the same committed result and creates no additional invitations.
+- Re-committing a committed preview with a different fingerprint returns `409 IMPORT_PREVIEW_ALREADY_COMMITTED`.
+
+Lost-response recovery is explicit only. `admin-web` never automatically replays a commit after a network interruption, timeout, `5xx`, malformed success, or CSRF refresh. The operator may explicitly resubmit the exact same selection; because the commit is idempotent for the same fingerprint, the server returns the original result if the first request actually succeeded.
 
 ## Admin Check-in Endpoints
 

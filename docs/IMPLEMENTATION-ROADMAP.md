@@ -343,10 +343,12 @@ Slice order is a dependency order, not a requirement to keep both tracks strictl
 
 - Objective: Implement validated guest import.
 - Prerequisite: Phase 8 invitation management.
+- Prerequisite status: **the contract/template lock prerequisite is resolved.** Phase 9 Slice 9A locked the import template, preview, idempotency, atomicity, and security contract without adding code. The locked contract lives in `API-CONTRACT.md` ("Admin Import Endpoints"), `TECHNICAL-ARCHITECTURE.md` ("Import Architecture"), `DATABASE-SCHEMA.md` (`GuestImportPreview`, `GuestImportBatch`), and `UI-UX-SPEC.md` ("Import UI Contract"). Phase 9 implementation is still outstanding.
 - Tasks:
-  - Define import template.
-  - Define preview lifetime and idempotent commit semantics.
-  - Parse CSV/XLSX.
+  - ~~Define import template.~~ Done by Slice 9A.
+  - ~~Define preview lifetime and idempotent commit semantics.~~ Done by Slice 9A.
+  - Add the `GuestImportPreview` persistence model and migration.
+  - Parse CSV/XLSX, including bounded XLSX dimensions and the locked operational limits.
   - Validate required fields and event eligibility columns.
   - Detect duplicate warnings.
   - Build preview UI.
@@ -361,8 +363,10 @@ Slice order is a dependency order, not a requirement to keep both tracks strictl
   - Warnings require acknowledgment.
   - No automatic merge of possible duplicates.
   - Commit is all-or-nothing for selected valid rows.
+  - Commit is idempotent for the same preview and selection.
+  - Import creates no RSVP row and no check-in record.
 - Test/verification: parser tests, integration tests, E2E preview/commit.
-- Non-goals: XLSX report export.
+- Non-goals: XLSX report export, batch-history API, permanent source-file deduplication.
 - Completion gate: OWNER can import guests predictably.
 
 ## Phase 10 - QR Scanner and Venue Check-in

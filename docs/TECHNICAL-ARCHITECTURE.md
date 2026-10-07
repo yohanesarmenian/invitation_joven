@@ -734,16 +734,32 @@ Flow:
 
 Upload -> Parse -> Validate -> Detect possible duplicate -> Preview -> Admin decision -> Commit.
 
-Preview is not a committed `GuestImportBatch`. Preview lifetime and idempotent commit semantics are a Phase 9 gate.
+Phase 9 Slice 9A locked the template, preview, and commit contract. Import implementation remains outstanding. The template, normalization, limits, and endpoint contract live in `API-CONTRACT.md` ("Admin Import Endpoints"); persistence consequences live in `DATABASE-SCHEMA.md`.
 
-MVP commit is all-or-nothing for selected valid rows in one transaction. The transaction creates invitations, invitees, invitation events, default RSVP state where used, invitation credential version/hash initialization, and successful `GuestImportBatch` provenance. Failed-attempt persistence, if later desired, must occur outside the rolled-back domain transaction.
+**Create-only.** Import creates new `Invitation`, `Invitee`, and `InvitationEvent` rows. It never updates, upserts, or merges an existing invitation, and never modifies `RSVP`, `RSVPAttendee`, `RSVPEventSelection`, `GuestMessage`, `CheckinPass`, or `CheckinRecord`. There is no import business key for update or upsert semantics. Possible duplicates are warnings, and an OWNER may acknowledge one and intentionally create a similarly named new invitation.
+
+**One source row is one household**, equal to one `Invitation`. The source row is the atomic preview-selection unit, so `includeRowNumbers` refers to source household row numbers and no household spans multiple rows.
+
+Parsing and authoritative validation are server-side. Preview state is persisted as `GuestImportPreview`, bound to the creating OWNER, with a 30-minute lifetime. It stores the normalized rows needed to commit, so the browser never reconstructs the household payload and is never the validation authority.
+
+Preview is not a committed `GuestImportBatch`. Validation creates no business invitation data. Raw uploaded file bytes are not retained after parsing completes or fails; bytes buffered or temp-filed during parsing are discarded immediately afterwards.
+
+**Commit revalidates inside the transaction.** If current state materially differs from the preview, commit performs zero business writes and returns a stale-preview conflict. Otherwise the selected rows commit atomically and exactly one `GuestImportBatch` is written. Failed attempts create no batch row.
+
+**Idempotency is bounded by the preview.** A deterministic fingerprint over the preview id plus the sorted unique selection and acknowledgment row numbers makes an exact replay return the original committed result, while a different selection against an already committed preview is a conflict. `admin-web` never automatically replays a commit; recovery from an uncertain outcome is an explicit operator resubmission of the same selection.
+
+**Route.** The admin import surface is `/invitations/import`, reached from an explicit Import CSV/XLSX action on `/invitations`. Import stays inside invitation management: no top-level Imports navigation item is added, and the Invitations navigation section remains active on the import route.
+
+**Validation architecture.** Import must not create an independent second set of invitation business rules. The parser owns file structure, cell decoding, import normalization, row location, and import-specific warning generation. The domain owns invitation business validation, invitee validation, event eligibility validity, credential creation rules, and database write invariants. Phase 9 implementation should extract and reuse the existing typed invitation-create domain/application logic rather than restating those rules.
 
 Validation must distinguish:
 
 - Error: prevents commit until fixed or row excluded.
 - Warning: admin can decide whether to proceed.
 
-Potential duplicates are warnings unless a real uniqueness rule is violated.
+Potential duplicates are warnings unless a real uniqueness rule is violated, and are never merged automatically.
+
+**Operational limits.** Maximum upload 5 MiB and maximum 500 household data rows counted after blank records are ignored, both rejected before business parsing. XLSX parsing uses bounded worksheet dimensions rather than trusting a declared range. The 500-row cap must be proven against real PostgreSQL before Phase 9 closes, and an explicit transaction timeout may be configured for bounded import execution instead of relying on a default interactive transaction timeout.
 
 ## Reporting Architecture
 

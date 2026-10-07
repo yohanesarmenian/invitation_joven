@@ -117,11 +117,16 @@ When `Invitation.status = ARCHIVED`:
 - Import flow is Upload -> Parse -> Validate -> Detect possible duplicates -> Preview -> Admin decision -> Commit.
 - Preview is not a committed `GuestImportBatch`.
 - Import must not immediately insert records after upload.
+- Import is create-only: it creates new invitations and never updates, upserts, or merges an existing household.
+- One source spreadsheet row is one household and equals one invitation, so row selection is household selection.
 - Possible duplicates may warn in preview but must not be silently merged.
 - True uniqueness violations are errors.
 - MVP commit is all-or-nothing for selected validated rows.
-- Invitation creation and credential-version/hash initialization occur in the same import commit transaction.
-- Successful committed import retains `GuestImportBatch` provenance.
+- Invitation creation, invitee creation, event eligibility, and credential-version/hash initialization occur in the same import commit transaction.
+- Import does not pre-create RSVP state; an imported household follows the same lazy RSVP lifecycle as an invitation created one at a time.
+- Successful committed import retains `GuestImportBatch` provenance, and a failed attempt creates none.
+- Import operational limits are 5 MiB per upload and 500 household data rows.
+- The import surface is `/invitations/import`, reached from Invitations; it is not a separate top-level admin section.
 
 ### Reporting
 
@@ -220,6 +225,8 @@ sessions are allowed, and logout ends only the current session.
 - Duplicate confirmation for the same invitation/event returns deterministic conflict.
 - Import preview separates errors from warnings.
 - Potential duplicates are not silently merged.
+- Import commit is idempotent for the same preview and selection, and creates no duplicate invitation set on replay.
+- Import never modifies or deletes an existing invitation, RSVP, message, pass, or check-in record.
 - Archived invitations remain visible to OWNER and reportable with explicit archived filters.
 - CSV export can be generated for MVP reporting data.
 
