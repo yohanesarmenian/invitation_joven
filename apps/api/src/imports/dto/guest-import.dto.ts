@@ -37,9 +37,41 @@ export class GuestImportIssueDto {
   message: string;
 }
 
+export class GuestImportParsedInviteeDto {
+  @ApiProperty({ type: String })
+  fullName: string;
+
+  @ApiProperty({ enum: ["ADULT", "CHILD"], type: String })
+  category: "ADULT" | "CHILD";
+
+  @ApiProperty({ nullable: true, type: String })
+  label: string | null;
+}
+
 export class GuestImportParsedRowDto {
   @ApiProperty({ type: String })
   displayName: string;
+
+  @ApiProperty({ nullable: true, type: String })
+  greetingName: string | null;
+
+  @ApiProperty({ type: Boolean })
+  allowPlusOne: boolean;
+
+  @ApiProperty({ type: Number })
+  maxAdditionalChildren: number;
+
+  @ApiProperty({ nullable: true, type: String })
+  rsvpDeadlineLocal: string | null;
+
+  @ApiProperty({ format: "date-time", nullable: true, type: String })
+  rsvpDeadlineAt: string | null;
+
+  @ApiProperty({ type: () => [GuestImportParsedInviteeDto] })
+  invitees: GuestImportParsedInviteeDto[];
+
+  @ApiProperty({ isArray: true, type: String })
+  eligibleEventSlugs: string[];
 }
 
 export class GuestImportPreviewRowDto {

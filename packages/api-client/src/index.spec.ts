@@ -611,7 +611,22 @@ describe("generated API client", () => {
       rows: [
         {
           errors: [],
-          parsed: { displayName: "Example Household" },
+          parsed: {
+            allowPlusOne: true,
+            displayName: "Example Household",
+            eligibleEventSlugs: ["ceremony"],
+            greetingName: null,
+            invitees: [
+              {
+                category: "ADULT",
+                fullName: "Adult Guest",
+                label: null,
+              },
+            ],
+            maxAdditionalChildren: 0,
+            rsvpDeadlineAt: "2027-01-16T11:30:00.000Z",
+            rsvpDeadlineLocal: "2027-01-16 18:30",
+          },
           rowNumber: 2,
           status: "VALID_WITH_WARNINGS",
           warnings: [
@@ -638,5 +653,20 @@ describe("generated API client", () => {
     expect(aliasResponse.rows[0]?.warnings[0]?.code).toBe(
       "POSSIBLE_DUPLICATE",
     );
+    expect(aliasResponse.rows[0]?.parsed?.greetingName).toBeNull();
+    expect(aliasResponse.rows[0]?.parsed?.allowPlusOne).toBe(true);
+    expect(aliasResponse.rows[0]?.parsed?.maxAdditionalChildren).toBe(0);
+    expect(aliasResponse.rows[0]?.parsed?.rsvpDeadlineLocal).toBe(
+      "2027-01-16 18:30",
+    );
+    expect(aliasResponse.rows[0]?.parsed?.rsvpDeadlineAt).toBe(
+      "2027-01-16T11:30:00.000Z",
+    );
+    expect(aliasResponse.rows[0]?.parsed?.invitees[0]?.fullName).toBe(
+      "Adult Guest",
+    );
+    expect(aliasResponse.rows[0]?.parsed?.eligibleEventSlugs).toEqual([
+      "ceremony",
+    ]);
   });
 });

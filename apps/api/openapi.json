@@ -3537,15 +3537,77 @@
           "message"
         ]
       },
+      "GuestImportParsedInviteeDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "ADULT",
+              "CHILD"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "fullName",
+          "category",
+          "label"
+        ]
+      },
       "GuestImportParsedRowDto": {
         "type": "object",
         "properties": {
           "displayName": {
             "type": "string"
+          },
+          "greetingName": {
+            "type": "string",
+            "nullable": true
+          },
+          "allowPlusOne": {
+            "type": "boolean"
+          },
+          "maxAdditionalChildren": {
+            "type": "number"
+          },
+          "rsvpDeadlineLocal": {
+            "type": "string",
+            "nullable": true
+          },
+          "rsvpDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "invitees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuestImportParsedInviteeDto"
+            }
+          },
+          "eligibleEventSlugs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
-          "displayName"
+          "displayName",
+          "greetingName",
+          "allowPlusOne",
+          "maxAdditionalChildren",
+          "rsvpDeadlineLocal",
+          "rsvpDeadlineAt",
+          "invitees",
+          "eligibleEventSlugs"
         ]
       },
       "GuestImportPreviewRowDto": {

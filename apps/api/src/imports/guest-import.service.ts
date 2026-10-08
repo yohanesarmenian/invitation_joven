@@ -53,6 +53,11 @@ type ParsedImportRow = {
   input: NormalizedCreateInput;
 };
 
+type ParsedDeadline = {
+  at: Date | null;
+  local: string | null;
+};
+
 type InternalRow = GuestImportPreviewRowDto & {
   normalized?: ParsedImportRow;
 };
@@ -549,9 +554,12 @@ function parseInteger(row: InternalRow, value: unknown): number | null {
   return null;
 }
 
-function parseJakartaDeadline(row: InternalRow, value: unknown): Date | null {
+function parseJakartaDeadline(
+  row: InternalRow,
+  value: unknown,
+): ParsedDeadline {
   if (value === null || value === undefined || String(value).trim() === "") {
-    return null;
+    return { at: null, local: null };
   }
 
   if (typeof value === "number" || value instanceof Date) {
@@ -568,12 +576,11 @@ function parseJakartaDeadline(row: InternalRow, value: unknown): Date | null {
         "Expected text date in YYYY-MM-DD HH:mm.",
       ),
     );
-    return null;
+    return { at: null, local: null };
   }
 
-  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(
-    value.trim(),
-  );
+  const local = value.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(local);
 
   if (match === null) {
     row.errors.push(
@@ -585,7 +592,7 @@ function parseJakartaDeadline(row: InternalRow, value: unknown): Date | null {
         "Invalid date format.",
       ),
     );
-    return null;
+    return { at: null, local: null };
   }
 
   const [, yearText, monthText, dayText, hourText, minuteText] = match;
@@ -612,10 +619,13 @@ function parseJakartaDeadline(row: InternalRow, value: unknown): Date | null {
         "Invalid calendar date.",
       ),
     );
-    return null;
+    return { at: null, local: null };
   }
 
-  return new Date(Date.UTC(year, month - 1, day, hour - 7, minute));
+  return {
+    at: new Date(Date.UTC(year, month - 1, day, hour - 7, minute)),
+    local,
+  };
 }
 
 function parseInvitees(row: InternalRow, value: unknown) {
@@ -1194,7 +1204,7 @@ export class GuestImportService {
       false,
     );
     const maxAdditionalChildren = parseInteger(row, cells[3]);
-    const rsvpDeadlineAt = parseJakartaDeadline(row, cells[4]);
+    const rsvpDeadline = parseJakartaDeadline(row, cells[4]);
     const notes = parseText(row, cells, 5, "notes", false);
     const invitees = parseInvitees(row, cells[6]);
     const eventIds: string[] = [];
@@ -1259,10 +1269,24 @@ export class GuestImportService {
             invitees,
             maxAdditionalChildren,
             notes,
-            rsvpDeadlineAt: rsvpDeadlineAt?.toISOString() ?? null,
+            rsvpDeadlineAt: rsvpDeadline.at?.toISOString() ?? null,
           }),
         };
-        row.parsed = { displayName: row.normalized.input.displayName };
+        row.parsed = {
+          allowPlusOne: row.normalized.input.allowPlusOne,
+          displayName: row.normalized.input.displayName,
+          eligibleEventSlugs: [...row.normalized.eventSlugs],
+          greetingName: row.normalized.input.greetingName,
+          invitees: row.normalized.input.invitees.map((invitee) => ({
+            category: invitee.category,
+            fullName: invitee.fullName,
+            label: invitee.label,
+          })),
+          maxAdditionalChildren: row.normalized.input.maxAdditionalChildren,
+          rsvpDeadlineAt:
+            row.normalized.input.rsvpDeadlineAt?.toISOString() ?? null,
+          rsvpDeadlineLocal: rsvpDeadline.local,
+        };
       } catch {
         row.errors.push(
           issue(

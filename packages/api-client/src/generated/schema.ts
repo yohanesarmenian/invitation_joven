@@ -909,8 +909,22 @@ export interface components {
             code: "REQUIRED_FIELD" | "INVALID_VALUE" | "INVALID_JSON" | "INVALID_DATE" | "UNKNOWN_EVENT" | "INACTIVE_EVENT" | "INVALID_INVITEE" | "POSSIBLE_DUPLICATE";
             message: string;
         };
+        GuestImportParsedInviteeDto: {
+            fullName: string;
+            /** @enum {string} */
+            category: "ADULT" | "CHILD";
+            label: string | null;
+        };
         GuestImportParsedRowDto: {
             displayName: string;
+            greetingName: string | null;
+            allowPlusOne: boolean;
+            maxAdditionalChildren: number;
+            rsvpDeadlineLocal: string | null;
+            /** Format: date-time */
+            rsvpDeadlineAt: string | null;
+            invitees: components["schemas"]["GuestImportParsedInviteeDto"][];
+            eligibleEventSlugs: string[];
         };
         GuestImportPreviewRowDto: {
             rowNumber: number;

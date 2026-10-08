@@ -1315,12 +1315,24 @@ Response:
         }
       ],
       "parsed": {
-        "displayName": "John & Jane Smith Family"
+        "displayName": "John & Jane Smith Family",
+        "greetingName": null,
+        "allowPlusOne": false,
+        "maxAdditionalChildren": 2,
+        "rsvpDeadlineLocal": "2027-01-16 18:30",
+        "rsvpDeadlineAt": "2027-01-16T11:30:00.000Z",
+        "invitees": [
+          { "fullName": "John Smith", "category": "ADULT", "label": null },
+          { "fullName": "Alice Smith", "category": "CHILD", "label": null }
+        ],
+        "eligibleEventSlugs": ["holy-matrimony", "reception"]
       }
     }
   ]
 }
 ```
+
+`parsed` contains the authoritative server-normalized household preview for rows that can be safely normalized. The browser must render from these values rather than reparsing the uploaded file. `rsvpDeadlineLocal` is the normalized source/local value in `YYYY-MM-DD HH:mm` interpreted as `Asia/Jakarta`; `rsvpDeadlineAt` is the canonical UTC ISO instant used by business creation. `eligibleEventSlugs` contains selected event slugs only, never Event UUIDs. Invitees contain only normalized `fullName`, `category`, and nullable `label`; server-assigned `displayOrder`, internal IDs, timestamps, credential material, and raw source cells are not part of the preview response.
 
 Row statuses are `VALID`, `VALID_WITH_WARNINGS`, and `ERROR`. Each row issue is structured:
 
