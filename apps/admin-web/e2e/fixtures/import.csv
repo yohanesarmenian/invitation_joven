@@ -1,0 +1,4 @@
+displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees
+Sample Cedar household,Cedar family,false,2,2027-01-16 18:30,,"[{""fullName"":""Example Adult"",""category"":""ADULT"",""label"":""Parent""},{""fullName"":""Example Child"",""category"":""CHILD""}]"
+Sample Maple household,,true,0,,,"[{""fullName"":""Example Guest"",""category"":""ADULT""}]"
+Sample Error household,,false,0,,,invalid-json

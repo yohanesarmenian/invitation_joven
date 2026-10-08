@@ -1,5 +1,126 @@
 @import "tailwindcss";
 
+.guest-import {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+.import-panel,
+.import-row {
+  background: white;
+  border: 1px solid var(--admin-slate);
+  border-radius: 0.75rem;
+  padding: clamp(0.875rem, 2vw, 1.5rem);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.guest-import h2 {
+  font-size: 1.3rem;
+  color: var(--admin-navy);
+  margin: 0 0 1rem;
+}
+.guest-import h3 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+.guest-import h4 {
+  margin: 0.75rem 0 0.25rem;
+}
+.guest-import details {
+  margin: 0.75rem 0;
+}
+.guest-import summary {
+  cursor: pointer;
+  padding: 0.5rem 0;
+  font-weight: 600;
+}
+.guest-import ul,
+.guest-import ol:not(.import-rows) {
+  padding-left: 1.5rem;
+}
+.import-panel > button {
+  margin-bottom: 1rem;
+}
+.import-example {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.import-summary,
+.import-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0;
+}
+.import-summary {
+  padding: 1rem;
+  background: var(--admin-cream);
+  border-radius: 0.5rem;
+}
+.guest-import dt {
+  font-size: 0.875rem;
+  color: var(--admin-navy);
+}
+.guest-import dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.import-summary dd {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.import-rows {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+}
+.import-row header {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.import-status {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--admin-canvas);
+  border-radius: 0.25rem;
+  overflow-wrap: anywhere;
+}
+.import-status-VALID_WITH_WARNINGS,
+.import-warning {
+  background: var(--admin-cream);
+}
+.import-status-ERROR {
+  border: 1px solid currentColor;
+}
+.import-warning {
+  padding: 0.75rem;
+  margin: 0.75rem 0;
+  border-radius: 0.5rem;
+}
+.import-commit {
+  border-top: 1px solid var(--admin-slate);
+  padding-top: 1rem;
+}
+.import-outcome:empty {
+  display: none;
+}
+.guest-import input[type="file"] {
+  max-width: 100%;
+  min-width: 0;
+}
+.guest-import .checkbox-label {
+  align-items: flex-start;
+}
+.guest-import :focus-visible {
+  outline: 3px solid var(--admin-navy);
+  outline-offset: 3px;
+}
+
 :root {
   --admin-navy: #1e2952;
   --admin-slate: #6d7991;
