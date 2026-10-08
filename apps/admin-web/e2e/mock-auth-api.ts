@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { mockInvitations } from "./mock-invitations";
 import { mockMessages } from "./mock-messages";
 import { mockRsvps } from "./mock-rsvps";
+import { mockImports } from "./mock-imports";
 import type { AdminAuthResponse } from "@wedding-invitation/api-client/src/index";
 const sessions = new Map<
   string,
@@ -82,6 +83,7 @@ createServer(async (request, response) => {
     .find((value) => value.startsWith("admin_session="))
     ?.slice("admin_session=".length);
   const session = cookie ? sessions.get(cookie) : undefined;
+  if (await mockImports(request, response, session)) return;
   if (await mockMessages(request, response, session)) {
     if (session?.email.startsWith("message-ended") && cookie)
       sessions.delete(cookie);

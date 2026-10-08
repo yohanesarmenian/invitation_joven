@@ -31,13 +31,22 @@ export default async function InvitationsPage({
           <h1>Invitations</h1>
           <p>Manage your guest list and follow RSVP activity.</p>
         </div>
-        <Link
-          className="invitation-primary"
-          href="/invitations/new"
-          prefetch={false}
-        >
-          New invitation
-        </Link>
+        <div className="invitation-actions">
+          <Link
+            className="invitation-secondary"
+            href="/invitations/import"
+            prefetch={false}
+          >
+            Import CSV/XLSX
+          </Link>
+          <Link
+            className="invitation-primary"
+            href="/invitations/new"
+            prefetch={false}
+          >
+            New invitation
+          </Link>
+        </div>
       </header>
       {!query ? (
         <section className="dashboard-error" role="alert">
