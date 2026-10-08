@@ -332,6 +332,8 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("AdminGuestMessageItemDto");
     expect(schemas).toHaveProperty("UpdateAdminGuestMessageRequestDto");
     expect(schemas).toHaveProperty("GuestImportValidateResponseDto");
+    expect(schemas).toHaveProperty("GuestImportParsedInviteeDto");
+    expect(schemas).toHaveProperty("GuestImportParsedRowDto");
     expect(schemas).toHaveProperty("GuestImportCommitRequestDto");
     expect(schemas).toHaveProperty("GuestImportCommitResponseDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
@@ -744,6 +746,53 @@ describe("OpenAPI contract", () => {
         warningCount: expect.objectContaining({ type: "number" }),
       }),
     });
+    expect(schemas.GuestImportParsedInviteeDto).toMatchObject({
+      properties: {
+        category: expect.objectContaining({ enum: ["ADULT", "CHILD"] }),
+        fullName: expect.objectContaining({ type: "string" }),
+        label: expect.objectContaining({ nullable: true, type: "string" }),
+      },
+      required: ["fullName", "category", "label"],
+    });
+    expect(schemas.GuestImportParsedRowDto).toMatchObject({
+      properties: expect.objectContaining({
+        allowPlusOne: expect.objectContaining({ type: "boolean" }),
+        displayName: expect.objectContaining({ type: "string" }),
+        eligibleEventSlugs: expect.objectContaining({ type: "array" }),
+        greetingName: expect.objectContaining({
+          nullable: true,
+          type: "string",
+        }),
+        invitees: expect.objectContaining({ type: "array" }),
+        maxAdditionalChildren: expect.objectContaining({ type: "number" }),
+        rsvpDeadlineAt: expect.objectContaining({
+          format: "date-time",
+          nullable: true,
+          type: "string",
+        }),
+        rsvpDeadlineLocal: expect.objectContaining({
+          nullable: true,
+          type: "string",
+        }),
+      }),
+      required: [
+        "displayName",
+        "greetingName",
+        "allowPlusOne",
+        "maxAdditionalChildren",
+        "rsvpDeadlineLocal",
+        "rsvpDeadlineAt",
+        "invitees",
+        "eligibleEventSlugs",
+      ],
+    });
+    expect(JSON.stringify(schemas.GuestImportParsedRowDto)).not.toContain(
+      "notes",
+    );
+    expect(JSON.stringify(schemas.GuestImportParsedRowDto)).not.toContain("id");
+    expect(JSON.stringify(schemas.GuestImportParsedRowDto)).not.toContain(
+      "publicTokenHash",
+    );
     expect(JSON.stringify(schemas.GuestImportCommitResponseDto)).not.toContain(
       "publicCredential",
     );

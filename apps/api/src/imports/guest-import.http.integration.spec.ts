@@ -405,6 +405,61 @@ describe("POST /api/admin/imports/guest/validate", () => {
     );
   });
 
+  it("returns authoritative normalized parsed household data for preview rows", async () => {
+    const session = await createOwnerAndSession();
+    await createEvent({ displayOrder: 2, slug: "reception" });
+    await createEvent({ displayOrder: 3, slug: "afterparty" });
+    const before = await counts();
+    const source = csv([
+      "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony,event:reception,event:afterparty",
+      "\"  Canonical Household  \",\"  Dear Guests  \",TRUE,3,2027-01-16 18:30,\"private admin note\",\"[{\"\"fullName\"\":\"\"  Adult One  \"\",\"\"category\"\":\"\"adult\"\",\"\"label\"\":\"\" Host \"\"},{\"\"fullName\"\":\"\"Child One\"\",\"\"category\"\":\"\"CHILD\"\",\"\"label\"\":null}]\",true,FALSE,",
+    ]);
+    const response = await upload(app, session, source);
+    const after = await counts();
+    const parsed = response.json().rows[0].parsed;
+    const preview = await prisma.guestImportPreview.findUniqueOrThrow({
+      where: { id: response.json().previewId },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(parsed).toEqual({
+      allowPlusOne: true,
+      displayName: "Canonical Household",
+      eligibleEventSlugs: ["ceremony"],
+      greetingName: "Dear Guests",
+      invitees: [
+        { category: "ADULT", fullName: "Adult One", label: "Host" },
+        { category: "CHILD", fullName: "Child One", label: null },
+      ],
+      maxAdditionalChildren: 3,
+      rsvpDeadlineAt: "2027-01-16T11:30:00.000Z",
+      rsvpDeadlineLocal: "2027-01-16 18:30",
+    });
+    expect(Object.keys(parsed).sort()).toEqual([
+      "allowPlusOne",
+      "displayName",
+      "eligibleEventSlugs",
+      "greetingName",
+      "invitees",
+      "maxAdditionalChildren",
+      "rsvpDeadlineAt",
+      "rsvpDeadlineLocal",
+    ]);
+    expect(JSON.stringify(parsed)).not.toContain("private admin note");
+    expect(JSON.stringify(parsed)).not.toContain("id");
+    expect(JSON.stringify(parsed)).not.toContain("invitationId");
+    expect(JSON.stringify(parsed)).not.toContain("displayOrder");
+    expect(JSON.stringify(parsed)).not.toContain("createdAt");
+    expect(JSON.stringify(parsed)).not.toContain("updatedAt");
+    expect(after).toEqual({
+      ...before,
+      guestImportPreviews: before.guestImportPreviews + 1,
+    });
+    expect(
+      (preview.normalizedRows as Array<{ parsed: unknown }>)[0]?.parsed,
+    ).toEqual(parsed);
+  });
+
   it("returns deterministic VALID, VALID_WITH_WARNINGS, and ERROR rows", async () => {
     const session = await createOwnerAndSession();
     await createInvitation("Duplicate Household");
@@ -431,6 +486,13 @@ describe("POST /api/admin/imports/guest/validate", () => {
       "ERROR",
     ]);
     expect(body.rows[1].warnings[0].code).toBe("POSSIBLE_DUPLICATE");
+    expect(body.rows[1].parsed).toMatchObject({
+      displayName: "duplicate   household",
+      invitees: expect.arrayContaining([
+        expect.objectContaining({ fullName: "Alex Guest" }),
+      ]),
+    });
+    expect(body.rows[2].parsed).toBeUndefined();
     expect(body.rows[2].errors.map((error: { code: string }) => error.code)).toEqual([
       "INACTIVE_EVENT",
     ]);
