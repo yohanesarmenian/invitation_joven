@@ -371,26 +371,68 @@ Slice order is a dependency order, not a requirement to keep both tracks strictl
 
 ## Phase 10 - QR Scanner and Venue Check-in
 
-- Objective: Implement event-aware venue check-in with CheckinRecord confirmation.
-- Prerequisite: Phase 6 and admin frontend.
-- Tasks:
-  - Build browser QR scanner.
-  - Implement read-only validate endpoint UI.
-  - Implement explicit confirmation.
-  - Implement shared QR/manual confirmation domain service.
-  - Implement duplicate-safe CheckinRecord transaction using Invitation/Event uniqueness.
-  - Add manual search fallback.
-  - Add scanner error states for invalid, revoked, unavailable, event-not-allowed, event-not-selected, and already-confirmed.
-- Expected files/modules: checkin module, admin check-in UI.
-- Acceptance criteria:
-  - Validation preview does not create CheckinRecord.
-  - Wrong event/revoked/declined/duplicate states are clear.
-  - Concurrent confirmations cannot double check in.
-  - Manual lookup uses same domain rules after invitation resolution.
-  - `attendeeCount` must be 1..expected event count.
-- Test/verification: backend concurrency tests, Playwright scanner/manual flow where feasible.
-- Non-goals: raw scan-attempt audit table, offline-first check-in, over-capacity walk-in semantics.
-- Completion gate: event staff can check households in safely.
+Objective: Implement secure event-aware venue check-in with personal venue-operator accounts, role-based access control, and `CheckinRecord` confirmation.
+
+### 10A - Discovery (complete)
+
+- Scope: Verify existing pass lifecycle, schema, APIs, auth, and scanner gaps.
+- Result: `CheckinPass` and `CheckinRecord` exist; no check-in writer, scanner UI, or staff role exists.
+
+### 10B - Contract Lock (current)
+
+- Scope: Documentation-only lock for `OWNER` plus `CHECKIN_STAFF`, RBAC, staff lifecycle, check-in API/UX, RSVP-after-check-in policy, concurrency, privacy, and test requirements.
+- Prerequisites: Phase 9E merged.
+- Acceptance criteria: Source-of-truth docs agree; no code/schema/generated changes.
+- Security gates: docs define backend authorization, CSRF/origin, staff account lifecycle, session revocation, credential privacy, and negative permission tests.
+- Expected files: `docs/*.md`.
+- Non-goals: implementation, migration, QR decoder dependency, scanner page.
+- Recommended execution model: one Codex implementation/audit agent, high reasoning, L2 security-critical contract architecture.
+
+### 10C - Staff Identity / RBAC / Session Security
+
+- Scope: Extend `AdminRole` with `CHECKIN_STAFF`, add `mustChangePassword`, implement explicit role metadata/guard policy, staff account APIs, staff password change/reset, session revocation, generated OpenAPI/client updates, and admin-web auth routing needed for role-aware landing.
+- Prerequisites: 10B approved.
+- Acceptance criteria: Existing OWNER routes remain OWNER-only; CHECKIN_STAFF can authenticate but cannot access non-check-in admin APIs; disabled/reset/password-change sessions are revoked; first-login password replacement is enforced.
+- Security gates: route inventory proves unauthenticated, staff-forbidden, CSRF, and bad-origin failures across sensitive endpoints.
+- Expected files: `apps/api/prisma/schema.prisma`, migration, auth/common/admin staff modules, generated API client, admin-web auth/session code, tests.
+- Test strategy: real PostgreSQL API integration tests for role matrix/session revocation; admin-web unit/e2e for role redirects.
+- Non-goals: check-in business writer, scanner camera UI.
+- Recommended execution model: one Codex implementation agent, high reasoning, L3 security-critical backend.
+
+### 10D - Backend QR Validation / Check-in
+
+- Scope: Implement active Event picker, QR validation, QR confirm, manual search, manual confirm, shared attendance domain service, RSVP-after-check-in lockout, concurrency handling, error contract, OpenAPI/client generation.
+- Prerequisites: 10C complete.
+- Acceptance criteria: Validation is read-only; confirm writes exactly one `CheckinRecord`; QR/manual paths share domain rules; duplicate and race scenarios are deterministic; operator attribution is correct for OWNER and CHECKIN_STAFF.
+- Security gates: no `qrPayload` in logs/responses beyond request body; staff cannot access unrelated admin data; direct API negative tests pass.
+- Expected files: `apps/api/src/checkin/**`, RSVP service lockout changes, OpenAPI/client files, backend integration tests.
+- Test strategy: real PostgreSQL tests for valid QR, revoked/unknown QR, wrong/inactive/unselected Event, attendee bounds, archived invitation, duplicate confirm, same/different Event concurrency, RSVP/check-in races.
+- Non-goals: camera UI, reporting/export, correction/reversal.
+- Recommended execution model: one Codex implementation agent, high reasoning, L3 transactional/security backend.
+
+### 10E - Admin Scanner UI / Manual Fallback
+
+- Scope: Implement `/checkin`, restricted staff shell, Event picker, camera scanner, manual QR entry, manual household search, explicit confirmation, uncertain response recovery, and OWNER `/settings/staff` UI if not fully completed in 10C.
+- Prerequisites: 10D complete and generated client updated.
+- Acceptance criteria: OWNER and CHECKIN_STAFF can check in households; staff cannot see privileged navigation; camera denial/unavailable/network states are handled; no automatic confirm retry.
+- Security gates: no QR credential in URL or storage; protected routes server-render only after authorization.
+- Expected files: `apps/admin-web/app/checkin/**`, staff settings route, scanner components, admin-web tests.
+- Test strategy: mocked browser tests for state machine/responsiveness/accessibility; real browser smoke for API integration where feasible.
+- Non-goals: offline queue, check-in correction, reports.
+- Recommended execution model: one Codex implementation agent, high reasoning, L2 frontend/security workflow.
+
+### 10F - Final Real Integration / Security QA
+
+- Scope: End-to-end verification with real browser, Next.js, NestJS, PostgreSQL, OWNER and CHECKIN_STAFF accounts.
+- Prerequisites: 10E complete.
+- Acceptance criteria: OWNER login -> check-in and CHECKIN_STAFF login -> check-in both work; database attribution uses the correct operator; negative staff access to invitations, RSVPs, imports, messages, admin mutations, reports, and staff management is backend-blocked; two operators cannot double-confirm the same household/Event.
+- Security gates: credential redaction/log review, CSRF/origin checks, session revocation checks, no raw QR persistence, no schema drift beyond approved migration.
+- Expected files: tests and any narrow fixes only.
+- Test strategy: real HTTP/DB, mocked browser, and real browser/API/DB harness reused from Phase 9E.
+- Non-goals: new features after QA.
+- Recommended execution model: one Codex QA/audit agent, high reasoning, L3 final integration/security QA.
+
+Completion gate: venue staff and OWNER can check households in safely with personal authenticated accounts and auditable operator attribution.
 
 ## Phase 11 - Reporting
 

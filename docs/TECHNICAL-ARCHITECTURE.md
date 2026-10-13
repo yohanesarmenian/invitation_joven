@@ -618,6 +618,42 @@ Open tracking is persisted domain/reporting data, not best-effort telemetry. If 
 
 ## Check-in Architecture
 
+Phase 10B contract lock. Check-in is a protected admin workflow operated by `OWNER` or `CHECKIN_STAFF`. Phase 10A confirmed that `CheckinPass` and `CheckinRecord` already exist, while no check-in writer, scanner UI, or staff role exists yet.
+
+### Roles and authorization
+
+`AdminRole` must be extended from `OWNER` to `OWNER | CHECKIN_STAFF`.
+
+- `OWNER` keeps full existing admin permissions and gains scanner plus staff-management access.
+- `CHECKIN_STAFF` is limited to own auth/session operations, password change, `/checkin`, active Event picker, QR validation/confirmation, and manual search/confirmation.
+- Every existing dashboard, invitation, invitee, RSVP, import, message, report, public-url, token-regeneration, event-management, and staff-management endpoint remains OWNER-only.
+- Authorization is centralized and deny-by-default. The current global admin guard asserts OWNER for all `/api/admin/**` routes; Phase 10C must replace that with a shared session/CSRF/origin surface plus explicit route role metadata. A route without role metadata is forbidden by default.
+- Role and admin user id are read only from the server-side authenticated session. They are never accepted from a request body, query string, or browser state.
+
+Existing session semantics remain: opaque cookie sessions, active-user check on every request, session-bound CSRF for unsafe methods, exact Origin/Referer validation, and no broad CORS. A disabled staff account or revoked session becomes unusable immediately because session validation joins the authoritative `AdminUser.status` and `AdminSession.revokedAt`.
+
+### Staff account lifecycle
+
+Staff accounts reuse `AdminUser` and `AdminSession`. No separate staff-auth system is introduced.
+
+OWNER staff management provides the minimum lifecycle:
+
+1. OWNER creates a `CHECKIN_STAFF` account with normalized email.
+2. The system generates a one-time temporary password, stores only its Argon2id hash, marks `mustChangePassword = true`, and returns the temporary password only in the creation response.
+3. Staff logs in through the normal admin login endpoint and is forced to change the password before scanner use.
+4. Staff uses the normal session and CSRF bootstrap.
+5. Staff may change their own password; successful change clears `mustChangePassword` and revokes other sessions.
+6. OWNER can reset staff credentials; reset generates a new one-time temporary password, sets `mustChangePassword = true`, and revokes all staff sessions.
+7. OWNER can disable/reactivate staff. Disable revokes all sessions and blocks login. Reactivation does not create a session.
+
+Temporary credentials are never persisted in plaintext, never logged, and never shown to other staff. Public staff self-registration is forbidden.
+
+### Event scope
+
+MVP staff scope is all active Events available for check-in. This does not mean every household may attend every active Event. The check-in domain still validates `InvitationEvent`, attending `RSVPEventSelection`, and `Event.isActive` for the selected Event. Per-staff Event assignment is a deferred enhancement.
+
+### QR validation
+
 QR validation flow:
 
 1. Staff scans QR.
@@ -627,6 +663,8 @@ QR validation flow:
 5. Backend returns preview/status.
 
 Validation is read-only. It is not a reservation and does not create `CheckinRecord`.
+
+`qrPayload` is a bearer credential. It must be sent only in request bodies, never in URL paths, query strings, browser history, analytics, persistent browser storage, server access logs, application logs, error payloads, screenshots, exports, or reports. Server lookup uses the existing credential derivation/hash rules; raw QR credentials are not persisted.
 
 Confirmation flow for QR and manual check-in:
 
@@ -642,6 +680,37 @@ Confirmation flow for QR and manual check-in:
 Manual and QR confirmation use the same domain service after invitation resolution. The unique `Invitation + Event` database constraint is the final duplicate guard.
 
 Invalid, revoked, rejected, or duplicate attempts are API responses and operational logs only in MVP. They are not `CheckinRecord` rows.
+
+### Check-in business rules
+
+- One confirmed attendance record may exist per `Invitation + Event`.
+- `CheckinRecord` is household-scoped. There is no per-person attendance row and no incremental arrival tracking in the MVP.
+- `attendeeCount` represents the actual confirmed household arrival count for that Event and must satisfy `1 <= attendeeCount <= RSVPEventSelection.expectedAttendeeCount`.
+- QR credential identifies the active household pass only. It is not event-specific and contains no database UUID, Event UUID, guest personal data, or public invitation credential.
+- The scanner operator explicitly selects Event, and both validation and confirmation send authoritative `eventId`.
+- Archived invitations cannot validate or confirm, but historical `CheckinRecord` rows remain intact.
+
+### Post-check-in RSVP policy
+
+Once any `CheckinRecord` exists for an invitation, subsequent RSVP mutations are blocked for that invitation. This includes public RSVP create/update/decline and OWNER RSVP override. Read-only RSVP access remains available. The deterministic error code is `RSVP_LOCKED_AFTER_CHECKIN` with `409 Conflict`.
+
+The RSVP mutation path and check-in confirmation path must both follow the shared Invitation-first lock order. Under the Invitation row lock:
+
+- RSVP mutation checks for existing `CheckinRecord` before changing status, attendees, event selections, pass state, or version.
+- Check-in confirmation rechecks accepted RSVP, event selection, capacity, active pass, and existing record before insert.
+- A concurrent RSVP decline/update and check-in serialize; whichever obtains the Invitation lock first defines the next valid state, and the loser observes it and returns the appropriate conflict/domain error.
+
+Do not delete or rewrite `CheckinRecord` rows when RSVP state changes. Confirmed attendance is historical fact.
+
+### Lost-response and duplicate confirmation
+
+No new request-level idempotency key is added for check-in confirmation. The unique `(invitation_id, event_id)` constraint plus explicit revalidation is the duplicate-safety model.
+
+After an uncertain confirmation response, the frontend must not automatically replay the confirm request. It preserves current operator context in memory and prompts the operator to revalidate the same QR/household and Event. If the original request committed, the backend returns already-confirmed state. If another operator committed, the UI must show that operator/record state and must not claim the first operator succeeded.
+
+### Abuse controls
+
+Check-in endpoints require an authenticated active session, exact origin/CSRF for unsafe methods, and role authorization before any domain lookup. Additional Phase 10 implementation should add lightweight session/user and possibly IP-based throttling for repeated invalid QR validation and high-rate manual search. Limits must be high enough for venue throughput and low enough to slow enumeration/brute force. Login throttling remains separate and unchanged.
 
 ## Archive Policy
 
@@ -666,9 +735,9 @@ Phase 8 Slice 8D0 contract lock. API semantics live in `API-CONTRACT.md`; this s
 
 ### Shared enforcement surface
 
-Every `/api/admin/**` route except login enforces session validity and OWNER authorization. Unsafe methods additionally enforce an exact `ADMIN_ORIGIN` match and a session-bound `X-CSRF-Token`. Safe methods must not mutate state and need no token.
+Every `/api/admin/**` route except login enforces session validity. Phase 8 and Phase 9 management routes enforce OWNER authorization. Phase 10 adds explicit `CHECKIN_STAFF` authorization only for the scanner, check-in Event picker, QR validate/confirm, manual search/confirm, and staff self password-change surfaces. Unsafe methods additionally enforce an exact `ADMIN_ORIGIN` match and a session-bound `X-CSRF-Token`. Safe methods must not mutate state and need no token.
 
-Enforcement is one reusable surface, not a per-controller manual call. The earlier auth foundation exposed manual `assertCsrf`/origin calls, which is acceptable for three auth routes and unsafe once dozens of admin routes exist: the realistic failure mode is a new unsafe route that simply forgets the check. The shared surface must recognize method safety itself, and login must be the only declared exception. Exact guard and decorator names remain an implementation detail, consistent with Slice 8B0 D9.
+Enforcement is one reusable surface, not a per-controller manual call. The earlier auth foundation exposed manual `assertCsrf`/origin calls, which is acceptable for three auth routes and unsafe once dozens of admin routes exist: the realistic failure mode is a new unsafe route that simply forgets the check. The shared surface must recognize method safety itself, and login must be the only declared exception. Phase 10C must extend the surface with explicit role metadata and deny-by-default behavior so a new `/api/admin/**` route does not accidentally inherit staff access merely because it sits under the admin prefix. Exact guard and decorator names remain an implementation detail, consistent with Slice 8B0 D9.
 
 A route-inventory security test backs this: for every `/api/admin/**` route except login, a request without a session returns `401 UNAUTHENTICATED`; for every unsafe admin route, a missing or wrong CSRF token returns `403 CSRF_INVALID` and a bad `Origin` returns `403 CSRF_INVALID`. The test must fail when a future unsafe route is added without inheriting the shared enforcement. This is mandatory before the first admin-management slice is complete.
 

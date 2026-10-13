@@ -522,6 +522,62 @@ The `/messages` page shows plain-text content, an `authorName` value or an expli
 - Confirmation dialogs must be keyboard operable, must move focus into the dialog, must be dismissible, and must not rely on color alone to convey the destructive nature of the action.
 - Tables must not cause horizontal document overflow at the responsive widths already covered by the admin auth E2E suite.
 
+## Check-in Scanner UI Contract
+
+**Locked by Phase 10B at the route, role, and state level.** No scanner UI is implemented by this documentation slice.
+
+### Routes and role-specific shell
+
+| Route | Surface | OWNER | CHECKIN_STAFF |
+| --- | --- | --- | --- |
+| `/checkin` | QR scanner and manual check-in | allowed | allowed |
+| `/settings/staff` | Staff account management | allowed | forbidden |
+
+After login, OWNER lands on the dashboard unless they originally requested another authorized route. CHECKIN_STAFF lands on `/checkin`. Staff use a restricted scanner shell with Event picker, scan/manual controls, password/account controls, and logout only; no Dashboard, Invitations, RSVPs, Messages, Imports, Reports, or staff-management navigation is rendered.
+
+Server-side route protection must run before privileged page data is fetched. If CHECKIN_STAFF manually enters an OWNER-only route, the UI shows an authorization denial or redirects to `/checkin` without rendering privileged data. Backend authorization remains authoritative.
+
+### Staff management UI
+
+`/settings/staff` is an OWNER-only minimal management screen:
+
+- Staff account list with email, status, `mustChangePassword`, created time, and last login.
+- Create staff account and display the one-time temporary password exactly once.
+- Disable/reactivate staff account.
+- Reset staff password and display the one-time temporary password exactly once.
+- Session-revocation result is explicit for disable/reset.
+
+The screen does not create OWNER accounts, does not expose password hashes, does not show staff sessions, and is not a general role-management platform.
+
+### Scanner state machine
+
+The scanner uses explicit states:
+
+`READY`, `SCANNING`, `VALIDATING`, `VALID_PREVIEW`, `ALREADY_CONFIRMED`, `INVALID_OR_REVOKED`, `EVENT_NOT_ALLOWED`, `EVENT_NOT_SELECTED`, `OFFLINE_OR_NETWORK_ERROR`, `CONFIRMING`, `CONFIRMATION_UNCERTAIN`, `CONFIRMED`, `CAMERA_PERMISSION_DENIED`, `CAMERA_UNAVAILABLE`, `UNAUTHENTICATED`, `FORBIDDEN`.
+
+Rules:
+
+- Selecting an Event is required before validation/confirmation.
+- Decoding a QR never confirms attendance automatically.
+- Confirmation requires an explicit operator action and attendee count.
+- Validation preview is not a reservation and can become stale before confirmation.
+- During `CONFIRMING`, duplicate clicks are disabled.
+- `CONFIRMATION_UNCERTAIN` never auto-retries. It offers explicit revalidation of the same QR/household and Event.
+- `ALREADY_CONFIRMED` shows authoritative recorded state, including checked-in time, attendee count, method, and minimal operator identity when needed.
+
+### Camera and fallback
+
+- Camera scanning requires a secure browser context outside localhost.
+- Camera starts only after user interaction and is released when leaving scanning, changing route, logging out, or unmounting.
+- Permission denial, unavailable/busy camera, insecure context, and decode failure have distinct states.
+- Manual QR code entry may reuse the QR validation path.
+- Manual household search is separate from QR code entry and uses the constrained check-in search API.
+- A QR decoder dependency is chosen during implementation based on maintenance, bundle size, browser support, TypeScript compatibility, and ability to release camera resources.
+
+### Privacy
+
+The scanner must not put `qrPayload` in the URL, browser history, persistent storage, analytics, screenshots, or logs. Staff preview data is minimal: household display name, Event name, expected attendee count, check-in status, and previous confirmation metadata where needed. The scanner does not display private invitation URL, notes, full invitee roster, guest messages, import history, credential hashes, or raw credentials.
+
 ## Import UI Contract
 
 **Locked by Phase 9 Slice 9A at the route, state, and selection level.** Visual design, component choices, and copy below the required confirmation content remain implementation decisions.

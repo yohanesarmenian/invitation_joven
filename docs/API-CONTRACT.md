@@ -58,7 +58,7 @@ Required error codes:
 | `INVALID_CREDENTIALS` | 401 | Admin login failed. Covers unknown email, wrong password, and a `DISABLED` account, indistinguishably. |
 | `TOO_MANY_LOGIN_ATTEMPTS` | 429 | Admin login was rejected by the login throttle. Must not indicate whether the account exists. |
 | `UNAUTHENTICATED` | 401 | Admin request without a usable session: missing cookie, malformed session token, unknown session, expired session, idle-expired session, revoked session, or a session whose `AdminUser` is `DISABLED`. |
-| `FORBIDDEN` | 403 | Authenticated session without the required role. Reserved for authorization doctrine; normally unreachable while `OWNER` is the only role. |
+| `FORBIDDEN` | 403 | Authenticated session without the required role. Phase 10 uses this for CHECKIN_STAFF attempts against OWNER-only endpoints. |
 | `CSRF_INVALID` | 403 | Unsafe authenticated admin request failed CSRF or admin-origin validation. Does not disclose which check failed. |
 | `NOT_FOUND` | 404 | Authenticated OWNER request referenced a missing admin resource. Admin-domain only. |
 | `CONFLICT` | 409 | Admin-domain state or concurrency conflict where no more-specific existing domain code applies. |
@@ -450,7 +450,7 @@ Logging:
 
 ## Admin Authentication Endpoints
 
-**Locked by Phase 8 Slice 8B0.** These three endpoints are the whole admin authentication surface. First-OWNER creation is an operator CLI and is deliberately not an HTTP route; see `TECHNICAL-ARCHITECTURE.md` (D2).
+**Locked by Phase 8 Slice 8B0 and extended by Phase 10B.** First-OWNER creation is an operator CLI and is deliberately not an HTTP route; see `TECHNICAL-ARCHITECTURE.md` (D2). Phase 10B keeps the same login/session/cookie/CSRF mechanism and allows the authenticated user role to be either `OWNER` or `CHECKIN_STAFF`.
 
 ### Login
 
@@ -528,7 +528,7 @@ Response `200 OK`:
 }
 ```
 
-Never returned: session id, session token, `sessionTokenHash`, `csrfTokenHash`, `passwordHash`, `ipAddress`, `userAgent`.
+Never returned: session id, session token, `sessionTokenHash`, `csrfTokenHash`, `passwordHash`, `ipAddress`, `userAgent`. `CHECKIN_STAFF` receives the same response shape with `"role": "CHECKIN_STAFF"` and is redirected by the frontend to `/checkin`.
 
 Errors: `401 UNAUTHENTICATED` for any unusable session.
 
@@ -543,6 +543,32 @@ Response: `204 No Content`.
 Side effects: sets `revokedAt` on the **current** `AdminSession` only, and clears the current session cookie with matching name, path, and environment attributes. Other OWNER sessions are unaffected. See `TECHNICAL-ARCHITECTURE.md` (D13).
 
 Errors: `401 UNAUTHENTICATED`, `403 CSRF_INVALID`.
+
+### Change own password
+
+`POST /api/admin/auth/change-password`
+
+Authentication: admin session cookie plus CSRF token. Authorized roles: `OWNER`, `CHECKIN_STAFF`.
+
+Request:
+
+```json
+{
+  "currentPassword": "current password",
+  "newPassword": "new correct horse battery staple"
+}
+```
+
+Rules:
+
+- `newPassword` follows the same 15 to 128 Unicode-code-point password policy as login/bootstrap.
+- The server verifies the current password, stores only the new Argon2id hash, and never logs either password.
+- On success, all other sessions for the same `AdminUser` are revoked. The current session may remain valid only if its CSRF binding and account status remain valid; a simpler implementation may revoke all sessions and require re-login.
+- If the user has `mustChangePassword = true`, a successful change clears it.
+
+Response: `204 No Content`.
+
+Errors: `400 VALIDATION_ERROR`, `401 UNAUTHENTICATED`, `401 INVALID_CREDENTIALS` for wrong current password, `403 CSRF_INVALID`.
 
 ## Admin CSRF and origin doctrine
 
@@ -566,15 +592,39 @@ Broad CORS is not enabled to satisfy this, and `SameSite=Strict` is treated as d
 
 ## Admin Management Conventions
 
-**Locked by Phase 8 Slice 8D0.** These apply to every Phase 8 admin-management endpoint. The auth contract in the previous section is unchanged and is not reopened.
+**Locked by Phase 8 Slice 8D0 and extended by Phase 10B.** These apply to every admin-management endpoint. The auth contract in the previous section is unchanged except for the explicit `CHECKIN_STAFF` role.
 
 ### Shared enforcement
 
-- Every `/api/admin/**` route except `POST /api/admin/auth/login` requires a valid session and OWNER authorization.
+- Every `/api/admin/**` route except `POST /api/admin/auth/login` requires a valid session.
+- Authorization is deny-by-default. Each route declares allowed roles explicitly. Existing Phase 8 and Phase 9 administrative routes remain `OWNER`-only unless this document says otherwise.
 - Safe methods (`GET`, `HEAD`, `OPTIONS`) must not mutate state and require no CSRF token.
 - Unsafe methods (`POST`, `PUT`, `PATCH`, `DELETE`) additionally require exact `ADMIN_ORIGIN` validation and a valid `X-CSRF-Token`.
 - Enforcement is a **shared** backend surface, not a per-controller manual call. A route must not be able to opt out by omission. Exact guard/decorator names remain an implementation detail.
 - Login is the single intentional exception, because no authenticated session exists yet.
+
+### Role authorization matrix
+
+| Area / path pattern | OWNER | CHECKIN_STAFF | Unauthenticated |
+| --- | --- | --- | --- |
+| `POST /api/admin/auth/login` | allow | allow | allow |
+| `GET /api/admin/auth/me` | allow | allow | deny |
+| `POST /api/admin/auth/logout` | allow | allow | deny |
+| `POST /api/admin/auth/change-password` | allow | allow | deny |
+| Dashboard `/api/admin/dashboard` | allow | deny | deny |
+| Invitations `/api/admin/invitations/**` except check-in routes | allow | deny | deny |
+| Invitees `/api/admin/invitees/**` | allow | deny | deny |
+| Events general admin endpoints | allow | deny | deny |
+| RSVPs `/api/admin/rsvps/**` and OWNER override | allow | deny | deny |
+| Guest messages `/api/admin/messages/**` and scoped message lists | allow | deny | deny |
+| Imports `/api/admin/imports/**` | allow | deny | deny |
+| Staff management `/api/admin/staff/**` | allow | deny | deny |
+| Check-in event picker `GET /api/admin/checkin/events` | allow | allow | deny |
+| QR validate/confirm `/api/admin/checkin/validate`, `/confirm` | allow | allow | deny |
+| Manual search/confirm `/api/admin/checkin/search`, `/manual-confirm` | allow | allow | deny |
+| Reports `/api/admin/reports/**` | allow | deny | deny |
+
+`CHECKIN_STAFF` denial is a backend authorization decision, not a hidden-link convention. Direct requests to OWNER-only APIs return `403 FORBIDDEN` after authentication, with no privileged data in the response.
 
 ### Shared pagination
 
@@ -1418,17 +1468,141 @@ Idempotency:
 
 Lost-response recovery is explicit only. `admin-web` never automatically replays a commit after a network interruption, timeout, `5xx`, malformed success, or CSRF refresh. The operator may explicitly resubmit the exact same selection; because the commit is idempotent for the same fingerprint, the server returns the original result if the first request actually succeeded.
 
+## Admin Staff Account Endpoints
+
+**Phase ownership: Phase 10C.** Staff management exists only so venue operators have personal limited accounts. It is not a general user-administration platform and does not create additional OWNERs.
+
+### List staff
+
+`GET /api/admin/staff?page=1&pageSize=25&status=ACTIVE`
+
+Authentication: OWNER. `CHECKIN_STAFF` is forbidden.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "6a3e6cb6-5a1a-457d-9b36-7fb7cb8ac96a",
+      "email": "usher@example.com",
+      "role": "CHECKIN_STAFF",
+      "status": "ACTIVE",
+      "mustChangePassword": false,
+      "createdAt": "2026-10-13T10:00:00.000Z",
+      "lastLoginAt": null
+    }
+  ],
+  "page": { "number": 1, "pageSize": 25, "totalItems": 1, "totalPages": 1 }
+}
+```
+
+Never returned: password hashes, session token hashes, CSRF hashes, raw temporary credentials, IP address, or user-agent.
+
+### Create staff
+
+`POST /api/admin/staff`
+
+Authentication: OWNER plus CSRF.
+
+Request:
+
+```json
+{
+  "email": "usher@example.com"
+}
+```
+
+Response `201 Created`:
+
+```json
+{
+  "staff": {
+    "id": "6a3e6cb6-5a1a-457d-9b36-7fb7cb8ac96a",
+    "email": "usher@example.com",
+    "role": "CHECKIN_STAFF",
+    "status": "ACTIVE",
+    "mustChangePassword": true
+  },
+  "temporaryPassword": "one-time display value"
+}
+```
+
+The temporary password is generated with cryptographic randomness, is shown only in this creation response, is never persisted in plaintext, is never logged, and must be replaced on first login. A duplicate normalized email returns `409 CONFLICT`.
+
+### Disable or reactivate staff
+
+`PATCH /api/admin/staff/{staffId}`
+
+Authentication: OWNER plus CSRF.
+
+Request:
+
+```json
+{ "status": "DISABLED" }
+```
+
+Allowed status values: `ACTIVE`, `DISABLED`. Disabling revokes all active sessions for that user immediately. Reactivation does not create a session and may require a password reset if credentials are unknown.
+
+Errors: `404 NOT_FOUND`, `409 CONFLICT` if the target is not `CHECKIN_STAFF`.
+
+### Reset staff credentials
+
+`POST /api/admin/staff/{staffId}/reset-password`
+
+Authentication: OWNER plus CSRF.
+
+Response:
+
+```json
+{
+  "staff": {
+    "id": "6a3e6cb6-5a1a-457d-9b36-7fb7cb8ac96a",
+    "email": "usher@example.com",
+    "role": "CHECKIN_STAFF",
+    "status": "ACTIVE",
+    "mustChangePassword": true
+  },
+  "temporaryPassword": "one-time display value"
+}
+```
+
+Side effects: replaces the password hash, sets `mustChangePassword = true`, and revokes all existing sessions for that staff account. It never returns or exposes an existing password. Errors: `404 NOT_FOUND`, `409 CONFLICT` if the target is not `CHECKIN_STAFF`.
+
 ## Admin Check-in Endpoints
 
-**Phase ownership: Phase 10.** The QR scanner and venue check-in are explicitly outside Phase 8. Phase 8 adds no scanner route, no check-in route, and no check-in dashboard metric. The endpoints below remain the intended contract and are not implemented by Phase 8.
+**Phase ownership: Phase 10D.** Phase 10B locks this contract only; no endpoint is implemented by the contract-lock slice. Authorized roles are `OWNER` and `CHECKIN_STAFF` unless stated otherwise. All unsafe endpoints require exact admin Origin validation and session-bound CSRF.
+
+### Active check-in Events
+
+`GET /api/admin/checkin/events`
+
+Authentication: OWNER or CHECKIN_STAFF.
+
+Returns the minimal active Event picker. This endpoint does not prove that any household may attend an event.
+
+```json
+{
+  "events": [
+    {
+      "id": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
+      "name": "Holy Matrimony",
+      "slug": "ceremony",
+      "startsAt": "2027-01-09T03:00:00.000Z"
+    }
+  ]
+}
+```
+
+MVP staff event scope: every authenticated CHECKIN_STAFF may select any active Event. Per-staff Event assignment is deferred.
 
 ### Validate QR/check-in credential
 
 `POST /api/admin/checkin/validate`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER or CHECKIN_STAFF plus CSRF.
 
-This endpoint is read/validation only. It must not create `CheckinRecord`.
+This endpoint is read/validation only. It must not create `CheckinRecord`, reserve capacity, or mutate pass state.
 
 Request:
 
@@ -1439,7 +1613,7 @@ Request:
 }
 ```
 
-Response:
+Response `200 OK`:
 
 ```json
 {
@@ -1448,42 +1622,39 @@ Response:
     "id": "0975522e-edc7-445e-80f2-c9f7c88a6ff2",
     "displayName": "John & Jane Smith Family"
   },
-  "rsvp": {
-    "expectedEventAttendeeCount": 4
-  },
   "event": {
     "id": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
     "name": "Holy Matrimony"
   },
-  "alreadyCheckedIn": false
+  "expectedAttendeeCount": 4,
+  "alreadyCheckedIn": false,
+  "previousCheckin": null
 }
 ```
 
+If already confirmed, the response may be `200 OK` with `status: "ALREADY_CONFIRMED"` and `previousCheckin` containing only `checkedInAt`, `attendeeCount`, `method`, and minimal operator identity needed for dispute resolution. It must not expose the raw `qrPayload`, `CheckinPass.tokenHash`, public invitation URL, full invitee roster, guest notes, guest messages, import history, or private RSVP detail.
+
 Validation:
 
-- Resolve credential hash.
-- Active pass exists.
-- Invitation is active.
-- RSVP is accepted.
-- Event is eligible.
-- Event is selected for attendance.
-- Determine expected count from `RSVPEventSelection`.
+- Parse the 43-character opaque check-in credential; malformed input returns `422 QR_INVALID`.
+- Resolve `SHA-256(qrPayload)`/credential hash using the existing check-in credential derivation and hash rules.
+- Require active pass, active invitation, accepted RSVP, active Event, `InvitationEvent` eligibility, attending `RSVPEventSelection`, and expected attendee capacity.
 - Check whether `CheckinRecord` already exists for Invitation + Event.
 
-Error/status cases:
+Errors:
 
-- `QR_INVALID`.
-- `QR_REVOKED`.
-- `INVITATION_NOT_AVAILABLE`.
-- `EVENT_NOT_ALLOWED`.
-- `EVENT_NOT_SELECTED`.
-- `CHECKIN_ALREADY_CONFIRMED`.
+- `422 QR_INVALID`
+- `422 QR_REVOKED`
+- `404 INVITATION_NOT_AVAILABLE`
+- `422 EVENT_NOT_ALLOWED`
+- `422 EVENT_NOT_SELECTED`
+- `409 CHECKIN_ALREADY_CONFIRMED`
 
 ### Confirm QR check-in
 
 `POST /api/admin/checkin/confirm`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER or CHECKIN_STAFF plus CSRF.
 
 Request:
 
@@ -1491,12 +1662,13 @@ Request:
 {
   "qrPayload": "opaque_backend_credential_payload",
   "eventId": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
-  "attendeeCount": 4,
-  "note": null
+  "attendeeCount": 4
 }
 ```
 
-Response:
+The request never accepts `confirmedByAdminUserId`; the server derives the operator from the authenticated session.
+
+Response `201 Created`:
 
 ```json
 {
@@ -1504,7 +1676,12 @@ Response:
     "id": "d7c77944-633c-443b-a476-8bb16b2792de",
     "method": "QR",
     "attendeeCount": 4,
-    "checkedInAt": "2026-09-17T00:00:00.000Z"
+    "checkedInAt": "2026-10-13T10:00:00.000Z",
+    "confirmedBy": {
+      "id": "6a3e6cb6-5a1a-457d-9b36-7fb7cb8ac96a",
+      "email": "usher@example.com",
+      "role": "CHECKIN_STAFF"
+    }
   }
 }
 ```
@@ -1512,33 +1689,60 @@ Response:
 Transaction:
 
 1. Begin transaction.
-2. Lock Invitation row `FOR UPDATE`.
-3. Reload current RSVP/event/pass state.
+2. Lock Invitation row `FOR UPDATE` first.
+3. Reload current RSVP, Event, pass, eligibility, and selected event state.
 4. Re-run all validation.
-5. Check existing CheckinRecord for Invitation + Event.
-6. Validate `attendeeCount >= 1`.
-7. Validate `attendeeCount <= RSVPEventSelection.expectedAttendeeCount`.
-8. Insert CheckinRecord.
-9. Commit.
+5. Check existing `CheckinRecord` for Invitation + Event.
+6. Validate `1 <= attendeeCount <= RSVPEventSelection.expectedAttendeeCount`.
+7. Insert `CheckinRecord` with `method = QR`, `checkinPassId`, and the authenticated `AdminUser.id`.
+8. Commit.
 
 Concurrent confirmations:
 
 - Unique Invitation/Event constraint is the final guard.
-- Loser transaction returns `409 CHECKIN_ALREADY_CONFIRMED`.
+- The loser returns `409 CHECKIN_ALREADY_CONFIRMED`.
+- No partial record is created on validation failure.
 
 ### Manual guest lookup
 
 `GET /api/admin/checkin/search?query=smith&eventId=7d98761a-b7fc-4a2e-8df4-69b6f22d85b4`
 
-Authentication: OWNER.
+Authentication: OWNER or CHECKIN_STAFF.
 
-Response: matching accepted active invitations eligible for the event with RSVP/check-in status.
+Rules:
+
+- `query` is required, trimmed, and must have a reasonable minimum length such as 2 Unicode code points.
+- Results are bounded, default/max 10 unless implementation locks another small operational value.
+- Search is over minimal household identifiers needed for venue lookup, such as display name and greeting name. It is not a bulk export and not a general Invitation list.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "invitation": {
+        "id": "0975522e-edc7-445e-80f2-c9f7c88a6ff2",
+        "displayName": "John & Jane Smith Family"
+      },
+      "event": {
+        "id": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
+        "name": "Holy Matrimony"
+      },
+      "expectedAttendeeCount": 4,
+      "alreadyCheckedIn": false
+    }
+  ]
+}
+```
+
+Never returned: raw credentials, credential hashes, public URL, notes, full invitee roster, guest messages, import history, or unrelated admin detail fields.
 
 ### Manual check-in
 
 `POST /api/admin/checkin/manual-confirm`
 
-Authentication: OWNER plus CSRF.
+Authentication: OWNER or CHECKIN_STAFF plus CSRF.
 
 Request:
 
@@ -1546,12 +1750,34 @@ Request:
 {
   "invitationId": "0975522e-edc7-445e-80f2-c9f7c88a6ff2",
   "eventId": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
-  "attendeeCount": 4,
-  "note": "Manual lookup"
+  "attendeeCount": 4
 }
 ```
 
-Validation and duplicate handling match QR confirm after invitation resolution. Manual check-in must use the same backend domain service path as QR confirmation.
+Manual confirmation uses the same backend attendance domain service and transaction as QR confirmation after invitation resolution. It records `method = MANUAL`, no `checkinPassId`, and the authenticated operator's `AdminUser.id`. Validation, attendee-count bounds, duplicate handling, archive behavior, and concurrency behavior match QR confirmation.
+
+### Post-check-in RSVP mutation error
+
+After any `CheckinRecord` exists for an invitation, public RSVP PUT and OWNER RSVP override for that invitation return:
+
+```json
+{
+  "error": {
+    "code": "RSVP_LOCKED_AFTER_CHECKIN",
+    "message": "RSVP is locked after check-in."
+  }
+}
+```
+
+Status: `409 Conflict`. This check is performed inside the same Invitation-row-locked transaction as the RSVP mutation or check-in confirmation. Read-only RSVP retrieval remains allowed.
+
+### Check-in lost-response recovery
+
+No request-level idempotency key is added. If the browser sees a network failure, timeout, ambiguous `5xx`, or malformed success after submitting confirmation, the UI enters an uncertain state and must not automatically replay the confirm request. The operator explicitly revalidates the same QR/manual household and Event:
+
+- If the first request committed, validation returns the authoritative already-confirmed state.
+- If nothing committed, the UI may offer a new explicit confirmation.
+- If another operator confirmed in between, the UI shows that authoritative state and must not attribute it to the first operator.
 
 ## Admin Reports and Export
 
