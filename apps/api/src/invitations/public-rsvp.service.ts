@@ -134,6 +134,7 @@ type ExistingRsvpState = {
 
 type InvitationMutationState = {
   readonly eligibleEventIds: ReadonlySet<string>;
+  readonly hasCheckinRecord: boolean;
   readonly inviteeIds: ReadonlySet<string>;
   readonly rsvp: ExistingRsvpState;
   readonly activePass:
@@ -476,7 +477,8 @@ async function readMutationState(
   tx: Prisma.TransactionClient,
   invitationId: string,
 ): Promise<InvitationMutationState> {
-  const [rsvp, invitationEvents, invitees] = await Promise.all([
+  const [rsvp, invitationEvents, invitees, checkinRecordCount] =
+    await Promise.all([
     tx.rSVP.findUnique({
       where: { invitationId },
       select: {
@@ -506,6 +508,9 @@ async function readMutationState(
       where: { invitationId },
       select: { id: true },
     }),
+    tx.checkinRecord.count({
+      where: { invitationId },
+    }),
   ]);
 
   return {
@@ -513,6 +518,7 @@ async function readMutationState(
     eligibleEventIds: new Set(
       invitationEvents.map((invitationEvent) => invitationEvent.eventId),
     ),
+    hasCheckinRecord: checkinRecordCount > 0,
     inviteeIds: new Set(invitees.map((invitee) => invitee.id)),
     rsvp:
       rsvp === null
@@ -708,6 +714,10 @@ export class PublicRsvpService {
 
     const state = await readMutationState(tx, invitation.id);
     validateExpectedVersion(command.expectedVersion, state.rsvp);
+
+    if (state.hasCheckinRecord) {
+      throwPublicRsvpError("RSVP_LOCKED_AFTER_CHECKIN");
+    }
 
     if (command.status === RSVPStatus.DECLINED) {
       return this.applyDeclinedMutation(

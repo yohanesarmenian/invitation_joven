@@ -340,7 +340,7 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(29);
+    expect(routes).toHaveLength(34);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "POST /api/admin/invitations",
@@ -352,6 +352,11 @@ describe("admin read HTTP integration", () => {
         "PATCH /api/admin/messages/:messageId",
         "PATCH /api/admin/staff/:staffId",
         "POST /api/admin/auth/change-password",
+        "GET /api/admin/checkin/events",
+        "GET /api/admin/checkin/search",
+        "POST /api/admin/checkin/confirm",
+        "POST /api/admin/checkin/manual-confirm",
+        "POST /api/admin/checkin/validate",
         "POST /api/admin/imports/guest/commit",
         "POST /api/admin/imports/guest/validate",
         "POST /api/admin/staff",
@@ -361,6 +366,8 @@ describe("admin read HTTP integration", () => {
     expect(routeNames).toEqual([
       "DELETE /api/admin/invitees/:inviteeId",
       "GET /api/admin/auth/me",
+      "GET /api/admin/checkin/events",
+      "GET /api/admin/checkin/search",
       "GET /api/admin/dashboard",
       "GET /api/admin/events",
       "GET /api/admin/invitations",
@@ -378,6 +385,9 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/auth/change-password",
       "POST /api/admin/auth/login",
       "POST /api/admin/auth/logout",
+      "POST /api/admin/checkin/confirm",
+      "POST /api/admin/checkin/manual-confirm",
+      "POST /api/admin/checkin/validate",
       "POST /api/admin/imports/guest/commit",
       "POST /api/admin/imports/guest/validate",
       "POST /api/admin/invitations",
@@ -441,6 +451,9 @@ describe("admin read HTTP integration", () => {
       "PATCH /api/admin/staff/:staffId",
       "POST /api/admin/auth/change-password",
       "POST /api/admin/auth/logout",
+      "POST /api/admin/checkin/confirm",
+      "POST /api/admin/checkin/manual-confirm",
+      "POST /api/admin/checkin/validate",
       "POST /api/admin/imports/guest/commit",
       "POST /api/admin/imports/guest/validate",
       "POST /api/admin/invitations",

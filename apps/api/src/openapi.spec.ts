@@ -8,13 +8,21 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AdminModule } from "./admin/admin.module.js";
 import { AuthModule } from "./auth/auth.module.js";
+import { CheckinModule } from "./checkin/checkin.module.js";
 import { InvitationsModule } from "./invitations/invitations.module.js";
 import { ImportsModule } from "./imports/imports.module.js";
 import { MessagesModule } from "./messages/messages.module.js";
 import { createOpenApiDocument } from "./openapi.js";
 
 @Module({
-  imports: [AuthModule, AdminModule, ImportsModule, InvitationsModule, MessagesModule],
+  imports: [
+    AuthModule,
+    AdminModule,
+    CheckinModule,
+    ImportsModule,
+    InvitationsModule,
+    MessagesModule,
+  ],
 })
 class OpenApiTestModule {}
 
@@ -85,6 +93,14 @@ describe("OpenAPI contract", () => {
       document.paths["/api/admin/imports/guest/validate"];
     const adminGuestImportCommitPath =
       document.paths["/api/admin/imports/guest/commit"];
+    const adminCheckinEventsPath = document.paths["/api/admin/checkin/events"];
+    const adminCheckinValidatePath =
+      document.paths["/api/admin/checkin/validate"];
+    const adminCheckinConfirmPath =
+      document.paths["/api/admin/checkin/confirm"];
+    const adminCheckinSearchPath = document.paths["/api/admin/checkin/search"];
+    const adminCheckinManualConfirmPath =
+      document.paths["/api/admin/checkin/manual-confirm"];
     const schemas = document.components?.schemas ?? {};
 
     expect(getOperation).toBeDefined();
@@ -302,6 +318,63 @@ describe("OpenAPI contract", () => {
     expect(adminGuestImportCommitPath?.put).toBeUndefined();
     expect(adminGuestImportCommitPath?.patch).toBeUndefined();
     expect(adminGuestImportCommitPath?.delete).toBeUndefined();
+    expect(adminCheckinEventsPath?.get).toBeDefined();
+    expect(adminCheckinEventsPath?.get?.responses).toHaveProperty("200");
+    expect(adminCheckinEventsPath?.get?.responses).toHaveProperty("401");
+    expect(adminCheckinEventsPath?.get?.responses).toHaveProperty("403");
+    expect(adminCheckinValidatePath?.post).toBeDefined();
+    expect(adminCheckinValidatePath?.post?.requestBody).toBeDefined();
+    expect(adminCheckinValidatePath?.post?.responses).toHaveProperty("200");
+    expect(adminCheckinValidatePath?.post?.responses).toHaveProperty("400");
+    expect(adminCheckinValidatePath?.post?.responses).toHaveProperty("401");
+    expect(adminCheckinValidatePath?.post?.responses).toHaveProperty("403");
+    expect(adminCheckinValidatePath?.post?.responses).toHaveProperty("404");
+    expect(adminCheckinValidatePath?.post?.responses).toHaveProperty("409");
+    expect(adminCheckinValidatePath?.post?.responses).toHaveProperty("422");
+    expect(adminCheckinConfirmPath?.post).toBeDefined();
+    expect(adminCheckinConfirmPath?.post?.requestBody).toBeDefined();
+    expect(adminCheckinConfirmPath?.post?.responses).toHaveProperty("201");
+    expect(adminCheckinConfirmPath?.post?.responses).toHaveProperty("400");
+    expect(adminCheckinConfirmPath?.post?.responses).toHaveProperty("401");
+    expect(adminCheckinConfirmPath?.post?.responses).toHaveProperty("403");
+    expect(adminCheckinConfirmPath?.post?.responses).toHaveProperty("404");
+    expect(adminCheckinConfirmPath?.post?.responses).toHaveProperty("409");
+    expect(adminCheckinConfirmPath?.post?.responses).toHaveProperty("422");
+    expect(adminCheckinSearchPath?.get).toBeDefined();
+    expect(adminCheckinSearchPath?.get?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ in: "query", name: "eventId" }),
+        expect.objectContaining({ in: "query", name: "query" }),
+      ]),
+    );
+    expect(adminCheckinSearchPath?.get?.responses).toHaveProperty("200");
+    expect(adminCheckinSearchPath?.get?.responses).toHaveProperty("400");
+    expect(adminCheckinSearchPath?.get?.responses).toHaveProperty("401");
+    expect(adminCheckinSearchPath?.get?.responses).toHaveProperty("403");
+    expect(adminCheckinSearchPath?.get?.responses).toHaveProperty("422");
+    expect(adminCheckinManualConfirmPath?.post).toBeDefined();
+    expect(adminCheckinManualConfirmPath?.post?.requestBody).toBeDefined();
+    expect(adminCheckinManualConfirmPath?.post?.responses).toHaveProperty(
+      "201",
+    );
+    expect(adminCheckinManualConfirmPath?.post?.responses).toHaveProperty(
+      "400",
+    );
+    expect(adminCheckinManualConfirmPath?.post?.responses).toHaveProperty(
+      "401",
+    );
+    expect(adminCheckinManualConfirmPath?.post?.responses).toHaveProperty(
+      "403",
+    );
+    expect(adminCheckinManualConfirmPath?.post?.responses).toHaveProperty(
+      "404",
+    );
+    expect(adminCheckinManualConfirmPath?.post?.responses).toHaveProperty(
+      "409",
+    );
+    expect(adminCheckinManualConfirmPath?.post?.responses).toHaveProperty(
+      "422",
+    );
     expect(adminMessagesPath?.get?.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -378,6 +451,13 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("GuestImportParsedRowDto");
     expect(schemas).toHaveProperty("GuestImportCommitRequestDto");
     expect(schemas).toHaveProperty("GuestImportCommitResponseDto");
+    expect(schemas).toHaveProperty("AdminCheckinEventsResponseDto");
+    expect(schemas).toHaveProperty("ValidateAdminCheckinRequestDto");
+    expect(schemas).toHaveProperty("ConfirmAdminCheckinRequestDto");
+    expect(schemas).toHaveProperty("AdminCheckinValidateResponseDto");
+    expect(schemas).toHaveProperty("AdminCheckinConfirmResponseDto");
+    expect(schemas).toHaveProperty("AdminCheckinSearchResponseDto");
+    expect(schemas).toHaveProperty("ManualConfirmAdminCheckinRequestDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     const adminSchemas = Object.fromEntries(
       Object.entries(schemas).filter(([name]) => name.startsWith("Admin")),
@@ -437,6 +517,53 @@ describe("OpenAPI contract", () => {
       },
       required: expect.arrayContaining(["status", "issuedAt", "qrPayload"]),
     });
+    expect(schemas.ValidateAdminCheckinRequestDto).toMatchObject({
+      properties: expect.objectContaining({
+        eventId: expect.objectContaining({
+          format: "uuid",
+          type: "string",
+        }),
+        qrPayload: expect.objectContaining({
+          maxLength: 43,
+          minLength: 43,
+          pattern: "^[A-Za-z0-9_-]{43}$",
+          type: "string",
+        }),
+      }),
+      required: expect.arrayContaining(["qrPayload", "eventId"]),
+    });
+    expect(schemas.ConfirmAdminCheckinRequestDto).toMatchObject({
+      properties: expect.objectContaining({
+        attendeeCount: expect.objectContaining({
+          minimum: 1,
+          type: "number",
+        }),
+      }),
+      required: expect.arrayContaining([
+        "qrPayload",
+        "eventId",
+        "attendeeCount",
+      ]),
+    });
+    expect(schemas.AdminCheckinValidateResponseDto).toMatchObject({
+      properties: expect.objectContaining({
+        alreadyCheckedIn: expect.objectContaining({ type: "boolean" }),
+        expectedAttendeeCount: expect.objectContaining({
+          minimum: 1,
+          type: "number",
+        }),
+        previousCheckin: expect.objectContaining({ nullable: true }),
+        status: expect.objectContaining({
+          enum: ["VALID", "ALREADY_CONFIRMED"],
+        }),
+      }),
+    });
+    expect(JSON.stringify(schemas.AdminCheckinValidateResponseDto)).not.toContain(
+      "qrPayload",
+    );
+    expect(JSON.stringify(schemas.AdminCheckinConfirmResponseDto)).not.toContain(
+      "qrPayload",
+    );
     expect(schemas.SubmitPublicGuestMessageRequestDto).toMatchObject({
       properties: {
         authorName: expect.objectContaining({

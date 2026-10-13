@@ -434,6 +434,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/checkin/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List active check-in events */
+        get: operations["CheckinController_listEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/checkin/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a check-in QR credential */
+        post: operations["CheckinController_validateQr"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/checkin/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a QR check-in */
+        post: operations["CheckinController_confirmQr"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/checkin/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search invitations eligible for manual check-in */
+        get: operations["CheckinController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/checkin/manual-confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a manual check-in */
+        post: operations["CheckinController_confirmManual"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/imports/guest/validate": {
         parameters: {
             query?: never;
@@ -1007,6 +1092,92 @@ export interface components {
         PublicRsvpMutationResponseDto: {
             rsvp: components["schemas"]["PublicRsvpStateDto"];
             checkinPass: components["schemas"]["PublicCheckinPassDto"] | null;
+        };
+        AdminCheckinEventDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            /** Format: date-time */
+            startsAt: string | null;
+        };
+        AdminCheckinEventsResponseDto: {
+            events: components["schemas"]["AdminCheckinEventDto"][];
+        };
+        ValidateAdminCheckinRequestDto: {
+            qrPayload: string;
+            /** Format: uuid */
+            eventId: string;
+        };
+        AdminCheckinInvitationSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+        };
+        AdminCheckinEventSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        AdminCheckinOperatorDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            role: "OWNER" | "CHECKIN_STAFF";
+        };
+        AdminPreviousCheckinDto: {
+            attendeeCount: number;
+            /** Format: date-time */
+            checkedInAt: string;
+            /** @enum {string} */
+            method: "QR" | "MANUAL";
+            confirmedBy?: components["schemas"]["AdminCheckinOperatorDto"] | null;
+        };
+        AdminCheckinValidateResponseDto: {
+            /** @enum {string} */
+            status: "VALID" | "ALREADY_CONFIRMED";
+            invitation: components["schemas"]["AdminCheckinInvitationSummaryDto"];
+            event: components["schemas"]["AdminCheckinEventSummaryDto"];
+            expectedAttendeeCount: number;
+            alreadyCheckedIn: boolean;
+            previousCheckin: components["schemas"]["AdminPreviousCheckinDto"] | null;
+        };
+        ConfirmAdminCheckinRequestDto: {
+            qrPayload: string;
+            /** Format: uuid */
+            eventId: string;
+            attendeeCount: number;
+        };
+        AdminCheckinRecordDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            method: "QR" | "MANUAL";
+            attendeeCount: number;
+            /** Format: date-time */
+            checkedInAt: string;
+            confirmedBy: components["schemas"]["AdminCheckinOperatorDto"];
+        };
+        AdminCheckinConfirmResponseDto: {
+            checkinRecord: components["schemas"]["AdminCheckinRecordDto"];
+        };
+        AdminCheckinSearchItemDto: {
+            invitation: components["schemas"]["AdminCheckinInvitationSummaryDto"];
+            event: components["schemas"]["AdminCheckinEventSummaryDto"];
+            expectedAttendeeCount: number;
+            alreadyCheckedIn: boolean;
+        };
+        AdminCheckinSearchResponseDto: {
+            items: components["schemas"]["AdminCheckinSearchItemDto"][];
+        };
+        ManualConfirmAdminCheckinRequestDto: {
+            /** Format: uuid */
+            invitationId: string;
+            /** Format: uuid */
+            eventId: string;
+            attendeeCount: number;
         };
         GuestImportPreviewSummaryDto: {
             totalRows: number;
@@ -2501,6 +2672,308 @@ export interface operations {
                 };
             };
             /** @description RSVP domain validation failed. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CheckinController_listEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCheckinEventsResponseDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CheckinController_validateQr: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateAdminCheckinRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCheckinValidateResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CheckinController_confirmQr: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmAdminCheckinRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCheckinConfirmResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CheckinController_search: {
+        parameters: {
+            query: {
+                eventId: string;
+                query: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCheckinSearchResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CheckinController_confirmManual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualConfirmAdminCheckinRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCheckinConfirmResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
             422: {
                 headers: {
                     [name: string]: unknown;
