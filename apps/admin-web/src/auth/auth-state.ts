@@ -24,13 +24,19 @@ export function readAuth(value: unknown): AdminAuthResponse | null {
     !record(value.session) ||
     typeof value.user.id !== "string" ||
     typeof value.user.email !== "string" ||
-    value.user.role !== "OWNER" ||
+    (value.user.role !== "OWNER" && value.user.role !== "CHECKIN_STAFF") ||
+    typeof value.user.mustChangePassword !== "boolean" ||
     typeof value.session.expiresAt !== "string" ||
     typeof value.csrfToken !== "string"
   )
     return null;
   return {
-    user: { id: value.user.id, email: value.user.email, role: "OWNER" },
+    user: {
+      id: value.user.id,
+      email: value.user.email,
+      mustChangePassword: value.user.mustChangePassword,
+      role: value.user.role,
+    },
     session: { expiresAt: value.session.expiresAt },
     csrfToken: value.csrfToken,
   };

@@ -340,17 +340,22 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(24);
+    expect(routes).toHaveLength(29);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "POST /api/admin/invitations",
         "POST /api/admin/invitations/:invitationId/invitees",
         "DELETE /api/admin/invitees/:inviteeId",
         "GET /api/admin/messages",
+        "GET /api/admin/staff",
         "GET /api/admin/invitations/:invitationId/messages",
         "PATCH /api/admin/messages/:messageId",
+        "PATCH /api/admin/staff/:staffId",
+        "POST /api/admin/auth/change-password",
         "POST /api/admin/imports/guest/commit",
         "POST /api/admin/imports/guest/validate",
+        "POST /api/admin/staff",
+        "POST /api/admin/staff/:staffId/reset-password",
       ]),
     );
     expect(routeNames).toEqual([
@@ -365,9 +370,12 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/messages",
       "GET /api/admin/rsvps",
       "GET /api/admin/rsvps/:rsvpId",
+      "GET /api/admin/staff",
       "PATCH /api/admin/invitations/:invitationId",
       "PATCH /api/admin/invitees/:inviteeId",
       "PATCH /api/admin/messages/:messageId",
+      "PATCH /api/admin/staff/:staffId",
+      "POST /api/admin/auth/change-password",
       "POST /api/admin/auth/login",
       "POST /api/admin/auth/logout",
       "POST /api/admin/imports/guest/commit",
@@ -376,6 +384,8 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/invitations/:invitationId/archive",
       "POST /api/admin/invitations/:invitationId/invitees",
       "POST /api/admin/invitations/:invitationId/regenerate-token",
+      "POST /api/admin/staff",
+      "POST /api/admin/staff/:staffId/reset-password",
       "PUT /api/admin/invitations/:invitationId/events",
       "PUT /api/admin/invitations/:invitationId/rsvp",
     ]);
@@ -428,6 +438,8 @@ describe("admin read HTTP integration", () => {
       "PATCH /api/admin/invitations/:invitationId",
       "PATCH /api/admin/invitees/:inviteeId",
       "PATCH /api/admin/messages/:messageId",
+      "PATCH /api/admin/staff/:staffId",
+      "POST /api/admin/auth/change-password",
       "POST /api/admin/auth/logout",
       "POST /api/admin/imports/guest/commit",
       "POST /api/admin/imports/guest/validate",
@@ -435,6 +447,8 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/invitations/:invitationId/archive",
       "POST /api/admin/invitations/:invitationId/invitees",
       "POST /api/admin/invitations/:invitationId/regenerate-token",
+      "POST /api/admin/staff",
+      "POST /api/admin/staff/:staffId/reset-password",
       "PUT /api/admin/invitations/:invitationId/events",
       "PUT /api/admin/invitations/:invitationId/rsvp",
     ]);

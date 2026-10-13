@@ -6,9 +6,16 @@ import { mockMessages } from "./mock-messages";
 import { mockRsvps } from "./mock-rsvps";
 import { mockImports } from "./mock-imports";
 import type { AdminAuthResponse } from "@wedding-invitation/api-client/src/index";
+type TestSession = {
+  email: string;
+  csrf: string;
+  rejected: boolean;
+  role: AdminAuthResponse["user"]["role"];
+  mustChangePassword: boolean;
+};
 const sessions = new Map<
   string,
-  { email: string; csrf: string; rejected: boolean }
+  TestSession
 >();
 const origin = "http://localhost:3001";
 createServer(async (request, response) => {
@@ -22,11 +29,31 @@ createServer(async (request, response) => {
       }),
     );
   }
-  function safeAuth(email: string, csrfToken: string): AdminAuthResponse {
+  function profile(email: string): Pick<
+    TestSession,
+    "role" | "mustChangePassword"
+  > {
+    if (email === "staff@example.com")
+      return { role: "CHECKIN_STAFF", mustChangePassword: false };
+    if (email === "staff-change@example.com")
+      return { role: "CHECKIN_STAFF", mustChangePassword: true };
+    if (email === "owner-change@example.com")
+      return { role: "OWNER", mustChangePassword: true };
+    return { role: "OWNER", mustChangePassword: false };
+  }
+  function safeAuth(session: TestSession): AdminAuthResponse {
     return {
-      user: { id: "synthetic-owner", email, role: "OWNER" },
+      user: {
+        id:
+          session.role === "CHECKIN_STAFF"
+            ? "synthetic-checkin-staff"
+            : "synthetic-owner",
+        email: session.email,
+        mustChangePassword: session.mustChangePassword,
+        role: session.role,
+      },
       session: { expiresAt: new Date(Date.now() + 43_200_000).toISOString() },
-      csrfToken,
+      csrfToken: session.csrf,
     };
   }
   if (request.url === "/api/admin/auth/login" && request.method === "POST") {
@@ -69,12 +96,18 @@ createServer(async (request, response) => {
     }
     const session = randomBytes(32).toString("base64url");
     const csrf = randomBytes(32).toString("base64url");
-    sessions.set(session, { email: body.email, csrf, rejected: false });
+    const state: TestSession = {
+      email: body.email,
+      csrf,
+      rejected: false,
+      ...profile(body.email),
+    };
+    sessions.set(session, state);
     response.setHeader(
       "Set-Cookie",
       `admin_session=${session}; HttpOnly; SameSite=Strict; Path=/; Expires=${new Date(Date.now() + 43_200_000).toUTCString()}`,
     );
-    response.end(JSON.stringify(safeAuth(body.email, csrf)));
+    response.end(JSON.stringify(safeAuth(state)));
     return;
   }
   const cookie = request.headers.cookie
@@ -165,9 +198,45 @@ createServer(async (request, response) => {
       JSON.stringify(
         session.email === "malformed@example.com"
           ? { user: {} }
-          : safeAuth(session.email, session.csrf),
+          : safeAuth(session),
       ),
     );
+    return;
+  }
+  if (
+    request.url === "/api/admin/auth/change-password" &&
+    request.method === "POST"
+  ) {
+    if (!session) {
+      fail(401, "UNAUTHENTICATED");
+      return;
+    }
+    if (
+      request.headers.origin !== origin ||
+      request.headers["x-csrf-token"] !== session.csrf
+    ) {
+      fail(403, "CSRF_INVALID");
+      return;
+    }
+    let raw = "";
+    for await (const chunk of request) raw += String(chunk);
+    const body = JSON.parse(raw) as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+    if (
+      typeof body.currentPassword !== "string" ||
+      typeof body.newPassword !== "string" ||
+      [...body.currentPassword].length < 15 ||
+      [...body.newPassword].length < 15
+    ) {
+      fail(400, "VALIDATION_ERROR");
+      return;
+    }
+    session.mustChangePassword = false;
+    session.csrf = randomBytes(32).toString("base64url");
+    response.statusCode = 204;
+    response.end();
     return;
   }
   if (request.url === "/api/admin/auth/logout" && request.method === "POST") {

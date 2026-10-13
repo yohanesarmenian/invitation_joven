@@ -2,7 +2,10 @@ import { Inject, Injectable, Optional } from "@nestjs/common";
 import { AdminRole, AdminUserStatus } from "../generated/prisma/client.js";
 import { PrismaService } from "../database/prisma.service.js";
 import { invalidCredentials } from "./auth-errors.js";
-import type { AdminLoginCommand } from "./dto/admin-auth.dto.js";
+import type {
+  AdminChangePasswordCommand,
+  AdminLoginCommand,
+} from "./dto/admin-auth.dto.js";
 import { LoginThrottleService, ADMIN_AUTH_CLOCK, type AdminAuthClock } from "./login-throttle.service.js";
 import { AdminPasswordService } from "./password.service.js";
 import { AdminSessionService } from "./admin-session.service.js";
@@ -16,6 +19,7 @@ export type AdminAuthResult = {
       id: string;
       email: string;
       role: AdminRole;
+      mustChangePassword: boolean;
     };
     session: {
       expiresAt: string;
@@ -48,6 +52,7 @@ export class AdminAuthService {
       select: {
         id: true,
         email: true,
+        mustChangePassword: true,
         passwordHash: true,
         role: true,
         status: true,
@@ -100,9 +105,52 @@ export class AdminAuthService {
         user: {
           email: user.email,
           id: user.id,
+          mustChangePassword: user.mustChangePassword,
           role: user.role,
         },
       },
     };
+  }
+
+  async changePassword(
+    adminUserId: string,
+    currentSessionId: string,
+    command: AdminChangePasswordCommand,
+  ): Promise<void> {
+    const user = await this.prisma.adminUser.findUnique({
+      where: { id: adminUserId },
+      select: {
+        id: true,
+        passwordHash: true,
+        status: true,
+      },
+    });
+
+    const passwordMatches =
+      user === null
+        ? await this.passwordService.verifyAgainstDummy(command.currentPassword)
+        : await this.passwordService.verifyPassword(
+            user.passwordHash,
+            command.currentPassword,
+          );
+
+    if (user?.status !== AdminUserStatus.ACTIVE || !passwordMatches) {
+      invalidCredentials();
+    }
+
+    const passwordHash = await this.passwordService.hashPassword(
+      command.newPassword,
+    );
+
+    await this.prisma.adminUser.update({
+      data: {
+        mustChangePassword: false,
+        passwordHash,
+      },
+      where: { id: user.id },
+    });
+    await this.sessionService.revokeSessionsForUser(user.id, {
+      exceptSessionId: currentSessionId,
+    });
   }
 }

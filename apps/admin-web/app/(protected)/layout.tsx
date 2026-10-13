@@ -12,6 +12,8 @@ export default async function ProtectedLayout({
   if (session.kind === "unauthenticated") redirect(SESSION_ENDED_PATH);
   if (session.kind !== "authenticated")
     return <SessionUnavailable forbidden={session.kind === "forbidden"} />;
+  if (session.auth.user.mustChangePassword) redirect("/account/password");
+  if (session.auth.user.role === "CHECKIN_STAFF") redirect("/checkin");
   return (
     <AdminShell
       email={session.auth.user.email}

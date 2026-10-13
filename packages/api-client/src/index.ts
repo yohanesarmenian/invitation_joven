@@ -17,6 +17,17 @@ export type SubmitPublicGuestMessageResponse =
   components["schemas"]["PublicGuestMessageResponseDto"];
 export type AdminLoginRequest = components["schemas"]["AdminLoginRequestDto"];
 export type AdminAuthResponse = components["schemas"]["AdminAuthResponseDto"];
+export type AdminChangePasswordRequest =
+  components["schemas"]["AdminChangePasswordRequestDto"];
+export type AdminStaff = components["schemas"]["AdminStaffDto"];
+export type AdminStaffListResponse =
+  components["schemas"]["AdminStaffListResponseDto"];
+export type AdminStaffProvisionResponse =
+  components["schemas"]["AdminStaffProvisionResponseDto"];
+export type CreateAdminStaffRequest =
+  components["schemas"]["CreateAdminStaffRequestDto"];
+export type UpdateAdminStaffRequest =
+  components["schemas"]["UpdateAdminStaffRequestDto"];
 export type AdminDashboardResponse =
   components["schemas"]["AdminDashboardResponseDto"];
 export type AdminEventsResponse =
@@ -78,6 +89,20 @@ export type AdminLoginResponse =
   paths["/api/admin/auth/login"]["post"]["responses"]["200"]["content"]["application/json"];
 export type AdminMeResponse =
   paths["/api/admin/auth/me"]["get"]["responses"]["200"]["content"]["application/json"];
+export type AdminChangePasswordOperationRequest =
+  paths["/api/admin/auth/change-password"]["post"]["requestBody"]["content"]["application/json"];
+export type GetAdminStaffResponse =
+  paths["/api/admin/staff"]["get"]["responses"]["200"]["content"]["application/json"];
+export type CreateAdminStaffOperationRequest =
+  paths["/api/admin/staff"]["post"]["requestBody"]["content"]["application/json"];
+export type CreateAdminStaffOperationResponse =
+  paths["/api/admin/staff"]["post"]["responses"]["201"]["content"]["application/json"];
+export type UpdateAdminStaffOperationRequest =
+  paths["/api/admin/staff/{staffId}"]["patch"]["requestBody"]["content"]["application/json"];
+export type UpdateAdminStaffOperationResponse =
+  paths["/api/admin/staff/{staffId}"]["patch"]["responses"]["200"]["content"]["application/json"];
+export type ResetAdminStaffPasswordOperationResponse =
+  paths["/api/admin/staff/{staffId}/reset-password"]["post"]["responses"]["200"]["content"]["application/json"];
 export type GetAdminDashboardResponse =
   paths["/api/admin/dashboard"]["get"]["responses"]["200"]["content"]["application/json"];
 export type GetAdminEventsResponse =

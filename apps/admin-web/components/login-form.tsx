@@ -35,7 +35,13 @@ export function LoginForm({
     if (result.ok) {
       setPassword("");
       // Full navigation discards prior route/session state; the server checks /me again.
-      window.location.replace("/");
+      window.location.replace(
+        result.auth.user.mustChangePassword
+          ? "/account/password"
+          : result.auth.user.role === "CHECKIN_STAFF"
+            ? "/checkin"
+            : "/",
+      );
       return;
     }
     setMessage(result.message);

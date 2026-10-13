@@ -20,6 +20,7 @@ export type AuthenticatedAdminContext = {
     email: string;
     role: AdminRole;
     status: AdminUserStatus;
+    mustChangePassword: boolean;
   };
   session: {
     id: string;
@@ -72,6 +73,7 @@ export class AdminSessionService {
           select: {
             id: true,
             email: true,
+            mustChangePassword: true,
             role: true,
             status: true,
           },
@@ -121,7 +123,14 @@ export class AdminSessionService {
   }
 
   assertOwner(context: AuthenticatedAdminContext): void {
-    if (context.user.role !== AdminRoleEnum.OWNER) {
+    this.assertRoles(context, [AdminRoleEnum.OWNER]);
+  }
+
+  assertRoles(
+    context: AuthenticatedAdminContext,
+    allowedRoles: readonly AdminRole[],
+  ): void {
+    if (!allowedRoles.includes(context.user.role)) {
       forbidden();
     }
   }
@@ -143,6 +152,23 @@ export class AdminSessionService {
       data: { revokedAt: this.currentTime() },
       where: {
         id: sessionId,
+        revokedAt: null,
+      },
+    });
+  }
+
+  async revokeSessionsForUser(
+    adminUserId: string,
+    options: { exceptSessionId?: string } = {},
+  ): Promise<void> {
+    await this.prisma.adminSession.updateMany({
+      data: { revokedAt: this.currentTime() },
+      where: {
+        adminUserId,
+        id:
+          options.exceptSessionId === undefined
+            ? undefined
+            : { not: options.exceptSessionId },
         revokedAt: null,
       },
     });

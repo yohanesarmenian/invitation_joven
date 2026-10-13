@@ -22,7 +22,9 @@ import {
 } from "@nestjs/swagger";
 import { ApiErrorEnvelopeDto } from "../common/api-error.dto.js";
 import type { RequestWithAdminContext } from "../common/admin-security.guard.js";
+import { AdminRole } from "../generated/prisma/client.js";
 import { AdminAuthService } from "./admin-auth.service.js";
+import { AdminRoles } from "./admin-roles.decorator.js";
 import { AdminOriginService } from "./admin-origin.service.js";
 import {
   AdminSessionService,
@@ -31,7 +33,9 @@ import {
 import { AdminCookieService } from "./cookie.service.js";
 import {
   AdminAuthResponseDto,
+  AdminChangePasswordRequestDto,
   AdminLoginRequestDto,
+  mapAdminChangePasswordRequest,
   mapAdminLoginRequest,
 } from "./dto/admin-auth.dto.js";
 
@@ -86,6 +90,7 @@ export class AdminAuthController {
   }
 
   @Get("me")
+  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF)
   @ApiOperation({ summary: "Get current admin session" })
   @ApiOkResponse({ type: AdminAuthResponseDto })
   @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
@@ -94,7 +99,6 @@ export class AdminAuthController {
     @Headers("cookie") cookie: string | string[] | undefined,
   ): Promise<AdminAuthResponseDto> {
     const context = await this.getAdminContext(request, cookie);
-    this.sessionService.assertOwner(context);
 
     return {
       csrfToken: context.csrfToken,
@@ -104,12 +108,14 @@ export class AdminAuthController {
       user: {
         email: context.user.email,
         id: context.user.id,
+        mustChangePassword: context.user.mustChangePassword,
         role: context.user.role,
       },
     };
   }
 
   @Post("logout")
+  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF)
   @HttpCode(204)
   @ApiOperation({ summary: "Log out current admin session" })
   @ApiNoContentResponse({ description: "Logged out." })
@@ -123,10 +129,35 @@ export class AdminAuthController {
     @Res({ passthrough: true }) reply: FastifyReplyLike,
   ): Promise<void> {
     const context = await this.getAdminContext(request, cookie);
-    this.sessionService.assertOwner(context);
     this.originService.assertValidAdminOrigin(headers);
     this.sessionService.assertCsrf(context, csrfToken);
     await this.sessionService.revokeCurrentSession(context.session.id);
     reply.header("set-cookie", this.cookieService.serializeClearedSessionCookie());
+  }
+
+  @Post("change-password")
+  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF)
+  @HttpCode(204)
+  @ApiOperation({ summary: "Change current admin password" })
+  @ApiBody({ type: AdminChangePasswordRequestDto })
+  @ApiNoContentResponse({ description: "Password changed." })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  async changePassword(
+    @Req() request: RequestWithAdminContext,
+    @Headers() headers: HeaderBag,
+    @Headers("cookie") cookie: string | string[] | undefined,
+    @Headers("x-csrf-token") csrfToken: string | undefined,
+    @Body() body: unknown,
+  ): Promise<void> {
+    const context = await this.getAdminContext(request, cookie);
+    this.originService.assertValidAdminOrigin(headers);
+    this.sessionService.assertCsrf(context, csrfToken);
+    await this.authService.changePassword(
+      context.user.id,
+      context.session.id,
+      mapAdminChangePasswordRequest(body),
+    );
   }
 }

@@ -1,6 +1,11 @@
 import type { AdminAuthResponse } from "@wedding-invitation/api-client/src/index";
 export const auth: AdminAuthResponse = {
-  user: { id: "synthetic-owner", email: "owner@example.com", role: "OWNER" },
+  user: {
+    id: "synthetic-owner",
+    email: "owner@example.com",
+    mustChangePassword: false,
+    role: "OWNER",
+  },
   session: { expiresAt: "2030-01-01T00:00:00.000Z" },
   csrfToken: "synthetic-csrf",
 };

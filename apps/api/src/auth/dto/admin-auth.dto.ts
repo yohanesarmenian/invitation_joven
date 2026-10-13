@@ -4,10 +4,19 @@ import { normalizeAdminEmail, validateAdminPassword } from "../admin-credentials
 import { validationError } from "../auth-errors.js";
 
 const LOGIN_REQUEST_FIELDS = new Set(["email", "password"]);
+const CHANGE_PASSWORD_REQUEST_FIELDS = new Set([
+  "currentPassword",
+  "newPassword",
+]);
 
 export type AdminLoginCommand = {
   email: string;
   password: string;
+};
+
+export type AdminChangePasswordCommand = {
+  currentPassword: string;
+  newPassword: string;
 };
 
 export class AdminLoginRequestDto {
@@ -25,8 +34,11 @@ export class AdminAuthUserDto {
   @ApiProperty({ type: String })
   email: string;
 
-  @ApiProperty({ enum: ["OWNER"], type: String })
+  @ApiProperty({ enum: ["OWNER", "CHECKIN_STAFF"], type: String })
   role: AdminRole;
+
+  @ApiProperty({ type: Boolean })
+  mustChangePassword: boolean;
 }
 
 export class AdminAuthSessionDto {
@@ -45,12 +57,23 @@ export class AdminAuthResponseDto {
   csrfToken: string;
 }
 
+export class AdminChangePasswordRequestDto {
+  @ApiProperty({ maxLength: 128, minLength: 15, type: String })
+  currentPassword: string;
+
+  @ApiProperty({ maxLength: 128, minLength: 15, type: String })
+  newPassword: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function assertNoUnsupportedFields(value: Record<string, unknown>): void {
-  if (Object.keys(value).some((key) => !LOGIN_REQUEST_FIELDS.has(key))) {
+function assertNoUnsupportedFields(
+  value: Record<string, unknown>,
+  allowedFields: Set<string>,
+): void {
+  if (Object.keys(value).some((key) => !allowedFields.has(key))) {
     validationError();
   }
 }
@@ -60,7 +83,7 @@ export function mapAdminLoginRequest(body: unknown): AdminLoginCommand {
     validationError();
   }
 
-  assertNoUnsupportedFields(body);
+  assertNoUnsupportedFields(body, LOGIN_REQUEST_FIELDS);
 
   if (!Object.hasOwn(body, "email") || !Object.hasOwn(body, "password")) {
     validationError();
@@ -69,5 +92,27 @@ export function mapAdminLoginRequest(body: unknown): AdminLoginCommand {
   return {
     email: normalizeAdminEmail(body.email),
     password: validateAdminPassword(body.password),
+  };
+}
+
+export function mapAdminChangePasswordRequest(
+  body: unknown,
+): AdminChangePasswordCommand {
+  if (!isRecord(body)) {
+    validationError();
+  }
+
+  assertNoUnsupportedFields(body, CHANGE_PASSWORD_REQUEST_FIELDS);
+
+  if (
+    !Object.hasOwn(body, "currentPassword") ||
+    !Object.hasOwn(body, "newPassword")
+  ) {
+    validationError();
+  }
+
+  return {
+    currentPassword: validateAdminPassword(body.currentPassword),
+    newPassword: validateAdminPassword(body.newPassword),
   };
 }

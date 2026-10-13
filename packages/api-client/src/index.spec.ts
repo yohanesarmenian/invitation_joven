@@ -17,6 +17,10 @@ import {
   type AdminRsvpDetailResponse,
   type AdminRsvpListResponse,
   type AdminLoginRequest,
+  type AdminStaffListResponse,
+  type AdminStaffProvisionResponse,
+  type CreateAdminStaffRequest,
+  type UpdateAdminStaffRequest,
   type OverrideAdminRsvpRequest,
   type PublicRsvpReadResponse,
   type RegenerateInvitationTokenRequest,
@@ -154,6 +158,9 @@ describe("generated API client", () => {
     expect(assertApiPath("/api/admin/auth/logout")).toBe(
       "/api/admin/auth/logout",
     );
+    expect(assertApiPath("/api/admin/auth/change-password")).toBe(
+      "/api/admin/auth/change-password",
+    );
 
     const request: AdminLoginRequest = {
       email: "owner@example.com",
@@ -167,6 +174,7 @@ describe("generated API client", () => {
       user: {
         email: request.email,
         id: "11111111-1111-4111-8111-111111111111",
+        mustChangePassword: false,
         role: "OWNER",
       },
     };
@@ -176,6 +184,62 @@ describe("generated API client", () => {
     expect(JSON.stringify(response)).not.toContain("sessionToken");
     expect(JSON.stringify(response)).not.toContain("sessionTokenHash");
     expect(JSON.stringify(response)).not.toContain("csrfTokenHash");
+  });
+
+  it("exposes the admin staff identity operations and safe schemas", () => {
+    expect(assertApiPath("/api/admin/staff")).toBe("/api/admin/staff");
+    expect(assertApiPath("/api/admin/staff/{staffId}")).toBe(
+      "/api/admin/staff/{staffId}",
+    );
+    expect(assertApiPath("/api/admin/staff/{staffId}/reset-password")).toBe(
+      "/api/admin/staff/{staffId}/reset-password",
+    );
+    expect(assertApiMethod("/api/admin/staff", "get")).toBe("get");
+    expect(assertApiMethod("/api/admin/staff", "post")).toBe("post");
+    expect(assertApiMethod("/api/admin/staff/{staffId}", "patch")).toBe(
+      "patch",
+    );
+
+    const createRequest: CreateAdminStaffRequest = {
+      email: "checkin.staff@example.com",
+    };
+    const updateRequest: UpdateAdminStaffRequest = {
+      status: "DISABLED",
+    };
+    const list: AdminStaffListResponse = {
+      items: [
+        {
+          createdAt: "2026-09-30T00:00:00.000Z",
+          email: createRequest.email,
+          id: "11111111-1111-4111-8111-111111111111",
+          lastLoginAt: null,
+          mustChangePassword: true,
+          role: "CHECKIN_STAFF",
+          status: updateRequest.status,
+        },
+      ],
+      page: {
+        number: 1,
+        pageSize: 25,
+        totalItems: 1,
+        totalPages: 1,
+      },
+    };
+    const provisioned: AdminStaffProvisionResponse = {
+      staff: {
+        email: createRequest.email,
+        id: "11111111-1111-4111-8111-111111111111",
+        mustChangePassword: true,
+        role: "CHECKIN_STAFF",
+        status: "ACTIVE",
+      },
+      temporaryPassword: "temporary staff password",
+    };
+
+    expect(list.items[0]?.role).toBe("CHECKIN_STAFF");
+    expect(provisioned.staff.mustChangePassword).toBe(true);
+    expect(JSON.stringify(provisioned)).not.toContain("passwordHash");
+    expect(JSON.stringify(provisioned)).not.toContain("sessionToken");
   });
 
   it("exposes the admin read operations and safe response schemas", () => {

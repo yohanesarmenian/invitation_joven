@@ -1,6 +1,8 @@
 "use client";
 import {
   createInvitationApiClient,
+  type AdminAuthResponse,
+  type AdminChangePasswordRequest,
   type AdminLoginRequest,
 } from "@wedding-invitation/api-client/src/index";
 import {
@@ -8,6 +10,7 @@ import {
   FORBIDDEN,
   loginFailure,
   readAuth,
+  SESSION_ENDED,
   type SessionResult,
 } from "./auth-state";
 
@@ -21,19 +24,53 @@ function client() {
 }
 export async function signIn(
   body: AdminLoginRequest,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<
+  | { ok: true; auth: AdminAuthResponse }
+  | { ok: false; message: string }
+> {
   try {
     const { data, error, response } = await client().POST(
       "/api/admin/auth/login",
       { body },
     );
-    if (response.status === 200 && readAuth(data)) return { ok: true };
+    const auth = response.status === 200 ? readAuth(data) : null;
+    if (auth) return { ok: true, auth };
     return {
       ok: false,
       message: loginFailure(response.status, errorCode(error)),
     };
   } catch {
     return { ok: false, message: loginFailure(0) };
+  }
+}
+export async function changeOwnPassword(
+  csrfToken: string,
+  body: AdminChangePasswordRequest,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const { error, response } = await client().POST(
+      "/api/admin/auth/change-password",
+      {
+        body,
+        headers: { "X-CSRF-Token": csrfToken },
+      },
+    );
+    if (response.status === 204) return { ok: true };
+    if (response.status === 401 && errorCode(error) === "UNAUTHENTICATED")
+      return { ok: false, message: SESSION_ENDED };
+    if (response.status === 403)
+      return {
+        ok: false,
+        message:
+          errorCode(error) === "CSRF_INVALID"
+            ? "Reload this page before trying again."
+            : FORBIDDEN,
+      };
+    if (response.status === 400 || response.status === 401)
+      return { ok: false, message: "Check both passwords and try again." };
+    return { ok: false, message: "Unable to change password. Please try again." };
+  } catch {
+    return { ok: false, message: "Unable to change password. Please try again." };
   }
 }
 export async function currentSession(): Promise<SessionResult> {
