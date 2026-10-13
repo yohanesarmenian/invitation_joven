@@ -7,6 +7,7 @@ const eslintConfig = [
   {
     ignores: [
       ".next/**",
+      "e2e-real/live-import-db.cjs",
       "node_modules/**",
       "out/**",
       "next-env.d.ts",
