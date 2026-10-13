@@ -29,7 +29,7 @@ it("login uses generated operation and same-origin credentials", async () => {
       email: "owner@example.com",
       password: "synthetic password",
     }),
-  ).toEqual({ ok: true });
+  ).toEqual({ ok: true, auth });
   const request = fetchMock.mock.calls[0]![0] as Request;
   expect(request.url).toBe("http://localhost:3001/api/admin/auth/login");
   expect(request.credentials).toBe("same-origin");

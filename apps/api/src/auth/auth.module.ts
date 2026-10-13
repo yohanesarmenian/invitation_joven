@@ -5,6 +5,8 @@ import { DatabaseModule } from "../database/database.module.js";
 import { AdminAuthController } from "./admin-auth.controller.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminOriginService } from "./admin-origin.service.js";
+import { AdminStaffController } from "./admin-staff.controller.js";
+import { AdminStaffService } from "./admin-staff.service.js";
 import { AdminSessionGuard, OwnerGuard } from "./admin-session.guard.js";
 import { AdminSessionService } from "./admin-session.service.js";
 import { AdminCookieService } from "./cookie.service.js";
@@ -14,13 +16,14 @@ import { AdminSessionTokenService } from "./session-token.service.js";
 
 @Module({
   imports: [DatabaseModule],
-  controllers: [AdminAuthController],
+  controllers: [AdminAuthController, AdminStaffController],
   providers: [
     AdminAuthService,
     AdminCookieService,
     AdminOriginService,
     AdminPasswordService,
     AdminSecurityGuard,
+    AdminStaffService,
     AdminSessionGuard,
     AdminSessionService,
     AdminSessionTokenService,

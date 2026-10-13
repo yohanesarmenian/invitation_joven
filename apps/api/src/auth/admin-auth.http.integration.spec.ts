@@ -91,16 +91,37 @@ async function cleanAdminAuth() {
 
 async function createOwner(options: {
   email?: string;
+  mustChangePassword?: boolean;
   password?: string;
   status?: AdminUserStatus;
 } = {}) {
   return prisma.adminUser.create({
     data: {
       email: options.email ?? OWNER_EMAIL,
+      mustChangePassword: options.mustChangePassword ?? false,
       passwordHash: await passwordService.hashPassword(
         options.password ?? OWNER_PASSWORD,
       ),
       role: AdminRole.OWNER,
+      status: options.status ?? AdminUserStatus.ACTIVE,
+    },
+  });
+}
+
+async function createStaff(options: {
+  email?: string;
+  mustChangePassword?: boolean;
+  password?: string;
+  status?: AdminUserStatus;
+} = {}) {
+  return prisma.adminUser.create({
+    data: {
+      email: options.email ?? "staff@example.com",
+      mustChangePassword: options.mustChangePassword ?? false,
+      passwordHash: await passwordService.hashPassword(
+        options.password ?? OWNER_PASSWORD,
+      ),
+      role: AdminRole.CHECKIN_STAFF,
       status: options.status ?? AdminUserStatus.ACTIVE,
     },
   });
@@ -219,6 +240,7 @@ describe("admin auth HTTP integration", () => {
       user: {
         email: OWNER_EMAIL,
         id: owner.id,
+        mustChangePassword: false,
         role: AdminRole.OWNER,
       },
     });
@@ -363,6 +385,100 @@ describe("admin auth HTTP integration", () => {
     expect(session.expiresAt.toISOString()).toBe(
       loginResponse.json().session.expiresAt,
     );
+  });
+
+  it("allows CHECKIN_STAFF sessions to read /me and change their own password", async () => {
+    const staff = await createStaff({ mustChangePassword: true });
+    const loginResponse = await login(app, {
+      email: "staff@example.com",
+      password: OWNER_PASSWORD,
+    });
+    const cookie = getCookieHeader(getSetCookie(loginResponse));
+    const { csrfToken } = loginResponse.json();
+
+    const meBefore = await app.getHttpAdapter().getInstance().inject({
+      headers: { cookie },
+      method: "GET",
+      url: "/api/admin/auth/me",
+    });
+    const changePassword = await app.getHttpAdapter().getInstance().inject({
+      headers: {
+        cookie,
+        origin: ADMIN_ORIGIN,
+        "x-csrf-token": csrfToken,
+      },
+      method: "POST",
+      payload: {
+        currentPassword: OWNER_PASSWORD,
+        newPassword: "new correct horse password",
+      },
+      url: "/api/admin/auth/change-password",
+    });
+    const meAfter = await app.getHttpAdapter().getInstance().inject({
+      headers: { cookie },
+      method: "GET",
+      url: "/api/admin/auth/me",
+    });
+    const updatedStaff = await prisma.adminUser.findUniqueOrThrow({
+      where: { id: staff.id },
+    });
+    const reloginOldPassword = await login(app, {
+      email: "staff@example.com",
+      password: OWNER_PASSWORD,
+    });
+    const reloginNewPassword = await login(app, {
+      email: "staff@example.com",
+      password: "new correct horse password",
+    });
+
+    expect(loginResponse.statusCode).toBe(200);
+    expect(loginResponse.json().user).toEqual({
+      email: "staff@example.com",
+      id: staff.id,
+      mustChangePassword: true,
+      role: AdminRole.CHECKIN_STAFF,
+    });
+    expect(meBefore.statusCode).toBe(200);
+    expect(changePassword.statusCode).toBe(204);
+    expect(meAfter.statusCode).toBe(200);
+    expect(meAfter.json().user.mustChangePassword).toBe(false);
+    expect(updatedStaff.mustChangePassword).toBe(false);
+    expect(reloginOldPassword.statusCode).toBe(401);
+    expect(reloginNewPassword.statusCode).toBe(200);
+  });
+
+  it("revokes other sessions when an admin changes password", async () => {
+    const staff = await createStaff();
+    const sessionA = await createSession(staff.id);
+    const sessionB = await createSession(staff.id);
+
+    const response = await app.getHttpAdapter().getInstance().inject({
+      headers: {
+        cookie: `admin_session=${sessionA.sessionToken}`,
+        origin: ADMIN_ORIGIN,
+        "x-csrf-token": sessionA.csrfToken,
+      },
+      method: "POST",
+      payload: {
+        currentPassword: OWNER_PASSWORD,
+        newPassword: "new correct horse password",
+      },
+      url: "/api/admin/auth/change-password",
+    });
+    const currentSession = await app.getHttpAdapter().getInstance().inject({
+      headers: { cookie: `admin_session=${sessionA.sessionToken}` },
+      method: "GET",
+      url: "/api/admin/auth/me",
+    });
+    const otherSession = await app.getHttpAdapter().getInstance().inject({
+      headers: { cookie: `admin_session=${sessionB.sessionToken}` },
+      method: "GET",
+      url: "/api/admin/auth/me",
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(currentSession.statusCode).toBe(200);
+    expect(otherSession.statusCode).toBe(401);
   });
 
   it("does not update lastSeenAt before the threshold", async () => {

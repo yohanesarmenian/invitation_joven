@@ -140,6 +140,346 @@
         ]
       }
     },
+    "/api/admin/auth/change-password": {
+      "post": {
+        "operationId": "AdminAuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminChangePasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed."
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Change current admin password",
+        "tags": [
+          "Admin Auth"
+        ]
+      }
+    },
+    "/api/admin/staff": {
+      "get": {
+        "operationId": "AdminStaffController_listStaff",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "ACTIVE",
+                "DISABLED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStaffListResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List check-in staff accounts",
+        "tags": [
+          "Admin Staff"
+        ]
+      },
+      "post": {
+        "operationId": "AdminStaffController_createStaff",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdminStaffRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStaffProvisionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Provision a check-in staff account",
+        "tags": [
+          "Admin Staff"
+        ]
+      }
+    },
+    "/api/admin/staff/{staffId}": {
+      "patch": {
+        "operationId": "AdminStaffController_updateStaffStatus",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAdminStaffRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStaffDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a check-in staff account status",
+        "tags": [
+          "Admin Staff"
+        ]
+      }
+    },
+    "/api/admin/staff/{staffId}/reset-password": {
+      "post": {
+        "operationId": "AdminStaffController_resetStaffPassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStaffProvisionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reset a check-in staff account password",
+        "tags": [
+          "Admin Staff"
+        ]
+      }
+    },
     "/api/admin/invitees/{inviteeId}": {
       "patch": {
         "operationId": "AdminInviteeMutationController_updateInvitee",
@@ -1729,14 +2069,19 @@
           "role": {
             "type": "string",
             "enum": [
-              "OWNER"
+              "OWNER",
+              "CHECKIN_STAFF"
             ]
+          },
+          "mustChangePassword": {
+            "type": "boolean"
           }
         },
         "required": [
           "id",
           "email",
-          "role"
+          "role",
+          "mustChangePassword"
         ]
       },
       "AdminAuthSessionDto": {
@@ -1809,6 +2154,193 @@
           "error",
           "requestId",
           "timestamp"
+        ]
+      },
+      "AdminChangePasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 15
+          },
+          "newPassword": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 15
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "AdminStaffListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CHECKIN_STAFF"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastLoginAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "status",
+          "mustChangePassword",
+          "createdAt"
+        ]
+      },
+      "AdminPageMetadataDto": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "number",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "maximum": 100,
+            "minimum": 1
+          },
+          "totalItems": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "number",
+          "pageSize",
+          "totalItems",
+          "totalPages"
+        ]
+      },
+      "AdminStaffListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminStaffListItemDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/AdminPageMetadataDto"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
+      "CreateAdminStaffRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "AdminStaffDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CHECKIN_STAFF"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "status",
+          "mustChangePassword"
+        ]
+      },
+      "AdminStaffProvisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "staff": {
+            "$ref": "#/components/schemas/AdminStaffDto"
+          },
+          "temporaryPassword": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "staff",
+          "temporaryPassword"
+        ]
+      },
+      "UpdateAdminStaffRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          }
+        },
+        "required": [
+          "status"
         ]
       },
       "UpdateAdminInviteeRequestDto": {
@@ -2890,34 +3422,6 @@
         },
         "required": [
           "events"
-        ]
-      },
-      "AdminPageMetadataDto": {
-        "type": "object",
-        "properties": {
-          "number": {
-            "type": "number",
-            "minimum": 1
-          },
-          "pageSize": {
-            "type": "number",
-            "maximum": 100,
-            "minimum": 1
-          },
-          "totalItems": {
-            "type": "number",
-            "minimum": 0
-          },
-          "totalPages": {
-            "type": "number",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "number",
-          "pageSize",
-          "totalItems",
-          "totalPages"
         ]
       },
       "AdminGuestMessageListResponseDto": {

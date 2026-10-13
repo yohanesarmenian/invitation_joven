@@ -51,6 +51,12 @@ describe("OpenAPI contract", () => {
     const adminLoginPath = document.paths["/api/admin/auth/login"];
     const adminMePath = document.paths["/api/admin/auth/me"];
     const adminLogoutPath = document.paths["/api/admin/auth/logout"];
+    const adminChangePasswordPath =
+      document.paths["/api/admin/auth/change-password"];
+    const adminStaffPath = document.paths["/api/admin/staff"];
+    const adminStaffMemberPath = document.paths["/api/admin/staff/{staffId}"];
+    const adminStaffResetPath =
+      document.paths["/api/admin/staff/{staffId}/reset-password"];
     const adminDashboardPath = document.paths["/api/admin/dashboard"];
     const adminEventsPath = document.paths["/api/admin/events"];
     const adminInvitationsPath = document.paths["/api/admin/invitations"];
@@ -126,6 +132,35 @@ describe("OpenAPI contract", () => {
     expect(adminLogoutPath?.post?.responses).toHaveProperty("204");
     expect(adminLogoutPath?.post?.responses).toHaveProperty("401");
     expect(adminLogoutPath?.post?.responses).toHaveProperty("403");
+    expect(adminChangePasswordPath?.post).toBeDefined();
+    expect(adminChangePasswordPath?.post?.requestBody).toBeDefined();
+    expect(adminChangePasswordPath?.post?.responses).toHaveProperty("204");
+    expect(adminChangePasswordPath?.post?.responses).toHaveProperty("400");
+    expect(adminChangePasswordPath?.post?.responses).toHaveProperty("401");
+    expect(adminChangePasswordPath?.post?.responses).toHaveProperty("403");
+    expect(adminStaffPath?.get).toBeDefined();
+    expect(adminStaffPath?.get?.responses).toHaveProperty("200");
+    expect(adminStaffPath?.get?.responses).toHaveProperty("401");
+    expect(adminStaffPath?.get?.responses).toHaveProperty("403");
+    expect(adminStaffPath?.post).toBeDefined();
+    expect(adminStaffPath?.post?.requestBody).toBeDefined();
+    expect(adminStaffPath?.post?.responses).toHaveProperty("201");
+    expect(adminStaffPath?.post?.responses).toHaveProperty("400");
+    expect(adminStaffPath?.post?.responses).toHaveProperty("401");
+    expect(adminStaffPath?.post?.responses).toHaveProperty("403");
+    expect(adminStaffPath?.post?.responses).toHaveProperty("409");
+    expect(adminStaffMemberPath?.patch).toBeDefined();
+    expect(adminStaffMemberPath?.patch?.requestBody).toBeDefined();
+    expect(adminStaffMemberPath?.patch?.responses).toHaveProperty("200");
+    expect(adminStaffMemberPath?.patch?.responses).toHaveProperty("400");
+    expect(adminStaffMemberPath?.patch?.responses).toHaveProperty("401");
+    expect(adminStaffMemberPath?.patch?.responses).toHaveProperty("403");
+    expect(adminStaffMemberPath?.patch?.responses).toHaveProperty("404");
+    expect(adminStaffResetPath?.post).toBeDefined();
+    expect(adminStaffResetPath?.post?.responses).toHaveProperty("200");
+    expect(adminStaffResetPath?.post?.responses).toHaveProperty("401");
+    expect(adminStaffResetPath?.post?.responses).toHaveProperty("403");
+    expect(adminStaffResetPath?.post?.responses).toHaveProperty("404");
     expect(adminDashboardPath?.get).toBeDefined();
     expect(adminDashboardPath?.get?.responses).toHaveProperty("200");
     expect(adminDashboardPath?.post).toBeUndefined();
@@ -310,6 +345,13 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("PublicGuestMessageResponseDto");
     expect(schemas).toHaveProperty("AdminLoginRequestDto");
     expect(schemas).toHaveProperty("AdminAuthResponseDto");
+    expect(schemas).toHaveProperty("AdminChangePasswordRequestDto");
+    expect(schemas).toHaveProperty("AdminStaffDto");
+    expect(schemas).toHaveProperty("AdminStaffListItemDto");
+    expect(schemas).toHaveProperty("AdminStaffListResponseDto");
+    expect(schemas).toHaveProperty("AdminStaffProvisionResponseDto");
+    expect(schemas).toHaveProperty("CreateAdminStaffRequestDto");
+    expect(schemas).toHaveProperty("UpdateAdminStaffRequestDto");
     expect(schemas).toHaveProperty("AdminDashboardResponseDto");
     expect(schemas).toHaveProperty("AdminEventsResponseDto");
     expect(schemas).toHaveProperty("AdminInvitationListResponseDto");
@@ -472,6 +514,59 @@ describe("OpenAPI contract", () => {
     );
     expect(JSON.stringify(schemas.AdminAuthResponseDto)).not.toContain(
       "csrfTokenHash",
+    );
+    expect(schemas.AdminAuthUserDto).toMatchObject({
+      properties: expect.objectContaining({
+        mustChangePassword: expect.objectContaining({ type: "boolean" }),
+        role: expect.objectContaining({
+          enum: ["OWNER", "CHECKIN_STAFF"],
+        }),
+      }),
+      required: expect.arrayContaining(["mustChangePassword", "role"]),
+    });
+    expect(schemas.AdminChangePasswordRequestDto).toMatchObject({
+      properties: {
+        currentPassword: expect.objectContaining({
+          maxLength: 128,
+          minLength: 15,
+          type: "string",
+        }),
+        newPassword: expect.objectContaining({
+          maxLength: 128,
+          minLength: 15,
+          type: "string",
+        }),
+      },
+      required: ["currentPassword", "newPassword"],
+    });
+    expect(schemas.AdminStaffDto).toMatchObject({
+      properties: expect.objectContaining({
+        email: expect.objectContaining({ type: "string" }),
+        mustChangePassword: expect.objectContaining({ type: "boolean" }),
+        role: expect.objectContaining({ enum: ["CHECKIN_STAFF"] }),
+        status: expect.objectContaining({ enum: ["ACTIVE", "DISABLED"] }),
+      }),
+      required: ["id", "email", "role", "status", "mustChangePassword"],
+    });
+    expect(schemas.AdminStaffListResponseDto).toMatchObject({
+      properties: {
+        items: expect.objectContaining({
+          items: expect.objectContaining({
+            $ref: "#/components/schemas/AdminStaffListItemDto",
+          }),
+          type: "array",
+        }),
+        page: expect.objectContaining({
+          $ref: "#/components/schemas/AdminPageMetadataDto",
+        }),
+      },
+      required: ["items", "page"],
+    });
+    expect(JSON.stringify(schemas.AdminStaffProvisionResponseDto)).not.toContain(
+      "passwordHash",
+    );
+    expect(JSON.stringify(schemas.AdminStaffProvisionResponseDto)).not.toContain(
+      "sessionToken",
     );
     expect(schemas.AdminInvitationListItemDto).toMatchObject({
       properties: expect.objectContaining({
