@@ -64,6 +64,20 @@ Admin authentication rules (locked in Phase 8 Slice 8B0):
 - Keep login throttling in-process for the MVP, and document the single-API-instance constraint before any horizontal scaling.
 - Password reset, password change, and MFA are outside the Phase 8 auth foundation. Do not add them by assumption.
 
+Check-in staff and RBAC rules (locked in Phase 10B):
+
+- `CHECKIN_STAFF` is the only MVP non-OWNER admin role. Do not add `ADMIN`, `EDITOR`, `VIEWER`, or a role hierarchy by assumption.
+- Staff accounts are individual authenticated identities. Do not reuse OWNER credentials, add anonymous scanner access, or add public staff registration.
+- Backend authorization is deny-by-default and route-specific. Existing OWNER-only admin endpoints must remain OWNER-only unless the Phase 10 contract explicitly allows staff access.
+- Never trust a client-provided role, admin user id, or check-in operator id. Derive operator identity from the authenticated session.
+- Staff may access only auth/session, own password change, scanner Event picker, QR validate/confirm, and manual search/confirm.
+- Disabling staff, resetting credentials, or changing password must revoke affected sessions.
+- `qrPayload` is a bearer credential: never place it in a URL, persistent browser storage, deliberate logs, analytics, screenshots, exports, or error payloads.
+- QR validation remains read-only. Only explicit confirmation creates `CheckinRecord`.
+- After any check-in record exists for an invitation, public RSVP mutation and OWNER RSVP override are blocked with `RSVP_LOCKED_AFTER_CHECKIN`.
+- Check-in confirmation and RSVP mutation must use the shared Invitation-first lock order.
+- Do not add scan-attempt persistence, offline mutation queues, per-person attendance, check-in correction, or reporting/export behavior during Phase 10 unless a later contract explicitly scopes it.
+
 Admin management rules (locked in Phase 8 Slice 8D0):
 
 - Admin management endpoints do not re-implement security per controller. Session, OWNER, CSRF, and origin enforcement is one shared backend surface. A new unsafe `/api/admin/**` route must inherit it by construction, and a route-inventory security test must fail if a route is added without it.

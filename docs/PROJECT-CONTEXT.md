@@ -12,7 +12,8 @@ Wedding Invitation Platform is a personal wedding platform for a 2027 wedding. I
    - Mobile-first long-form invitation.
    - RSVP, dietary notes, guest message, confirmation, and active household QR pass display.
 2. Admin Frontend
-   - OWNER-only MVP administration.
+   - OWNER administration.
+   - CHECKIN_STAFF restricted venue check-in surface.
    - Invitation and invitee management.
    - Event eligibility, RSVP oversight, guest import, check-in, reporting, and CSV export.
 3. Backend API
@@ -69,6 +70,8 @@ Development Rules define how future changes move through this hierarchy. Impleme
 - Accepted RSVP and CheckinPass state are created/updated atomically.
 - Accepted to Declined revokes the active pass.
 - Declined to Accepted issues a new pass; revoked passes are never reactivated.
+- QR validation and confirmation are authenticated admin operations. `OWNER` and `CHECKIN_STAFF` may operate the scanner; staff accounts are individual limited accounts and never shared OWNER credentials.
+- Once any check-in record exists for an invitation, public and OWNER RSVP mutations for that invitation are blocked to preserve confirmed attendance history.
 - Admin product archiving preserves historical RSVP, messages, pass, check-in, and reporting data while denying public access and check-in.
 
 ## MVP Boundary

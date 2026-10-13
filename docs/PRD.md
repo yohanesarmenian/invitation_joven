@@ -96,6 +96,10 @@ Create a personal wedding invitation platform that lets invited households open 
 - `CheckinRecord.attendee_count` is actual household attendance count for one event.
 - Manual and QR confirmation must use the same backend domain service after invitation resolution.
 - Duplicate confirmed attendance is prevented by unique `Invitation + Event`.
+- Venue check-in is operated only by authenticated admin identities: `OWNER` or `CHECKIN_STAFF`.
+- `CHECKIN_STAFF` accounts are individual venue-operator accounts with limited permissions. They are not shared OWNER credentials and are not anonymous scanner access.
+- Check-in records must identify the actual authenticated operator who confirmed attendance.
+- After any `CheckinRecord` exists for an invitation, public RSVP mutation and OWNER RSVP override for that invitation are blocked with `RSVP_LOCKED_AFTER_CHECKIN`. Read-only RSVP access remains available.
 
 ### Archived invitation behavior
 
@@ -152,6 +156,7 @@ Initial export format is CSV. XLSX reporting/export is out of scope for MVP. XLS
 The admin frontend must provide:
 
 - OWNER login and logout.
+- CHECKIN_STAFF login and logout for venue operators.
 - An operational dashboard showing invitation status counts, opened-active count, RSVP status counts, and expected attendance by event. Broader reporting metrics and charts are Phase 11, not Phase 8.
 - Invitation list with status, RSVP status, eligibility, opened aggregates, and search/filter controls.
 - Invitation detail.
@@ -168,12 +173,15 @@ The admin frontend must provide:
 - CSV/XLSX guest import with validation preview. Phase 9.
 - QR/check-in interface. Phase 10.
 - Manual guest lookup fallback. Phase 10.
+- Staff account management for OWNER to create, disable/reactivate, reset credentials, and revoke staff sessions. Phase 10.
 - CSV reports/export. Phase 11.
 
-MVP has one effective role: OWNER. No permission matrix or role-management UI is required. The
-first OWNER is created by an operator-only command, not through a self-registration, signup, or
-network bootstrap flow; there is no admin account-creation UI. Multiple simultaneous OWNER
-sessions are allowed, and logout ends only the current session.
+MVP check-in introduces two admin roles:
+
+- `OWNER`: full existing admin access, scanner access, and staff account management.
+- `CHECKIN_STAFF`: scanner-only venue operation. Staff can authenticate, read their own minimal session profile, log out, change their own password, select an active Event for check-in, validate QR credentials, search households for manual check-in, and confirm QR/manual check-in. Staff must not access dashboard, invitations, RSVPs, imports, messages, reports, token rotation, invitee management, event management, staff management, OWNER management, or system configuration.
+
+The first OWNER is still created by an operator-only command, not through self-registration, signup, or a network bootstrap flow. Public staff self-registration is not part of the MVP. Multiple simultaneous sessions are allowed, and logout ends only the current session unless an account-management action revokes sessions.
 
 ## Functional Requirements
 
@@ -188,7 +196,7 @@ sessions are allowed, and logout ends only the current session.
 
 ### Admin
 
-- Authenticate OWNER.
+- Authenticate OWNER and CHECKIN_STAFF.
 - Manage sessions.
 - Manage invitations and invitees.
 - Manage event eligibility.
@@ -198,6 +206,7 @@ sessions are allowed, and logout ends only the current session.
 - Validate QR/pass for a selected event.
 - Confirm check-in with actual attendee count.
 - Search manually for guests/households.
+- Manage staff accounts as OWNER.
 - View reports and export CSV.
 
 ## Non-Functional Requirements

@@ -65,14 +65,15 @@ erDiagram
 
 ### AdminUser
 
-Purpose: Stores OWNER login identity.
+Purpose: Stores admin login identity for OWNER and, starting in Phase 10, individual venue check-in staff.
 
 - Primary key: `id uuid`.
 - Important fields:
   - `email citext or varchar`: unique login email.
   - `password_hash text`: Argon2id hash.
-  - `role varchar`: MVP value `OWNER`; future extension path may allow `ADMIN`.
+  - `role varchar`: Phase 8 value `OWNER`; Phase 10 requires `OWNER` and `CHECKIN_STAFF`.
   - `status varchar`: `ACTIVE`, `DISABLED`.
+  - `must_change_password boolean`: proposed Phase 10 column for temporary staff credentials.
   - `created_at timestamptz`.
   - `updated_at timestamptz`.
   - `last_login_at timestamptz null`.
@@ -87,10 +88,21 @@ Phase 8 Slice 8B0 additions (no schema change):
 
 - `email` is stored **normalized**: trimmed and lowercased before persistence. It is `TEXT`, not `citext`; normalization is an application-boundary rule and every supported `AdminUser` writer must apply the same one. Maximum 254 characters, syntactically valid.
 - `password_hash` holds the encoded **Argon2id** hash only (`memoryCost = 19456`, `timeCost = 2`, `parallelism = 1`, library-generated random salt). Plaintext passwords, reversible passwords, and password encryption keys are never persisted.
-- `role` remains `OWNER`-only. No `ADMIN`/`EDITOR`/`VIEWER` value is added, and no role-management surface is introduced in Phase 8.
+- `role` remains `OWNER`-only in Phase 8. No `ADMIN`/`EDITOR`/`VIEWER` value is added, and no role-management surface is introduced in Phase 8.
 - `status` gates both login and session use. A `DISABLED` user gets `401 INVALID_CREDENTIALS` at login and `401 UNAUTHENTICATED` for an existing session.
 - `last_login_at` is updated on every successful login.
 - First-OWNER bootstrap is operator-only and refuses once **any** `AdminUser` row exists. The MVP supports one effective OWNER. **No singleton constraint is added**, because the schema may structurally permit multiple OWNER rows while the product provides no workflow to create them.
+
+Phase 10B proposed staff-account delta:
+
+- Extend `AdminRole` with `CHECKIN_STAFF`. No role hierarchy table is needed for MVP.
+- Add `must_change_password boolean NOT NULL DEFAULT false` to `admin_users`.
+- Existing OWNER rows backfill to `must_change_password = false`.
+- Staff creation stores `role = CHECKIN_STAFF`, `status = ACTIVE`, `must_change_password = true`, normalized unique email, and Argon2id password hash for a generated temporary password.
+- Staff disable/reactivate uses the existing `status` column.
+- Staff password reset replaces `password_hash`, sets `must_change_password = true`, and revokes sessions.
+- No plaintext temporary password, password reset token, email-invitation table, per-staff Event assignment table, or generic audit-log table is added in the MVP contract.
+- Migration required: yes, for the enum value and `must_change_password` column. Prisma client regeneration is required after that migration in Phase 10C.
 
 ### AdminSession
 
@@ -631,6 +643,13 @@ One transaction must:
 6. Commit.
 
 Concurrent confirmations are guarded finally by unique `(invitation_id, event_id)`.
+
+Phase 10B lock:
+
+- Attendance domain needs no new table for base QR/manual check-in. Existing `CheckinPass` and `CheckinRecord` are sufficient.
+- `CheckinRecord.confirmed_by_admin_user_id` must reference the actual authenticated `AdminUser`, whether OWNER or CHECKIN_STAFF.
+- RSVP mutation paths must check for existing `CheckinRecord` under the Invitation lock and return `409 RSVP_LOCKED_AFTER_CHECKIN` before changing RSVP/pass state.
+- No per-person attendance table, scan-attempt table, correction table, or offline queue table is added for Phase 10.
 
 ### Guest import commit
 
