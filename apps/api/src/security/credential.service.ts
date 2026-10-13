@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { createHash, createHmac } from "node:crypto";
 import {
   type CredentialDerivationInput,
@@ -90,7 +90,10 @@ export function hashDerivedCredential(
 
 @Injectable()
 export class CredentialService implements CredentialDeriver, CredentialHasher {
-  constructor(private readonly credentialSecretProvider: CredentialSecretProvider) {}
+  constructor(
+    @Inject(CredentialSecretProvider)
+    private readonly credentialSecretProvider: CredentialSecretProvider,
+  ) {}
 
   deriveCredential(input: CredentialDerivationInput): DerivedCredential {
     return deriveCredentialWithSecret(

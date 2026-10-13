@@ -79,6 +79,10 @@ export function ImportPreview({
                     <dd>{row.parsed.rsvpDeadlineLocal ?? "No deadline"}</dd>
                   </div>
                   <div>
+                    <dt>RSVP deadline (UTC)</dt>
+                    <dd>{row.parsed.rsvpDeadlineAt ?? "No deadline"}</dd>
+                  </div>
+                  <div>
                     <dt>Eligible event slugs</dt>
                     <dd>
                       {row.parsed.eligibleEventSlugs.join(", ") || "None"}

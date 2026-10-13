@@ -1296,7 +1296,7 @@ Response:
   "expiresAt": "2027-01-16T11:30:00.000Z",
   "summary": {
     "totalRows": 100,
-    "validRows": 95,
+    "validRows": 98,
     "errorRows": 2,
     "warningRows": 3
   },

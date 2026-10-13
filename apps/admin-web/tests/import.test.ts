@@ -174,6 +174,8 @@ it("renders normalized fields, local deadline, ordered invitees and structured i
   for (const part of [
     "Asia/Jakarta",
     "2027-01-16 18:30",
+    "RSVP deadline (UTC)",
+    "2027-01-16T11:30:00.000Z",
     "Example Adult",
     "Example Child",
     "ADULT",
