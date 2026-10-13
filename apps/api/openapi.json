@@ -1805,6 +1805,405 @@
         ]
       }
     },
+    "/api/admin/checkin/events": {
+      "get": {
+        "operationId": "CheckinController_listEvents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCheckinEventsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active check-in events",
+        "tags": [
+          "Admin Check-in"
+        ]
+      }
+    },
+    "/api/admin/checkin/validate": {
+      "post": {
+        "operationId": "CheckinController_validateQr",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateAdminCheckinRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCheckinValidateResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Validate a check-in QR credential",
+        "tags": [
+          "Admin Check-in"
+        ]
+      }
+    },
+    "/api/admin/checkin/confirm": {
+      "post": {
+        "operationId": "CheckinController_confirmQr",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmAdminCheckinRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCheckinConfirmResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Confirm a QR check-in",
+        "tags": [
+          "Admin Check-in"
+        ]
+      }
+    },
+    "/api/admin/checkin/search": {
+      "get": {
+        "operationId": "CheckinController_search",
+        "parameters": [
+          {
+            "name": "eventId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minLength": 2,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCheckinSearchResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search invitations eligible for manual check-in",
+        "tags": [
+          "Admin Check-in"
+        ]
+      }
+    },
+    "/api/admin/checkin/manual-confirm": {
+      "post": {
+        "operationId": "CheckinController_confirmManual",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualConfirmAdminCheckinRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCheckinConfirmResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Confirm a manual check-in",
+        "tags": [
+          "Admin Check-in"
+        ]
+      }
+    },
     "/api/admin/imports/guest/validate": {
       "post": {
         "operationId": "GuestImportController_validateGuestImport",
@@ -3977,6 +4376,327 @@
         "required": [
           "rsvp",
           "checkinPass"
+        ]
+      },
+      "AdminCheckinEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "startsAt"
+        ]
+      },
+      "AdminCheckinEventsResponseDto": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCheckinEventDto"
+            }
+          }
+        },
+        "required": [
+          "events"
+        ]
+      },
+      "ValidateAdminCheckinRequestDto": {
+        "type": "object",
+        "properties": {
+          "qrPayload": {
+            "type": "string",
+            "maxLength": 43,
+            "minLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "qrPayload",
+          "eventId"
+        ]
+      },
+      "AdminCheckinInvitationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName"
+        ]
+      },
+      "AdminCheckinEventSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "AdminCheckinOperatorDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "CHECKIN_STAFF"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role"
+        ]
+      },
+      "AdminPreviousCheckinDto": {
+        "type": "object",
+        "properties": {
+          "attendeeCount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "checkedInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "QR",
+              "MANUAL"
+            ]
+          },
+          "confirmedBy": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminCheckinOperatorDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "attendeeCount",
+          "checkedInAt",
+          "method"
+        ]
+      },
+      "AdminCheckinValidateResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "ALREADY_CONFIRMED"
+            ]
+          },
+          "invitation": {
+            "$ref": "#/components/schemas/AdminCheckinInvitationSummaryDto"
+          },
+          "event": {
+            "$ref": "#/components/schemas/AdminCheckinEventSummaryDto"
+          },
+          "expectedAttendeeCount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "alreadyCheckedIn": {
+            "type": "boolean"
+          },
+          "previousCheckin": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminPreviousCheckinDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "invitation",
+          "event",
+          "expectedAttendeeCount",
+          "alreadyCheckedIn",
+          "previousCheckin"
+        ]
+      },
+      "ConfirmAdminCheckinRequestDto": {
+        "type": "object",
+        "properties": {
+          "qrPayload": {
+            "type": "string",
+            "maxLength": 43,
+            "minLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attendeeCount": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "qrPayload",
+          "eventId",
+          "attendeeCount"
+        ]
+      },
+      "AdminCheckinRecordDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "QR",
+              "MANUAL"
+            ]
+          },
+          "attendeeCount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "checkedInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "confirmedBy": {
+            "$ref": "#/components/schemas/AdminCheckinOperatorDto"
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "attendeeCount",
+          "checkedInAt",
+          "confirmedBy"
+        ]
+      },
+      "AdminCheckinConfirmResponseDto": {
+        "type": "object",
+        "properties": {
+          "checkinRecord": {
+            "$ref": "#/components/schemas/AdminCheckinRecordDto"
+          }
+        },
+        "required": [
+          "checkinRecord"
+        ]
+      },
+      "AdminCheckinSearchItemDto": {
+        "type": "object",
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/AdminCheckinInvitationSummaryDto"
+          },
+          "event": {
+            "$ref": "#/components/schemas/AdminCheckinEventSummaryDto"
+          },
+          "expectedAttendeeCount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "alreadyCheckedIn": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "invitation",
+          "event",
+          "expectedAttendeeCount",
+          "alreadyCheckedIn"
+        ]
+      },
+      "AdminCheckinSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCheckinSearchItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ManualConfirmAdminCheckinRequestDto": {
+        "type": "object",
+        "properties": {
+          "invitationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attendeeCount": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "invitationId",
+          "eventId",
+          "attendeeCount"
         ]
       },
       "GuestImportPreviewSummaryDto": {
