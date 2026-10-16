@@ -1,0 +1,360 @@
+/* Owner photography and independent motion. Photo layout and typography use
+   the pre-redesign globals.css rules, restored at the owner's request. */
+.invitation-viewport {
+  min-height: 100dvh;
+  width: 100%;
+  background: #1e2952;
+}
+.invitation-opening-flow {
+  --wedding-navy: #1e2952;
+  --wedding-cream: #fff5e1;
+  --wedding-paper: #fffaf0;
+  --wedding-line: rgb(30 41 82 / 25%);
+  --wedding-heading: var(--font-spectral), Georgia, serif;
+  --wedding-script: var(--font-luxurious-script), cursive;
+  --wedding-reveal-duration: 450ms;
+}
+
+.invitation-header {
+  min-height: 230px;
+  padding: 52px 36px 28px;
+  justify-content: flex-start;
+  gap: 12px;
+  text-align: left;
+}
+.invitation-header .section-kicker {
+  color: var(--wedding-navy);
+  text-transform: none;
+}
+.invitation-header h1 {
+  overflow-wrap: anywhere;
+}
+.decoration-top {
+  width: 104px;
+  top: -24px;
+  right: -12px;
+}
+.couple-media-slot img {
+  object-position: 50% 42%;
+}
+.couple-profile-bride .couple-media-slot img {
+  object-position: 45% 45%;
+}
+.couple-family-label {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+.couple-family-names {
+  font-size: 0.75rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.couple-copy {
+  min-width: 0;
+}
+.couple-copy h3 {
+  overflow-wrap: anywhere;
+}
+.wedding-date-section {
+  display: grid;
+  grid-template-columns: 59px minmax(0, 1fr);
+  gap: 4px 20px;
+  margin: 0 32px;
+  padding: 28px 14px;
+  border-block: 1px solid var(--wedding-line);
+  text-align: left;
+}
+.wedding-date-section > .section-kicker,
+.wedding-date-divider {
+  display: none;
+}
+.decoration-calendar {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  align-self: center;
+  margin: 0;
+}
+.wedding-date-day,
+.wedding-date-section h2 {
+  grid-column: 2;
+}
+.wedding-date-day {
+  color: var(--wedding-navy);
+  text-transform: none;
+}
+.wedding-date-section h2 {
+  margin-top: 0;
+}
+.events-section {
+  padding: 30px 24px;
+}
+.events-section > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.event-list {
+  margin-top: 0;
+  gap: 22px;
+}
+.event-card {
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 14px 22px;
+  padding: 12px 0 20px;
+  border: 0;
+}
+.event-detail-block {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wedding-date-section h2 {
+  overflow-wrap: anywhere;
+}
+.decoration-rings {
+  width: 68px;
+}
+.event-actions :is(a, button),
+.venue-information a {
+  min-height: 44px;
+}
+.map-link {
+  color: white !important;
+}
+.dress-code-section {
+  margin: 0 24px;
+  border-block: 1px solid var(--wedding-line);
+  padding: 32px 0;
+  gap: 10px;
+}
+.dress-code-section > .section-kicker {
+  order: 2;
+  text-transform: none;
+  color: var(--wedding-navy);
+}
+.dress-code-section h2 {
+  order: 0;
+}
+.dress-code-section > p:not(.section-kicker) {
+  order: 1;
+  margin: 0;
+}
+.dress-swatch-list {
+  order: 3;
+  width: 100%;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-top: 14px;
+}
+.dress-swatch-list li {
+  flex: 0 1 56px;
+  min-width: 0;
+}
+.rsvp-information-section {
+  padding: 52px 28px 28px;
+}
+.rsvp-decoration-band {
+  height: 85px;
+}
+.decoration-rsvp-main {
+  width: 94px;
+}
+.public-rsvp-form
+  :is(input:not([type="checkbox"]):not([type="radio"]), textarea),
+.guest-message-form :is(input, textarea) {
+  border-radius: 4px;
+  background: var(--wedding-paper);
+}
+.public-rsvp-form :is(button.rsvp-submit, button[type="submit"]),
+.guest-message-form button {
+  border-radius: 5px;
+  min-height: 44px;
+}
+.public-rsvp-form .guest-checkin-pass {
+  background: #ffb39a;
+  border-radius: 15px;
+  box-shadow: 3px 4px 9px rgb(30 41 82 / 12%);
+}
+.guest-checkin-pass svg {
+  background: white;
+}
+.guest-message-confirmation {
+  background: #ffb39a;
+  border-radius: 15px;
+}
+.gallery-frame-medium img {
+  object-fit: cover;
+}
+.gallery-scripture {
+  padding-top: 35px;
+  margin-top: 20px;
+}
+.gallery-scripture cite {
+  color: var(--wedding-navy);
+}
+.decoration-gallery {
+  width: 66px;
+  top: -8px;
+  right: -38px;
+}
+.quote-section {
+  padding: 24px;
+  gap: 16px;
+}
+.decoration-lower {
+  width: 88px;
+}
+.guest-message-section {
+  padding: 28px;
+}
+.invitation-footer {
+  padding: 32px 24px 50px;
+  gap: 16px;
+}
+.invitation-envelope-layer-front {
+  transition:
+    transform 650ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 650ms;
+}
+.invitation-closed-stage[data-opening="true"] .invitation-envelope-layer-front {
+  transform: translateX(14%) rotate(6deg);
+  opacity: 0;
+}
+.invitation-envelope-button:disabled {
+  cursor: default;
+}
+.invitation-opened-cover {
+  isolation: isolate;
+  color: var(--wedding-navy);
+  min-height: 100svh;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+}
+.invitation-opened-media {
+  position: relative;
+  width: min(100%, calc(100dvh * 332 / 917));
+  max-width: 332px;
+  height: auto;
+  aspect-ratio: 332 / 917;
+  z-index: -2;
+}
+.invitation-opened-media img {
+  object-fit: cover;
+  object-position: 50% 58%;
+}
+.invitation-opened-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgb(16 32 61 / 55%),
+    rgb(16 32 61 / 35%) 35%,
+    transparent 60%,
+    rgb(16 32 61 / 65%)
+  );
+}
+.invitation-opened-title {
+  gap: 10px;
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 332px);
+}
+.invitation-opened-kicker {
+  color: #fff5e1;
+}
+.invitation-opened-names {
+  color: #fff5e1;
+}
+.invitation-opened-action {
+  position: absolute;
+  bottom: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 44px;
+  padding: 10px 20px;
+  margin: 0;
+  background: var(--wedding-paper);
+  color: var(--wedding-navy);
+  font-family: var(--font-tiktok-sans), Arial, sans-serif;
+  font-size: 0.85rem;
+  border-radius: 4px;
+}
+.invitation-opened-cover-fallback {
+  padding: 0;
+  justify-content: center;
+}
+.invitation-opened-cover-fallback::before {
+  display: none;
+}
+.invitation-opened-cover-fallback .invitation-opened-media {
+  position: relative;
+  inset: auto;
+  width: min(100%, calc(100dvh * 332 / 917));
+  max-width: 332px;
+  height: auto;
+  aspect-ratio: 332 / 917;
+}
+.invitation-opened-cover-fallback .invitation-opened-media img {
+  object-fit: contain;
+}
+.invitation-opened-cover-fallback .invitation-opened-action {
+  position: absolute;
+  bottom: 24px;
+  margin: 0;
+}
+.invitation-revealed {
+  animation: wedding-section-reveal var(--wedding-reveal-duration) ease-out both;
+}
+@keyframes wedding-section-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Keep the restored serif scale without splitting normal names mid-word
+   in the narrower two-column phone layout. The original 36px scale remains
+   on stacked phones and the 480px desktop column. */
+@media (min-width: 361px) and (max-width: 479px) {
+  .couple-copy h3 {
+    font-size: 1.75rem;
+  }
+}
+@media (max-width: 360px) {
+  .invitation-header {
+    padding-inline: 24px;
+  }
+  .event-card {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 14px;
+  }
+  .wedding-date-section {
+    margin-inline: 24px;
+    padding-inline: 8px;
+    gap: 4px 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .invitation-envelope-layer-front {
+    transition: none;
+  }
+  .invitation-closed-stage[data-opening="true"]
+    .invitation-envelope-layer-front {
+    transform: none;
+  }
+  .invitation-revealed {
+    animation: none;
+  }
+}

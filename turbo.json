@@ -16,7 +16,9 @@
       "dependsOn": ["^typecheck"]
     },
     "test": {
-      "dependsOn": ["^test"]
+      "dependsOn": ["^test"],
+      "env": ["INVITATION_DATABASE_TESTS", "CREDENTIAL_SECRET"],
+      "cache": false
     }
   }
 }

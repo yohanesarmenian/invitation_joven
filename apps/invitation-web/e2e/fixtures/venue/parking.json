@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "published",
+  "guides": [
+    {
+      "eventId": "22222222-2222-4222-8222-222222222222",
+      "title": "Published reception parking",
+      "instructions": ["Use the signed reception entrance."],
+      "mapImage": null,
+      "guidePdf": null,
+      "googleMapsUrl": "https://www.google.com/maps/place/example"
+    },
+    {
+      "eventId": "11111111-1111-4111-8111-111111111111",
+      "title": "RESTRICTED_CEREMONY_CONTENT",
+      "instructions": ["Restricted ceremony parking."],
+      "mapImage": null,
+      "guidePdf": null,
+      "googleMapsUrl": null
+    }
+  ]
+}

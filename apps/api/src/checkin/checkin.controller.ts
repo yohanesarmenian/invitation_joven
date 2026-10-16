@@ -35,13 +35,16 @@ import { isCheckinDomainError } from "./checkin.errors.js";
 import {
   AdminCheckinConfirmResponseDto,
   AdminCheckinEventsResponseDto,
+  AdminCheckinManualStatusResponseDto,
   AdminCheckinSearchResponseDto,
   AdminCheckinValidateResponseDto,
   ConfirmAdminCheckinRequestDto,
   ManualConfirmAdminCheckinRequestDto,
+  ManualStatusAdminCheckinRequestDto,
   ValidateAdminCheckinRequestDto,
   mapConfirmAdminCheckinRequest,
   mapManualConfirmAdminCheckinRequest,
+  mapManualStatusAdminCheckinRequest,
   mapSearchAdminCheckinQuery,
   mapValidateAdminCheckinRequest,
 } from "./dto/checkin.dto.js";
@@ -148,6 +151,27 @@ export class CheckinController {
       return await this.checkinService.confirmManual(
         mapManualConfirmAdminCheckinRequest(body),
         this.getOperator(request),
+      );
+    } catch (error) {
+      this.rethrowCheckinError(error);
+    }
+  }
+
+  @Post("manual-status")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Read exact manual check-in status" })
+  @ApiBody({ type: ManualStatusAdminCheckinRequestDto })
+  @ApiOkResponse({ type: AdminCheckinManualStatusResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  async readManualStatus(
+    @Body() body: unknown,
+  ): Promise<AdminCheckinManualStatusResponseDto> {
+    try {
+      return await this.checkinService.readManualStatus(
+        mapManualStatusAdminCheckinRequest(body),
       );
     } catch (error) {
       this.rethrowCheckinError(error);

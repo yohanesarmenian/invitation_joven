@@ -5,6 +5,8 @@ import { mockInvitations } from "./mock-invitations";
 import { mockMessages } from "./mock-messages";
 import { mockRsvps } from "./mock-rsvps";
 import { mockImports } from "./mock-imports";
+import { mockCheckin } from "./mock-checkin";
+import { mockStaff } from "./mock-staff";
 import type { AdminAuthResponse } from "@wedding-invitation/api-client/src/index";
 type TestSession = {
   email: string;
@@ -13,10 +15,7 @@ type TestSession = {
   role: AdminAuthResponse["user"]["role"];
   mustChangePassword: boolean;
 };
-const sessions = new Map<
-  string,
-  TestSession
->();
+const sessions = new Map<string, TestSession>();
 const origin = "http://localhost:3001";
 createServer(async (request, response) => {
   response.setHeader("Content-Type", "application/json");
@@ -29,10 +28,9 @@ createServer(async (request, response) => {
       }),
     );
   }
-  function profile(email: string): Pick<
-    TestSession,
-    "role" | "mustChangePassword"
-  > {
+  function profile(
+    email: string,
+  ): Pick<TestSession, "role" | "mustChangePassword"> {
     if (email === "staff@example.com")
       return { role: "CHECKIN_STAFF", mustChangePassword: false };
     if (email === "staff-change@example.com")
@@ -116,6 +114,8 @@ createServer(async (request, response) => {
     .find((value) => value.startsWith("admin_session="))
     ?.slice("admin_session=".length);
   const session = cookie ? sessions.get(cookie) : undefined;
+  if (await mockCheckin(request, response, session)) return;
+  if (await mockStaff(request, response, session)) return;
   if (await mockImports(request, response, session)) return;
   if (await mockMessages(request, response, session)) {
     if (session?.email.startsWith("message-ended") && cookie)

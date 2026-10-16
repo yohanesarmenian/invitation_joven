@@ -4,11 +4,20 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:18
@@ -28,6 +37,8 @@ jobs:
       DATABASE_URL: postgresql://invitation_ci:invitation_ci_password@localhost:5432/invitation_ci?schema=public
       # Public deterministic fixture for CI/test only; not a production secret.
       CREDENTIAL_SECRET: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8
+      INVITATION_WORKFLOW_TEST: "1"
+      INVITATION_DATABASE_TESTS: "1"
 
     steps:
       - name: Checkout
@@ -68,6 +79,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Deployment tooling lint and authority tests
+        run: |
+          pnpm deploy:lint
+          pnpm deploy:test
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -76,3 +92,55 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Optimized public build smoke and rendering budget
+        run: pnpm --filter invitation-web exec playwright test --config=playwright.production.config.ts
+
+      - name: Public browser regression (synthetic API)
+        run: pnpm --filter invitation-web exec playwright test
+
+      - name: Published venue content and eligibility (synthetic fixtures)
+        run: pnpm --filter invitation-web exec playwright test --config=playwright.venue.config.ts
+
+      - name: Admin browser regression (synthetic API)
+        run: pnpm --filter admin-web exec playwright test
+
+      - name: Real guest RSVP, personal identity, camera, check-in, recovery and reporting
+        run: pnpm --filter admin-web exec playwright test --config=playwright.journey.config.ts
+
+      - name: Real import regression
+        run: pnpm --filter admin-web exec playwright test --config=playwright.real-import.config.ts
+
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.2
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build and smoke test all production images on synthetic PostgreSQL
+        run: pnpm deploy:containers
+
+  ready:
+    if: always()
+    needs: [validate, containers]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both gates
+        env:
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          CONTAINER_RESULT: ${{ needs.containers.result }}
+        run: test "$VALIDATE_RESULT" = success && test "$CONTAINER_RESULT" = success

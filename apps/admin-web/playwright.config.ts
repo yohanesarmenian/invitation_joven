@@ -10,7 +10,7 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     baseURL: "http://localhost:3001",
-    screenshot: "only-on-failure",
+    screenshot: "off",
     trace: "off",
   },
   webServer: [

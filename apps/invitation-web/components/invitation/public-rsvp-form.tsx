@@ -268,114 +268,66 @@ export function PublicRsvpForm({
           ref={attendanceRef}
           tabIndex={-1}
           aria-describedby={notice ? `${id}-error` : undefined}
+          aria-label="Will you join us?"
         >
-          <legend>Will you join us?</legend>
-          {(
-            [
-              ["ACCEPTED", "Joyfully Accept"],
-              ["DECLINED", "Regretfully Decline"],
-            ] as const
-          ).map(([status, label]) => (
-            <label className="rsvp-choice" key={status}>
-              <input
-                type="radio"
-                name={`${id}-attendance`}
-                checked={draft.status === status}
-                onChange={() => edit({ ...draft, status })}
-              />
-              <span>{label}</span>
-            </label>
-          ))}
+          <legend>Attendance Confirmation</legend>
+          <div className="rsvp-attendance-options">
+            {(
+              [
+                ["ACCEPTED", "Joyfully Accept"],
+                ["DECLINED", "Regretfully Decline"],
+              ] as const
+            ).map(([status, label]) => (
+              <label className="rsvp-choice" key={status}>
+                <input
+                  type="radio"
+                  name={`${id}-attendance`}
+                  checked={draft.status === status}
+                  onChange={() => edit({ ...draft, status })}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
         </fieldset>
-        {draft.status === "ACCEPTED" ? (
+        {draft.status !== "DECLINED" ? (
           <>
             <fieldset
               className="rsvp-group"
-              ref={attendeesRef}
-              tabIndex={-1}
-              aria-describedby={`${id}-total${notice?.section === "attendees" ? ` ${id}-error` : ""}`}
-            >
-              <legend>Who will be joining us?</legend>
-              {invitation.invitees.map((invitee) => (
-                <label className="rsvp-choice" key={invitee.id}>
-                  <input
-                    type="checkbox"
-                    checked={draft.namedInviteeIds.includes(invitee.id)}
-                    onChange={(event) =>
-                      edit(
-                        {
-                          ...draft,
-                          namedInviteeIds: event.target.checked
-                            ? [...draft.namedInviteeIds, invitee.id]
-                            : draft.namedInviteeIds.filter(
-                                (value) => value !== invitee.id,
-                              ),
-                        },
-                        true,
-                      )
-                    }
-                  />
-                  <span>{invitee.fullName}</span>
-                </label>
-              ))}
-              {invitation.rules.allowPlusOne ? (
-                <label className="rsvp-choice">
-                  <input
-                    type="checkbox"
-                    checked={draft.plusOne}
-                    onChange={(event) =>
-                      edit({ ...draft, plusOne: event.target.checked }, true)
-                    }
-                  />
-                  <span>Bring a plus one</span>
-                </label>
-              ) : null}
-              {invitation.rules.maxAdditionalChildren > 0 ? (
-                <label className="rsvp-count">
-                  <span>
-                    Additional children{" "}
-                    <small>
-                      Up to {invitation.rules.maxAdditionalChildren}
-                    </small>
-                  </span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={invitation.rules.maxAdditionalChildren}
-                    step={1}
-                    value={
-                      Number.isNaN(draft.additionalChildren)
-                        ? ""
-                        : draft.additionalChildren
-                    }
-                    onChange={(event) =>
-                      edit(
-                        {
-                          ...draft,
-                          additionalChildren: event.target.valueAsNumber,
-                        },
-                        true,
-                      )
-                    }
-                  />
-                </label>
-              ) : null}
-              <p id={`${id}-total`} aria-live="polite">
-                Total attending: {Number.isFinite(total) ? total : "—"}
-              </p>
-            </fieldset>
-            <fieldset
-              className="rsvp-group"
               ref={eventsRef}
+              aria-label="Which events will you attend?"
               tabIndex={-1}
               aria-describedby={`${id}-events-help${notice?.section === "events" ? ` ${id}-error` : ""}`}
             >
-              <legend>Which events will you attend?</legend>
+              <legend>Events Attending</legend>
               <p id={`${id}-events-help`}>
                 Choose at least one event, then tell us how many of your guests
                 will attend each.
               </p>
+              {invitation.events.length > 1 ? (
+                <label className="rsvp-choice rsvp-both-events">
+                  <input
+                    type="checkbox"
+                    checked={draft.eventSelections.every(
+                      (event) => event.attending,
+                    )}
+                    onChange={(change) =>
+                      edit(
+                        normalizeEventCounts({
+                          ...draft,
+                          eventSelections: draft.eventSelections.map(
+                            (event) => ({
+                              ...event,
+                              attending: change.target.checked,
+                            }),
+                          ),
+                        }),
+                      )
+                    }
+                  />
+                  <span>Attend all invited events</span>
+                </label>
+              ) : null}
               {invitation.events.map((event, index) => {
                 const selection = draft.eventSelections[index];
                 if (!selection) return null;
@@ -444,12 +396,121 @@ export function PublicRsvpForm({
                 );
               })}
             </fieldset>
+            <fieldset
+              className="rsvp-group"
+              ref={attendeesRef}
+              aria-label="Who will be joining us?"
+              tabIndex={-1}
+              aria-describedby={`${id}-total${notice?.section === "attendees" ? ` ${id}-error` : ""}`}
+            >
+              <legend>Bring someone special?</legend>
+              {invitation.invitees.map((invitee) => (
+                <label className="rsvp-choice" key={invitee.id}>
+                  <input
+                    type="checkbox"
+                    checked={draft.namedInviteeIds.includes(invitee.id)}
+                    onChange={(event) =>
+                      edit(
+                        {
+                          ...draft,
+                          namedInviteeIds: event.target.checked
+                            ? [...draft.namedInviteeIds, invitee.id]
+                            : draft.namedInviteeIds.filter(
+                                (value) => value !== invitee.id,
+                              ),
+                        },
+                        true,
+                      )
+                    }
+                  />
+                  <span>{invitee.fullName}</span>
+                </label>
+              ))}
+              {invitation.rules.allowPlusOne ? (
+                <div className="rsvp-companion">
+                  <label className="rsvp-choice">
+                    <input
+                      type="checkbox"
+                      aria-describedby={`${id}-companion-help`}
+                      checked={draft.plusOne}
+                      onChange={(event) =>
+                        edit({ ...draft, plusOne: event.target.checked }, true)
+                      }
+                    />
+                    <span>
+                      Of Course I will bring my Wife/Husband or plus one!
+                    </span>
+                  </label>
+                  <p id={`${id}-companion-help`} className="rsvp-dietary-help">
+                    One additional guest only. If your spouse is already listed,
+                    select their name above.
+                  </p>
+                </div>
+              ) : null}
+              {invitation.rules.maxAdditionalChildren > 0 ? (
+                <>
+                  <label className="rsvp-choice">
+                    <input
+                      type="checkbox"
+                      checked={draft.additionalChildren > 0}
+                      onChange={(event) =>
+                        edit(
+                          {
+                            ...draft,
+                            additionalChildren: event.target.checked ? 1 : 0,
+                          },
+                          true,
+                        )
+                      }
+                    />
+                    <span>I’m with my children</span>
+                  </label>
+                  <label className="rsvp-count">
+                    <span>
+                      Additional children{" "}
+                      <small>
+                        Up to {invitation.rules.maxAdditionalChildren}
+                      </small>
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={invitation.rules.maxAdditionalChildren}
+                      step={1}
+                      value={
+                        Number.isNaN(draft.additionalChildren)
+                          ? ""
+                          : draft.additionalChildren
+                      }
+                      onChange={(event) =>
+                        edit(
+                          {
+                            ...draft,
+                            additionalChildren: event.target.valueAsNumber,
+                          },
+                          true,
+                        )
+                      }
+                    />
+                  </label>
+                </>
+              ) : null}
+              <p id={`${id}-total`} aria-live="polite">
+                Total attending: {Number.isFinite(total) ? total : "—"}
+              </p>
+            </fieldset>
             <div className="rsvp-dietary">
               <label htmlFor={`${id}-dietary`}>
-                Dietary requirements <span>(optional)</span>
+                Dietary Restrictions &amp; Preferences <span>(optional)</span>
               </label>
+              <p className="rsvp-dietary-help">
+                To help us accommodate your family safely, please mention any
+                specific needs (allergy, vegan, etc).
+              </p>
               <textarea
                 id={`${id}-dietary`}
+                aria-label="Dietary requirements (optional)"
                 rows={4}
                 maxLength={500}
                 value={draft.dietaryNotes}

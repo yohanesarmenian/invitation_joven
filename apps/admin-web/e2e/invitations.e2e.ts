@@ -254,16 +254,12 @@ test("detail maps safe projections and loads public link only on demand", async 
 }) => {
   await login(page);
   await page.goto("/invitations");
-  await page
-    .getByRole("link", { name: "Household 01", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Household 01", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Invitation detail", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Sample guest", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("checkbox", { name: /Reception/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Reception/ })).toBeVisible();
   await expect(page.getByText("2 total, 1 hidden")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("publicTokenHash");
   await expect(page.locator("body")).not.toContainText("qrPayload");
@@ -282,9 +278,7 @@ test("detail manages invitees and event eligibility with explicit conflict recov
 }) => {
   await login(page, "invitee-event-owner@example.com");
   await page.goto("/invitations");
-  await page
-    .getByRole("link", { name: "Household 01", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Household 01", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Invitation detail", exact: true }),
   ).toBeVisible();
@@ -337,7 +331,12 @@ test("detail manages invitees and event eligibility with explicit conflict recov
     patchPayload = route.request().postDataJSON();
     await route.fulfill({
       status: 409,
-      json: { error: { code: "CONFLICT", message: "private" } },
+      json: {
+        error: {
+          code: "CONFLICT",
+          message: "SYNTHETIC_BACKEND_DIAGNOSTIC_NOT_FOR_DISPLAY",
+        },
+      },
     });
   });
   await page
@@ -415,7 +414,9 @@ test("detail manages invitees and event eligibility with explicit conflict recov
   await expect(page).toHaveURL(/eventsUpdated=1/);
   expect(eventPayload).toEqual({ eventIds: [events[0]!.id] });
   await expect(page.getByText("Event eligibility updated.")).toBeVisible();
-  await expect(page.locator("body")).not.toContainText("private");
+  await expect(page.locator("body")).not.toContainText(
+    "SYNTHETIC_BACKEND_DIAGNOSTIC_NOT_FOR_DISPLAY",
+  );
   await expect(page.locator("body")).not.toContainText("csrf");
 });
 
@@ -424,9 +425,7 @@ test("edit sends expectedUpdatedAt, preserves conflict values, and refreshes aft
 }) => {
   await login(page);
   await page.goto("/invitations");
-  await page
-    .getByRole("link", { name: "Household 01", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Household 01", exact: true }).click();
   await page.getByRole("link", { name: "Edit invitation" }).click();
   await expect(
     page.getByRole("heading", { name: "Edit invitation", exact: true }),
@@ -462,7 +461,9 @@ test("edit sends expectedUpdatedAt, preserves conflict values, and refreshes aft
   await page.unroute("**/api/admin/invitations/*");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page).toHaveURL(/updated=1/);
-  await expect(page.getByText("Edited household", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Edited household", { exact: true }),
+  ).toBeVisible();
 });
 
 test("archive confirmation and regeneration lost-response recovery stay explicit", async ({
@@ -470,9 +471,7 @@ test("archive confirmation and regeneration lost-response recovery stay explicit
 }) => {
   await login(page, "lifecycle-owner@example.com");
   await page.goto("/invitations");
-  await page
-    .getByRole("link", { name: "Household 01", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Household 01", exact: true }).click();
   await page.getByRole("button", { name: "Regenerate public link" }).click();
   await expect(
     page.getByRole("dialog", { name: "Regenerate public link" }),
@@ -509,9 +508,9 @@ test("archive confirmation and regeneration lost-response recovery stay explicit
   await expect(
     page.getByRole("button", { name: "View public link" }),
   ).toBeDisabled();
-  await expect(
-    page.getByRole("link", { name: "Edit invitation" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Edit invitation" })).toHaveCount(
+    0,
+  );
 });
 test("client validation focuses errors without POST, dynamic remove retains rows", async ({
   page,

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "status": "published",
+  "timeZone": "Asia/Jakarta",
+  "schedules": [
+    {
+      "eventId": "22222222-2222-4222-8222-222222222222",
+      "title": "Reception guest schedule",
+      "items": [
+        {
+          "startsAt": "2027-01-09T11:30:00+07:00",
+          "title": "Guest arrival",
+          "description": "Synthetic browser fixture."
+        }
+      ]
+    },
+    {
+      "eventId": "11111111-1111-4111-8111-111111111111",
+      "title": "RESTRICTED_CEREMONY_CONTENT",
+      "items": [
+        {
+          "startsAt": "2027-01-09T08:00:00+07:00",
+          "title": "Ceremony",
+          "description": "Restricted ceremony schedule."
+        }
+      ]
+    }
+  ]
+}

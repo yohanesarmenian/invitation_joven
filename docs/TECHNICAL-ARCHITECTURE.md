@@ -1,5 +1,29 @@
 # Technical Architecture
 
+## Current event-material authority
+
+The OWNER editor at admin `/event-content` uses generated API contracts, explicit version checks and no automatic mutation replay. Nest's EventContent module owns persistence, per-Event row locks, upload normalization and publication rules. Draft and current published snapshot plus normalized file bytes are stored in PostgreSQL. Seven admin routes inherit shared security; CHECKIN_STAFF cannot read or mutate them. The editor and invitation share the original venue presentation component through a typed adapter.
+
+Production invitation content now comes from the credential-authorized backend venue-content endpoint, not local JSON. Public asset URLs go through a fixed same-origin Next route and backend eligibility/current-publication checks; no cookie forwarding, redirects or remote URLs are accepted. Responses are no-store and PDF downloads carry attachment/sandbox/nosniff headers. An API error or hide never falls back to an old local publication. Existing JSON reader/selector remains only for synthetic development preview and tests; the earlier file-based section below is historical for guest-route authority. See `EVENT-CONTENT-ADMIN.md`.
+
+## File-based venue content
+
+Invitation-web's server-only venue loader reads fixed `parking.json`/`rundown.json` filenames under its `content` directory. Optional operator configuration `VENUE_CONTENT_DIRECTORY` can select an absolute directory (used for isolated synthetic browser fixtures); guests cannot select a file or directory. Each document is limited to 64 KiB, decoded as strict UTF-8 and validated independently. Only status `published` and exact event IDs in the authoritative public invitation response are projected to the rendered page. This is presentation content, not a replacement business authority or Event writer; no API/schema/migration changes and no database access from the frontend are introduced.
+
+Parking allows bounded plain text, passive local PNG/JPG/JPEG/WebP paths, optional PDF, and allowlisted HTTPS Google Maps links. Asset paths are flat filenames under `/assets/venue`, with no remote source, query, traversal, SVG or HTML. Referenced files must exist, be at most 5 MiB and match basic file signatures; a failed reference hides the associated guide. Header checks do not establish complete file integrity or document safety; manual asset review is still required. Static public assets are publicly retrievable independently of event eligibility. Draft/internal files must stay outside `public`.
+
+Rundown instants require valid ISO 8601 with explicit offsets and chronological item order; display uses Asia/Jakarta and includes the local date. Separate guides/schedules are associated by exact Event UUID, never names/slugs or automatic all-event binding. Draft null IDs are permitted solely for the synthetic preview. The route `/dev/venue-preview` requires both `NODE_ENV=development` and `VENUE_CONTENT_PREVIEW=1`; otherwise it returns 404, including production with the flag set. Preview is noindex and uses no invitation, guest, database, RSVP or QR data. Production and normal guest routes never forward a preview override.
+
+Files are read on dynamic requests; editing content requires a new page request, not a rebuild of components. These files are an operator-managed initial source, not an upload endpoint or general CMS. The full-workspace local Docker image includes the default files; editing a local checkout does not update an existing container image without rebuilding or mounting the configured content directory. This file-only phase has been superseded by the OWNER workflow described above; JSON files remain synthetic preview material only.
+
+## Local reporting completion (15 October 2026)
+
+All application/test PostgreSQL pools receive `-c timezone=UTC` through `getDatabaseUrl`, preserving other connection options. Real import QA on a non-UTC PostgreSQL server exposed inconsistent adapter timestamp handling: ORM round trips looked correct while independent SQL reads differed by seven hours. UTC sessions preserve true persisted instants; invitation display still explicitly uses Asia/Jakarta. CLI migrations use the configured URL and no schema migration is added. Existing real data written under a non-UTC session requires a separately reviewed repair; this work does not rewrite development data.
+
+The Reports module owns OWNER read projections/CSV; the existing Phase 8 dashboard contract stays intact and links to `/reports`. Summary aggregates RSVP selections and check-in records independently. Detail/export queries share one projection/filter builder, use shared pagination and a repeatable-read snapshot. CSV is generated server-side from explicit DTO fields with formula neutralization. No DB migration or attendance mutation is introduced.
+
+Admin navigation now includes check-in, staff and reports when implemented; CHECKIN_STAFF remains confined to its dedicated check-in shell. Camera uses lazily imported `@zxing/browser` 0.2.1, owns its MediaStream and releases tracks on decoding, stop, event/route changes, visibility loss and sign-out. Decoder documentation: https://github.com/zxing-js/browser. Local Chromium mocks cannot prove physical camera support or venue HTTPS behavior.
+
 ## System Context
 
 ```mermaid
@@ -169,14 +193,14 @@ https://<admin-host>/api/**    API (proxied)
 
 Production:
 
-| Attribute | Value |
-| --- | --- |
-| Name | `__Host-admin_session` |
-| `HttpOnly` | `true` |
-| `Secure` | `true` |
-| `SameSite` | `Strict` |
-| `Path` | `/` |
-| `Domain` | **omitted** |
+| Attribute  | Value                  |
+| ---------- | ---------------------- |
+| Name       | `__Host-admin_session` |
+| `HttpOnly` | `true`                 |
+| `Secure`   | `true`                 |
+| `SameSite` | `Strict`               |
+| `Path`     | `/`                    |
+| `Domain`   | **omitted**            |
 
 - The cookie lifetime matches the session absolute expiration.
 - No `Domain` attribute is ever set. The `__Host-` prefix requires `Secure`, `Path=/`, and no `Domain`.

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "status": "draft",
+  "guides": [
+    {
+      "eventId": null,
+      "title": "[CONTOH] Panduan parkir",
+      "instructions": [
+        "[CONTOH] Masuk melalui gerbang yang ditentukan oleh venue.",
+        "[CONTOH] Ikuti arahan petugas menuju area parkir tamu."
+      ],
+      "mapImage": null,
+      "guidePdf": null,
+      "googleMapsUrl": null
+    }
+  ]
+}

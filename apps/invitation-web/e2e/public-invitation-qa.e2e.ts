@@ -1,3 +1,4 @@
+import { MOCK_API_ORIGIN } from "./harness";
 import {
   expect,
   test,
@@ -11,7 +12,7 @@ const TEST_PUBLIC_CREDENTIAL = "A".repeat(43);
 const TEST_UNAVAILABLE_CREDENTIAL = "B".repeat(43);
 const TEST_MALFORMED_CREDENTIAL = "C".repeat(43);
 
-const MOCK_API_BASE_URL = "http://127.0.0.1:4010";
+const MOCK_API_BASE_URL = MOCK_API_ORIGIN;
 
 const SUCCESS_PATH = `/i/${TEST_PUBLIC_CREDENTIAL}`;
 const UNAVAILABLE_PATH = `/i/${TEST_UNAVAILABLE_CREDENTIAL}`;

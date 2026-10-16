@@ -1,5 +1,58 @@
 @import "tailwindcss";
 
+.event-countdown {
+  min-height: 5rem;
+  text-align: center;
+  padding: 1rem;
+}
+.event-countdown p {
+  margin: 0.3rem 0;
+}
+.calendar-button {
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+}
+.gallery-mosaic button.gallery-frame {
+  border: 0;
+  padding: 0;
+  cursor: zoom-in;
+}
+.gallery-mosaic button:focus-visible {
+  outline: 3px solid #11256e;
+  outline-offset: 4px;
+}
+.gallery-dialog {
+  width: 94vw;
+  max-width: 1000px;
+  max-height: 95dvh;
+  padding: 1rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #fff9f0;
+  color: #11256e;
+}
+.gallery-dialog::backdrop {
+  background: rgb(0 0 0 / 0.8);
+}
+.gallery-dialog-image {
+  position: relative;
+  width: 100%;
+  height: 70dvh;
+}
+.gallery-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.gallery-dialog button {
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 0.35rem;
+}
+
 :root {
   color: #111827;
   background: #ffffff;
@@ -28,11 +81,7 @@ body {
   margin: 0 auto;
   overflow-x: hidden;
   background: #fff5e1;
-  font-family:
-    var(--font-spectral),
-    Georgia,
-    "Times New Roman",
-    serif;
+  font-family: var(--font-spectral), Georgia, "Times New Roman", serif;
 }
 
 .public-invitation-surface :where(a) {
@@ -55,11 +104,7 @@ body {
 .section-kicker {
   margin: 0;
   color: #6d7991;
-  font-family:
-    var(--font-tiktok-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
+  font-family: var(--font-tiktok-sans), Arial, Helvetica, sans-serif;
   font-size: 0.78rem;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -128,21 +173,13 @@ body {
 .couple-nickname {
   margin: 0;
   color: #6d7991;
-  font-family:
-    var(--font-tiktok-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
+  font-family: var(--font-tiktok-sans), Arial, Helvetica, sans-serif;
   font-size: 0.85rem;
   letter-spacing: 0;
 }
 
 .closing-copy {
-  font-family:
-    var(--font-luxurious-script),
-    Georgia,
-    "Times New Roman",
-    serif;
+  font-family: var(--font-luxurious-script), Georgia, "Times New Roman", serif;
   font-weight: 400;
   line-height: 1.2;
 }
@@ -167,11 +204,7 @@ body {
 .wedding-date-day {
   margin: 0;
   color: #6d7991;
-  font-family:
-    var(--font-tiktok-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
+  font-family: var(--font-tiktok-sans), Arial, Helvetica, sans-serif;
   font-size: 0.9rem;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -215,11 +248,7 @@ body {
 }
 
 .event-card h3 {
-  font-family:
-    var(--font-luxurious-script),
-    Georgia,
-    "Times New Roman",
-    serif;
+  font-family: var(--font-luxurious-script), Georgia, "Times New Roman", serif;
   font-size: 2rem;
   font-weight: 400;
   line-height: 1.2;
@@ -256,11 +285,7 @@ body {
   padding: 0 16px;
   background: #11256e;
   color: #fff5e1;
-  font-family:
-    var(--font-albert-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
+  font-family: var(--font-albert-sans), Arial, Helvetica, sans-serif;
   font-size: 0.88rem;
   font-weight: 700;
   text-decoration: none;
@@ -276,11 +301,7 @@ body {
   border: 1px dashed rgba(30, 41, 82, 0.3);
   border-radius: 9px;
   color: #6d7991;
-  font-family:
-    var(--font-tiktok-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
+  font-family: var(--font-tiktok-sans), Arial, Helvetica, sans-serif;
   font-size: 0.82rem;
 }
 
@@ -310,11 +331,7 @@ body {
   gap: 6px;
   min-width: 56px;
   color: #1e2952;
-  font-family:
-    var(--font-tiktok-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
+  font-family: var(--font-tiktok-sans), Arial, Helvetica, sans-serif;
   font-size: 0.72rem;
 }
 
@@ -697,11 +714,7 @@ body {
   display: block;
   margin-top: 8px;
   color: #6d7991;
-  font-family:
-    var(--font-tiktok-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
+  font-family: var(--font-tiktok-sans), Arial, Helvetica, sans-serif;
   font-size: 0.85rem;
   font-style: normal;
 }
@@ -740,11 +753,7 @@ body {
   display: block;
   margin-top: 8px;
   color: #6d7991;
-  font-family:
-    var(--font-tiktok-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
+  font-family: var(--font-tiktok-sans), Arial, Helvetica, sans-serif;
   font-size: 0.85rem;
   font-style: normal;
 }
@@ -1034,22 +1043,14 @@ body {
 }
 
 .invitation-opened-kicker {
-  font-family:
-    var(--font-spectral),
-    Georgia,
-    "Times New Roman",
-    serif;
+  font-family: var(--font-spectral), Georgia, "Times New Roman", serif;
   font-size: clamp(1.5rem, 8vw, 2.5rem);
   line-height: 1.2;
   color: #fff5e1;
 }
 
 .invitation-opened-names {
-  font-family:
-    var(--font-parisienne),
-    Georgia,
-    "Times New Roman",
-    serif;
+  font-family: var(--font-parisienne), Georgia, "Times New Roman", serif;
   font-size: clamp(2.5rem, 12vw, 4rem);
   line-height: 1.1;
   color: #fff5e1;
@@ -1075,4 +1076,82 @@ body {
   .invitation-opening-content {
     animation: none;
   }
+}
+
+/* Optional file-based venue content; approved opening/hero stays unchanged. */
+.venue-information {
+  overflow-wrap: anywhere;
+}
+.venue-information h2 {
+  margin: 0 0 1.5rem;
+  font-size: 1.65rem;
+}
+.venue-content-card + .venue-content-card {
+  margin-top: 2rem;
+}
+.venue-content-card h3 {
+  margin: 0.5rem 0 1rem;
+  font-size: 1.2rem;
+}
+.venue-content-card li,
+.venue-content-card p {
+  line-height: 1.6;
+}
+.venue-content-card ul {
+  padding-left: 1.25rem;
+}
+.parking-map {
+  display: block;
+  position: relative;
+  aspect-ratio: 3 / 2;
+  margin: 1rem 0;
+}
+.parking-map img {
+  object-fit: contain;
+  border-radius: 0.5rem;
+}
+.venue-content-actions,
+.venue-preview-notice nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.venue-content-actions a,
+.venue-preview-notice a {
+  min-height: 44px;
+  padding: 0.6rem;
+}
+.venue-information a:focus-visible,
+.venue-preview-notice a:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+.rundown-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.rundown-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 6.75rem) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid #d5cbb5;
+}
+.rundown-list time span,
+.rundown-list time strong {
+  display: block;
+}
+.rundown-list time span {
+  font-size: 0.8rem;
+}
+.rundown-list h4,
+.rundown-list p {
+  margin: 0 0 0.4rem;
+}
+.venue-preview-notice {
+  background: #fff1b8;
+}
+.venue-preview-notice h1 {
+  font-size: 1.65rem;
 }

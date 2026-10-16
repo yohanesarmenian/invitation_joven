@@ -1,0 +1,114 @@
+name: invitation-local-stack
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: invitation_local
+      POSTGRES_USER: invitation_local
+      POSTGRES_PASSWORD: ${LOCAL_DATABASE_PASSWORD:?Set LOCAL_DATABASE_PASSWORD in the local stack env file}
+    volumes:
+      - local_database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invitation_local -d invitation_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    image: invitation-api:local
+    build:
+      context: .
+      args:
+        APP: api
+    environment:
+      DATABASE_URL: postgresql://invitation_local:${LOCAL_DATABASE_PASSWORD:?Set LOCAL_DATABASE_PASSWORD}@postgres:5432/invitation_local?schema=public
+    working_dir: /workspace/apps/api
+    command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+  api:
+    image: invitation-api:local
+    environment:
+      DATABASE_URL: postgresql://invitation_local:${LOCAL_DATABASE_PASSWORD:?Set LOCAL_DATABASE_PASSWORD}@postgres:5432/invitation_local?schema=public
+      CREDENTIAL_SECRET: ${CREDENTIAL_SECRET:?Set CREDENTIAL_SECRET}
+      ADMIN_ORIGIN: https://localhost:3001
+      PUBLIC_INVITATION_BASE_URL: https://localhost:3000
+      PORT: "4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  admin-web:
+    image: invitation-admin:local
+    build:
+      context: .
+      args:
+        APP: admin-web
+        ADMIN_API_INTERNAL_BASE_URL: http://api:4000
+    environment:
+      ADMIN_API_INTERNAL_BASE_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  invitation-web:
+    image: invitation-public:local
+    build:
+      context: .
+      args:
+        APP: invitation-web
+    environment:
+      INVITATION_API_BASE_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  edge:
+    image: caddy:2
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - ./ops/Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - local_tls:/data
+      - local_caddy_config:/config
+    depends_on:
+      admin-web:
+        condition: service_healthy
+      invitation-web:
+        condition: service_healthy
+volumes:
+  local_database:
+  local_tls:
+  local_caddy_config:

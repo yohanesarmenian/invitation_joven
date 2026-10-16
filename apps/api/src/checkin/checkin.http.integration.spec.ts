@@ -66,6 +66,7 @@ async function createUserAndSession(input: {
   email: string;
   mustChangePassword?: boolean;
   role: AdminRole;
+  status?: AdminUserStatus;
 }) {
   const user = await prisma.adminUser.create({
     data: {
@@ -73,7 +74,7 @@ async function createUserAndSession(input: {
       mustChangePassword: input.mustChangePassword ?? false,
       passwordHash: await passwordService.hashPassword(PASSWORD),
       role: input.role,
-      status: AdminUserStatus.ACTIVE,
+      status: input.status ?? AdminUserStatus.ACTIVE,
     },
   });
   const tokens = tokenService.generateSessionTokens();
@@ -332,6 +333,25 @@ function manualConfirmRequest(
       invitationId: input.invitationId,
     },
     url: "/api/admin/checkin/manual-confirm",
+  });
+}
+
+function manualStatusRequest(
+  app: NestFastifyApplication,
+  input: {
+    eventId: string;
+    invitationId: string;
+    session: AdminSessionFixture;
+  },
+) {
+  return app.getHttpAdapter().getInstance().inject({
+    headers: unsafeHeaders(input.session),
+    method: "POST",
+    payload: {
+      eventId: input.eventId,
+      invitationId: input.invitationId,
+    },
+    url: "/api/admin/checkin/manual-status",
   });
 }
 
@@ -623,6 +643,286 @@ describe("admin check-in HTTP integration", () => {
       checkinPassId: null,
       method: CheckinMethod.MANUAL,
     });
+  });
+
+  it("reconciles exact manual status without relying on bounded search or active invitations", async () => {
+    const staffSession = await createUserAndSession({
+      email: STAFF_EMAIL,
+      role: AdminRole.CHECKIN_STAFF,
+    });
+    const ownerSession = await createUserAndSession({
+      email: OWNER_EMAIL,
+      role: AdminRole.OWNER,
+    });
+    const unconfirmed = await createCheckinFixture(credentialService, {
+      displayName: "Manual Status Pending",
+      withPass: false,
+    });
+    const confirmed = await createCheckinFixture(credentialService, {
+      displayName: "Manual Status Confirmed",
+      secondEventEligible: true,
+      withPass: false,
+    });
+    const beforeCounts = await Promise.all([
+      prisma.checkinRecord.count(),
+      prisma.rSVP.count(),
+      prisma.invitation.count(),
+      prisma.checkinPass.count(),
+    ]);
+
+    const pendingStatus = await manualStatusRequest(app, {
+      eventId: unconfirmed.event.id,
+      invitationId: unconfirmed.invitation.id,
+      session: staffSession,
+    });
+    const confirm = await manualConfirmRequest(app, {
+      eventId: confirmed.event.id,
+      invitationId: confirmed.invitation.id,
+      session: staffSession,
+    });
+    await prisma.invitation.update({
+      data: {
+        archivedAt: new Date("2026-10-13T00:00:00.000Z"),
+        displayName: "Archived Renamed Household",
+        status: InvitationStatus.ARCHIVED,
+      },
+      where: { id: confirmed.invitation.id },
+    });
+    for (let index = 0; index < 12; index += 1) {
+      await createCheckinFixture(credentialService, {
+        displayName: `Manual Status Search Filler ${String(index).padStart(2, "0")}`,
+        withPass: false,
+      });
+    }
+
+    const searchAfterArchive = await app.getHttpAdapter().getInstance().inject({
+      headers: { cookie: staffSession.cookie },
+      method: "GET",
+      url: `/api/admin/checkin/search?query=manual&eventId=${confirmed.event.id}`,
+    });
+    const confirmedStatus = await manualStatusRequest(app, {
+      eventId: confirmed.event.id,
+      invitationId: confirmed.invitation.id,
+      session: staffSession,
+    });
+    const otherEventStatus = await manualStatusRequest(app, {
+      eventId: confirmed.otherEvent.id,
+      invitationId: confirmed.invitation.id,
+      session: ownerSession,
+    });
+    const finalCounts = await Promise.all([
+      prisma.checkinRecord.count(),
+      prisma.rSVP.count(),
+      prisma.invitation.count(),
+      prisma.checkinPass.count(),
+    ]);
+
+    expect(pendingStatus.statusCode).toBe(200);
+    expect(pendingStatus.json()).toEqual({
+      alreadyCheckedIn: false,
+      previousCheckin: null,
+      status: "NOT_CONFIRMED",
+    });
+    expect(confirm.statusCode).toBe(201);
+    expect(searchAfterArchive.statusCode).toBe(200);
+    expect(searchAfterArchive.body).not.toContain(confirmed.invitation.id);
+    expect(confirmedStatus.statusCode).toBe(200);
+    expect(confirmedStatus.json()).toEqual({
+      alreadyCheckedIn: true,
+      previousCheckin: {
+        attendeeCount: 1,
+        checkedInAt: expect.any(String),
+        confirmedBy: {
+          email: STAFF_EMAIL,
+          id: staffSession.user.id,
+          role: AdminRole.CHECKIN_STAFF,
+        },
+        method: CheckinMethod.MANUAL,
+      },
+      status: "ALREADY_CONFIRMED",
+    });
+    expect(confirmedStatus.body).not.toContain(confirmed.invitation.displayName);
+    expect(confirmedStatus.body).not.toContain("publicTokenHash");
+    expect(confirmedStatus.body).not.toContain("tokenHash");
+    expect(otherEventStatus.statusCode).toBe(200);
+    expect(otherEventStatus.json()).toEqual({
+      alreadyCheckedIn: false,
+      previousCheckin: null,
+      status: "NOT_CONFIRMED",
+    });
+    expect(finalCounts).toEqual([
+      beforeCounts[0] + 1,
+      beforeCounts[1] + 12,
+      beforeCounts[2] + 12,
+      beforeCounts[3],
+    ]);
+  });
+
+  it("enforces manual status auth, CSRF, origin, validation, and non-enumerating errors", async () => {
+    const staffSession = await createUserAndSession({
+      email: STAFF_EMAIL,
+      role: AdminRole.CHECKIN_STAFF,
+    });
+    const disabledSession = await createUserAndSession({
+      email: "disabled-status-checkin@example.com",
+      role: AdminRole.CHECKIN_STAFF,
+      status: AdminUserStatus.DISABLED,
+    });
+    const staleSession = await createUserAndSession({
+      email: "stale-status-checkin@example.com",
+      role: AdminRole.CHECKIN_STAFF,
+    });
+    const mustChangeSession = await createUserAndSession({
+      email: "must-change-status-checkin@example.com",
+      mustChangePassword: true,
+      role: AdminRole.CHECKIN_STAFF,
+    });
+    const fixture = await createCheckinFixture(credentialService, {
+      withPass: false,
+    });
+    const otherFixture = await createCheckinFixture(credentialService, {
+      withPass: false,
+    });
+    await prisma.adminSession.updateMany({
+      data: { expiresAt: new Date("2026-01-01T00:00:00.000Z") },
+      where: { adminUserId: staleSession.user.id },
+    });
+    const payload = {
+      eventId: fixture.event.id,
+      invitationId: fixture.invitation.id,
+    };
+
+    const unauthenticated = await app.getHttpAdapter().getInstance().inject({
+      headers: { origin: ADMIN_ORIGIN },
+      method: "POST",
+      payload,
+      url: "/api/admin/checkin/manual-status",
+    });
+    const disabled = await manualStatusRequest(app, {
+      ...payload,
+      session: disabledSession,
+    });
+    const stale = await manualStatusRequest(app, {
+      ...payload,
+      session: staleSession,
+    });
+    const mustChange = await manualStatusRequest(app, {
+      ...payload,
+      session: mustChangeSession,
+    });
+    const missingCsrf = await app.getHttpAdapter().getInstance().inject({
+      headers: { cookie: staffSession.cookie, origin: ADMIN_ORIGIN },
+      method: "POST",
+      payload,
+      url: "/api/admin/checkin/manual-status",
+    });
+    const badOrigin = await app.getHttpAdapter().getInstance().inject({
+      headers: {
+        cookie: staffSession.cookie,
+        origin: "http://malicious.example",
+        "x-csrf-token": staffSession.csrfToken,
+      },
+      method: "POST",
+      payload,
+      url: "/api/admin/checkin/manual-status",
+    });
+    const invalidUuid = await app.getHttpAdapter().getInstance().inject({
+      headers: unsafeHeaders(staffSession),
+      method: "POST",
+      payload: {
+        eventId: fixture.event.id,
+        invitationId: "not-a-uuid",
+      },
+      url: "/api/admin/checkin/manual-status",
+    });
+    const unsupportedField = await app.getHttpAdapter().getInstance().inject({
+      headers: unsafeHeaders(staffSession),
+      method: "POST",
+      payload: { ...payload, displayName: fixture.invitation.displayName },
+      url: "/api/admin/checkin/manual-status",
+    });
+    const unknownInvitation = await app.getHttpAdapter().getInstance().inject({
+      headers: unsafeHeaders(staffSession),
+      method: "POST",
+      payload: {
+        eventId: fixture.event.id,
+        invitationId: randomUUID(),
+      },
+      url: "/api/admin/checkin/manual-status",
+    });
+    const unauthorizedPairing = await manualStatusRequest(app, {
+      eventId: fixture.event.id,
+      invitationId: otherFixture.invitation.id,
+      session: staffSession,
+    });
+
+    expect(unauthenticated.statusCode).toBe(401);
+    expect(disabled.statusCode).toBe(401);
+    expect(stale.statusCode).toBe(401);
+    expect(mustChange.statusCode).toBe(403);
+    expect(missingCsrf.statusCode).toBe(403);
+    expect(badOrigin.statusCode).toBe(403);
+    expect(invalidUuid.statusCode).toBe(400);
+    expect(unsupportedField.statusCode).toBe(400);
+    expect(unknownInvitation.statusCode).toBe(404);
+    expect(unknownInvitation.body).not.toContain(fixture.invitation.id);
+    expect(unauthorizedPairing.statusCode).toBe(200);
+    expect(unauthorizedPairing.json()).toEqual({
+      alreadyCheckedIn: false,
+      previousCheckin: null,
+      status: "NOT_CONFIRMED",
+    });
+    expect(unauthorizedPairing.body).not.toContain(
+      otherFixture.invitation.displayName,
+    );
+  });
+
+  it("serializes manual status behind an in-flight confirmation lock", async () => {
+    const staffSession = await createUserAndSession({
+      email: "status-race-checkin@example.com",
+      role: AdminRole.CHECKIN_STAFF,
+    });
+    const fixture = await createCheckinFixture(credentialService, {
+      withPass: false,
+    });
+
+    const statusResponse = await startRequestBehindInvitationLock(
+      fixture.invitation.id,
+      () =>
+        manualStatusRequest(app, {
+          eventId: fixture.event.id,
+          invitationId: fixture.invitation.id,
+          session: staffSession,
+        }),
+      async (tx) => {
+        await tx.checkinRecord.create({
+          data: {
+            attendeeCount: 1,
+            checkinPassId: null,
+            confirmedByAdminUserId: staffSession.user.id,
+            eventId: fixture.event.id,
+            invitationId: fixture.invitation.id,
+            method: CheckinMethod.MANUAL,
+          },
+        });
+      },
+    );
+
+    expect(statusResponse.statusCode).toBe(200);
+    expect(statusResponse.json()).toMatchObject({
+      alreadyCheckedIn: true,
+      previousCheckin: {
+        attendeeCount: 1,
+        confirmedBy: {
+          email: "status-race-checkin@example.com",
+          id: staffSession.user.id,
+          role: AdminRole.CHECKIN_STAFF,
+        },
+        method: CheckinMethod.MANUAL,
+      },
+      status: "ALREADY_CONFIRMED",
+    });
+    await expect(prisma.checkinRecord.count()).resolves.toBe(1);
   });
 
   it("rejects invalid credentials, revoked passes, unselected events, and must-change-password sessions", async () => {

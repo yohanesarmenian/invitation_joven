@@ -1,5 +1,9 @@
 # Product Requirements Document
 
+## Owner-approved event content administration
+
+OWNER can manage parking and rundown per existing Event, upload supporting images/PDFs, save drafts, preview, explicitly publish and hide. Draft changes do not alter a current published snapshot. Storage survives application restarts and is included in database backups. Guests receive only current published content/assets for their eligible active Events. CHECKIN_STAFF has no access. This does not add a theme builder, generic CMS, Event editing, or automatic publication. Contract and original-design/REA evidence boundary: `EVENT-CONTENT-ADMIN.md`.
+
 ## Product Objective
 
 Create a personal wedding invitation platform that lets invited households open a personalized invitation, RSVP with accurate household and event headcount information, receive a household QR pass as part of an accepted RSVP transaction, and check in at eligible wedding events. The OWNER uses an internal admin interface to manage invitations, invitees, RSVP state, guest messages, imports, check-in, and reporting.
@@ -211,6 +215,12 @@ The first OWNER is still created by an operator-only command, not through self-r
 
 ## Non-Functional Requirements
 
+### Local reporting and public enhancements (15 October 2026)
+
+The owner authorized the gap backlog for local development. Reporting provides event summary, RSVP/dietary households, confirmed household/event attendance, and expected households not yet checked in. CSV files use those same four groupings and filters. Archived invitations are excluded by default and included only explicitly. Counts across events are attendance instances, never unique people. Actual named/adult/child attendance is unavailable and must not be inferred from RSVP composition.
+
+Public additions use eligible API events: countdown to the next future start, per-event ICS calendar download, and an accessible gallery using existing photos. No invented event end/duration, parking instructions, or rundown. File-based parking/rundown content is optional: only validated `published` documents for events returned by the public API may appear, after Wedding Events and before Dress Code. Missing, invalid, draft, or ineligible content produces no section. Draft samples have a separate explicit development-only synthetic preview, never a guest-route override. OWNER may preview/copy a personal invitation message manually; there is no sending, contact storage, or delivery tracking. This does not authorize production publication.
+
 - Mobile-first public invitation, centered narrow layout on larger screens.
 - Public invitation should support approximately 320, 360, 375, 390, 412, 430, and 480 px mobile widths.
 - Backend must be secure by default and avoid leaking sensitive credentials.
@@ -242,7 +252,7 @@ The first OWNER is still created by an operator-only command, not through self-r
 ## Out of Scope
 
 - Multi-tenant SaaS.
-- Role management beyond OWNER.
+- Role management beyond OWNER and the locked CHECKIN_STAFF role.
 - Payment, registry, marketing automation, CMS, theme builder, AI.
 - Microservices and distributed infrastructure.
 - XLSX report export in MVP.

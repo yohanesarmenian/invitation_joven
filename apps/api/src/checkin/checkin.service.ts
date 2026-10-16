@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { lockEvents } from "../events/event-lock.js";
 import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "../generated/prisma/client.js";
 import {
@@ -17,16 +18,12 @@ import type {
   CredentialLookupHash,
   DerivedCredential,
 } from "../security/credential.types.js";
-import {
-  InvitationNotAvailableError,
-} from "../invitations/invitation-not-available.error.js";
-import {
-  CheckinDomainError,
-  type CheckinErrorCode,
-} from "./checkin.errors.js";
+import { InvitationNotAvailableError } from "../invitations/invitation-not-available.error.js";
+import { CheckinDomainError, type CheckinErrorCode } from "./checkin.errors.js";
 import type {
   AdminCheckinConfirmResponseDto,
   AdminCheckinEventsResponseDto,
+  AdminCheckinManualStatusResponseDto,
   AdminCheckinSearchResponseDto,
   AdminCheckinValidateResponseDto,
   AdminPreviousCheckinDto,
@@ -45,6 +42,11 @@ export type CheckinManualConfirmCommand = {
   invitationId: string;
   eventId: string;
   attendeeCount: number;
+};
+
+export type CheckinManualStatusCommand = {
+  invitationId: string;
+  eventId: string;
 };
 
 export type CheckinSearchCommand = {
@@ -150,6 +152,18 @@ function mapValidateResponse(
     invitation: eligibility.invitation,
     previousCheckin: eligibility.previousCheckin,
     status: alreadyCheckedIn ? "ALREADY_CONFIRMED" : "VALID",
+  };
+}
+
+function mapManualStatusResponse(
+  previousCheckin: AdminPreviousCheckinDto | null,
+): AdminCheckinManualStatusResponseDto {
+  const alreadyCheckedIn = previousCheckin !== null;
+
+  return {
+    alreadyCheckedIn,
+    previousCheckin,
+    status: alreadyCheckedIn ? "ALREADY_CONFIRMED" : "NOT_CONFIRMED",
   };
 }
 
@@ -352,6 +366,37 @@ export class CheckinService {
     });
   }
 
+  async readManualStatus(
+    command: CheckinManualStatusCommand,
+  ): Promise<AdminCheckinManualStatusResponseDto> {
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockInvitationForStatus(tx, command.invitationId);
+
+      const record = await tx.checkinRecord.findUnique({
+        select: {
+          attendeeCount: true,
+          checkedInAt: true,
+          confirmedByAdminUser: {
+            select: {
+              email: true,
+              id: true,
+              role: true,
+            },
+          },
+          method: true,
+        },
+        where: {
+          invitationId_eventId: {
+            eventId: command.eventId,
+            invitationId: command.invitationId,
+          },
+        },
+      });
+
+      return mapManualStatusResponse(mapPreviousCheckin(record));
+    });
+  }
+
   private async resolveActiveCheckinPass(
     tx: CheckinTransaction,
     lookupHash: CredentialLookupHash,
@@ -425,6 +470,22 @@ export class CheckinService {
     }
 
     return invitation;
+  }
+
+  private async lockInvitationForStatus(
+    tx: CheckinTransaction,
+    invitationId: string,
+  ): Promise<void> {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "invitations"
+      WHERE "id" = ${invitationId}::uuid
+      FOR UPDATE
+    `;
+
+    if (!rows[0]) {
+      throw new InvitationNotAvailableError();
+    }
   }
 
   private async readEligibility(
@@ -548,6 +609,7 @@ export class CheckinService {
       operator: CheckinOperator;
     },
   ): Promise<AdminCheckinConfirmResponseDto> {
+    await lockEvents(tx, [input.eventId]);
     const eligibility = await this.readEligibility(tx, input);
 
     if (eligibility.previousCheckin !== null) {

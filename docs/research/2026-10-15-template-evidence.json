@@ -1,0 +1,3924 @@
+{
+  "format": "Analyst projection of REA MCP results; not canonical Evidence bundles",
+  "date": "2026-10-15",
+  "rea": {
+    "version": "6.5.0",
+    "commit": "fc712b3750cbe16755c4f78c1f90fdf09fbaca31",
+    "transport": "real stdio MCP via @modelcontextprotocol/client 2.3.1"
+  },
+  "captures": [
+    {
+      "file": "bianca-initial-result.json",
+      "evidence_id": "ev_7657f542b70806b624e1493364cc5607bcf3386cec3edbf9920cd5a5464cd8d0",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://biancamark.katsudoto.id/736184",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 390,
+            "height": 844,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "no-preference",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "initial-settled",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": [],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "6ae2cd63c8286a3ed933432fb691103bae3cbc10da722a27898fde9140631792"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "incomplete",
+        "equality_eligible": false,
+        "missing_sections": ["events"],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction.",
+        "Some network requests had not completed when capture ended; later activity is unknown."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 5790,
+          "event_sequence_start": 1,
+          "event_sequence_end": 554,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "initial-settled",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1877,
+          "event_sequence_start": 555,
+          "event_sequence_end": 588,
+          "screenshot_sha256": "11db6a1ffc4b104687bbf16243b111140e010ef6bf0b940232849d755ceef8f5",
+          "screenshot_bytes": 107918,
+          "dom_bytes": 363185,
+          "dom_sha256": "b5400ad6b896ce48b11438469b559220d1b22fbcb9016ed4be6b8944b5220cc4",
+          "section_keys": [
+            "opening_cover",
+            "cover",
+            "save_the_date",
+            "couple",
+            "quote",
+            "gallery_photo",
+            "event",
+            "live_streaming",
+            "rundown",
+            "rsvp",
+            "love_story",
+            "filter_instagram",
+            "wedding_gift",
+            "gallery_video",
+            "wedding_wish",
+            "greet_thanks",
+            "footnote"
+          ],
+          "aos_effects": [
+            "fade-down",
+            "fade-down-left",
+            "fade-down-right",
+            "fade-left",
+            "fade-right",
+            "fade-up",
+            "fade-up-left",
+            "fade-up-right",
+            "zoom-in",
+            "zoom-in-up",
+            "zoom-out",
+            "zoom-out-down",
+            "zoom-out-up"
+          ],
+          "declared_aos_durations_ms": [
+            "400",
+            "700",
+            "800",
+            "1000",
+            "1200",
+            "1400",
+            "1500",
+            "1600",
+            "1700",
+            "1800",
+            "1900",
+            "2000",
+            "2400",
+            "2500",
+            "2600",
+            "2700",
+            "2800",
+            "2900",
+            "3000",
+            "3400"
+          ],
+          "script_urls": [
+            "https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js",
+            "https://www.youtube.com/iframe_api",
+            "https://www.googletagmanager.com/gtag/js?id=G-8THC572YHG&amp;cx=c&amp;gtm=4e6ad1",
+            "https://www.googletagmanager.com/gtm.js?id=GTM-P7SMP7M",
+            "https://biancamark.katsudoto.id/src/jquery.js",
+            "/public/dist/1e92684f.js",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://cdnjs.cloudflare.com/ajax/libs/tsparticles/3.0.0/tsparticles.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/@tsparticles/preset-stars@3/tsparticles.preset.stars.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/tsparticles@3.9.1/tsparticles.bundle.min.js",
+            "https://biancamark.katsudoto.id/plugin/aos/dist/aos.js",
+            "https://biancamark.katsudoto.id/plugin/slick/slick.min.js",
+            "https://biancamark.katsudoto.id/plugin/selectize/dist/js/standalone/selectize.min.js",
+            "https://biancamark.katsudoto.id/plugin/modal-video/js/jquery-modal-video.min.js",
+            "https://biancamark.katsudoto.id/plugin/lightgallery/dist/js/lightgallery.min.js",
+            "https://vjs.zencdn.net/8.16.1/video.min.js",
+            "https://unpkg.com/videojs-youtube/dist/Youtube.min.js",
+            "/src/js/html2canvas-1.4.1.1792031414.js",
+            "https://biancamark.katsudoto.id/src/universal.js?1792079203",
+            "https://biancamark.katsudoto.id/src/template/template.js?1792079203",
+            "/public/dist/4f4a06b1.js",
+            "https://biancamark.katsudoto.id/src/template/scroll-lock.js?1792079203",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.14.1/dist/Flip.min.js",
+            "https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js",
+            "/public/dist/03e29344.js"
+          ]
+        }
+      ],
+      "network": {
+        "retained_events": 590,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 197,
+          "response": 196,
+          "request-finished": 192,
+          "request-failed": 3,
+          "request-unfinished": 2
+        },
+        "request_resource_types": {
+          "document": 2,
+          "other": 1,
+          "script": 34,
+          "stylesheet": 30,
+          "image": 106,
+          "font": 9,
+          "fetch": 5,
+          "xhr": 9,
+          "media": 1
+        },
+        "request_origins": {
+          "https://biancamark.katsudoto.id": 36,
+          "https://fonts.googleapis.com": 6,
+          "https://cdnjs.cloudflare.com": 3,
+          "https://unpkg.com": 4,
+          "https://vjs.zencdn.net": 2,
+          "https://cdn.jsdelivr.net": 15,
+          "https://katsudoto.id": 81,
+          "https://img.katsudoto.id": 18,
+          "https://i3.ytimg.com": 2,
+          "https://www.googletagmanager.com": 2,
+          "https://media.katsudoto.id": 2,
+          "https://fonts.gstatic.com": 4,
+          "https://www.google.com": 2,
+          "https://ad.doubleclick.net": 1,
+          "https://www.youtube.com": 12,
+          "https://www.google-analytics.com": 1,
+          "https://img.youtube.com": 1,
+          "https://googleads.g.doubleclick.net": 2,
+          "https://static.doubleclick.net": 1,
+          "https://i.ytimg.com": 1,
+          "https://jnn-pa.googleapis.com": 1
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://www.google.com",
+            "transaction_id": "request-158"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://ad.doubleclick.net",
+            "transaction_id": "request-159"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-161"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://biancamark.katsudoto.id",
+            "transaction_id": "request-163"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://biancamark.katsudoto.id",
+            "transaction_id": "request-165"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://biancamark.katsudoto.id",
+            "transaction_id": "request-166"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://biancamark.katsudoto.id",
+            "transaction_id": "request-171"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://biancamark.katsudoto.id",
+            "transaction_id": "request-177"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-182"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-184"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://jnn-pa.googleapis.com",
+            "transaction_id": "request-187"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-197"
+          }
+        ],
+        "body_capture": false
+      }
+    },
+    {
+      "file": "catalog-result.json",
+      "evidence_id": "ev_4e2bbfc0684cf794be588cf8091b4a861242f25330a5b9375280a126acf0c406",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://katsudoto.id/desain/",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 390,
+            "height": 844,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "no-preference",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "catalog-ready",
+            "timeout_ms": 20000,
+            "action": "wait_for",
+            "locator": {
+              "kind": "css",
+              "selector": ".design-card[data-id=\"64\"]"
+            },
+            "state": "attached"
+          },
+          {
+            "step_id": "settled",
+            "action": "wait_for_timeout",
+            "duration_ms": 1000
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": [],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "baa941e7066e2b74aee8d372f5278e1b77c37ebaf2e46c5e8a2e1c234fb5b34b"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "complete",
+        "equality_eligible": true,
+        "missing_sections": [],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1503,
+          "event_sequence_start": 1,
+          "event_sequence_end": 223,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "catalog-ready",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 832,
+          "event_sequence_start": 224,
+          "event_sequence_end": 371,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "settled",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1065,
+          "event_sequence_start": 372,
+          "event_sequence_end": 423,
+          "screenshot_sha256": "dd868cfbcd3698e716e5b796120889ae41641ea3515b5aec93cf93759f53ed3e",
+          "screenshot_bytes": 198909,
+          "dom_bytes": 145700,
+          "dom_sha256": "1b8be63582b1147734e1df7065b76adb9f5b695ad6c3c066e8b23c2c94ed01f2",
+          "section_keys": [],
+          "aos_effects": [
+            "fade-left",
+            "fade-up",
+            "fade-up-left",
+            "fade-up-right"
+          ],
+          "declared_aos_durations_ms": ["400", "2500"],
+          "script_urls": [
+            "/src/jquery.1792031414.js",
+            "/plugin/slick/slick.min.1749129859.js",
+            "/src/js/lazysizes.min.1792031414.js",
+            "https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js",
+            "https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/Observer.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollToPlugin.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/Draggable.min.js",
+            "/plugin/aos/dist/aos.1749129852.js",
+            "/src/universal.1792031414.js",
+            "/src/module.1792031414.js",
+            "/src/dashboard.v2.1792031414.js",
+            "/src/new/home-page.1792031414.js",
+            "/src/landing/new/landing-page.1792031414.js",
+            "/desain/js/style.1792031414.js"
+          ]
+        }
+      ],
+      "network": {
+        "retained_events": 423,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 141,
+          "response": 141,
+          "request-finished": 141
+        },
+        "request_resource_types": {
+          "document": 1,
+          "other": 1,
+          "stylesheet": 16,
+          "image": 94,
+          "script": 20,
+          "font": 5,
+          "xhr": 4
+        },
+        "request_origins": {
+          "https://katsudoto.id": 124,
+          "https://cdn.jsdelivr.net": 11,
+          "https://fonts.googleapis.com": 4,
+          "https://fonts.gstatic.com": 2
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://katsudoto.id",
+            "transaction_id": "request-75"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://katsudoto.id",
+            "transaction_id": "request-76"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://katsudoto.id",
+            "transaction_id": "request-77"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://katsudoto.id",
+            "transaction_id": "request-79"
+          }
+        ],
+        "body_capture": false
+      }
+    },
+    {
+      "file": "eloise-initial-result.json",
+      "evidence_id": "ev_857a88c8f415db0d36b815d8db82bc5ab72d823ddb9f7827a91f8b34c0093651",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://annajeremiah.katsudoto.id/107754",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 390,
+            "height": 844,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "no-preference",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "initial-settled",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": [],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "89f1a8b3f73baffd884c7c38d4f1a3954f17e463bcbdce891dc541d8c8fe0a63"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "incomplete",
+        "equality_eligible": false,
+        "missing_sections": ["events"],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction.",
+        "Some network requests had not completed when capture ended; later activity is unknown."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 8719,
+          "event_sequence_start": 1,
+          "event_sequence_end": 475,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "initial-settled",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1916,
+          "event_sequence_start": 476,
+          "event_sequence_end": 483,
+          "screenshot_sha256": "52940178947712c6aef89b049cb2e9e4bc5b3021a17f54f643ea981df74d9f5c",
+          "screenshot_bytes": 330632,
+          "dom_bytes": 268200,
+          "dom_sha256": "5a6879a1bfe05813b4e0c244d62b90632ecd3e8ac24ffdd1335b07529113b5be",
+          "section_keys": [
+            "opening_cover",
+            "cover",
+            "quote",
+            "couple",
+            "love_story",
+            "save_the_date",
+            "event",
+            "live_streaming",
+            "rundown",
+            "rsvp",
+            "gallery_photo",
+            "gallery_video",
+            "filter_instagram",
+            "wedding_gift",
+            "wedding_wish",
+            "greet_thanks",
+            "footnote"
+          ],
+          "aos_effects": [
+            "fade-down",
+            "fade-down-right",
+            "fade-left",
+            "fade-right",
+            "fade-up",
+            "fade-up-left",
+            "fade-up-right",
+            "zoom-in",
+            "zoom-in-down",
+            "zoom-in-right",
+            "zoom-in-up",
+            "zoom-out",
+            "zoom-out-up"
+          ],
+          "declared_aos_durations_ms": [
+            "400",
+            "700",
+            "800",
+            "1000",
+            "1200",
+            "1300",
+            "1400",
+            "1500",
+            "1700",
+            "1900",
+            "2000",
+            "2100",
+            "2200",
+            "2400",
+            "2500",
+            "2600",
+            "2700",
+            "2800",
+            "2900",
+            "3000",
+            "3100",
+            "3400",
+            "7000"
+          ],
+          "script_urls": [
+            "https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js",
+            "https://www.googletagmanager.com/gtag/js?id=G-8THC572YHG&amp;cx=c&amp;gtm=4e6ad1",
+            "https://www.youtube.com/iframe_api",
+            "https://www.googletagmanager.com/gtm.js?id=GTM-P7SMP7M",
+            "https://annajeremiah.katsudoto.id/src/jquery.js",
+            "/public/dist/1e92684f.js",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://cdnjs.cloudflare.com/ajax/libs/tsparticles/3.0.0/tsparticles.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/@tsparticles/preset-stars@3/tsparticles.preset.stars.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/tsparticles@3.9.1/tsparticles.bundle.min.js",
+            "https://annajeremiah.katsudoto.id/plugin/aos/dist/aos.js",
+            "https://annajeremiah.katsudoto.id/plugin/slick/slick.min.js",
+            "https://annajeremiah.katsudoto.id/plugin/selectize/dist/js/standalone/selectize.min.js",
+            "https://annajeremiah.katsudoto.id/plugin/modal-video/js/jquery-modal-video.min.js",
+            "https://annajeremiah.katsudoto.id/plugin/lightgallery/dist/js/lightgallery.min.js",
+            "https://vjs.zencdn.net/8.16.1/video.min.js",
+            "https://unpkg.com/videojs-youtube/dist/Youtube.min.js",
+            "/src/js/html2canvas-1.4.1.1792031414.js",
+            "https://annajeremiah.katsudoto.id/src/universal.js?1792079207",
+            "https://annajeremiah.katsudoto.id/src/template/template.js?1792079207",
+            "/public/dist/4f4a06b1.js",
+            "https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/Observer.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/Draggable.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.14.1/dist/Flip.min.js",
+            "https://annajeremiah.katsudoto.id/src/template/scroll-lock.js?1792079207",
+            "/public/dist/bfafa3d2.js"
+          ]
+        }
+      ],
+      "network": {
+        "retained_events": 486,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 163,
+          "response": 160,
+          "request-finished": 157,
+          "request-failed": 3,
+          "request-unfinished": 3
+        },
+        "request_resource_types": {
+          "document": 2,
+          "other": 1,
+          "script": 35,
+          "stylesheet": 30,
+          "image": 72,
+          "font": 10,
+          "fetch": 4,
+          "xhr": 8,
+          "media": 1
+        },
+        "request_origins": {
+          "https://annajeremiah.katsudoto.id": 81,
+          "https://fonts.googleapis.com": 6,
+          "https://cdnjs.cloudflare.com": 3,
+          "https://unpkg.com": 4,
+          "https://vjs.zencdn.net": 2,
+          "https://cdn.jsdelivr.net": 15,
+          "https://img.katsudoto.id": 15,
+          "https://i3.ytimg.com": 2,
+          "https://katsudoto.id": 6,
+          "https://www.googletagmanager.com": 2,
+          "https://media.katsudoto.id": 2,
+          "https://fonts.gstatic.com": 5,
+          "https://www.youtube.com": 10,
+          "https://www.google.com": 2,
+          "https://ad.doubleclick.net": 1,
+          "https://img.youtube.com": 1,
+          "https://www.google-analytics.com": 1,
+          "https://googleads.g.doubleclick.net": 2,
+          "https://static.doubleclick.net": 1,
+          "https://i.ytimg.com": 1,
+          "https://jnn-pa.googleapis.com": 1
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://www.google.com",
+            "transaction_id": "request-136"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://ad.doubleclick.net",
+            "transaction_id": "request-137"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-138"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-140"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-141"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-146"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-147"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-152"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-159"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://jnn-pa.googleapis.com",
+            "transaction_id": "request-163"
+          }
+        ],
+        "body_capture": false
+      }
+    },
+    {
+      "file": "eloise-journey-result.json",
+      "evidence_id": "ev_8742d73fdd8cbccbbfaf64e015d58ef063ffe7dfd5d43db42d72019228fbe8d8",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://annajeremiah.katsudoto.id/107754",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 390,
+            "height": 844,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "no-preference",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "ready",
+            "action": "wait_for_timeout",
+            "duration_ms": 2500
+          },
+          {
+            "step_id": "open",
+            "timeout_ms": 12000,
+            "action": "click",
+            "locator": {
+              "kind": "css",
+              "selector": "#openInvTrigger"
+            },
+            "button": "left",
+            "click_count": 1
+          },
+          {
+            "step_id": "open-early",
+            "action": "wait_for_timeout",
+            "duration_ms": 300
+          },
+          {
+            "step_id": "open-settled",
+            "action": "wait_for_timeout",
+            "duration_ms": 3500
+          },
+          {
+            "step_id": "scroll-1",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-1",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-2",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-2",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-3",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-3",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-4",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-4",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": ["screenshot", "url"],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "8e7030ca58afb3d6cf6b61082319331613071f4168c9f99b55798333e7272331"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "complete",
+        "equality_eligible": true,
+        "missing_sections": [],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 5910,
+          "event_sequence_start": 1,
+          "event_sequence_end": 430,
+          "screenshot_sha256": "8d298f74e5d67b23b77aa5f306a45ca37c14fdc37edf799f59167f772ada4df2",
+          "screenshot_bytes": 10120
+        },
+        {
+          "step_id": "ready",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 2594,
+          "event_sequence_start": 431,
+          "event_sequence_end": 488,
+          "screenshot_sha256": "e0922ca88023fa8eb669c2c02d00db0ca1cdeaa1f88dc129ebeb51524eee5840",
+          "screenshot_bytes": 330323
+        },
+        {
+          "step_id": "open",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 129,
+          "event_sequence_start": 489,
+          "event_sequence_end": 488,
+          "screenshot_sha256": "f63fde6106677a94f7c75051e04e08eb3c3c076ad3a95356091c1d5a151ac4f6",
+          "screenshot_bytes": 330402
+        },
+        {
+          "step_id": "open-early",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 400,
+          "event_sequence_start": 489,
+          "event_sequence_end": 488,
+          "screenshot_sha256": "632dfd31a7c9b6d82fca5a9a9a65269eafdeb244de3a1f83e381d0f79555961d",
+          "screenshot_bytes": 328563
+        },
+        {
+          "step_id": "open-settled",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 3613,
+          "event_sequence_start": 489,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "ce02234a050fc85248f01418fda1bc338e456bb0bc2b340689200a8cd3510bc3",
+          "screenshot_bytes": 373254
+        },
+        {
+          "step_id": "scroll-1",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 88,
+          "event_sequence_start": 511,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "ce02234a050fc85248f01418fda1bc338e456bb0bc2b340689200a8cd3510bc3",
+          "screenshot_bytes": 373254
+        },
+        {
+          "step_id": "scroll-settled-1",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1872,
+          "event_sequence_start": 511,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "11e690edbbfbe6d55121fd5aa9623d41ae0525a89b3e6eb4d12da88664debde2",
+          "screenshot_bytes": 211102
+        },
+        {
+          "step_id": "scroll-2",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 63,
+          "event_sequence_start": 511,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "ea04dce02244b0a9d55e77d1b98ade5d5642f468d197b1210bbe93add42455b0",
+          "screenshot_bytes": 211091
+        },
+        {
+          "step_id": "scroll-settled-2",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1854,
+          "event_sequence_start": 511,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "5087ce7be0d0380de6d0ae640266f1c7a9621085bad40e39529a48043c61c97f",
+          "screenshot_bytes": 104343
+        },
+        {
+          "step_id": "scroll-3",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 46,
+          "event_sequence_start": 511,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "5087ce7be0d0380de6d0ae640266f1c7a9621085bad40e39529a48043c61c97f",
+          "screenshot_bytes": 104343
+        },
+        {
+          "step_id": "scroll-settled-3",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1857,
+          "event_sequence_start": 511,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "f7aac1ee304ea0269c5e23fb4abdff5bee8d73eddb829637f93f4ed33ffb3f07",
+          "screenshot_bytes": 210824
+        },
+        {
+          "step_id": "scroll-4",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 53,
+          "event_sequence_start": 511,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "f7aac1ee304ea0269c5e23fb4abdff5bee8d73eddb829637f93f4ed33ffb3f07",
+          "screenshot_bytes": 210824
+        },
+        {
+          "step_id": "scroll-settled-4",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1867,
+          "event_sequence_start": 511,
+          "event_sequence_end": 510,
+          "screenshot_sha256": "532b4cf74f789624903b6f151b64f604a422bd77a68dd76ce1efb6cc7e8e9449",
+          "screenshot_bytes": 251231,
+          "dom_bytes": 276898,
+          "dom_sha256": "191cbe6f0b646941e4008bf2c064b9e14ee562f134a639b3d4de0889a45c116f",
+          "section_keys": [
+            "cover",
+            "quote",
+            "couple",
+            "love_story",
+            "save_the_date",
+            "event",
+            "live_streaming",
+            "rundown",
+            "rsvp",
+            "gallery_photo",
+            "gallery_video",
+            "filter_instagram",
+            "wedding_gift",
+            "wedding_wish",
+            "greet_thanks",
+            "footnote"
+          ],
+          "aos_effects": [
+            "fade-down",
+            "fade-down-right",
+            "fade-left",
+            "fade-right",
+            "fade-up",
+            "fade-up-left",
+            "fade-up-right",
+            "zoom-in",
+            "zoom-in-down",
+            "zoom-in-right",
+            "zoom-in-up",
+            "zoom-out",
+            "zoom-out-up"
+          ],
+          "declared_aos_durations_ms": [
+            "400",
+            "700",
+            "800",
+            "1000",
+            "1200",
+            "1300",
+            "1400",
+            "1500",
+            "1700",
+            "1900",
+            "2000",
+            "2100",
+            "2200",
+            "2400",
+            "2500",
+            "2600",
+            "2700",
+            "2800",
+            "2900",
+            "3000",
+            "3400",
+            "7000"
+          ],
+          "script_urls": [
+            "https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js",
+            "https://www.googletagmanager.com/gtag/js?id=G-8THC572YHG&amp;cx=c&amp;gtm=4e6ad1",
+            "https://www.youtube.com/iframe_api",
+            "https://www.googletagmanager.com/gtm.js?id=GTM-P7SMP7M",
+            "https://annajeremiah.katsudoto.id/src/jquery.js",
+            "/public/dist/1e92684f.js",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://cdnjs.cloudflare.com/ajax/libs/tsparticles/3.0.0/tsparticles.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/@tsparticles/preset-stars@3/tsparticles.preset.stars.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/tsparticles@3.9.1/tsparticles.bundle.min.js",
+            "https://annajeremiah.katsudoto.id/plugin/aos/dist/aos.js",
+            "https://annajeremiah.katsudoto.id/plugin/slick/slick.min.js",
+            "https://annajeremiah.katsudoto.id/plugin/selectize/dist/js/standalone/selectize.min.js",
+            "https://annajeremiah.katsudoto.id/plugin/modal-video/js/jquery-modal-video.min.js",
+            "https://annajeremiah.katsudoto.id/plugin/lightgallery/dist/js/lightgallery.min.js",
+            "https://vjs.zencdn.net/8.16.1/video.min.js",
+            "https://unpkg.com/videojs-youtube/dist/Youtube.min.js",
+            "/src/js/html2canvas-1.4.1.1792031414.js",
+            "https://annajeremiah.katsudoto.id/src/universal.js?1792079280",
+            "https://annajeremiah.katsudoto.id/src/template/template.js?1792079280",
+            "/public/dist/4f4a06b1.js",
+            "https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/Observer.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/Draggable.min.js",
+            "https://cdn.jsdelivr.net/npm/gsap@3.14.1/dist/Flip.min.js",
+            "https://annajeremiah.katsudoto.id/src/template/scroll-lock.js?1792079280",
+            "/public/dist/bfafa3d2.js"
+          ]
+        }
+      ],
+      "network": {
+        "retained_events": 510,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 170,
+          "response": 170,
+          "request-finished": 166,
+          "request-failed": 4
+        },
+        "request_resource_types": {
+          "document": 2,
+          "other": 1,
+          "script": 35,
+          "stylesheet": 30,
+          "image": 75,
+          "font": 11,
+          "fetch": 6,
+          "xhr": 9,
+          "media": 1
+        },
+        "request_origins": {
+          "https://annajeremiah.katsudoto.id": 81,
+          "https://fonts.googleapis.com": 6,
+          "https://cdnjs.cloudflare.com": 3,
+          "https://unpkg.com": 4,
+          "https://vjs.zencdn.net": 2,
+          "https://cdn.jsdelivr.net": 16,
+          "https://img.katsudoto.id": 18,
+          "https://i3.ytimg.com": 2,
+          "https://katsudoto.id": 6,
+          "https://www.googletagmanager.com": 2,
+          "https://media.katsudoto.id": 2,
+          "https://fonts.gstatic.com": 5,
+          "https://www.youtube.com": 12,
+          "https://www.google.com": 2,
+          "https://ad.doubleclick.net": 1,
+          "https://www.google-analytics.com": 2,
+          "https://img.youtube.com": 1,
+          "https://googleads.g.doubleclick.net": 2,
+          "https://static.doubleclick.net": 1,
+          "https://i.ytimg.com": 1,
+          "https://jnn-pa.googleapis.com": 1
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://www.google.com",
+            "transaction_id": "request-136"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://ad.doubleclick.net",
+            "transaction_id": "request-137"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-139"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-140"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-142"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-143"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-148"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://annajeremiah.katsudoto.id",
+            "transaction_id": "request-154"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-159"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-161"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://jnn-pa.googleapis.com",
+            "transaction_id": "request-164"
+          },
+          {
+            "step_index": 4,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-165"
+          },
+          {
+            "step_index": 4,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-166"
+          }
+        ],
+        "body_capture": false
+      }
+    },
+    {
+      "file": "noir-desktop-focused-result.json",
+      "evidence_id": "ev_5f45230c27a2aa230088453d9b6e166a240c80821ab51dc12ad1de0ed73b1735",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://oliviamichael.katsudoto.id/629425",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 1440,
+            "height": 900,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "no-preference",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "desktop-ready",
+            "action": "wait_for_timeout",
+            "duration_ms": 2200
+          },
+          {
+            "step_id": "desktop-scroll-1",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "desktop-settled-1",
+            "action": "wait_for_timeout",
+            "duration_ms": 1700
+          },
+          {
+            "step_id": "desktop-scroll-2",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "desktop-settled-2",
+            "action": "wait_for_timeout",
+            "duration_ms": 1700
+          },
+          {
+            "step_id": "desktop-scroll-3",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "desktop-settled-3",
+            "action": "wait_for_timeout",
+            "duration_ms": 1700
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": [],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "b1c6211b260aa7892780c5c2135285b9deded43894e2acdd1c3b4c6290d61bf9"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "complete",
+        "equality_eligible": true,
+        "missing_sections": [],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 4652,
+          "event_sequence_start": 1,
+          "event_sequence_end": 291,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "desktop-ready",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 2215,
+          "event_sequence_start": 292,
+          "event_sequence_end": 302,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "desktop-scroll-1",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 31,
+          "event_sequence_start": 303,
+          "event_sequence_end": 302,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "desktop-settled-1",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1711,
+          "event_sequence_start": 303,
+          "event_sequence_end": 307,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "desktop-scroll-2",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 6,
+          "event_sequence_start": 308,
+          "event_sequence_end": 307,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "desktop-settled-2",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1704,
+          "event_sequence_start": 308,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "desktop-scroll-3",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 6,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "desktop-settled-3",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1940,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "5d53fb892e58c63a5db311429f0f8dd80ead9ab8f116e7af525066b0252b1504",
+          "screenshot_bytes": 1019401,
+          "dom_bytes": 191165,
+          "dom_sha256": "edf0afae50c6bd5b88afb24f3f92458093ea6d6a1dfd4540931b950eba8620b8",
+          "section_keys": [
+            "opening_cover",
+            "cover",
+            "quote",
+            "couple",
+            "gallery_photo",
+            "gallery_video",
+            "event",
+            "rundown",
+            "rsvp",
+            "live_streaming",
+            "love_story",
+            "filter_instagram",
+            "wedding_gift",
+            "wedding_wish",
+            "greet_thanks",
+            "footnote"
+          ],
+          "aos_effects": [
+            "fade-down",
+            "fade-left",
+            "fade-up",
+            "zoom-in",
+            "zoom-out",
+            "zoom-out-up"
+          ],
+          "declared_aos_durations_ms": [
+            "400",
+            "500",
+            "1000",
+            "1200",
+            "1500",
+            "2000"
+          ],
+          "script_urls": [
+            "https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js",
+            "https://www.youtube.com/iframe_api",
+            "https://www.googletagmanager.com/gtag/js?id=G-8THC572YHG&amp;cx=c&amp;gtm=4e6ad1",
+            "https://www.googletagmanager.com/gtm.js?id=GTM-P7SMP7M",
+            "https://oliviamichael.katsudoto.id/src/jquery.js",
+            "/public/dist/1e92684f.js",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://cdnjs.cloudflare.com/ajax/libs/tsparticles/3.0.0/tsparticles.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/@tsparticles/preset-stars@3/tsparticles.preset.stars.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/tsparticles@3.9.1/tsparticles.bundle.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/aos/dist/aos.js",
+            "https://oliviamichael.katsudoto.id/plugin/slick/slick.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/selectize/dist/js/standalone/selectize.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/modal-video/js/jquery-modal-video.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/lightgallery/dist/js/lightgallery.min.js",
+            "https://vjs.zencdn.net/8.16.1/video.min.js",
+            "https://unpkg.com/videojs-youtube/dist/Youtube.min.js",
+            "/src/js/html2canvas-1.4.1.1792031414.js",
+            "https://oliviamichael.katsudoto.id/src/universal.js?1792079457",
+            "https://oliviamichael.katsudoto.id/src/template/template.js?1792079457",
+            "/public/dist/4f4a06b1.js",
+            "https://oliviamichael.katsudoto.id/src/template/scroll-lock.js?1792079457",
+            "/public/dist/d4e2873f.js"
+          ]
+        }
+      ],
+      "network": {
+        "retained_events": 309,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 103,
+          "response": 103,
+          "request-finished": 99,
+          "request-failed": 4
+        },
+        "request_resource_types": {
+          "document": 2,
+          "other": 1,
+          "script": 29,
+          "stylesheet": 28,
+          "image": 18,
+          "fetch": 6,
+          "font": 9,
+          "xhr": 9,
+          "media": 1
+        },
+        "request_origins": {
+          "https://oliviamichael.katsudoto.id": 37,
+          "https://fonts.googleapis.com": 5,
+          "https://cdnjs.cloudflare.com": 3,
+          "https://unpkg.com": 4,
+          "https://vjs.zencdn.net": 2,
+          "https://img.katsudoto.id": 11,
+          "https://i3.ytimg.com": 2,
+          "https://cdn.jsdelivr.net": 8,
+          "https://www.googletagmanager.com": 2,
+          "https://media.katsudoto.id": 2,
+          "https://www.google.com": 2,
+          "https://ad.doubleclick.net": 1,
+          "https://www.google-analytics.com": 2,
+          "https://katsudoto.id": 2,
+          "https://fonts.gstatic.com": 2,
+          "https://www.youtube.com": 12,
+          "https://img.youtube.com": 1,
+          "https://googleads.g.doubleclick.net": 2,
+          "https://static.doubleclick.net": 1,
+          "https://i.ytimg.com": 1,
+          "https://jnn-pa.googleapis.com": 1
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://www.google.com",
+            "transaction_id": "request-49"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://ad.doubleclick.net",
+            "transaction_id": "request-50"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-51"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-74"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-78"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-79"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-84"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-91"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-96"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-99"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://jnn-pa.googleapis.com",
+            "transaction_id": "request-101"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-102"
+          },
+          {
+            "step_index": 3,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-103"
+          }
+        ],
+        "body_capture": false
+      }
+    },
+    {
+      "file": "noir-desktop-result.json",
+      "evidence_id": "ev_a300f8f6b3ec9216bf29f23905077c5a44b13f001c61a926062fefbbedaddcd9",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://oliviamichael.katsudoto.id/629425",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 1440,
+            "height": 900,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "no-preference",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "ready",
+            "action": "wait_for_timeout",
+            "duration_ms": 2500
+          },
+          {
+            "step_id": "open",
+            "timeout_ms": 12000,
+            "action": "click",
+            "locator": {
+              "kind": "css",
+              "selector": "#startToExplore"
+            },
+            "button": "left",
+            "click_count": 1
+          },
+          {
+            "step_id": "open-early",
+            "action": "wait_for_timeout",
+            "duration_ms": 300
+          },
+          {
+            "step_id": "open-settled",
+            "action": "wait_for_timeout",
+            "duration_ms": 3500
+          },
+          {
+            "step_id": "scroll-1",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-1",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-2",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-2",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-3",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-3",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-4",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-4",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": ["screenshot", "url"],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "d12ccdee630fb66e934cfb4fc2ec08c9297834dd936e3745284e4110afe2ce49"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "incomplete",
+        "equality_eligible": false,
+        "missing_sections": ["action", "dom", "screenshot", "url"],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 4391,
+          "event_sequence_start": 1,
+          "event_sequence_end": 293,
+          "screenshot_sha256": "928de27d8581704f10edcc4ed13b5924f4ffa97e5a8ab5f04410e55f01a2a26f",
+          "screenshot_bytes": 15145
+        },
+        {
+          "step_id": "ready",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 2836,
+          "event_sequence_start": 294,
+          "event_sequence_end": 307,
+          "screenshot_sha256": "74a62472353b0992db9095888a9ce7c598fc2baf43129717928ca9a7895c002e",
+          "screenshot_bytes": 1177086
+        },
+        {
+          "step_id": "open",
+          "status": "failed",
+          "error": "Analysis operation timed out after 12000ms: capture_browser_scenario",
+          "elapsed_ms": 12332,
+          "event_sequence_start": 308,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "74a62472353b0992db9095888a9ce7c598fc2baf43129717928ca9a7895c002e",
+          "screenshot_bytes": 1177086
+        },
+        {
+          "step_id": "open-early",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "open-settled",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "scroll-1",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "scroll-settled-1",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "scroll-2",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "scroll-settled-2",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "scroll-3",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "scroll-settled-3",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "scroll-4",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "scroll-settled-4",
+          "status": "cancelled",
+          "error": "not executed after an earlier action failure",
+          "elapsed_ms": 0,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        }
+      ],
+      "network": {
+        "retained_events": 309,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 103,
+          "response": 103,
+          "request-finished": 100,
+          "request-failed": 3
+        },
+        "request_resource_types": {
+          "document": 2,
+          "other": 1,
+          "script": 29,
+          "stylesheet": 28,
+          "image": 18,
+          "font": 10,
+          "xhr": 9,
+          "media": 1,
+          "fetch": 5
+        },
+        "request_origins": {
+          "https://oliviamichael.katsudoto.id": 37,
+          "https://fonts.googleapis.com": 5,
+          "https://cdnjs.cloudflare.com": 3,
+          "https://unpkg.com": 4,
+          "https://vjs.zencdn.net": 2,
+          "https://img.katsudoto.id": 11,
+          "https://i3.ytimg.com": 2,
+          "https://cdn.jsdelivr.net": 8,
+          "https://www.googletagmanager.com": 2,
+          "https://media.katsudoto.id": 2,
+          "https://katsudoto.id": 2,
+          "https://fonts.gstatic.com": 3,
+          "https://www.youtube.com": 12,
+          "https://img.youtube.com": 1,
+          "https://www.google.com": 2,
+          "https://ad.doubleclick.net": 1,
+          "https://www.google-analytics.com": 1,
+          "https://googleads.g.doubleclick.net": 2,
+          "https://static.doubleclick.net": 1,
+          "https://i.ytimg.com": 1,
+          "https://jnn-pa.googleapis.com": 1
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-71"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-75"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-76"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google.com",
+            "transaction_id": "request-81"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://ad.doubleclick.net",
+            "transaction_id": "request-82"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-84"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-86"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-87"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-97"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-99"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://jnn-pa.googleapis.com",
+            "transaction_id": "request-102"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-103"
+          }
+        ],
+        "body_capture": false
+      }
+    },
+    {
+      "file": "noir-desktop-scroll-result.json",
+      "error": {
+        "code": "resource_constraint",
+        "category": "resource_constraint",
+        "message": "The operation completed, but its complete MCP response exceeds the stdio response budget. The analysis result was not truncated. Export retained evidence to consume the complete analysis, or use complete CLI JSON output.",
+        "retryable": false,
+        "remediation": {
+          "action": "Discover retained records with get_evidence_bundle and detail: summary, then inspect compatible records through inspect_analysis_view using an exact Evidence reference. Export complete retained session evidence through export_evidence_bundle to a caller-selected path, or use complete CLI JSON output. The connection remains usable."
+        },
+        "details": {
+          "operation": "capture_browser_scenario",
+          "resource": "transport",
+          "reason": "The operation completed, but its complete MCP response exceeds the stdio response budget. The analysis result was not truncated. Export retained evidence to consume the complete analysis, or use complete CLI JSON output.",
+          "reported_limits": {
+            "boundary": "mcp-response",
+            "default_receive_buffer_bytes": 10485760,
+            "result_budget_bytes": 10484736,
+            "max_string_code_units": 536869864,
+            "response_bytes_at_least": 10596156,
+            "response_code_units_at_least": 10596156,
+            "constraint": "receive-buffer",
+            "evidence_id": "ev_b16d049ae4059220909a09694b52aa3b3a719831dca4884ad8c2465a2a8434b9",
+            "evidence_reference": {
+              "kind": "retained-evidence",
+              "evidence_id": "ev_b16d049ae4059220909a09694b52aa3b3a719831dca4884ad8c2465a2a8434b9"
+            }
+          }
+        }
+      }
+    },
+    {
+      "file": "noir-initial-result.json",
+      "evidence_id": "ev_a86ee0733e3a3074863833d48fb5b852e0a4297f121e956cc4bb5042fd98a409",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://oliviamichael.katsudoto.id/629425",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 390,
+            "height": 844,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "no-preference",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "initial-settled",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": [],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "b8506ff167305d5daaf622fb253a90b15f65dce6ba27ea6f550a9875448aa911"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "incomplete",
+        "equality_eligible": false,
+        "missing_sections": ["events"],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction.",
+        "Some network requests had not completed when capture ended; later activity is unknown."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 4202,
+          "event_sequence_start": 1,
+          "event_sequence_end": 293,
+          "screenshot_sha256": null,
+          "screenshot_bytes": null
+        },
+        {
+          "step_id": "initial-settled",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1928,
+          "event_sequence_start": 294,
+          "event_sequence_end": 301,
+          "screenshot_sha256": "61c465f9963d26fe71f063f8eea7aa4e5a086078c690e688f0c2fb4f3625df8b",
+          "screenshot_bytes": 312526,
+          "dom_bytes": 187648,
+          "dom_sha256": "fb257261fa31af556b024064c432a7c320a5876a85bf29fc4ef15deceb558206",
+          "section_keys": [
+            "opening_cover",
+            "cover",
+            "quote",
+            "couple",
+            "gallery_photo",
+            "gallery_video",
+            "event",
+            "rundown",
+            "rsvp",
+            "live_streaming",
+            "love_story",
+            "filter_instagram",
+            "wedding_gift",
+            "wedding_wish",
+            "greet_thanks",
+            "footnote"
+          ],
+          "aos_effects": [
+            "fade-down",
+            "fade-left",
+            "fade-up",
+            "zoom-in",
+            "zoom-out",
+            "zoom-out-up"
+          ],
+          "declared_aos_durations_ms": [
+            "400",
+            "500",
+            "1000",
+            "1200",
+            "1500",
+            "2000"
+          ],
+          "script_urls": [
+            "https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js",
+            "https://www.googletagmanager.com/gtag/js?id=G-8THC572YHG&amp;cx=c&amp;gtm=4e6ad1",
+            "https://www.youtube.com/iframe_api",
+            "https://www.googletagmanager.com/gtm.js?id=GTM-P7SMP7M",
+            "https://oliviamichael.katsudoto.id/src/jquery.js",
+            "/public/dist/1e92684f.js",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://cdnjs.cloudflare.com/ajax/libs/tsparticles/3.0.0/tsparticles.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/@tsparticles/preset-stars@3/tsparticles.preset.stars.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/tsparticles@3.9.1/tsparticles.bundle.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/aos/dist/aos.js",
+            "https://oliviamichael.katsudoto.id/plugin/slick/slick.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/selectize/dist/js/standalone/selectize.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/modal-video/js/jquery-modal-video.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/lightgallery/dist/js/lightgallery.min.js",
+            "https://vjs.zencdn.net/8.16.1/video.min.js",
+            "https://unpkg.com/videojs-youtube/dist/Youtube.min.js",
+            "/src/js/html2canvas-1.4.1.1792031414.js",
+            "https://oliviamichael.katsudoto.id/src/universal.js?1792079203",
+            "https://oliviamichael.katsudoto.id/src/template/template.js?1792079203",
+            "/public/dist/4f4a06b1.js",
+            "https://oliviamichael.katsudoto.id/src/template/scroll-lock.js?1792079203",
+            "/public/dist/d4e2873f.js"
+          ]
+        }
+      ],
+      "network": {
+        "retained_events": 302,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 101,
+          "response": 100,
+          "request-finished": 97,
+          "request-failed": 3,
+          "request-unfinished": 1
+        },
+        "request_resource_types": {
+          "document": 2,
+          "other": 1,
+          "script": 29,
+          "stylesheet": 28,
+          "image": 18,
+          "font": 10,
+          "fetch": 4,
+          "xhr": 8,
+          "media": 1
+        },
+        "request_origins": {
+          "https://oliviamichael.katsudoto.id": 37,
+          "https://fonts.googleapis.com": 5,
+          "https://cdnjs.cloudflare.com": 3,
+          "https://unpkg.com": 4,
+          "https://vjs.zencdn.net": 2,
+          "https://img.katsudoto.id": 11,
+          "https://i3.ytimg.com": 2,
+          "https://cdn.jsdelivr.net": 8,
+          "https://www.googletagmanager.com": 2,
+          "https://media.katsudoto.id": 2,
+          "https://katsudoto.id": 2,
+          "https://fonts.gstatic.com": 3,
+          "https://www.youtube.com": 10,
+          "https://www.google.com": 2,
+          "https://ad.doubleclick.net": 1,
+          "https://img.youtube.com": 1,
+          "https://www.google-analytics.com": 1,
+          "https://googleads.g.doubleclick.net": 2,
+          "https://static.doubleclick.net": 1,
+          "https://i.ytimg.com": 1,
+          "https://jnn-pa.googleapis.com": 1
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://www.google.com",
+            "transaction_id": "request-72"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://ad.doubleclick.net",
+            "transaction_id": "request-73"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-74"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-78"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-79"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-84"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-86"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-87"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-97"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://jnn-pa.googleapis.com",
+            "transaction_id": "request-101"
+          }
+        ],
+        "body_capture": false
+      }
+    },
+    {
+      "file": "noir-journey-result.json",
+      "evidence_id": "ev_d32ff16ad57115dc6f946f8d2b9f59d5f7786333b81b23efc9281a53dc649f8b",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://oliviamichael.katsudoto.id/629425",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 390,
+            "height": 844,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "no-preference",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "ready",
+            "action": "wait_for_timeout",
+            "duration_ms": 2500
+          },
+          {
+            "step_id": "open",
+            "timeout_ms": 12000,
+            "action": "click",
+            "locator": {
+              "kind": "css",
+              "selector": "#startToExplore"
+            },
+            "button": "left",
+            "click_count": 1
+          },
+          {
+            "step_id": "open-early",
+            "action": "wait_for_timeout",
+            "duration_ms": 300
+          },
+          {
+            "step_id": "open-settled",
+            "action": "wait_for_timeout",
+            "duration_ms": 3500
+          },
+          {
+            "step_id": "scroll-1",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-1",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-2",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-2",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-3",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-3",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-4",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-4",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": ["screenshot", "url"],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "05f06d13b032b490fc56eec529f7d64935e5b5d98922878bbd53e77acae34da4"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "complete",
+        "equality_eligible": true,
+        "missing_sections": [],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 4594,
+          "event_sequence_start": 1,
+          "event_sequence_end": 297,
+          "screenshot_sha256": "c22924676c5bbf672d801df61ae577f3d526c44e5a9907c60b24f1ed383167c5",
+          "screenshot_bytes": 11809
+        },
+        {
+          "step_id": "ready",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 2615,
+          "event_sequence_start": 298,
+          "event_sequence_end": 304,
+          "screenshot_sha256": "61c465f9963d26fe71f063f8eea7aa4e5a086078c690e688f0c2fb4f3625df8b",
+          "screenshot_bytes": 312526
+        },
+        {
+          "step_id": "open",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 163,
+          "event_sequence_start": 305,
+          "event_sequence_end": 304,
+          "screenshot_sha256": "1e579abd381f5da93a342e4cf967975761d42e4157843ca66a21ffd766fdb8dd",
+          "screenshot_bytes": 315666
+        },
+        {
+          "step_id": "open-early",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 409,
+          "event_sequence_start": 305,
+          "event_sequence_end": 306,
+          "screenshot_sha256": "7d5b64c64335867ba4aeb7eeb7d0e4548a345bac442bd2608957cfbd2e30f83d",
+          "screenshot_bytes": 314069
+        },
+        {
+          "step_id": "open-settled",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 3589,
+          "event_sequence_start": 307,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "1e579abd381f5da93a342e4cf967975761d42e4157843ca66a21ffd766fdb8dd",
+          "screenshot_bytes": 315666
+        },
+        {
+          "step_id": "scroll-1",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 110,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "e841dd0537a6c81d673582be6e32fc1a2b43ba723e0bc97970e397021d628c86",
+          "screenshot_bytes": 312948
+        },
+        {
+          "step_id": "scroll-settled-1",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1896,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "c21887027d71d1d01706be789fe491e4eb19d069e5d1e5f3dcad468909483710",
+          "screenshot_bytes": 243521
+        },
+        {
+          "step_id": "scroll-2",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 90,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "c21887027d71d1d01706be789fe491e4eb19d069e5d1e5f3dcad468909483710",
+          "screenshot_bytes": 243521
+        },
+        {
+          "step_id": "scroll-settled-2",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1875,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "6ac34b4a719b8174accda1fc6ceb330e71ae6ce11dfed7dc2dab09af9e226b3b",
+          "screenshot_bytes": 250362
+        },
+        {
+          "step_id": "scroll-3",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 92,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "6ac34b4a719b8174accda1fc6ceb330e71ae6ce11dfed7dc2dab09af9e226b3b",
+          "screenshot_bytes": 250362
+        },
+        {
+          "step_id": "scroll-settled-3",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1865,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "cbe771b90383c58942b029e9adee0518130bad1599fefe9466b0d7a79ea5ffd3",
+          "screenshot_bytes": 224807
+        },
+        {
+          "step_id": "scroll-4",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 74,
+          "event_sequence_start": 310,
+          "event_sequence_end": 309,
+          "screenshot_sha256": "cbe771b90383c58942b029e9adee0518130bad1599fefe9466b0d7a79ea5ffd3",
+          "screenshot_bytes": 224807
+        },
+        {
+          "step_id": "scroll-settled-4",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1890,
+          "event_sequence_start": 310,
+          "event_sequence_end": 358,
+          "screenshot_sha256": "04f649626b4cb60b88aff428bb15fbb76e58dfb091645fe3eb19b8b01bcdd757",
+          "screenshot_bytes": 265670,
+          "dom_bytes": 190074,
+          "dom_sha256": "fb8116b81793d03254cc8036b8571e484dc4dcafc31c8c8c5c9cfba785458dd4",
+          "section_keys": [
+            "cover",
+            "quote",
+            "couple",
+            "gallery_photo",
+            "gallery_video",
+            "event",
+            "rundown",
+            "rsvp",
+            "live_streaming",
+            "love_story",
+            "filter_instagram",
+            "wedding_gift",
+            "wedding_wish",
+            "greet_thanks",
+            "footnote"
+          ],
+          "aos_effects": [
+            "fade-down",
+            "fade-left",
+            "fade-up",
+            "zoom-in",
+            "zoom-out",
+            "zoom-out-up"
+          ],
+          "declared_aos_durations_ms": [
+            "400",
+            "500",
+            "1000",
+            "1200",
+            "1500",
+            "2000"
+          ],
+          "script_urls": [
+            "https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js",
+            "https://www.googletagmanager.com/gtag/js?id=G-8THC572YHG&amp;cx=c&amp;gtm=4e6ae0h2",
+            "https://www.youtube.com/iframe_api",
+            "https://www.googletagmanager.com/gtm.js?id=GTM-P7SMP7M",
+            "https://oliviamichael.katsudoto.id/src/jquery.js",
+            "/public/dist/1e92684f.js",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://cdnjs.cloudflare.com/ajax/libs/tsparticles/3.0.0/tsparticles.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/@tsparticles/preset-stars@3/tsparticles.preset.stars.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/tsparticles@3.9.1/tsparticles.bundle.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/aos/dist/aos.js",
+            "https://oliviamichael.katsudoto.id/plugin/slick/slick.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/selectize/dist/js/standalone/selectize.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/modal-video/js/jquery-modal-video.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/lightgallery/dist/js/lightgallery.min.js",
+            "https://vjs.zencdn.net/8.16.1/video.min.js",
+            "https://unpkg.com/videojs-youtube/dist/Youtube.min.js",
+            "/src/js/html2canvas-1.4.1.1792031414.js",
+            "https://oliviamichael.katsudoto.id/src/universal.js?1792079277",
+            "https://oliviamichael.katsudoto.id/src/template/template.js?1792079277",
+            "/public/dist/4f4a06b1.js",
+            "https://oliviamichael.katsudoto.id/src/template/scroll-lock.js?1792079277",
+            "/public/dist/d4e2873f.js"
+          ]
+        }
+      ],
+      "network": {
+        "retained_events": 358,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 120,
+          "response": 118,
+          "request-finished": 111,
+          "request-failed": 9
+        },
+        "request_resource_types": {
+          "document": 2,
+          "other": 1,
+          "script": 30,
+          "stylesheet": 28,
+          "image": 25,
+          "font": 10,
+          "xhr": 9,
+          "media": 1,
+          "fetch": 14
+        },
+        "request_origins": {
+          "https://oliviamichael.katsudoto.id": 37,
+          "https://www.googletagmanager.com": 2,
+          "https://fonts.googleapis.com": 5,
+          "https://cdnjs.cloudflare.com": 3,
+          "https://unpkg.com": 4,
+          "https://vjs.zencdn.net": 2,
+          "https://img.katsudoto.id": 11,
+          "https://i3.ytimg.com": 2,
+          "https://cdn.jsdelivr.net": 8,
+          "https://media.katsudoto.id": 2,
+          "https://katsudoto.id": 2,
+          "https://fonts.gstatic.com": 4,
+          "https://www.youtube.com": 17,
+          "https://img.youtube.com": 1,
+          "https://www.google.com": 2,
+          "https://ad.doubleclick.net": 1,
+          "https://www.google-analytics.com": 2,
+          "https://googleads.g.doubleclick.net": 2,
+          "https://static.doubleclick.net": 1,
+          "https://i.ytimg.com": 4,
+          "https://jnn-pa.googleapis.com": 1,
+          "https://www.gstatic.com": 1,
+          "https://yt3.ggpht.com": 4,
+          "https://rr1---sn-2uuxa3vh-cqvk.googlevideo.com": 2
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-71"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-75"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-76"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google.com",
+            "transaction_id": "request-81"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://ad.doubleclick.net",
+            "transaction_id": "request-82"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-84"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-86"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-87"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-97"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://jnn-pa.googleapis.com",
+            "transaction_id": "request-101"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-102"
+          },
+          {
+            "step_index": 4,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-103"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-104"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://rr1---sn-2uuxa3vh-cqvk.googlevideo.com",
+            "transaction_id": "request-107"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-108"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-114"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://rr1---sn-2uuxa3vh-cqvk.googlevideo.com",
+            "transaction_id": "request-115"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-116"
+          }
+        ],
+        "body_capture": false
+      }
+    },
+    {
+      "file": "noir-reduced-result.json",
+      "evidence_id": "ev_0994b4ee0c506ed505a1f804858f6d00691c3a118454c566f59350f8dc94832d",
+      "parameters": {
+        "browser": {
+          "mode": "launch",
+          "executable_path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "headless": true
+        },
+        "start_url": {
+          "url": "https://oliviamichael.katsudoto.id/629425",
+          "query": []
+        },
+        "environment": {
+          "viewport": {
+            "width": 390,
+            "height": 844,
+            "device_scale_factor": 1
+          },
+          "locale": "en-US",
+          "timezone": "Asia/Jakarta",
+          "color_scheme": "light",
+          "reduced_motion": "reduce",
+          "service_workers": "block"
+        },
+        "actions": [
+          {
+            "step_id": "ready",
+            "action": "wait_for_timeout",
+            "duration_ms": 2500
+          },
+          {
+            "step_id": "open",
+            "timeout_ms": 12000,
+            "action": "click",
+            "locator": {
+              "kind": "css",
+              "selector": "#startToExplore"
+            },
+            "button": "left",
+            "click_count": 1
+          },
+          {
+            "step_id": "open-early",
+            "action": "wait_for_timeout",
+            "duration_ms": 300
+          },
+          {
+            "step_id": "open-settled",
+            "action": "wait_for_timeout",
+            "duration_ms": 3500
+          },
+          {
+            "step_id": "scroll-1",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-1",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-2",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-2",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-3",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-3",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          },
+          {
+            "step_id": "scroll-4",
+            "timeout_ms": 5000,
+            "action": "press",
+            "locator": {
+              "kind": "css",
+              "selector": "body"
+            },
+            "key": "PageDown"
+          },
+          {
+            "step_id": "scroll-settled-4",
+            "action": "wait_for_timeout",
+            "duration_ms": 1800
+          }
+        ],
+        "storage": {
+          "cookies": [],
+          "local_storage": [],
+          "session_storage": []
+        },
+        "secrets": [],
+        "capture": {
+          "after_each_step": ["screenshot", "url"],
+          "at_end": ["dom", "screenshot", "url"],
+          "events": ["network", "page-errors"],
+          "network": {
+            "request_body": false,
+            "response_body": false,
+            "header_values": false
+          },
+          "limits": {
+            "max_events": 10000,
+            "max_event_allocation_bytes": 4194304,
+            "max_total_event_allocation_bytes": 16777216,
+            "max_network_transactions": 1024,
+            "max_network_body_bytes": 65536,
+            "max_network_body_allocation_bytes": 1048576,
+            "max_network_header_allocation_bytes": 1048576,
+            "max_network_metadata_allocation_bytes": 1048576
+          }
+        },
+        "scenario_sha256": "aaa72afb4a0f5129f70a8760cf87addc5d03e6ff691a6fe9e83ed296b7d98dcc"
+      },
+      "browser": {
+        "mode": "launch",
+        "process_ownership": "provider-owned",
+        "cleanup": "terminated-owned-process",
+        "product": "Chromium",
+        "version": "155.0.8059.40"
+      },
+      "completeness": {
+        "status": "complete",
+        "equality_eligible": true,
+        "missing_sections": [],
+        "truncated_sections": []
+      },
+      "limitations": [
+        "Event sequence records provider receipt order; simultaneous browser causality is not inferred.",
+        "Network content is retained only when selected; Playwright response-body bytes are API results and are not guaranteed to match wire bytes.",
+        "Request bytes are limited to what Playwright exposes; not_exposed does not establish body absence or multipart file coverage.",
+        "Network content reads settle within 5 seconds each and the observer does not request bodies from unfinished responses.",
+        "Playwright scenario events do not expose request initiator stacks; receipt order does not prove causality.",
+        "Storage values are hashed only after declared-secret redaction."
+      ],
+      "steps": [
+        {
+          "step_id": "scenario_start",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 4757,
+          "event_sequence_start": 1,
+          "event_sequence_end": 312,
+          "screenshot_sha256": "a7d0b405be49cb11568ad5a1bb946854fe127c3e80423ce6ae3eacf0a244136e",
+          "screenshot_bytes": 11916
+        },
+        {
+          "step_id": "ready",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 2593,
+          "event_sequence_start": 313,
+          "event_sequence_end": 324,
+          "screenshot_sha256": "61c465f9963d26fe71f063f8eea7aa4e5a086078c690e688f0c2fb4f3625df8b",
+          "screenshot_bytes": 312526
+        },
+        {
+          "step_id": "open",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 140,
+          "event_sequence_start": 325,
+          "event_sequence_end": 327,
+          "screenshot_sha256": "1e579abd381f5da93a342e4cf967975761d42e4157843ca66a21ffd766fdb8dd",
+          "screenshot_bytes": 315666
+        },
+        {
+          "step_id": "open-early",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 413,
+          "event_sequence_start": 328,
+          "event_sequence_end": 328,
+          "screenshot_sha256": "7d5b64c64335867ba4aeb7eeb7d0e4548a345bac442bd2608957cfbd2e30f83d",
+          "screenshot_bytes": 314069
+        },
+        {
+          "step_id": "open-settled",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 3602,
+          "event_sequence_start": 329,
+          "event_sequence_end": 333,
+          "screenshot_sha256": "1e579abd381f5da93a342e4cf967975761d42e4157843ca66a21ffd766fdb8dd",
+          "screenshot_bytes": 315666
+        },
+        {
+          "step_id": "scroll-1",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 91,
+          "event_sequence_start": 334,
+          "event_sequence_end": 333,
+          "screenshot_sha256": "1e579abd381f5da93a342e4cf967975761d42e4157843ca66a21ffd766fdb8dd",
+          "screenshot_bytes": 315666
+        },
+        {
+          "step_id": "scroll-settled-1",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1880,
+          "event_sequence_start": 334,
+          "event_sequence_end": 333,
+          "screenshot_sha256": "c21887027d71d1d01706be789fe491e4eb19d069e5d1e5f3dcad468909483710",
+          "screenshot_bytes": 243521
+        },
+        {
+          "step_id": "scroll-2",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 96,
+          "event_sequence_start": 334,
+          "event_sequence_end": 333,
+          "screenshot_sha256": "e10eca4e2da2386f69bce110d5a6bbd6f201bb88714abf8205342cc900f8de47",
+          "screenshot_bytes": 241519
+        },
+        {
+          "step_id": "scroll-settled-2",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1901,
+          "event_sequence_start": 334,
+          "event_sequence_end": 333,
+          "screenshot_sha256": "6ac34b4a719b8174accda1fc6ceb330e71ae6ce11dfed7dc2dab09af9e226b3b",
+          "screenshot_bytes": 250362
+        },
+        {
+          "step_id": "scroll-3",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 90,
+          "event_sequence_start": 334,
+          "event_sequence_end": 333,
+          "screenshot_sha256": "6ac34b4a719b8174accda1fc6ceb330e71ae6ce11dfed7dc2dab09af9e226b3b",
+          "screenshot_bytes": 250362
+        },
+        {
+          "step_id": "scroll-settled-3",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1886,
+          "event_sequence_start": 334,
+          "event_sequence_end": 333,
+          "screenshot_sha256": "cbe771b90383c58942b029e9adee0518130bad1599fefe9466b0d7a79ea5ffd3",
+          "screenshot_bytes": 224807
+        },
+        {
+          "step_id": "scroll-4",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 79,
+          "event_sequence_start": 334,
+          "event_sequence_end": 333,
+          "screenshot_sha256": "cbe771b90383c58942b029e9adee0518130bad1599fefe9466b0d7a79ea5ffd3",
+          "screenshot_bytes": 224807
+        },
+        {
+          "step_id": "scroll-settled-4",
+          "status": "completed",
+          "error": null,
+          "elapsed_ms": 1903,
+          "event_sequence_start": 334,
+          "event_sequence_end": 385,
+          "screenshot_sha256": "c3dfc7454d06ae51b9fdda5b5d94144e991ae9ca5450c7185298ab5c62437591",
+          "screenshot_bytes": 265663,
+          "dom_bytes": 190045,
+          "dom_sha256": "258546f088559bef48439ecb412ae4ef9b5f901e825f7b73db30ef56650300fe",
+          "section_keys": [
+            "cover",
+            "quote",
+            "couple",
+            "gallery_photo",
+            "gallery_video",
+            "event",
+            "rundown",
+            "rsvp",
+            "live_streaming",
+            "love_story",
+            "filter_instagram",
+            "wedding_gift",
+            "wedding_wish",
+            "greet_thanks",
+            "footnote"
+          ],
+          "aos_effects": [
+            "fade-down",
+            "fade-left",
+            "fade-up",
+            "zoom-in",
+            "zoom-out",
+            "zoom-out-up"
+          ],
+          "declared_aos_durations_ms": [
+            "400",
+            "500",
+            "1000",
+            "1200",
+            "1500",
+            "2000"
+          ],
+          "script_urls": [
+            "https://www.youtube.com/s/player/21090930/www-widgetapi.vflset/www-widgetapi.js",
+            "https://www.googletagmanager.com/gtag/js?id=G-8THC572YHG&amp;cx=c&amp;gtm=4e6ad1h1",
+            "https://www.youtube.com/iframe_api",
+            "https://www.googletagmanager.com/gtm.js?id=GTM-P7SMP7M",
+            "https://oliviamichael.katsudoto.id/src/jquery.js",
+            "/public/dist/1e92684f.js",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://unpkg.com/@phosphor-icons/web",
+            "https://cdnjs.cloudflare.com/ajax/libs/tsparticles/3.0.0/tsparticles.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/@tsparticles/preset-stars@3/tsparticles.preset.stars.bundle.min.js",
+            "https://cdn.jsdelivr.net/npm/tsparticles@3.9.1/tsparticles.bundle.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/aos/dist/aos.js",
+            "https://oliviamichael.katsudoto.id/plugin/slick/slick.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/selectize/dist/js/standalone/selectize.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/modal-video/js/jquery-modal-video.min.js",
+            "https://oliviamichael.katsudoto.id/plugin/lightgallery/dist/js/lightgallery.min.js",
+            "https://vjs.zencdn.net/8.16.1/video.min.js",
+            "https://unpkg.com/videojs-youtube/dist/Youtube.min.js",
+            "/src/js/html2canvas-1.4.1.1792031414.js",
+            "https://oliviamichael.katsudoto.id/src/universal.js?1792079277",
+            "https://oliviamichael.katsudoto.id/src/template/template.js?1792079277",
+            "/public/dist/4f4a06b1.js",
+            "https://oliviamichael.katsudoto.id/src/template/scroll-lock.js?1792079277",
+            "/public/dist/d4e2873f.js"
+          ]
+        }
+      ],
+      "network": {
+        "retained_events": 385,
+        "dropped_events": 0,
+        "event_kinds": {
+          "request": 129,
+          "response": 127,
+          "request-finished": 120,
+          "request-failed": 9
+        },
+        "request_resource_types": {
+          "document": 2,
+          "other": 1,
+          "script": 30,
+          "stylesheet": 28,
+          "image": 34,
+          "font": 10,
+          "xhr": 9,
+          "media": 1,
+          "fetch": 14
+        },
+        "request_origins": {
+          "https://oliviamichael.katsudoto.id": 37,
+          "https://fonts.googleapis.com": 5,
+          "https://cdnjs.cloudflare.com": 3,
+          "https://unpkg.com": 4,
+          "https://vjs.zencdn.net": 2,
+          "https://img.katsudoto.id": 11,
+          "https://i3.ytimg.com": 2,
+          "https://www.googletagmanager.com": 11,
+          "https://cdn.jsdelivr.net": 8,
+          "https://media.katsudoto.id": 2,
+          "https://katsudoto.id": 2,
+          "https://fonts.gstatic.com": 4,
+          "https://www.youtube.com": 17,
+          "https://img.youtube.com": 1,
+          "https://www.google.com": 2,
+          "https://ad.doubleclick.net": 1,
+          "https://www.google-analytics.com": 2,
+          "https://googleads.g.doubleclick.net": 2,
+          "https://static.doubleclick.net": 1,
+          "https://i.ytimg.com": 4,
+          "https://jnn-pa.googleapis.com": 1,
+          "https://www.gstatic.com": 1,
+          "https://yt3.ggpht.com": 4,
+          "https://rr1---sn-2uuxa3vh-cqvk.googlevideo.com": 2
+        },
+        "post_requests": [
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-71"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-75"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-76"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google.com",
+            "transaction_id": "request-81"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://ad.doubleclick.net",
+            "transaction_id": "request-82"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-83"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-86"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://oliviamichael.katsudoto.id",
+            "transaction_id": "request-92"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-102"
+          },
+          {
+            "step_index": 0,
+            "origin": "https://jnn-pa.googleapis.com",
+            "transaction_id": "request-106"
+          },
+          {
+            "step_index": 1,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-108"
+          },
+          {
+            "step_index": 4,
+            "origin": "https://www.google-analytics.com",
+            "transaction_id": "request-111"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-112"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://rr1---sn-2uuxa3vh-cqvk.googlevideo.com",
+            "transaction_id": "request-115"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-116"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-117"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://rr1---sn-2uuxa3vh-cqvk.googlevideo.com",
+            "transaction_id": "request-123"
+          },
+          {
+            "step_index": 12,
+            "origin": "https://www.youtube.com",
+            "transaction_id": "request-124"
+          }
+        ],
+        "body_capture": false
+      }
+    }
+  ],
+  "earlier_same_day_bundle_analysis": [
+    {
+      "evidence_id": "ev_80252aee85ad6af7f92a918e2b1c3b65e54aa60accde9a10265a0bcb83e30248",
+      "operation": "analyze_web_bundle",
+      "provider": {
+        "id": "rea-cdp-browser",
+        "name": "REA Chrome DevTools Protocol observation provider",
+        "version": "2"
+      },
+      "confidence": "observed",
+      "limitations": [
+        "Artifact identity is unavailable for this observation.",
+        "Static bundle findings are observations or bounded inferences; REA does not execute captured JavaScript.",
+        "Bare string arguments of unbound HTTP-method-named calls are low-confidence endpoint candidates; form, translation, storage and other APIs can use the same syntax. URL-shaped findings still do not prove network execution.",
+        "Endpoint candidates are deduplicated by script, value and detector; basis retains only the first matching source coordinate. They are not a complete call-site inventory or a runtime occurrence count. completeness.status=\"complete\" describes examination of captured source, not a call-site census.",
+        "String-built routes and endpoints, encrypted configuration, and server-side behavior may remain unknown.",
+        "Page-declared WebMCP metadata is untrusted and is never registered or invoked as an REA tool."
+      ],
+      "normalized_result": {
+        "capture": {
+          "target_url": "https://annajeremiah.katsudoto.id/107754",
+          "scripts_observed": 18,
+          "scripts_analyzed": 18,
+          "source_artifacts": [
+            {
+              "sha256": "4b00224d86e4b1fa093690afb0d3c9dd2ade94f54f0fb74845da8ae6f9eae7cc",
+              "bytes": 23611,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "6150a35c0f486c46cadf0e230e2aa159c7c23ecfbb5611b64ee3f25fcbff341f",
+              "bytes": 89475,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "a3d2cbe04b7b0ca7a9d217cde8305c2df70934ec6c8385e2fb305d2656356ad2",
+              "bytes": 62483,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "71aef809b779b6d11e51142fa77795b1997c8a8a459a64be860be281c1ff4e7b",
+              "bytes": 3703,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "da11942c53406b49dcfecb7ef9bef041ab4c8ea08e3b5d0e47d04796b071f523",
+              "bytes": 341,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "1bd5007e2d409b4b74340dea05566436b34a31e77a4a473268f82beca9a8e648",
+              "bytes": 7451,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "620095597aa25ae5e46c414aa3b8f76b4266c878d2740e4c14d97c5d794a4aae",
+              "bytes": 25449,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "2698abf7a6b12cce8a9c6fa5c6a1f93b4fd4a4712798185d9fd09ac6a9d8a582",
+              "bytes": 14791,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "91b1ca52c99d51466ed02330ec8b0f48185de3cbfd114a6b1a96b3080ecfce7f",
+              "bytes": 1057,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "d495e351d1903a785aee9d2967ff570665c26774b6237ea58b1f6a7978af7a17",
+              "bytes": 74731,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "85daba90685061d221c5f369c788fa9f26aa2aca25829326ebae4994ffcf4995",
+              "bytes": 1626,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "b6733bd2d5c0a451517906ec8db93a5678f044a7aa88d4b6b2215d6c53b69bc7",
+              "bytes": 5873,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "d420cb3998d02f948d4bc0f64bf2aee8fc80af9201354cfb691b579388d1e49e",
+              "bytes": 921,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "0c7178cc6ca34fb18e30f070a5e7a1c287b2d7ccfcba2cfdf06e0f46eda55740",
+              "bytes": 42863,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "4460f1596174d06cca957fdaca2c71e1a377cf1d6f07ee4c75ffb3bf3fc97a03",
+              "bytes": 14243,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "6240d83730606b8d905cb26b46324f23e65b3c1a7326c5b7f25ec7e116c9c979",
+              "bytes": 12525,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "1dc3d6e5c33a18d36deb16b45c4f822dc0281d4b9095fc3753e350dea84c10b3",
+              "bytes": 33588,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            },
+            {
+              "sha256": "6df3e58b6c66f1bf06fdd66690adc157c895df220159f8096e1448a21103a2ef",
+              "bytes": 443849,
+              "media_type": "text/javascript",
+              "charset": "utf-8",
+              "text_available": true
+            }
+          ]
+        },
+        "observations": {
+          "chunks": {
+            "nodes": [
+              {
+                "script_key": "scr_00d3083403292c6861f26644a125f2688e727581afbcab9046fde637a2f2cdf6",
+                "url": "https://annajeremiah.katsudoto.id/cdn-cgi/challenge-platform/scripts/jsd/main.js",
+                "artifact_sha256": "4b00224d86e4b1fa093690afb0d3c9dd2ade94f54f0fb74845da8ae6f9eae7cc",
+                "bytes": 23611
+              },
+              {
+                "script_key": "scr_019199c6665443e1794010a79f826d2c511992c95d8e4b33b87753348ef240d7",
+                "url": "https://annajeremiah.katsudoto.id/src/jquery.js",
+                "artifact_sha256": "6150a35c0f486c46cadf0e230e2aa159c7c23ecfbb5611b64ee3f25fcbff341f",
+                "bytes": 89475
+              },
+              {
+                "script_key": "scr_0223da1fb2765c263b7b3e75f825945a6370f5934267dc3f49319f7acb142333",
+                "url": "https://annajeremiah.katsudoto.id/plugin/selectize/dist/js/standalone/selectize.min.js",
+                "artifact_sha256": "a3d2cbe04b7b0ca7a9d217cde8305c2df70934ec6c8385e2fb305d2656356ad2",
+                "bytes": 62483
+              },
+              {
+                "script_key": "scr_0efc5a182a788dca5c98a57b8a52e9a3449522a72c3ae971e94d02f1625bb30b",
+                "url": "https://annajeremiah.katsudoto.id/public/dist/1e92684f.js",
+                "artifact_sha256": "71aef809b779b6d11e51142fa77795b1997c8a8a459a64be860be281c1ff4e7b",
+                "bytes": 3703
+              },
+              {
+                "script_key": "scr_168c1615c0cd4e96ea35523554599d1308e11e4e9e5ed5f0f4006368943aaeb0",
+                "url": "https://annajeremiah.katsudoto.id/107754",
+                "artifact_sha256": "da11942c53406b49dcfecb7ef9bef041ab4c8ea08e3b5d0e47d04796b071f523",
+                "bytes": 341
+              },
+              {
+                "script_key": "scr_1787912f3ac9ba49cf52fb12c2e56d0d7340ff8b7ffc86cf7e977ee538bc20a4",
+                "url": "https://annajeremiah.katsudoto.id/plugin/modal-video/js/jquery-modal-video.min.js",
+                "artifact_sha256": "1bd5007e2d409b4b74340dea05566436b34a31e77a4a473268f82beca9a8e648",
+                "bytes": 7451
+              },
+              {
+                "script_key": "scr_44b779b08d3c9416644cccc3b2abf56b28d716587c741f8615e01c0c37bb3910",
+                "url": "https://annajeremiah.katsudoto.id/plugin/lightgallery/dist/js/lightgallery.min.js",
+                "artifact_sha256": "620095597aa25ae5e46c414aa3b8f76b4266c878d2740e4c14d97c5d794a4aae",
+                "bytes": 25449
+              },
+              {
+                "script_key": "scr_74e3fbecb9b5c6ebbf0987bbf8a1203eadcfffec937aa7a4be0ee3e26223803e",
+                "url": "https://annajeremiah.katsudoto.id/src/template/scroll-lock.js?1792047924",
+                "artifact_sha256": "2698abf7a6b12cce8a9c6fa5c6a1f93b4fd4a4712798185d9fd09ac6a9d8a582",
+                "bytes": 14791
+              },
+              {
+                "script_key": "scr_89ce2dee2cac60f02a0ef1a7a40d769103697bbb228605cca6a01cf19d29abf9",
+                "url": "https://annajeremiah.katsudoto.id/107754",
+                "artifact_sha256": "91b1ca52c99d51466ed02330ec8b0f48185de3cbfd114a6b1a96b3080ecfce7f",
+                "bytes": 1057
+              },
+              {
+                "script_key": "scr_907655e6914e7da2ff80dc0a9be267010ba6d22c378bb5d066619a12a182d54f",
+                "url": "https://annajeremiah.katsudoto.id/public/dist/4f4a06b1.js",
+                "artifact_sha256": "d495e351d1903a785aee9d2967ff570665c26774b6237ea58b1f6a7978af7a17",
+                "bytes": 74731
+              },
+              {
+                "script_key": "scr_913cbac6774a631b7319643ecb1853ee7f57213b0ad4171f2e74491436049ef9",
+                "url": "https://annajeremiah.katsudoto.id/107754",
+                "artifact_sha256": "85daba90685061d221c5f369c788fa9f26aa2aca25829326ebae4994ffcf4995",
+                "bytes": 1626
+              },
+              {
+                "script_key": "scr_981b50bc08547cf949b3710edaa521dee3b293f26900c3dda863285c5c32aa7d",
+                "url": "https://annajeremiah.katsudoto.id/107754",
+                "artifact_sha256": "b6733bd2d5c0a451517906ec8db93a5678f044a7aa88d4b6b2215d6c53b69bc7",
+                "bytes": 5873
+              },
+              {
+                "script_key": "scr_9af15bf41b843cef852c212ad95e517df8f1f4dda765b4ed7a5a5ebae1c646d6",
+                "url": "https://annajeremiah.katsudoto.id/107754",
+                "artifact_sha256": "d420cb3998d02f948d4bc0f64bf2aee8fc80af9201354cfb691b579388d1e49e",
+                "bytes": 921
+              },
+              {
+                "script_key": "scr_adc9ba16850f99d2a2d080692e1a8fccc6e57201a686caa4ae65d6d5d467fe81",
+                "url": "https://annajeremiah.katsudoto.id/plugin/slick/slick.min.js",
+                "artifact_sha256": "0c7178cc6ca34fb18e30f070a5e7a1c287b2d7ccfcba2cfdf06e0f46eda55740",
+                "bytes": 42863
+              },
+              {
+                "script_key": "scr_c311073bdd4267708899b700990f39f06f0281b119a45f5378782e70ac05ca6f",
+                "url": "https://annajeremiah.katsudoto.id/plugin/aos/dist/aos.js",
+                "artifact_sha256": "4460f1596174d06cca957fdaca2c71e1a377cf1d6f07ee4c75ffb3bf3fc97a03",
+                "bytes": 14243
+              },
+              {
+                "script_key": "scr_cf0c8e747cece26104c6d291fc5fcebe7ffa131c4f4fb85333b2ea719ba5a957",
+                "url": "https://annajeremiah.katsudoto.id/public/dist/bfafa3d2.js",
+                "artifact_sha256": "6240d83730606b8d905cb26b46324f23e65b3c1a7326c5b7f25ec7e116c9c979",
+                "bytes": 12525
+              },
+              {
+                "script_key": "scr_f185b98c34d5bc377da3e98fea53a26d421646f1e928406300c8c4b1353b2a2e",
+                "url": "https://annajeremiah.katsudoto.id/src/universal.js?1792047924",
+                "artifact_sha256": "1dc3d6e5c33a18d36deb16b45c4f822dc0281d4b9095fc3753e350dea84c10b3",
+                "bytes": 33588
+              },
+              {
+                "script_key": "scr_fe0d23e9d0ad49f5cbd3e8b2e5c65ae0d8476c3b4d2dc1e533cbcd3b9faa8200",
+                "url": "https://annajeremiah.katsudoto.id/src/js/html2canvas-1.4.1.1792031414.js",
+                "artifact_sha256": "6df3e58b6c66f1bf06fdd66690adc157c895df220159f8096e1448a21103a2ef",
+                "bytes": 443849
+              }
+            ],
+            "edges": [
+              {
+                "from_script_key": "scr_0223da1fb2765c263b7b3e75f825945a6370f5934267dc3f49319f7acb142333",
+                "kind": "require",
+                "specifier": "jquery",
+                "resolved_url": null,
+                "location": {
+                  "script_key": "scr_0223da1fb2765c263b7b3e75f825945a6370f5934267dc3f49319f7acb142333",
+                  "line": 3,
+                  "column": 8234
+                }
+              },
+              {
+                "from_script_key": "scr_0223da1fb2765c263b7b3e75f825945a6370f5934267dc3f49319f7acb142333",
+                "kind": "require",
+                "specifier": "sifter",
+                "resolved_url": null,
+                "location": {
+                  "script_key": "scr_0223da1fb2765c263b7b3e75f825945a6370f5934267dc3f49319f7acb142333",
+                  "line": 3,
+                  "column": 8252
+                }
+              },
+              {
+                "from_script_key": "scr_0223da1fb2765c263b7b3e75f825945a6370f5934267dc3f49319f7acb142333",
+                "kind": "require",
+                "specifier": "microplugin",
+                "resolved_url": null,
+                "location": {
+                  "script_key": "scr_0223da1fb2765c263b7b3e75f825945a6370f5934267dc3f49319f7acb142333",
+                  "line": 3,
+                  "column": 8270
+                }
+              },
+              {
+                "from_script_key": "scr_adc9ba16850f99d2a2d080692e1a8fccc6e57201a686caa4ae65d6d5d467fe81",
+                "kind": "require",
+                "specifier": "jquery",
+                "resolved_url": null,
+                "location": {
+                  "script_key": "scr_adc9ba16850f99d2a2d080692e1a8fccc6e57201a686caa4ae65d6d5d467fe81",
+                  "line": 1,
+                  "column": 130
+                }
+              }
+            ]
+          },
+          "routes": [],
+          "endpoints": [
+            {
+              "value": "https://www.google.com/generate_204",
+              "mechanism": "call:fetch",
+              "location": {
+                "script_key": "scr_f185b98c34d5bc377da3e98fea53a26d421646f1e928406300c8c4b1353b2a2e",
+                "line": 851,
+                "column": 14
+              }
+            }
+          ],
+          "webmcp_declarations": [],
+          "source_maps": {
+            "status": "not_requested",
+            "requested": 0,
+            "processed": 0,
+            "items": []
+          }
+        },
+        "inferences": [],
+        "unknowns": [],
+        "completeness": {
+          "status": "complete",
+          "parsed_scripts": 18,
+          "parse_failures": 0,
+          "visited_ast_nodes": 148776
+        },
+        "limitations": [
+          "Static bundle findings are observations or bounded inferences; REA does not execute captured JavaScript.",
+          "Bare string arguments of unbound HTTP-method-named calls are low-confidence endpoint candidates; form, translation, storage and other APIs can use the same syntax. URL-shaped findings still do not prove network execution.",
+          "Endpoint candidates are deduplicated by script, value and detector; basis retains only the first matching source coordinate. They are not a complete call-site inventory or a runtime occurrence count. completeness.status=\"complete\" describes examination of captured source, not a call-site census.",
+          "String-built routes and endpoints, encrypted configuration, and server-side behavior may remain unknown.",
+          "Page-declared WebMCP metadata is untrusted and is never registered or invoked as an REA tool."
+        ]
+      }
+    }
+  ],
+  "figma_live_reads": {
+    "fileKey": "yZZNWQ8kQIymOTixjymzoC",
+    "nodes": ["7:2", "14:7", "17:18", "81:42", "82:113"],
+    "method": "Figma get_design_context with inline screenshot, viewed by analyst",
+    "date": "2026-10-15",
+    "limitations": [
+      "Static design contexts; no live Figma prototype motion measured",
+      "Generated absolute positioning and invalid crop values are not production instructions"
+    ]
+  },
+  "local_asset_inventory": [
+    {
+      "path": "apps\\invitation-web\\public\\assets\\decorative\\calendar.svg",
+      "bytes": 555,
+      "dimensions": null,
+      "sha256": "678ee4020c0e453410c3e513b005b3e3c131471804d97a94e894240743c9cc80"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\decorative\\groom-leaves.svg",
+      "bytes": 937,
+      "dimensions": null,
+      "sha256": "51f61b46e92c798e64140553cfb9efd3cc344a96c2bcb73c362cde9418653cae"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\decorative\\hydrangea-cluster.png",
+      "bytes": 444487,
+      "dimensions": [616, 524],
+      "sha256": "bdc0ab0281c44d0f62f4e3581311107dc6bb452985497c88e67c1da8cf49ebd1"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\decorative\\hydrangea-corner.png",
+      "bytes": 48075,
+      "dimensions": [166, 171],
+      "sha256": "280191632d0f0151dfc6137d2b83fe291ed3d182fa83e0c7b51dc595b5d28f9c"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\decorative\\rings.svg",
+      "bytes": 630,
+      "dimensions": null,
+      "sha256": "9f9e099c0bf0e8b81d09b3a08cdb41c4b843166285768bd5c3b294b55be4ac7e"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\decorative\\small-ornament.svg",
+      "bytes": 838,
+      "dimensions": null,
+      "sha256": "cd3faf1eeb95f42743949281e45afdda8b4694631d2e3e28a61a4afea3cc00f2"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\envelope\\envelope-base.png",
+      "bytes": 317470,
+      "dimensions": [412, 917],
+      "sha256": "fad4ac9afc3cd964b58e798f22f65e3319c9d7c6c4f472e65bb71be1103fe253"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\envelope\\envelope-flap-seal.png",
+      "bytes": 214128,
+      "dimensions": [412, 917],
+      "sha256": "59a57955d60ae444af43814c2e291b6f9be452e27d755ea7628c4cce39384736"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\hero\\opened-hero.png",
+      "bytes": 573640,
+      "dimensions": [332, 917],
+      "sha256": "222032dc0143a961fd7d47eb1ed76b342368d2b2dd7109d00b0e7dcb2ba98b38"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\mock\\bride.svg",
+      "bytes": 837,
+      "dimensions": null,
+      "sha256": "7d4b060a64f9ad7dd4a46b7eb0b28242dd197bdc9f1e455a4976f16907123a69"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\mock\\gallery-01.svg",
+      "bytes": 967,
+      "dimensions": null,
+      "sha256": "75d3b7f47c793be427f49dd0722a639916f4db1ad04c37bc63901522c644959a"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\mock\\gallery-02.svg",
+      "bytes": 967,
+      "dimensions": null,
+      "sha256": "dbf3bedba0b9dab2285c3574c57ae42e87f867f23e9c198687d4ddcd53e92e92"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\mock\\gallery-03.svg",
+      "bytes": 967,
+      "dimensions": null,
+      "sha256": "991cb754268e9f4d5f499ba47aeb0a5df7cd02b35f23218ed33f67697b059732"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\mock\\gallery-04.svg",
+      "bytes": 967,
+      "dimensions": null,
+      "sha256": "05b7d62e8f9215187253c45671d0d05bd05c1170aaef63844d851d161b4ec245"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\mock\\groom.svg",
+      "bytes": 837,
+      "dimensions": null,
+      "sha256": "79ab0b4393984cb51f136c8189a6ecd2869d8beb02ee9fc69eed9c1d1df57cb4"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\mock\\hero.svg",
+      "bytes": 836,
+      "dimensions": null,
+      "sha256": "8451ec590c6bb4a65061aa76390c59a623ef7968fb32cbcd23fb4e82dd1c4846"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\bride.png",
+      "bytes": 63151,
+      "dimensions": [136, 186],
+      "sha256": "809593969d616353a86c8c04076467ea71ba779634ce2e81922beb0194f757a7"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\clarity_block-quote-line-1.png",
+      "bytes": 297,
+      "dimensions": [18, 18],
+      "sha256": "6cb584465c9c85bd5d05391f1447109c2d41c4b859b6d64e7863c76045bc5701"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\clarity_block-quote-line.png",
+      "bytes": 290,
+      "dimensions": [18, 18],
+      "sha256": "6362580fdb71a7b92f193d53fa5ed49e4eb600f2399d35587c2dfe458ce86477"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\closed page.png",
+      "bytes": 352390,
+      "dimensions": [412, 917],
+      "sha256": "bfe045de99bae0763bcebb60371a031b77f0a8cc631852d6ecc19623eab20de5"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\COLOUR PALETTE & FONT.png",
+      "bytes": 10263,
+      "dimensions": [478, 646],
+      "sha256": "b67a465e71ecd5103991399251c03d9005e7474640b79d7958c9d3c94062a97d"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\Component 1.png",
+      "bytes": 1164,
+      "dimensions": [113, 68],
+      "sha256": "9f7b4ae682d6d59ae5849ef1a9e928aca4c15b710c3293641ad481d97581d5e8"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\gallery-01.png",
+      "bytes": 73352,
+      "dimensions": [154, 205],
+      "sha256": "d079d845b6436a1603fc90cc586122ced1a5458eb73104a0cf4c156215d8ec75"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\gallery-02.png",
+      "bytes": 126860,
+      "dimensions": [207, 275],
+      "sha256": "aa470ed9aba6bbace8a81f40adc7387b894be1889ff2539d9942cc3fffe5c2f8"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\gallery-03.png",
+      "bytes": 29259,
+      "dimensions": [122, 162],
+      "sha256": "5a4b41716ce6f04448936414c7bdc67a0fc5a699c89b7486c63fe5dda35ac8d5"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\gallery-04.png",
+      "bytes": 94014,
+      "dimensions": [193, 258],
+      "sha256": "8142d34df48f249d8ca59d62bd3dcf2e2019b0ce6cfaefe1cbfde440c0f4f7f9"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\groom.png",
+      "bytes": 63506,
+      "dimensions": [137, 186],
+      "sha256": "81c6943a00bc91ac1aaf40ca7ddbdf2d9ba604284df252fb8a6f2b11cbdf6f84"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\long page.png",
+      "bytes": 687064,
+      "dimensions": [412, 3610],
+      "sha256": "def0e3c09650dde0dd4b6d9054eb8af7bb801c32d9e73134d7056ae292dc8461"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\message confirmation.png",
+      "bytes": 23550,
+      "dimensions": [340, 475],
+      "sha256": "159e92d9a5704f62665ccd11607838033b9ae72dcc250dc15ec3a235a589812b"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\opened page.png",
+      "bytes": 657136,
+      "dimensions": [412, 917],
+      "sha256": "acb57642a6e4d327259f9de0e096af9008e33463cb6e5c5d1fc4fa2ed6b49a21"
+    },
+    {
+      "path": "apps\\invitation-web\\public\\assets\\photos\\Registered.png",
+      "bytes": 189329,
+      "dimensions": [412, 917],
+      "sha256": "0ac10e6562570a4871c82c15b90deb0363fc6d57f9cedde431f288555d8bb846"
+    }
+  ]
+}

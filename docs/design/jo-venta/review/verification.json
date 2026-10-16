@@ -1,0 +1,138 @@
+{
+  "date": "2026-10-16",
+  "browser": "155.0.8059.40",
+  "scope": "Isolated design prototype, synthetic household data; not production application verification",
+  "checks": [
+    {
+      "name": "Envelope keyboard opening and repeated activation reach opened state with focus",
+      "status": "passed"
+    },
+    {
+      "name": "Opened cover keyboard activation reaches invitation content",
+      "status": "passed"
+    },
+    {
+      "name": "Responsive layout and long guest name",
+      "status": "passed",
+      "width": 320,
+      "documentWidth": 320,
+      "mainWidth": 320
+    },
+    {
+      "name": "Responsive layout and long guest name",
+      "status": "passed",
+      "width": 360,
+      "documentWidth": 360,
+      "mainWidth": 360
+    },
+    {
+      "name": "Responsive layout and long guest name",
+      "status": "passed",
+      "width": 390,
+      "documentWidth": 390,
+      "mainWidth": 390
+    },
+    {
+      "name": "Responsive layout and long guest name",
+      "status": "passed",
+      "width": 412,
+      "documentWidth": 412,
+      "mainWidth": 412
+    },
+    {
+      "name": "Responsive layout and long guest name",
+      "status": "passed",
+      "width": 768,
+      "documentWidth": 768,
+      "mainWidth": 620
+    },
+    {
+      "name": "Responsive layout and long guest name",
+      "status": "passed",
+      "width": 1024,
+      "documentWidth": 1024,
+      "mainWidth": 522.25
+    },
+    {
+      "name": "Responsive layout and long guest name",
+      "status": "passed",
+      "width": 1440,
+      "documentWidth": 1440,
+      "mainWidth": 620
+    },
+    {
+      "name": "First owner-photo layout: desktop photo panel and large portraits above copy",
+      "status": "passed"
+    },
+    {
+      "name": "RSVP validation is visible and focused",
+      "status": "passed"
+    },
+    {
+      "name": "Accepted confirmation has explicit non-scannable pass review area; Escape restores focus",
+      "status": "passed"
+    },
+    {
+      "name": "Declined confirmation has no pass and hides attendance composition",
+      "status": "passed"
+    },
+    {
+      "name": "Review state: conflict",
+      "status": "passed"
+    },
+    {
+      "name": "Review state: uncertain",
+      "status": "passed"
+    },
+    {
+      "name": "Review state: deadline",
+      "status": "passed"
+    },
+    {
+      "name": "Gallery native dialog supports arrows, Escape and focus return",
+      "status": "passed"
+    },
+    {
+      "name": "Message validation and confirmation are simulated locally",
+      "status": "passed"
+    },
+    {
+      "name": "Every content image is nonempty and existing project font aliases load",
+      "status": "passed",
+      "brokenImages": 0,
+      "fonts": [
+        true,
+        true
+      ]
+    },
+    {
+      "name": "Reduced motion removes animation and opening delay",
+      "status": "passed"
+    },
+    {
+      "name": "Missing motion observer leaves content visible",
+      "status": "passed"
+    },
+    {
+      "name": "No JavaScript retains readable long content; interactive preview controls require JavaScript",
+      "status": "passed"
+    },
+    {
+      "name": "No API writes, third-party requests, HTTP failures or browser exceptions",
+      "status": "passed",
+      "observedRequests": 166
+    }
+  ],
+  "errors": [],
+  "requests": {
+    "count": 166,
+    "nonGet": 0,
+    "external": 0
+  },
+  "limitations": [
+    "No Safari/iOS or physical-device verification",
+    "RSVP/QR/messages are local simulations, not API or database tests",
+    "200 percent browser zoom and screen reader audit remain future application QA",
+    "Final owner wording and composition review remain pending"
+  ]
+}

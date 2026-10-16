@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "date": "2026-10-15",
+  "scope": "Owner photo source mapping and derivatives for original Figma-layout application and prototype; legacy assets retained",
+  "selection": "Six supplied photos fill hero, profiles and four gallery positions. Cover is intentionally reused as gallery 4; no fourth distinct gallery photo is invented.",
+  "assets": [
+    {
+      "source": {
+        "width": 3680,
+        "height": 2456,
+        "exifOrientation": 8,
+        "bytes": 9557761,
+        "sha256": "7436279693d40ff4ec3cb8bd8a9b218bcbb4492de950eed198eb180e5334614b"
+      },
+      "output": "cover.webp",
+      "width": 1400,
+      "height": 2100,
+      "slots": ["opening hero", "desktop identity", "gallery 4"],
+      "focalPoint": {
+        "x": 50,
+        "y": 58
+      },
+      "visual": "Couple holding hands in the garden, portrait after EXIF orientation",
+      "sourcePath": "gambar-edit/Cover.JPG",
+      "normalizedDimensions": [1400, 2098],
+      "derivative": {
+        "path": "docs/design/jo-venta/media/cover.webp",
+        "bytes": 682950,
+        "sha256": "5da1935cf497c7896cecda85c91748452f03af2b29593ffe40f535d3d8d42e5a",
+        "format": "webp",
+        "exifRemoved": true
+      },
+      "provenance": "Owner supplied location in this chat on 2026-10-15; visually inspected before slot assignment",
+      "status": "Mapped after owner supplied photos; active application follows owner-requested Figma layout",
+      "transform": "EXIF orientation normalization, bounded resize, WebP encoding; no retouch, compositing, color treatment or face alteration"
+    },
+    {
+      "source": {
+        "width": 6000,
+        "height": 4000,
+        "exifOrientation": 8,
+        "bytes": 16733431,
+        "sha256": "9c418719baad56e9aca5c3b1397f1fbfe3f75e5b513cf41836ce441686ad2384"
+      },
+      "output": "venta.webp",
+      "width": 1000,
+      "height": 1500,
+      "slots": ["bride portrait"],
+      "focalPoint": {
+        "x": 45,
+        "y": 45
+      },
+      "visual": "Venta in blue and white clothing by an archway",
+      "sourcePath": "gambar-edit/Venta.JPG",
+      "normalizedDimensions": [1000, 1500],
+      "derivative": {
+        "path": "docs/design/jo-venta/media/venta.webp",
+        "bytes": 57280,
+        "sha256": "d615105e34dba66780b904f67bdfe1bb3384f24d54f71ba739ae4e45f13cbb8a",
+        "format": "webp",
+        "exifRemoved": true
+      },
+      "provenance": "Owner supplied location in this chat on 2026-10-15; visually inspected before slot assignment",
+      "status": "Mapped after owner supplied photos; active application follows owner-requested Figma layout",
+      "transform": "EXIF orientation normalization, bounded resize, WebP encoding; no retouch, compositing, color treatment or face alteration"
+    },
+    {
+      "source": {
+        "width": 6000,
+        "height": 4000,
+        "exifOrientation": 8,
+        "bytes": 18669607,
+        "sha256": "6b1de66425eeac45d4aa3ea575c331389921feabbc31815d8ff410cf7e1f073a"
+      },
+      "output": "jo.webp",
+      "width": 1000,
+      "height": 1500,
+      "slots": ["groom portrait"],
+      "focalPoint": {
+        "x": 50,
+        "y": 42
+      },
+      "visual": "Jo standing under an archway",
+      "sourcePath": "gambar-edit/JJo.JPG",
+      "normalizedDimensions": [1000, 1500],
+      "derivative": {
+        "path": "docs/design/jo-venta/media/jo.webp",
+        "bytes": 133308,
+        "sha256": "39eade090959715a8e4a955b44ff44f0710cc84de4d474cf1c9a66fbc47b5c93",
+        "format": "webp",
+        "exifRemoved": true
+      },
+      "provenance": "Owner supplied location in this chat on 2026-10-15; visually inspected before slot assignment",
+      "status": "Mapped after owner supplied photos; active application follows owner-requested Figma layout",
+      "transform": "EXIF orientation normalization, bounded resize, WebP encoding; no retouch, compositing, color treatment or face alteration"
+    },
+    {
+      "source": {
+        "width": 6000,
+        "height": 4000,
+        "exifOrientation": 8,
+        "bytes": 18249793,
+        "sha256": "f6b0f2a4e004759ef5e1defc298421059abfaf87a89121fa14380216b5ca70b4"
+      },
+      "output": "pic-01.webp",
+      "width": 1200,
+      "height": 1800,
+      "slots": ["gallery 3 portrait"],
+      "focalPoint": {
+        "x": 50,
+        "y": 52
+      },
+      "visual": "Couple walking together under an archway",
+      "sourcePath": "gambar-edit/Pic1.JPG",
+      "normalizedDimensions": [1200, 1800],
+      "derivative": {
+        "path": "docs/design/jo-venta/media/pic-01.webp",
+        "bytes": 191132,
+        "sha256": "770ec40aeb60d7acbf23180b9841dbb525836b793130587167bebcea284d9d87",
+        "format": "webp",
+        "exifRemoved": true
+      },
+      "provenance": "Owner supplied location in this chat on 2026-10-15; visually inspected before slot assignment",
+      "status": "Mapped after owner supplied photos; active application follows owner-requested Figma layout",
+      "transform": "EXIF orientation normalization, bounded resize, WebP encoding; no retouch, compositing, color treatment or face alteration"
+    },
+    {
+      "source": {
+        "width": 3680,
+        "height": 2456,
+        "exifOrientation": 1,
+        "bytes": 7476304,
+        "sha256": "9b9d1ac896f0d8afccb30c1123052ca915a72ebc1687ea271e5a2f983b9e9d29"
+      },
+      "output": "pic-02.webp",
+      "width": 1400,
+      "height": 1000,
+      "slots": ["gallery 1 portrait thumbnail", "gallery 1 uncropped lightbox"],
+      "focalPoint": {
+        "x": 50,
+        "y": 50
+      },
+      "visual": "Couple with cats in the garden; preserve landscape composition",
+      "sourcePath": "gambar-edit/Pic2.JPG",
+      "normalizedDimensions": [1400, 934],
+      "derivative": {
+        "path": "docs/design/jo-venta/media/pic-02.webp",
+        "bytes": 179934,
+        "sha256": "7699c25d46a101c641c56119cfe7802d36c3e539d78b8d70ce9b147c25ba95fb",
+        "format": "webp",
+        "exifRemoved": true
+      },
+      "thumbnail": {
+        "path": "docs/design/jo-venta/media/gallery-cats-thumb.webp",
+        "width": 900,
+        "height": 1200,
+        "bytes": 158972,
+        "sha256": "1d3c1e19701fbc6bc399184b4e1dd22ea375eaacd35f845ea323fdd42949c30f",
+        "crop": "3:4 center crop from original after EXIF normalization; both people retained; uncropped image remains available in lightbox"
+      },
+      "provenance": "Owner supplied location in this chat on 2026-10-15; visually inspected before slot assignment",
+      "status": "Mapped after owner supplied photos; active application follows owner-requested Figma layout",
+      "transform": "EXIF orientation normalization, bounded resize, WebP encoding; no retouch, compositing, color treatment or face alteration"
+    },
+    {
+      "source": {
+        "width": 1920,
+        "height": 1280,
+        "exifOrientation": 8,
+        "bytes": 3723560,
+        "sha256": "7dd9428fb36f917e95c54f62978c9c8b92133ac3d65e0a890553950a3cf5a11a"
+      },
+      "output": "pic-03.webp",
+      "width": 1200,
+      "height": 1800,
+      "slots": ["gallery 2 portrait"],
+      "focalPoint": {
+        "x": 52,
+        "y": 65
+      },
+      "visual": "Couple dancing in the garden",
+      "sourcePath": "gambar-edit/Pic3.JPG",
+      "normalizedDimensions": [1200, 1800],
+      "derivative": {
+        "path": "docs/design/jo-venta/media/pic-03.webp",
+        "bytes": 636164,
+        "sha256": "491a72e14bf8e23a5ad0a6c8391062b031c5113d87b44d4f76b9942302a2b327",
+        "format": "webp",
+        "exifRemoved": true
+      },
+      "provenance": "Owner supplied location in this chat on 2026-10-15; visually inspected before slot assignment",
+      "status": "Mapped after owner supplied photos; active application follows owner-requested Figma layout",
+      "transform": "EXIF orientation normalization, bounded resize, WebP encoding; no retouch, compositing, color treatment or face alteration"
+    }
+  ],
+  "preservedApplicationHero": "/assets/hero/opened-hero.png",
+  "notes": [
+    "Focal points are review candidates and must be checked against the rendered geometry",
+    "Source EXIF can rotate displayed dimensions; original pixel headers are not displayed dimensions",
+    "Photo export screenshots are not used as whole-page implementation assets"
+  ]
+}

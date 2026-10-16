@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { csrfInvalid } from "./auth-errors.js";
+import { isLoopbackDevelopmentOrigin } from "../security/development-origin.js";
 
 type HeaderValue = string | string[] | undefined;
 type HeaderBag = Record<string, HeaderValue>;
@@ -49,7 +50,7 @@ export class AdminOriginService {
       throw new Error("Production ADMIN_ORIGIN must use HTTPS.");
     }
 
-    if (url.protocol !== "https:" && value !== "http://localhost:3001") {
+    if (url.protocol !== "https:" && !isLoopbackDevelopmentOrigin(url)) {
       throw new Error("ADMIN_ORIGIN must be HTTPS outside local development.");
     }
 

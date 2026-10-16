@@ -16,6 +16,7 @@ export type RetrievePublicInvitationResult =
   | {
       status: "success";
       data: PublicInvitationResponse;
+      receivedAt: number;
     }
   | {
       status: "unavailable";
@@ -115,6 +116,8 @@ export async function retrievePublicInvitation(
     return {
       status: "success",
       data,
+      // Capture the server clock at retrieval, then reuse it during hydration.
+      receivedAt: Date.now(),
     };
   }
 
@@ -173,6 +176,7 @@ function isPublicInvitationEvent(value: unknown): boolean {
     typeof value.slug === "string" &&
     typeof value.name === "string" &&
     isNullableString(value.startsAt) &&
+    isNullableString(value.endsAt) &&
     isNullableString(value.venueName) &&
     isNullableString(value.address) &&
     isNullableString(value.googleMapsUrl)

@@ -1,7 +1,38 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminOriginService } from "./admin-origin.service.js";
 
 describe("AdminOriginService", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("allows isolated loopback development ports but still requires the exact request origin", () => {
+    vi.stubEnv("NODE_ENV", "test");
+    const service = new AdminOriginService();
+    for (const origin of [
+      "http://localhost:3101",
+      "http://127.0.0.1:3101",
+      "http://[::1]:3101",
+    ]) {
+      vi.stubEnv("ADMIN_ORIGIN", origin);
+      expect(service.getExpectedOrigin()).toBe(origin);
+      expect(() => service.assertValidAdminOrigin({ origin })).not.toThrow();
+      expect(() =>
+        service.assertValidAdminOrigin({ origin: "http://localhost:3001" }),
+      ).toThrow();
+    }
+    for (const origin of [
+      "http://localhost.evil.test:3101",
+      "http://192.168.1.2:3101",
+      "ftp://localhost:3101",
+    ]) {
+      vi.stubEnv("ADMIN_ORIGIN", origin);
+      expect(() => service.getExpectedOrigin()).toThrow();
+    }
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ADMIN_ORIGIN", "http://localhost:3101");
+    expect(() => service.getExpectedOrigin()).toThrow(
+      "Production ADMIN_ORIGIN must use HTTPS.",
+    );
+  });
   it("accepts exact Origin or Referer matches", () => {
     process.env.ADMIN_ORIGIN = "http://localhost:3001";
     const service = new AdminOriginService();
@@ -25,7 +56,9 @@ describe("AdminOriginService", () => {
       service.assertValidAdminOrigin({ origin: "http://evil-localhost:3001" }),
     ).toThrow();
     expect(() =>
-      service.assertValidAdminOrigin({ origin: "http://localhost:3001.evil.test" }),
+      service.assertValidAdminOrigin({
+        origin: "http://localhost:3001.evil.test",
+      }),
     ).toThrow();
 
     process.env.ADMIN_ORIGIN = "http://localhost:3001/path";

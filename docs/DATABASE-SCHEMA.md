@@ -1,5 +1,17 @@
 # Database Schema
 
+## Event configuration version
+
+Migration `20261016090000_event_management` adds only `events.version INTEGER NOT NULL DEFAULT 1`. It does not replace Event UUIDs, rewrite existing event values or reset attendance/credential tables. OWNER saves serialize on the Event row and increment this version after an exact expected-version comparison. Invitation eligibility/import/check-in writers retain shared Event row locks so management checks cannot race a new reference/confirmation. This version is independent from EventContent publication version. See [EVENT-MANAGEMENT.md](EVENT-MANAGEMENT.md) for lifecycle policy and verification.
+
+## Additive event-material persistence
+
+Migration `20261015090000_event_content` adds two tables associated with existing Event UUIDs. `event_contents` has Event PK/FK, positive integer version, object-valued draft JSONB, nullable object-valued published JSONB, nullable publication instant and updated timestamp. `event_content_assets` has opaque UUID PK, Event FK, IMAGE/PDF kind, canonical image/png or application/pdf MIME, bounded byte size, bytea data and creation timestamp. FKs cascade when a fixture/Event is actually deleted; no Event deletion API is introduced. SQL checks enforce positive versions, object snapshots, <=5 MiB files, kind/MIME consistency and exact byte-length metadata. The service serializes mutations via an Event row lock and enforces <=8 files per Event and reference ownership.
+
+Published JSON is a separately persisted snapshot; draft edits never rewrite it. This is one current snapshot, not an audit/history table. Files are not duplicated into public frontend directories. PostgreSQL dump/restore includes file bytes and both content states. Verification applies this migration only to the isolated QA database; application of the migration to development/production is a separate operator step. See `EVENT-CONTENT-ADMIN.md` for lifecycle and concurrency.
+
+Local completion additions (15 October 2026) require no migration: reporting reads existing RSVP/check-in tables, and public calendar exposes the existing nullable `Event.endsAt`. No parking/rundown persistence or actual per-person attendance is added.
+
 This document describes the conceptual PostgreSQL schema. Do not create a Prisma schema in Phase 0 documentation.
 
 ## Modeling Decisions
@@ -491,40 +503,40 @@ Purpose: Audit successful committed guest imports.
 
 ## Key Invariants and Enforcement
 
-| Invariant | Enforcement |
-|---|---|
-| Invitation token hash is unique | Database unique constraint |
-| Invitation credential version is positive | Database check |
-| Check-in token hash is unique | Database unique constraint |
-| CheckinPass credential version is positive | Database check |
-| Admin session token hash is unique | Database unique constraint |
-| One active check-in pass per invitation | Partial unique index plus transaction |
-| Revoked pass cannot become active again | Application service rule |
-| Only accepted RSVP can have active pass | RSVP transaction/application rule |
-| Accepted RSVP has exactly one active pass | Partial unique index plus RSVP transaction/application rule |
-| Accepted RSVP selects at least one eligible attending event | API/application transaction validation |
-| Declined RSVP cannot leave active pass | RSVP transaction/application rule |
-| Declined RSVP leaves no attendee rows and null dietary notes | RSVP transaction/application rule |
-| Public RSVP create and update are rejected after the cutoff instant | API/application validation against `Invitation.rsvp_deadline_at` |
-| RSVP version increments on every mutation | RSVP transaction/application rule |
-| Stale RSVP expectedVersion is rejected | RSVP transaction/application rule |
-| RSVP event must be eligible | Application transaction validation against InvitationEvent |
-| If event attending is false, expected count is 0 | API/application validation |
-| If event attending is true, expected count is 1..RSVPAttendee total | API/application validation |
-| RSVPAttendee quantity is positive | Database check |
-| Named invitee row references an Invitee and quantity is 1 | Database check where practical plus application validation |
-| Referenced Invitee belongs to same Invitation | Application transaction validation |
-| Plus-one requires null invitee and quantity 1 | Database check where practical |
-| Plus-one permission | Application transaction validation |
-| Additional child requires null invitee and positive quantity | Database check where practical |
-| Additional child allowance | Application transaction validation |
-| Duplicate named invitee in same RSVP is prevented | Partial unique index |
-| At most one PLUS_ONE row per RSVP | Partial unique index where practical plus application validation |
-| Duplicate confirmed check-in cannot create two attendance records | Unique `(invitation_id, event_id)` plus transaction |
-| CheckinRecord attendee_count is at least 1 | Database check |
-| CheckinRecord attendee_count does not exceed expected event count | Application transaction validation |
-| Archived invitation denies public access, RSVP, messages, QR validation, and check-in | API/application validation |
-| Archived invitation historical data remains intact | Product rule plus FK/delete policy |
+| Invariant                                                                             | Enforcement                                                      |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Invitation token hash is unique                                                       | Database unique constraint                                       |
+| Invitation credential version is positive                                             | Database check                                                   |
+| Check-in token hash is unique                                                         | Database unique constraint                                       |
+| CheckinPass credential version is positive                                            | Database check                                                   |
+| Admin session token hash is unique                                                    | Database unique constraint                                       |
+| One active check-in pass per invitation                                               | Partial unique index plus transaction                            |
+| Revoked pass cannot become active again                                               | Application service rule                                         |
+| Only accepted RSVP can have active pass                                               | RSVP transaction/application rule                                |
+| Accepted RSVP has exactly one active pass                                             | Partial unique index plus RSVP transaction/application rule      |
+| Accepted RSVP selects at least one eligible attending event                           | API/application transaction validation                           |
+| Declined RSVP cannot leave active pass                                                | RSVP transaction/application rule                                |
+| Declined RSVP leaves no attendee rows and null dietary notes                          | RSVP transaction/application rule                                |
+| Public RSVP create and update are rejected after the cutoff instant                   | API/application validation against `Invitation.rsvp_deadline_at` |
+| RSVP version increments on every mutation                                             | RSVP transaction/application rule                                |
+| Stale RSVP expectedVersion is rejected                                                | RSVP transaction/application rule                                |
+| RSVP event must be eligible                                                           | Application transaction validation against InvitationEvent       |
+| If event attending is false, expected count is 0                                      | API/application validation                                       |
+| If event attending is true, expected count is 1..RSVPAttendee total                   | API/application validation                                       |
+| RSVPAttendee quantity is positive                                                     | Database check                                                   |
+| Named invitee row references an Invitee and quantity is 1                             | Database check where practical plus application validation       |
+| Referenced Invitee belongs to same Invitation                                         | Application transaction validation                               |
+| Plus-one requires null invitee and quantity 1                                         | Database check where practical                                   |
+| Plus-one permission                                                                   | Application transaction validation                               |
+| Additional child requires null invitee and positive quantity                          | Database check where practical                                   |
+| Additional child allowance                                                            | Application transaction validation                               |
+| Duplicate named invitee in same RSVP is prevented                                     | Partial unique index                                             |
+| At most one PLUS_ONE row per RSVP                                                     | Partial unique index where practical plus application validation |
+| Duplicate confirmed check-in cannot create two attendance records                     | Unique `(invitation_id, event_id)` plus transaction              |
+| CheckinRecord attendee_count is at least 1                                            | Database check                                                   |
+| CheckinRecord attendee_count does not exceed expected event count                     | Application transaction validation                               |
+| Archived invitation denies public access, RSVP, messages, QR validation, and check-in | API/application validation                                       |
+| Archived invitation historical data remains intact                                    | Product rule plus FK/delete policy                               |
 
 Cross-table business rules require transactional application logic. Do not claim PostgreSQL check constraints can enforce event eligibility, RSVP/pass consistency, or companion permissions alone.
 
@@ -665,18 +677,18 @@ Contract lock (Slice 8D0) — persistence consequences only. API semantics live 
 
 Schema capability per admin area:
 
-| Admin area | Schema support | Concurrency mechanism | Attribution |
-| --- | --- | --- | --- |
-| Dashboard | Existing `Invitation`, `RSVP`, `RSVPEventSelection`, `Event` rows | Consistent read | None needed |
-| Invitation list/detail | `Invitation`, `Invitee`, `InvitationEvent`, `RSVP`, `GuestMessage`, `CheckinPass` | n/a | None |
-| Invitation create | `Invitation`, `InvitationEvent`, `Invitee` | Single transaction | None |
-| Invitation update | `Invitation.updated_at` | `expectedUpdatedAt` compare under the Invitation row lock | None |
-| Archive | `Invitation.status`, `Invitation.archived_at` | Invitation row lock; idempotent | None |
-| Public URL / regeneration | `Invitation.public_token_version`, `Invitation.public_token_hash` | Invitation row lock plus `expectedTokenVersion` compare | None |
-| Invitee create/update/delete | `Invitee`, `RSVPAttendee.invitee_id` FK `Restrict` | Invitation row lock for create; `expectedUpdatedAt` for update | None |
-| Eligibility replacement | `InvitationEvent`, `RSVPEventSelection` | Invitation row lock; reject if a selection references a removed event | None |
-| RSVP debug/override | `RSVP.version`, `RSVP.submitted_by_admin_user_id`, `RSVP.admin_override_reason` | Invitation row lock plus `expectedVersion` compare | **Yes** — OWNER override writes both columns; a later successful public RSVP clears both because they describe current-state attribution |
-| Guest message moderation | `GuestMessage.is_hidden` | None needed; set-to-value | **No** |
+| Admin area                   | Schema support                                                                    | Concurrency mechanism                                                 | Attribution                                                                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard                    | Existing `Invitation`, `RSVP`, `RSVPEventSelection`, `Event` rows                 | Consistent read                                                       | None needed                                                                                                                              |
+| Invitation list/detail       | `Invitation`, `Invitee`, `InvitationEvent`, `RSVP`, `GuestMessage`, `CheckinPass` | n/a                                                                   | None                                                                                                                                     |
+| Invitation create            | `Invitation`, `InvitationEvent`, `Invitee`                                        | Single transaction                                                    | None                                                                                                                                     |
+| Invitation update            | `Invitation.updated_at`                                                           | `expectedUpdatedAt` compare under the Invitation row lock             | None                                                                                                                                     |
+| Archive                      | `Invitation.status`, `Invitation.archived_at`                                     | Invitation row lock; idempotent                                       | None                                                                                                                                     |
+| Public URL / regeneration    | `Invitation.public_token_version`, `Invitation.public_token_hash`                 | Invitation row lock plus `expectedTokenVersion` compare               | None                                                                                                                                     |
+| Invitee create/update/delete | `Invitee`, `RSVPAttendee.invitee_id` FK `Restrict`                                | Invitation row lock for create; `expectedUpdatedAt` for update        | None                                                                                                                                     |
+| Eligibility replacement      | `InvitationEvent`, `RSVPEventSelection`                                           | Invitation row lock; reject if a selection references a removed event | None                                                                                                                                     |
+| RSVP debug/override          | `RSVP.version`, `RSVP.submitted_by_admin_user_id`, `RSVP.admin_override_reason`   | Invitation row lock plus `expectedVersion` compare                    | **Yes** — OWNER override writes both columns; a later successful public RSVP clears both because they describe current-state attribution |
+| Guest message moderation     | `GuestMessage.is_hidden`                                                          | None needed; set-to-value                                             | **No**                                                                                                                                   |
 
 Known schema limitations, accepted for the MVP rather than fixed:
 

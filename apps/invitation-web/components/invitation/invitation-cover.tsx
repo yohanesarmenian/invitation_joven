@@ -1,39 +1,68 @@
+"use client";
+
 import Image from "next/image";
-import type { Ref } from "react";
+import { useState, type Ref } from "react";
+import { weddingMedia } from "../../src/presentation/wedding-media";
+import { figmaAssets } from "../../src/presentation/figma-assets";
 
-// Owner-approved flattened fallback: keep the complete artwork and its baked
-// title intact until a clean owner photograph is available.
-const OPENED_HERO = "/assets/hero/opened-hero.png";
-const OPENED_HERO_SIZES = "(min-width: 332px) 332px, 100vw";
+const OPENED_HERO_SIZES = "100vw";
 
-const ENVELOPE_SIZES = "(min-width: 480px) 480px, 100vw";
-
-export function ClosedEnvelopeCover({ onOpen }: { onOpen: () => void }) {
+export function ClosedEnvelopeCover({
+  onOpen,
+  opening = false,
+  preparing = false,
+  ready = true,
+  onOpeningComplete,
+}: {
+  onOpen: () => void;
+  opening?: boolean;
+  preparing?: boolean;
+  ready?: boolean;
+  onOpeningComplete?: () => void;
+}) {
   return (
-    <div className="invitation-closed-stage">
+    <div
+      className="invitation-closed-stage"
+      data-opening={opening || undefined}
+    >
       <button
         type="button"
         className="invitation-envelope-button"
         aria-label="Open invitation"
         onClick={onOpen}
+        disabled={!ready || opening || preparing}
+        aria-busy={!ready || opening || preparing || undefined}
       >
         <span className="invitation-envelope" aria-hidden="true">
-          <Image
-            src="/assets/envelope/envelope-base.png"
-            alt=""
-            fill
-            sizes={ENVELOPE_SIZES}
-            loading="eager"
-            className="invitation-envelope-layer"
+          <span
+            className="invitation-envelope-layer invitation-envelope-layer-right"
+            onTransitionEnd={(event) => {
+              if (
+                opening &&
+                event.target === event.currentTarget &&
+                event.propertyName === "transform"
+              )
+                onOpeningComplete?.();
+            }}
           />
-          <Image
-            src="/assets/envelope/envelope-flap-seal.png"
-            alt=""
-            fill
-            sizes={ENVELOPE_SIZES}
-            loading="eager"
-            className="invitation-envelope-layer invitation-envelope-layer-front"
-          />
+          <span className="invitation-envelope-layer invitation-envelope-layer-front">
+            <span className="invitation-envelope-wax">
+              <Image
+                src={figmaAssets["7_2_Cover2A1"]}
+                alt=""
+                fill
+                sizes="410px"
+                loading="eager"
+              />
+            </span>
+          </span>
+        </span>
+        <span className="invitation-envelope-hint" aria-hidden="true">
+          {!ready
+            ? "Loading invitation…"
+            : preparing
+              ? "Preparing your invitation…"
+              : "Tap to open"}
         </span>
       </button>
     </div>
@@ -43,28 +72,58 @@ export function ClosedEnvelopeCover({ onOpen }: { onOpen: () => void }) {
 export function OpenedCoverStage({
   onView,
   buttonRef,
+  onReady,
+  disabled = false,
 }: {
   onView: () => void;
   buttonRef?: Ref<HTMLButtonElement>;
+  onReady?: () => void;
+  disabled?: boolean;
 }) {
+  const [heroFailed, setHeroFailed] = useState(false);
+  const [fallbackFailed, setFallbackFailed] = useState(false);
   return (
     <div className="invitation-opened-stage">
       <button
         ref={buttonRef}
         type="button"
-        className="invitation-opened-cover"
+        className={`invitation-opened-cover${heroFailed ? " invitation-opened-cover-fallback" : ""}`}
         aria-label="View invitation"
         aria-describedby="invitation-opened-title"
         onClick={onView}
+        disabled={disabled}
       >
         <span className="invitation-opened-media" aria-hidden="true">
-          <Image src={OPENED_HERO} alt="" fill sizes={OPENED_HERO_SIZES} />
+          <Image
+            src={heroFailed ? weddingMedia.heroFallback : weddingMedia.hero}
+            alt=""
+            fill
+            sizes={
+              heroFailed ? "(min-width: 332px) 332px, 100vw" : OPENED_HERO_SIZES
+            }
+            loading="eager"
+            onLoad={onReady}
+            onError={() => {
+              if (heroFailed) {
+                setFallbackFailed(true);
+                onReady?.();
+              } else setHeroFailed(true);
+            }}
+          />
         </span>
-        {/* A future clean photo can restore the invitation-opened-title class.
-            The flattened fallback already supplies the visible typography. */}
-        <span id="invitation-opened-title" className="visually-hidden">
+        <span
+          id="invitation-opened-title"
+          className={
+            heroFailed && !fallbackFailed
+              ? "visually-hidden"
+              : "invitation-opened-title"
+          }
+        >
           <span className="invitation-opened-kicker">The Wedding of</span>{" "}
           <span className="invitation-opened-names">Jo &amp; Venta</span>
+        </span>
+        <span className="invitation-opened-action" aria-hidden="true">
+          Open Invitation <span>↓</span>
         </span>
       </button>
     </div>

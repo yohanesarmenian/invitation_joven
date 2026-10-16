@@ -1,0 +1,66 @@
+# GitHub App -> Docker Compose Application, normal (not Raw) deployment.
+# Coolify manages domains/TLS. Assign domains only to the two web services.
+services:
+  migrate:
+    build:
+      context: .
+      args:
+        APP: api
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+    environment:
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set the migration database URL in Coolify}
+    working_dir: /workspace/apps/api
+    command: ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+    restart: "no"
+    # Coolify removes this platform field from its deployable Compose.
+    exclude_from_hc: true
+    healthcheck:
+      disable: true
+  api:
+    build:
+      context: .
+      args:
+        APP: api
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set the application database URL in Coolify}
+      CREDENTIAL_SECRET: ${CREDENTIAL_SECRET:?Set a persistent 32-byte base64url secret}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:?Set the exact HTTPS admin origin}
+      PUBLIC_INVITATION_BASE_URL: ${PUBLIC_INVITATION_BASE_URL:?Set the exact HTTPS invitation origin}
+      API_HOST: "0.0.0.0"
+      PORT: "4000"
+    expose: ["4000"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    stop_grace_period: 30s
+  admin-web:
+    build:
+      context: .
+      args:
+        APP: admin-web
+        ADMIN_API_INTERNAL_BASE_URL: http://api:4000
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+    environment:
+      ADMIN_API_INTERNAL_BASE_URL: http://api:4000
+    expose: ["3001"]
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+  invitation-web:
+    build:
+      context: .
+      args:
+        APP: invitation-web
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+    environment:
+      INVITATION_API_BASE_URL: http://api:4000
+    expose: ["3000"]
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s

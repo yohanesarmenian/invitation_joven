@@ -1,0 +1,22 @@
+name: ${DAILY_COMPOSE_PROJECT:?Daily launcher must set its project identity}
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: invitation_daily_operator
+      POSTGRES_PASSWORD: ${DAILY_OPERATOR_PASSWORD:?Run local:init}
+    ports:
+      - "127.0.0.1:${DAILY_PG_PORT:?Run local:init}:5432"
+    labels:
+      invitation.daily.root: ${DAILY_ROOT_ID:?Daily launcher must set root identity}
+      invitation.daily.profile: ${DAILY_PROFILE_ID:?Run local:init}
+    volumes:
+      - daily_database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invitation_daily_operator -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  daily_database:

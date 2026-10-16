@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { EventManagementController } from "../events/event-management.controller.js";
+import { EventManagementService } from "../events/event-management.service.js";
 import { DatabaseModule } from "../database/database.module.js";
 import { InvitationsModule } from "../invitations/invitations.module.js";
 import { SecurityModule } from "../security/security.module.js";
@@ -14,6 +16,7 @@ import { PublicInvitationBaseUrlService } from "./public-invitation-base-url.ser
 
 @Module({
   controllers: [
+    EventManagementController,
     AdminInviteeMutationController,
     AdminMessageMutationController,
     AdminMutationController,
@@ -21,6 +24,7 @@ import { PublicInvitationBaseUrlService } from "./public-invitation-base-url.ser
   ],
   imports: [DatabaseModule, InvitationsModule, SecurityModule],
   providers: [
+    EventManagementService,
     AdminMutationService,
     AdminReadService,
     PublicInvitationBaseUrlService,

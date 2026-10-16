@@ -6,6 +6,7 @@ import {
 } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module.js";
 import { configureApp } from "./app.setup.js";
+import { getListenConfig } from "./runtime/listen-config.js";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -13,11 +14,12 @@ async function bootstrap() {
     new FastifyAdapter(),
     { bufferLogs: true },
   );
-  const port = Number(process.env.PORT ?? 4000);
+  const { port, host } = getListenConfig();
 
   configureApp(app);
 
-  await app.listen(port, "0.0.0.0");
+  app.enableShutdownHooks();
+  await app.listen(port, host);
 }
 
 void bootstrap();

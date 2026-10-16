@@ -28,6 +28,13 @@ export function isEvents(v: unknown): v is AdminEventsResponse {
         typeof event.slug === "string" &&
         typeof event.name === "string" &&
         typeof event.isActive === "boolean" &&
+        (event.startsAt === undefined || nullableDate(event.startsAt)) &&
+        (event.venueName === undefined ||
+          event.venueName === null ||
+          typeof event.venueName === "string") &&
+        (event.address === undefined ||
+          event.address === null ||
+          typeof event.address === "string") &&
         count(event.displayOrder),
     )
   );
@@ -90,7 +97,9 @@ function isMessages(v: unknown) {
 function isPass(v: unknown) {
   return (
     object(v) &&
-    (v.status === "ACTIVE" || v.status === "REVOKED" || v.status === "EXPIRED") &&
+    (v.status === "ACTIVE" ||
+      v.status === "REVOKED" ||
+      v.status === "EXPIRED") &&
     positiveCount(v.credentialVersion) &&
     date(v.issuedAt) &&
     nullableDate(v.revokedAt) &&
@@ -131,9 +140,7 @@ export function isInvitationDetail(
   );
 }
 
-export function isPublicUrl(
-  v: unknown,
-): v is AdminInvitationPublicUrlResponse {
+export function isPublicUrl(v: unknown): v is AdminInvitationPublicUrlResponse {
   return (
     object(v) &&
     typeof v.publicUrl === "string" &&

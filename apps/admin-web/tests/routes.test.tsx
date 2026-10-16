@@ -4,6 +4,7 @@ const { session } = vi.hoisted(() => ({ session: vi.fn() }));
 vi.mock("../src/auth/server-session", () => ({ getServerSession: session }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
+  useRouter: () => ({ replace: vi.fn() }),
   redirect: (path: string) => {
     throw new Error(`redirect:${path}`);
   },
@@ -15,6 +16,7 @@ import CheckinPage from "../app/checkin/page";
 import LoginPage from "../app/login/page";
 import { LoginForm } from "../components/login-form";
 import { auth } from "./fixtures";
+import EventContentPage from "../app/(protected)/event-content/page";
 const staffAuth = {
   ...auth,
   user: {
@@ -29,6 +31,20 @@ const changeRequiredAuth = {
   user: { ...staffAuth.user, mustChangePassword: true },
 };
 beforeEach(() => session.mockReset());
+it("renders event-material controls only for an OWNER session", async () => {
+  session.mockResolvedValue({ kind: "authenticated", auth });
+  const html = renderToStaticMarkup(await EventContentPage());
+  expect(html).toContain("Event materials");
+  expect(html).toContain("Event materials editor");
+});
+it("denies staff and unauthenticated access before event-material content renders", async () => {
+  session.mockResolvedValue({ kind: "authenticated", auth: staffAuth });
+  await expect(EventContentPage()).rejects.toThrow("redirect:/checkin");
+  session.mockResolvedValue({ kind: "unauthenticated" });
+  await expect(EventContentPage()).rejects.toThrow(
+    "redirect:/login?session=ended",
+  );
+});
 it("renders semantic login controls and accessible session notice", () => {
   const html = renderToStaticMarkup(<LoginForm sessionEnded />);
   expect(html).toContain('for="email"');
@@ -99,20 +115,23 @@ it("public login renders without a session", async () => {
     ),
   ).toContain("Your admin session has ended. Please sign in again.");
 });
-it("check-in route is a staff-only holding page with no OWNER shell", async () => {
+it("check-in route renders the restricted staff workspace without OWNER navigation", async () => {
   session.mockResolvedValue({ kind: "authenticated", auth: staffAuth });
   const html = renderToStaticMarkup(await CheckinPage());
-  expect(html).toContain("Check-in access");
-  expect(html).toContain("Scanner access is not available in this slice.");
+  expect(html).toContain("Check-in");
+  expect(html).toContain("Select an event");
+  expect(html).toContain("Validate QR");
   expect(html).toContain("staff@example.com");
   expect(html).toContain("Sign out");
   expect(html).not.toContain("Wedding Invitation");
   expect(html).not.toContain("Dashboard");
   expect(html).not.toContain("Invitations");
 });
-it("check-in route redirects OWNER sessions back to the OWNER shell", async () => {
+it("check-in route allows OWNER and provides a dashboard return link", async () => {
   session.mockResolvedValue({ kind: "authenticated", auth });
-  await expect(CheckinPage()).rejects.toThrow("redirect:/");
+  const html = renderToStaticMarkup(await CheckinPage());
+  expect(html).toContain("Select an event");
+  expect(html).toContain("Back to dashboard");
 });
 it("check-in route does not bypass forced password change", async () => {
   session.mockResolvedValue({

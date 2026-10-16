@@ -1,3 +1,4 @@
+import { MOCK_API_ORIGIN } from "./harness";
 import {
   expect,
   test,
@@ -5,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 
-const MOCK_API_BASE_URL = "http://127.0.0.1:4010";
+const MOCK_API_BASE_URL = MOCK_API_ORIGIN;
 
 // Test-only credential, must match mock-public-invitation-api.ts.
 const TEST_PUBLIC_CREDENTIAL = "A".repeat(43);

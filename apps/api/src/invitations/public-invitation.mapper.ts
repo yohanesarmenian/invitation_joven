@@ -9,6 +9,7 @@ export interface PublicInvitationEventProjection {
   readonly slug: string;
   readonly name: string;
   readonly startsAt: Date | null;
+  readonly endsAt: Date | null;
   readonly venueName: string | null;
   readonly address: string | null;
   readonly googleMapsUrl: string | null;
@@ -80,6 +81,7 @@ export function mapPublicInvitationResponse(
         slug: event.slug,
         name: event.name,
         startsAt: toIsoDate(event.startsAt),
+        endsAt: toIsoDate(event.endsAt),
         venueName: event.venueName,
         address: event.address,
         googleMapsUrl: toSafeMapUrl(event.googleMapsUrl),

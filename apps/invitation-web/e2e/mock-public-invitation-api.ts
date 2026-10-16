@@ -1,4 +1,6 @@
 import { createServer, type ServerResponse } from "node:http";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type {
   PublicInvitationResponse,
   PublicRsvpReadResponse,
@@ -29,6 +31,7 @@ const publicInvitationFixture: PublicInvitationResponse = {
         id: "event-test-1",
         slug: "holy-matrimony-test",
         name: "Holy Matrimony Test",
+        endsAt: null,
         startsAt: "2027-01-09T01:00:00.000Z",
         venueName: "Test Church",
         address: "1 Test Street",
@@ -38,6 +41,7 @@ const publicInvitationFixture: PublicInvitationResponse = {
         id: "event-test-2",
         slug: "reception-test",
         name: "Reception Test",
+        endsAt: null,
         startsAt: "2027-01-09T05:00:00.000Z",
         venueName: "Test Ballroom",
         address: "2 Test Avenue",
@@ -58,6 +62,32 @@ const publicInvitationFixture: PublicInvitationResponse = {
     rsvp: null,
   },
 };
+
+// Explicit local owner preview only. Regression suites keep their deterministic
+// test names/URLs. These Figma details are not persisted or published to the API.
+if (process.env.INVITATION_MOCK_PRESENTATION === "figma") {
+  Object.assign(publicInvitationFixture.invitation, {
+    displayName: "Jo & Venta local preview",
+    greetingName: "Family & Friends",
+    rsvpDeadlineAt: "2026-12-25T16:59:59.000Z",
+    rules: { allowPlusOne: true, maxAdditionalChildren: 2 },
+    invitees: [
+      { id: "invitee-test-1", fullName: "Invited Guest", category: "ADULT" },
+    ],
+  });
+  Object.assign(publicInvitationFixture.invitation.events[0]!, {
+    name: "Holy Matrimony",
+    venueName: "Gereja Katolik Paroki Santo Paulus, Depok",
+    address: "Jl. Melati No.4, Depok, Kota Depok, Jawa Barat",
+    googleMapsUrl: "https://maps.app.goo.gl/WuDNWnbfAvYZRmZU9",
+  });
+  Object.assign(publicInvitationFixture.invitation.events[1]!, {
+    name: "Wedding Reception",
+    venueName: "The Margo Hotel Ballroom",
+    address: "Jl. Margonda No.358, Kota Depok, Jawa Barat",
+    googleMapsUrl: "https://maps.app.goo.gl/rTYGg9rKUUkKBo8HA",
+  });
+}
 
 // Mirrors the real public error envelope for an unavailable invitation. Carries
 // no credential, no archive/expiry reason, and no invitation data.
@@ -178,6 +208,52 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (
+    request.method === "GET" &&
+    /^\/api\/public\/invitations\/[^/]+\/venue-content$/.test(pathname)
+  ) {
+    const directory = process.env.VENUE_CONTENT_DIRECTORY;
+    const items: unknown[] = [];
+    if (directory && pathname.includes("V".repeat(43))) {
+      const parking = JSON.parse(
+        readFileSync(resolve(directory, "parking.json"), "utf8"),
+      );
+      const rundown = JSON.parse(
+        readFileSync(resolve(directory, "rundown.json"), "utf8"),
+      );
+      const eventId = "22222222-2222-4222-8222-222222222222";
+      const guide = parking.guides.find(
+        (guide: { eventId: string }) => guide.eventId === eventId,
+      );
+      const schedule = rundown.schedules.find(
+        (schedule: { eventId: string }) => schedule.eventId === eventId,
+      );
+      items.push({
+        eventId,
+        eventName: "Reception Test",
+        content: {
+          parking:
+            parking.status === "published" && guide
+              ? {
+                  title: guide.title,
+                  instructions: guide.instructions,
+                  mapAssetId: null,
+                  mapAlt: "",
+                  pdfAssetId: null,
+                  googleMapsUrl: guide.googleMapsUrl,
+                }
+              : null,
+          rundown:
+            rundown.status === "published" && schedule
+              ? { title: schedule.title, items: schedule.items }
+              : null,
+        },
+      });
+    }
+    sendJson(response, 200, { items });
+    return;
+  }
+
   if (
     pathname.startsWith(PUBLIC_INVITATION_PATH_PREFIX) &&
     pathname.endsWith("/messages")
@@ -363,6 +439,16 @@ const server = createServer(async (request, response) => {
     sendJson(response, 200, {
       invitation: {
         ...publicInvitationFixture.invitation,
+        ...(publicCredential === "V".repeat(43)
+          ? {
+              events: [
+                {
+                  ...publicInvitationFixture.invitation.events[1],
+                  id: "22222222-2222-4222-8222-222222222222",
+                },
+              ],
+            }
+          : {}),
         rules: rsvpRules,
         rsvpDeadlineAt,
       },

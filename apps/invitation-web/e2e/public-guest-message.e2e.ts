@@ -1,3 +1,4 @@
+import { MOCK_API_ORIGIN } from "./harness";
 import {
   expect,
   test,
@@ -7,7 +8,7 @@ import {
 } from "@playwright/test";
 import type { SubmitPublicGuestMessageRequest } from "../../../packages/api-client/src/index";
 
-const MOCK = "http://127.0.0.1:4010";
+const MOCK = MOCK_API_ORIGIN;
 const PATH = `/i/${"A".repeat(43)}`;
 const section = (page: Page) => page.locator(".guest-message-section");
 const form = (page: Page) =>
@@ -367,5 +368,13 @@ test("script-like and Markdown content stays plain text and is never echoed publ
   });
   expect(dialogs).toBe(0);
   await expect(section(page)).not.toContainText(plain);
-  await expect(section(page).locator("script, img, b")).toHaveCount(0);
+  await expect(section(page).locator("script, b")).toHaveCount(0);
+  // Only the fixed local Figma confirmation icon may render after success.
+  const icon = section(page).locator("img");
+  await expect(icon).toHaveCount(1);
+  await expect(icon).toHaveAttribute(
+    "src",
+    "/assets/figma/82-113-imgLoveLetterIcon.svg",
+  );
+  await expect(icon).not.toHaveAttribute("onerror");
 });

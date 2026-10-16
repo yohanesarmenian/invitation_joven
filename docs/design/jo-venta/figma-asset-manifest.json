@@ -1,0 +1,208 @@
+{
+  "date": "2026-10-16",
+  "fileKey": "yZZNWQ8kQIymOTixjymzoC",
+  "freshNodes": ["7:2", "14:7", "17:18", "82:113"],
+  "cachedNode": {
+    "id": "81:42",
+    "date": "2026-10-15",
+    "reason": "Figma MCP Starter call limit prevented a fresh fetch; reused prior high-fidelity context"
+  },
+  "assets": [
+    {
+      "path": "apps/invitation-web/public/assets/figma/14-7-imgCover21.png",
+      "bytes": 193672,
+      "width": 320,
+      "height": 709,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/14-7-imgCover2A1.png",
+      "bytes": 79480,
+      "width": 320,
+      "height": 709,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/14-7-imgOpenedPage.png",
+      "bytes": 4849664,
+      "width": 3680,
+      "height": 2456,
+      "orientation": 8
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/7-2-imgClosedPage.png",
+      "bytes": 1184179,
+      "width": 736,
+      "height": 981,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/7-2-imgCover21.png",
+      "bytes": 193672,
+      "width": 320,
+      "height": 709,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/7-2-imgCover2A1.png",
+      "bytes": 128986,
+      "width": 320,
+      "height": 709,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/82-113-imgLoveLetterIcon.svg",
+      "bytes": 1613,
+      "width": 67,
+      "height": 44,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/82-113-imgVector.svg",
+      "bytes": 1232,
+      "width": 9,
+      "height": 10,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgBiSuitHeartFill.svg",
+      "bytes": 580,
+      "width": 16,
+      "height": 16,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgBrideSample1.png",
+      "bytes": 1019578,
+      "width": 683,
+      "height": 1024,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgCalendar1.png",
+      "bytes": 375106,
+      "width": 533,
+      "height": 469,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgChatGptImageSep152026112225Am4.png",
+      "bytes": 2327652,
+      "width": 1536,
+      "height": 1024,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgDressCodeColors.svg",
+      "bytes": 555,
+      "width": 307,
+      "height": 47,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgGroomSample1.png",
+      "bytes": 10208260,
+      "width": 2731,
+      "height": 4096,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgImage2.png",
+      "bytes": 3440640,
+      "width": 3680,
+      "height": 2456,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgImage3.png",
+      "bytes": 1886739,
+      "width": 1920,
+      "height": 1280,
+      "orientation": 8
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgImage4.png",
+      "bytes": 1023272,
+      "width": 1920,
+      "height": 1280,
+      "orientation": 8
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgImage5.png",
+      "bytes": 10422300,
+      "width": 2731,
+      "height": 4096,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgLeaves1.png",
+      "bytes": 237676,
+      "width": 486,
+      "height": 384,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgLines.svg",
+      "bytes": 529,
+      "width": 346,
+      "height": 1586,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgObjects1.png",
+      "bytes": 272855,
+      "width": 910,
+      "height": 918,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgVector.svg",
+      "bytes": 1232,
+      "width": 9,
+      "height": 10,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgVector1.svg",
+      "bytes": 1200,
+      "width": 10,
+      "height": 10,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgWatercolorBloomingFlowers1.png",
+      "bytes": 686899,
+      "width": 798,
+      "height": 949,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgWatercolorBloomingFlowersCopy1.png",
+      "bytes": 165459,
+      "width": 800,
+      "height": 531,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgWatercolorBloomingFlowersCopyCopy1.png",
+      "bytes": 138473,
+      "width": 405,
+      "height": 353,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/long-imgWatercolorBloomingFlowersCopyCopy21.png",
+      "bytes": 94516,
+      "width": 300,
+      "height": 399,
+      "orientation": 1
+    },
+    {
+      "path": "apps/invitation-web/public/assets/figma/registered-leaves.png",
+      "bytes": 93677,
+      "width": 188,
+      "height": 224,
+      "orientation": 1
+    }
+  ]
+}

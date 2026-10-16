@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { isLoopbackDevelopmentOrigin } from "../security/development-origin.js";
 
 @Injectable()
 export class PublicInvitationBaseUrlService {
@@ -26,7 +27,7 @@ export class PublicInvitationBaseUrlService {
       throw new Error("Production PUBLIC_INVITATION_BASE_URL must use HTTPS.");
     }
 
-    if (url.protocol !== "https:" && url.origin !== "http://localhost:3000") {
+    if (url.protocol !== "https:" && !isLoopbackDevelopmentOrigin(url)) {
       throw new Error(
         "PUBLIC_INVITATION_BASE_URL must be HTTPS outside local development.",
       );

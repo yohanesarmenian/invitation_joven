@@ -8,6 +8,8 @@ import {
   prepareGuestMessage,
   type GuestMessageResult,
 } from "../../src/messages/state";
+import Image from "next/image";
+import { figmaAssets } from "../../src/presentation/figma-assets";
 
 export function GuestMessageForm({
   submitAction,
@@ -86,20 +88,29 @@ export function GuestMessageForm({
       <div role="status" aria-atomic="true">
         {state === "success" ? (
           <div className="guest-message-confirmation">
+            <Image
+              className="figma-message-icon"
+              src={figmaAssets["82_113_LoveLetterIcon"]}
+              alt=""
+              width={67}
+              height={44}
+            />
             <h3 ref={successRef} tabIndex={-1}>
               Message Sent!
             </h3>
-            <p>Thank you for sharing your wishes with us.</p>
+            <p>
+              Thank you for your message. The bride and groom look forward to
+              reading all your warm wishes after the celebration.
+            </p>
+            <button type="button" onClick={() => setState("returned")}>
+              Back to Invitation
+            </button>
           </div>
         ) : pending ? (
           "Sending your message…"
         ) : null}
       </div>
-      {state === "success" ? (
-        <button type="button" onClick={() => setState("returned")}>
-          Back to Invitation
-        </button>
-      ) : (
+      {state !== "success" && (
         <form
           aria-label="Guest message"
           aria-busy={pending}

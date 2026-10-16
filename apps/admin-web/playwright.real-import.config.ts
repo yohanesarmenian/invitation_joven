@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e-real",
-  testMatch: "**/*.e2e.ts",
+  testMatch: "**/import-real.e2e.ts",
   workers: 1,
   retries: 0,
   fullyParallel: false,
@@ -11,7 +11,7 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     baseURL: "http://localhost:3001",
-    screenshot: "only-on-failure",
+    screenshot: "off",
     trace: "off",
   },
   webServer: [

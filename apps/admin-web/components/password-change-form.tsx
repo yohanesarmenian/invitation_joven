@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type FormEvent } from "react";
+import { useSyncExternalStore, useRef, useState, type FormEvent } from "react";
 import type { AdminAuthResponse } from "@wedding-invitation/api-client/src/index";
 import { changeOwnPassword } from "../src/auth/browser-client";
 
@@ -9,11 +9,21 @@ function validPassword(value: string): boolean {
   return length >= 15 && length <= 128;
 }
 
+const subscribeToClientReadiness = () => () => {};
+const clientReady = () => true;
+const serverNotReady = () => false;
+
 export function PasswordChangeForm({ auth }: { auth: AdminAuthResponse }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
+  // React retains the server snapshot until hydration attaches event handlers.
+  const hydrated = useSyncExternalStore(
+    subscribeToClientReadiness,
+    clientReady,
+    serverNotReady,
+  );
   const locked = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -48,7 +58,13 @@ export function PasswordChangeForm({ auth }: { auth: AdminAuthResponse }) {
   }
 
   return (
-    <form onSubmit={submit} noValidate aria-busy={pending}>
+    <form
+      onSubmit={submit}
+      method="post"
+      action="/api/admin/auth/change-password"
+      noValidate
+      aria-busy={pending}
+    >
       <div className="field">
         <label htmlFor="current-password">Current password</label>
         <input
@@ -59,7 +75,7 @@ export function PasswordChangeForm({ auth }: { auth: AdminAuthResponse }) {
           required
           value={currentPassword}
           onChange={(event) => setCurrentPassword(event.target.value)}
-          disabled={pending}
+          disabled={pending || !hydrated}
         />
       </div>
       <div className="field">
@@ -72,7 +88,7 @@ export function PasswordChangeForm({ auth }: { auth: AdminAuthResponse }) {
           required
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
-          disabled={pending}
+          disabled={pending || !hydrated}
         />
       </div>
       <div aria-live="polite" aria-atomic="true">
@@ -83,7 +99,8 @@ export function PasswordChangeForm({ auth }: { auth: AdminAuthResponse }) {
         )}
         {pending && <p role="status">Changing password...</p>}
       </div>
-      <button type="submit" disabled={pending}>
+      <noscript>Enable JavaScript to change your password securely.</noscript>
+      <button type="submit" disabled={pending || !hydrated}>
         {pending ? "Changing password..." : "Change password"}
       </button>
     </form>

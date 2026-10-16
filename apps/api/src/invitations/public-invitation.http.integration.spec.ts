@@ -139,6 +139,7 @@ async function createFixture(
         : "https://maps.example/reception",
       name: "Reception",
       slug: `slice4-reception-${suffix}`,
+      endsAt: null,
       startsAt: options.withNullableProjection
         ? null
         : new Date("2026-12-12T12:00:00.000Z"),
@@ -380,6 +381,7 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     expect(response.json().invitation.events[1]).toMatchObject({
       address: null,
       googleMapsUrl: null,
+      endsAt: null,
       startsAt: null,
       venueName: null,
     });
@@ -648,27 +650,30 @@ describe("GET /api/public/invitations/:publicCredential", () => {
 
   it("returns accepted RSVP state from the dedicated RSVP GET", async () => {
     const fixture = await createFixture();
-    await app.getHttpAdapter().getInstance().inject({
-      method: "PUT",
-      payload: {
-        attendees: [
-          {
-            inviteeId: fixture.adultInviteeId,
-            quantity: 1,
-            type: "NAMED_INVITEE",
-          },
-        ],
-        eventSelections: [
-          {
-            attending: true,
-            eventId: fixture.linkedEventIdsByDisplayOrder[0],
-            expectedAttendeeCount: 1,
-          },
-        ],
-        expectedVersion: null,
-        status: RSVPStatus.ACCEPTED,
-      },
-      url: `/api/public/invitations/${fixture.credential}/rsvp`,
+    await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [
+            {
+              inviteeId: fixture.adultInviteeId,
+              quantity: 1,
+              type: "NAMED_INVITEE",
+            },
+          ],
+          eventSelections: [
+            {
+              attending: true,
+              eventId: fixture.linkedEventIdsByDisplayOrder[0],
+              expectedAttendeeCount: 1,
+            },
+          ],
+          expectedVersion: null,
+          status: RSVPStatus.ACCEPTED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
       });
     const [activePass] = await prisma.checkinPass.findMany({
       where: {
@@ -716,13 +721,10 @@ describe("GET /api/public/invitations/:publicCredential", () => {
   });
 
   it("maps unavailable dedicated RSVP GET credentials to the generic 404 envelope", async () => {
-    const response = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject({
-        method: "GET",
-        url: "/api/public/invitations/bad/rsvp",
-      });
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/api/public/invitations/bad/rsvp",
+    });
 
     expect(response.statusCode).toBe(404);
     expect(response.json()).toMatchObject({
@@ -737,16 +739,19 @@ describe("GET /api/public/invitations/:publicCredential", () => {
 
   it("updates an existing public RSVP with the current expectedVersion", async () => {
     const fixture = await createFixture();
-    await app.getHttpAdapter().getInstance().inject({
-      method: "PUT",
-      payload: {
-        attendees: [],
-        eventSelections: [],
-        expectedVersion: null,
-        status: RSVPStatus.DECLINED,
-      },
-      url: `/api/public/invitations/${fixture.credential}/rsvp`,
-    });
+    await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: null,
+          status: RSVPStatus.DECLINED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
 
     const response = await app
       .getHttpAdapter()
@@ -809,15 +814,18 @@ describe("GET /api/public/invitations/:publicCredential", () => {
       status: RSVPStatus.ACCEPTED,
     };
 
-    const firstAccept = await app.getHttpAdapter().getInstance().inject({
-      method: "PUT",
-      payload: {
-        ...acceptPayload,
-        dietaryNotes: "first",
-        expectedVersion: null,
-      },
-      url: `/api/public/invitations/${fixture.credential}/rsvp`,
-    });
+    const firstAccept = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          ...acceptPayload,
+          dietaryNotes: "first",
+          expectedVersion: null,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
     const firstPass = await prisma.checkinPass.findFirstOrThrow({
       where: {
         invitationId: fixture.invitationId,
@@ -829,15 +837,18 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     expect(firstAccept.statusCode).toBe(200);
     expect(hashDerivedCredential(firstPayload)).toBe(firstPass.tokenHash);
 
-    const acceptedUpdate = await app.getHttpAdapter().getInstance().inject({
-      method: "PUT",
-      payload: {
-        ...acceptPayload,
-        dietaryNotes: "second",
-        expectedVersion: 1,
-      },
-      url: `/api/public/invitations/${fixture.credential}/rsvp`,
-    });
+    const acceptedUpdate = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          ...acceptPayload,
+          dietaryNotes: "second",
+          expectedVersion: 1,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
 
     expect(acceptedUpdate.statusCode).toBe(200);
     expect(acceptedUpdate.json().checkinPass.qrPayload).toBe(firstPayload);
@@ -847,29 +858,35 @@ describe("GET /api/public/invitations/:publicCredential", () => {
       }),
     ).resolves.toBe(1);
 
-    const decline = await app.getHttpAdapter().getInstance().inject({
-      method: "PUT",
-      payload: {
-        attendees: [],
-        eventSelections: [],
-        expectedVersion: 2,
-        status: RSVPStatus.DECLINED,
-      },
-      url: `/api/public/invitations/${fixture.credential}/rsvp`,
-    });
+    const decline = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: 2,
+          status: RSVPStatus.DECLINED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
 
     expect(decline.statusCode).toBe(200);
     expect(decline.json().checkinPass).toBeNull();
 
-    const reaccept = await app.getHttpAdapter().getInstance().inject({
-      method: "PUT",
-      payload: {
-        ...acceptPayload,
-        dietaryNotes: "third",
-        expectedVersion: 3,
-      },
-      url: `/api/public/invitations/${fixture.credential}/rsvp`,
-    });
+    const reaccept = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          ...acceptPayload,
+          dietaryNotes: "third",
+          expectedVersion: 3,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
     const activePass = await prisma.checkinPass.findFirstOrThrow({
       where: {
         invitationId: fixture.invitationId,
@@ -961,28 +978,31 @@ describe("GET /api/public/invitations/:publicCredential", () => {
 
   it("transitions an accepted public RSVP to declined and removes active pass exposure", async () => {
     const fixture = await createFixture();
-    await app.getHttpAdapter().getInstance().inject({
-      method: "PUT",
-      payload: {
-        attendees: [
-          {
-            inviteeId: fixture.adultInviteeId,
-            quantity: 1,
-            type: "NAMED_INVITEE",
-          },
-        ],
-        eventSelections: [
-          {
-            attending: true,
-            eventId: fixture.linkedEventIdsByDisplayOrder[0],
-            expectedAttendeeCount: 1,
-          },
-        ],
-        expectedVersion: null,
-        status: RSVPStatus.ACCEPTED,
-      },
-      url: `/api/public/invitations/${fixture.credential}/rsvp`,
-    });
+    await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [
+            {
+              inviteeId: fixture.adultInviteeId,
+              quantity: 1,
+              type: "NAMED_INVITEE",
+            },
+          ],
+          eventSelections: [
+            {
+              attending: true,
+              eventId: fixture.linkedEventIdsByDisplayOrder[0],
+              expectedAttendeeCount: 1,
+            },
+          ],
+          expectedVersion: null,
+          status: RSVPStatus.ACCEPTED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
 
     const response = await app
       .getHttpAdapter()
@@ -1024,16 +1044,19 @@ describe("GET /api/public/invitations/:publicCredential", () => {
 
   it("maps stale public RSVP versions to a 409 error envelope", async () => {
     const fixture = await createFixture();
-    await app.getHttpAdapter().getInstance().inject({
-      method: "PUT",
-      payload: {
-        attendees: [],
-        eventSelections: [],
-        expectedVersion: null,
-        status: RSVPStatus.DECLINED,
-      },
-      url: `/api/public/invitations/${fixture.credential}/rsvp`,
-    });
+    await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "PUT",
+        payload: {
+          attendees: [],
+          eventSelections: [],
+          expectedVersion: null,
+          status: RSVPStatus.DECLINED,
+        },
+        url: `/api/public/invitations/${fixture.credential}/rsvp`,
+      });
 
     const response = await app
       .getHttpAdapter()

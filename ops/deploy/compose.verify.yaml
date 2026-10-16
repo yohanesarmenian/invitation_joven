@@ -1,0 +1,27 @@
+# Synthetic local/CI override only. Never select this file in Coolify.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: invitation_ci
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: container_fixture_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d invitation_ci"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql
+    volumes:
+      - ./ops/deploy/container-test-roles.sql:/docker-entrypoint-initdb.d/010-roles.sql:ro
+  migrate:
+    depends_on:
+      postgres:
+        condition: service_healthy
+  api:
+    ports: ["127.0.0.1:42700:4000"]
+  admin-web:
+    ports: ["127.0.0.1:42701:3001"]
+  invitation-web:
+    ports: ["127.0.0.1:42702:3000"]

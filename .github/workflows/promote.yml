@@ -1,0 +1,59 @@
+name: Promote to Coolify
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        default: staging
+        required: true
+      release_sha:
+        description: Full 40-character commit SHA with a successful master-push CI run
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coolify-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'master' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       vars.AUTO_DEPLOY_STAGING == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout trusted promotion code
+        uses: actions/checkout@v5
+        with:
+          ref: master
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Promote only a verified commit to the Coolify source branch
+        run: node ops/deploy/promote.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.event.workflow_run.head_sha }}
+          DEPLOY_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+          AUTOMATIC_PROMOTION: ${{ github.event_name == 'workflow_run' }}
+          DEPLOYMENT_ENABLED: ${{ vars.DEPLOYMENT_ENABLED }}

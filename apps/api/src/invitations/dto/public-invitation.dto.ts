@@ -23,6 +23,9 @@ export class PublicInvitationEventDto {
   })
   startsAt: string | null;
 
+  @ApiProperty({ format: "date-time", nullable: true, type: String })
+  endsAt: string | null;
+
   @ApiProperty({ nullable: true, type: String })
   venueName: string | null;
 

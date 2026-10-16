@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({
 
 import RsvpsPage from "../app/(protected)/rsvps/page";
 import RsvpDetailPage from "../app/(protected)/rsvps/[id]/page";
-import { RsvpDetailContent } from "../app/(protected)/rsvps/[id]/page";
+import { RsvpDetailContent } from "../components/rsvp-detail-content";
 import { RsvpFilters } from "../components/rsvp-filters";
 import { RsvpDetail } from "../components/rsvp-detail";
 import { RsvpList, RsvpResults } from "../components/rsvp-list";
@@ -130,7 +130,10 @@ it.each([
 ] as const)("renders bounded RSVP detail read state %s", async (kind, copy) => {
   read.mockResolvedValue({ kind });
   const html = renderToStaticMarkup(
-    await RsvpDetailContent({ csrfToken: auth.csrfToken, id: rsvpDetail.rsvp.id }),
+    await RsvpDetailContent({
+      csrfToken: auth.csrfToken,
+      id: rsvpDetail.rsvp.id,
+    }),
   );
   expect(html).toContain(copy);
   expect(html).not.toContain("Private backend diagnostic");

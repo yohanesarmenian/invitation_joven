@@ -340,7 +340,7 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(34);
+    expect(routes).toHaveLength(45);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "POST /api/admin/invitations",
@@ -356,6 +356,7 @@ describe("admin read HTTP integration", () => {
         "GET /api/admin/checkin/search",
         "POST /api/admin/checkin/confirm",
         "POST /api/admin/checkin/manual-confirm",
+        "POST /api/admin/checkin/manual-status",
         "POST /api/admin/checkin/validate",
         "POST /api/admin/imports/guest/commit",
         "POST /api/admin/imports/guest/validate",
@@ -364,17 +365,23 @@ describe("admin read HTTP integration", () => {
       ]),
     );
     expect(routeNames).toEqual([
+      "DELETE /api/admin/event-content/:eventId/assets/:assetId",
       "DELETE /api/admin/invitees/:inviteeId",
       "GET /api/admin/auth/me",
       "GET /api/admin/checkin/events",
       "GET /api/admin/checkin/search",
       "GET /api/admin/dashboard",
+      "GET /api/admin/event-content/:eventId",
+      "GET /api/admin/event-content/:eventId/assets/:assetId",
       "GET /api/admin/events",
       "GET /api/admin/invitations",
       "GET /api/admin/invitations/:invitationId",
       "GET /api/admin/invitations/:invitationId/messages",
       "GET /api/admin/invitations/:invitationId/public-url",
       "GET /api/admin/messages",
+      "GET /api/admin/reports/export",
+      "GET /api/admin/reports/households",
+      "GET /api/admin/reports/summary",
       "GET /api/admin/rsvps",
       "GET /api/admin/rsvps/:rsvpId",
       "GET /api/admin/staff",
@@ -387,7 +394,11 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/auth/logout",
       "POST /api/admin/checkin/confirm",
       "POST /api/admin/checkin/manual-confirm",
+      "POST /api/admin/checkin/manual-status",
       "POST /api/admin/checkin/validate",
+      "POST /api/admin/event-content/:eventId/assets",
+      "POST /api/admin/event-content/:eventId/hide",
+      "POST /api/admin/event-content/:eventId/publish",
       "POST /api/admin/imports/guest/commit",
       "POST /api/admin/imports/guest/validate",
       "POST /api/admin/invitations",
@@ -396,6 +407,7 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/invitations/:invitationId/regenerate-token",
       "POST /api/admin/staff",
       "POST /api/admin/staff/:staffId/reset-password",
+      "PUT /api/admin/event-content/:eventId",
       "PUT /api/admin/invitations/:invitationId/events",
       "PUT /api/admin/invitations/:invitationId/rsvp",
     ]);
@@ -444,6 +456,7 @@ describe("admin read HTTP integration", () => {
     expect(
       unsafeRoutes.map((route) => `${route.method} ${route.path}`),
     ).toEqual([
+      "DELETE /api/admin/event-content/:eventId/assets/:assetId",
       "DELETE /api/admin/invitees/:inviteeId",
       "PATCH /api/admin/invitations/:invitationId",
       "PATCH /api/admin/invitees/:inviteeId",
@@ -453,7 +466,11 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/auth/logout",
       "POST /api/admin/checkin/confirm",
       "POST /api/admin/checkin/manual-confirm",
+      "POST /api/admin/checkin/manual-status",
       "POST /api/admin/checkin/validate",
+      "POST /api/admin/event-content/:eventId/assets",
+      "POST /api/admin/event-content/:eventId/hide",
+      "POST /api/admin/event-content/:eventId/publish",
       "POST /api/admin/imports/guest/commit",
       "POST /api/admin/imports/guest/validate",
       "POST /api/admin/invitations",
@@ -462,6 +479,7 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/invitations/:invitationId/regenerate-token",
       "POST /api/admin/staff",
       "POST /api/admin/staff/:staffId/reset-password",
+      "PUT /api/admin/event-content/:eventId",
       "PUT /api/admin/invitations/:invitationId/events",
       "PUT /api/admin/invitations/:invitationId/rsvp",
     ]);
@@ -662,6 +680,9 @@ describe("admin read HTTP integration", () => {
           isActive: false,
           name: "Reception",
           slug: "reception",
+          startsAt: null,
+          venueName: null,
+          address: null,
         },
         {
           displayOrder: 2,
@@ -669,6 +690,9 @@ describe("admin read HTTP integration", () => {
           isActive: true,
           name: "Ceremony",
           slug: "ceremony",
+          startsAt: null,
+          venueName: null,
+          address: null,
         },
       ],
     });
@@ -1081,6 +1105,15 @@ describe("admin read HTTP integration", () => {
     }
 
     const local = await requestWithConfig("test", "http://localhost:3000/");
+    const isolatedLocal = await requestWithConfig(
+      "test",
+      "http://localhost:3100",
+    );
+    const lanHttp = await requestWithConfig("test", "http://192.168.1.2:3100");
+    const spoofLocal = await requestWithConfig(
+      "test",
+      "http://localhost.evil.test:3100",
+    );
     const https = await requestWithConfig(
       "production",
       "https://invite.example.com",
@@ -1111,6 +1144,12 @@ describe("admin read HTTP integration", () => {
     process.env.PUBLIC_INVITATION_BASE_URL = previousBaseUrl;
 
     expect(local.statusCode).toBe(200);
+    expect(isolatedLocal.statusCode).toBe(200);
+    expect(
+      isolatedLocal.json().publicUrl.startsWith("http://localhost:3100/i/"),
+    ).toBe(true);
+    expect(lanHttp.statusCode).toBe(500);
+    expect(spoofLocal.statusCode).toBe(500);
     expect(local.json().publicUrl).toMatch(/^http:\/\/localhost:3000\/i\//);
     expect(https.statusCode).toBe(200);
 
