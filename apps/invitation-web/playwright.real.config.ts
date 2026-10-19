@@ -22,8 +22,8 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     baseURL: APP_BASE_URL,
-    screenshot: "only-on-failure",
-    trace: "on-first-retry",
+    screenshot: "off",
+    trace: "off",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [

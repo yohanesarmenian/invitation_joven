@@ -1,12 +1,24 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import type { PublicInvitationResponse } from "../../../../packages/api-client/src/index";
+import { EventCalendar, EventCountdown } from "./event-enhancements";
+import { InvitationGallery } from "./gallery";
+import { VenueInformation } from "./venue-information";
+import type { VenueContent } from "../../src/content/venue-content";
+import { weddingMedia } from "../../src/presentation/wedding-media";
+import { figmaAssets } from "../../src/presentation/figma-assets";
 
 type PublicInvitation = PublicInvitationResponse["invitation"];
 type PublicInvitationEvent = PublicInvitation["events"][number];
 type DisplayInvitationEvent = Pick<
   PublicInvitationEvent,
-  "address" | "googleMapsUrl" | "name" | "startsAt" | "venueName"
+  | "id"
+  | "address"
+  | "googleMapsUrl"
+  | "name"
+  | "startsAt"
+  | "endsAt"
+  | "venueName"
 >;
 
 export type PublicInvitationLongPageModel = {
@@ -17,41 +29,41 @@ export type PublicInvitationLongPageModel = {
 };
 
 // `sizes` values are derived from the current CSS column widths.
-const BRIDE_PHOTO = "/assets/photos/bride.png";
-const GROOM_PHOTO = "/assets/photos/groom.png";
+const BRIDE_PHOTO = weddingMedia.bride;
+const GROOM_PHOTO = weddingMedia.groom;
 const COUPLE_PHOTO_SIZES =
-  "(min-width: 480px) 215px, (max-width: 360px) calc(100vw - 38px), 43vw";
-
-const galleryFrames = [
-  {
-    src: "/assets/photos/gallery-01.png",
-    variant: "gallery-frame-large",
-    sizes: "(min-width: 480px) 241px, 50vw",
-  },
-  {
-    src: "/assets/photos/gallery-02.png",
-    variant: "gallery-frame-small",
-    sizes: "(min-width: 480px) 178px, 37vw",
-  },
-  {
-    src: "/assets/photos/gallery-03.png",
-    variant: "gallery-frame-medium",
-    sizes: "(min-width: 480px) 178px, 37vw",
-  },
-  {
-    src: "/assets/photos/gallery-04.png",
-    variant: "gallery-frame-tall",
-    sizes: "(min-width: 480px) 241px, 50vw",
-  },
-];
+  "(min-width: 1040px) 210px, (min-width: 700px) 21vw, 42vw";
 
 const decorativeAssets = {
-  corner: { file: "hydrangea-corner.png", width: 166, height: 171 },
-  cluster: { file: "hydrangea-cluster.png", width: 616, height: 524 },
-  leaves: { file: "groom-leaves.svg", width: 138, height: 138 },
-  calendar: { file: "calendar.svg", width: 59, height: 52 },
-  rings: { file: "rings.svg", width: 88, height: 58 },
-  ornament: { file: "small-ornament.svg", width: 78, height: 37 },
+  corner: {
+    file: figmaAssets.long_WatercolorBloomingFlowers1,
+    width: 798,
+    height: 949,
+  },
+  cluster: {
+    file: figmaAssets.long_WatercolorBloomingFlowersCopyCopy1,
+    width: 405,
+    height: 353,
+  },
+  leaves: { file: figmaAssets.long_Leaves1, width: 486, height: 384 },
+  calendar: { file: figmaAssets.long_Calendar1, width: 533, height: 469 },
+  rings: { file: figmaAssets.long_Objects1, width: 910, height: 918 },
+  ornament: { file: figmaAssets.long_Objects1, width: 910, height: 918 },
+  brideBloom: {
+    file: figmaAssets.long_ChatGptImageSep152026112225Am4,
+    width: 1536,
+    height: 1024,
+  },
+  dressBloom: {
+    file: figmaAssets.long_WatercolorBloomingFlowersCopyCopy21,
+    width: 300,
+    height: 399,
+  },
+  lowerBloom: {
+    file: figmaAssets.long_WatercolorBloomingFlowersCopy1,
+    width: 800,
+    height: 531,
+  },
 } as const;
 
 function Decoration({
@@ -64,34 +76,41 @@ function Decoration({
   sizes: string;
 }) {
   const source = decorativeAssets[asset];
+  const renderedSizes =
+    asset === "brideBloom"
+      ? "277px"
+      : asset === "rings"
+        ? "278px"
+        : asset === "ornament"
+          ? "178px"
+          : sizes;
 
   return (
     <span className={`invitation-decoration ${className}`} aria-hidden="true">
       <Image
-        src={`/assets/decorative/${source.file}`}
+        src={source.file}
         alt=""
         width={source.width}
         height={source.height}
-        sizes={sizes}
+        sizes={renderedSizes}
+        loading="eager"
       />
     </span>
   );
 }
 
-// 4B2-A re-baseline. Owner-approved couple names and the wedding date are
-// static invitation copy; the RSVP deadline is NOT hardcoded here because the
-// public DTO already supplies it.
+// Owner-approved couple copy stays fixed. Event dates and the RSVP deadline
+// are supplied by the public API.
 const BRIDE = {
   name: "Angelina Desandra Adventa",
   nickname: "Venta",
+  parents: ["Mr. Agus Witjaksono", "Mrs. Godeliva Yuniati"],
 } as const;
 const GROOM = {
   name: "Yohanes Armenian Putra",
   nickname: "Jo",
+  parents: ["Mr. Eddy Frist Simamora", "Mrs. Entin Kartini"],
 } as const;
-
-const WEDDING_DAY = "Saturday";
-const WEDDING_DATE = "09 January 2027";
 
 const dressCodeSwatches = [
   { label: "Deep navy", color: "#11256E" },
@@ -112,10 +131,14 @@ export function PublicInvitationLongPage({
   invitation,
   rsvpForm,
   guestMessageForm,
+  initialNow,
+  venueContent,
 }: {
   invitation: PublicInvitationLongPageModel;
   rsvpForm: ReactNode;
   guestMessageForm: ReactNode;
+  initialNow: number;
+  venueContent?: VenueContent;
 }) {
   const guestName = invitation.greetingName ?? invitation.displayName;
 
@@ -124,8 +147,10 @@ export function PublicInvitationLongPage({
       <article className="public-invitation-surface">
         <InvitationHeader guestName={guestName} />
         <CoupleSection />
-        <WeddingDateSection />
+        <WeddingDateSection events={invitation.events} />
+        <EventCountdown events={invitation.events} initialNow={initialNow} />
         <EventsSection events={invitation.events} />
+        {venueContent ? <VenueInformation content={venueContent} /> : null}
         <DressCodeSection />
         <RsvpInformationSection deadline={invitation.rsvpDeadlineAt}>
           {rsvpForm}
@@ -147,7 +172,7 @@ function InvitationHeader({ guestName }: { guestName: string }) {
         className="decoration-top"
         sizes="(min-width: 412px) 140px, 34vw"
       />
-      <p className="section-kicker">Dear</p>
+      <p className="section-kicker">Dear,</p>
       <h1 id="invitation-title">{guestName}</h1>
       <p>
         we joyfully invite you to witness and celebrate as we unite in the
@@ -159,23 +184,32 @@ function InvitationHeader({ guestName }: { guestName: string }) {
 
 function CoupleSection() {
   return (
-    <section className="invitation-section couple-section" aria-labelledby="couple-title">
+    <section
+      className="invitation-section couple-section"
+      aria-labelledby="couple-title"
+    >
       <h2 id="couple-title" className="visually-hidden">
         Bride and Groom
       </h2>
-      {/* Family/parent copy is deferred: no owner-approved text exists in the
-          repository yet, and titles must not be inferred from names. */}
+      {/* Family names and titles confirmed by the owner against Figma. */}
       <CoupleProfile
         role="Bride"
         name={BRIDE.name}
         nickname={BRIDE.nickname}
+        parents={BRIDE.parents}
         mediaSide="left"
       />
       <CoupleProfile
         role="Groom"
         name={GROOM.name}
         nickname={GROOM.nickname}
+        parents={GROOM.parents}
         mediaSide="right"
+      />
+      <Decoration
+        asset="brideBloom"
+        className="decoration-bride-bloom"
+        sizes="78px"
       />
     </section>
   );
@@ -185,11 +219,13 @@ function CoupleProfile({
   role,
   name,
   nickname,
+  parents,
   mediaSide,
 }: {
   role: string;
   name: string;
   nickname: string;
+  parents: readonly [string, string];
   mediaSide: "left" | "right";
 }) {
   const titleId = `${role.toLowerCase()}-title`;
@@ -200,38 +236,78 @@ function CoupleProfile({
         alt=""
         fill
         sizes={COUPLE_PHOTO_SIZES}
+        loading="eager"
       />
     </div>
   );
   const copy = (
     <div className="couple-copy">
-      <p className="section-kicker">{role}</p>
-      <h3 id={titleId}>{name}</h3>
-      <p className="couple-nickname">{nickname}</p>
+      <p className="couple-role">The {role}</p>
+      <h3 id={titleId}>
+        {name} <span className="couple-nickname">({nickname})</span>
+      </h3>
+      <p className="couple-family-label">
+        {role === "Bride" ? "Daughter of" : "Son of"}
+      </p>
+      <p className="couple-family-names">
+        {parents[0]}
+        <br />
+        {role === "Bride" ? "& " : ""}
+        {parents[1]}
+      </p>
     </div>
   );
 
   return (
-    <section className="couple-profile" aria-labelledby={titleId}>
+    <section
+      className={`couple-profile couple-profile-${role.toLowerCase()}`}
+      aria-labelledby={titleId}
+      data-invitation-reveal
+    >
       {mediaSide === "left" ? media : copy}
       {mediaSide === "left" ? copy : media}
     </section>
   );
 }
 
-function WeddingDateSection() {
+function WeddingDateSection({ events }: { events: DisplayInvitationEvent[] }) {
+  const dates = events.flatMap((event) =>
+    event.startsAt && Number.isFinite(Date.parse(event.startsAt))
+      ? [Date.parse(event.startsAt)]
+      : [],
+  );
+  if (dates.length === 0) return null;
+  const date = new Date(Math.min(...dates));
+  const day = new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    timeZone: "Asia/Jakarta",
+  }).format(date);
+  const label = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(date);
   return (
-    <section className="invitation-section wedding-date-section" aria-labelledby="wedding-date-title">
+    <section
+      className="invitation-section wedding-date-section"
+      aria-labelledby="wedding-date-title"
+      data-invitation-reveal
+    >
       <Decoration
         asset="leaves"
         className="decoration-groom-leaves"
         sizes="(min-width: 412px) 137px, 33vw"
       />
-      <Decoration asset="calendar" className="decoration-calendar" sizes="59px" />
+      <Decoration
+        asset="calendar"
+        className="decoration-calendar"
+        sizes="59px"
+      />
       <p className="section-kicker">Wedding Date</p>
       <div className="wedding-date-divider" aria-hidden="true" />
-      <p className="wedding-date-day">{WEDDING_DAY}</p>
-      <h2 id="wedding-date-title">{WEDDING_DATE}</h2>
+      <p className="wedding-date-day">{day}</p>
+      <h2 id="wedding-date-title">{label}</h2>
       <div className="wedding-date-divider" aria-hidden="true" />
     </section>
   );
@@ -243,11 +319,18 @@ function EventsSection({ events }: { events: DisplayInvitationEvent[] }) {
   }
 
   return (
-    <section className="invitation-section events-section" aria-labelledby="events-title">
+    <section
+      className="invitation-section events-section"
+      aria-labelledby="events-title"
+    >
       <h2 id="events-title">Wedding Events</h2>
       <div className="event-list">
         {events.map((event, index) => (
-          <EventSection key={`${event.name}-${index}`} event={event} index={index} />
+          <EventSection
+            key={`${event.name}-${index}`}
+            event={event}
+            index={index}
+          />
         ))}
       </div>
     </section>
@@ -284,7 +367,19 @@ function EventSection({
       </div>
       <div className="event-detail-block">
         <h3 id={titleId}>{event.name}</h3>
-        {event.venueName ? <p className="event-venue">{event.venueName}</p> : null}
+        {event.startsAt ? (
+          <p>
+            {new Intl.DateTimeFormat("en-GB", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+              timeZone: "Asia/Jakarta",
+            }).format(new Date(event.startsAt))}
+          </p>
+        ) : null}
+        {event.venueName ? (
+          <p className="event-venue">{event.venueName}</p>
+        ) : null}
         {event.address ? <address>{event.address}</address> : null}
         <div className="event-actions">
           {event.googleMapsUrl ? (
@@ -297,13 +392,15 @@ function EventSection({
               View in Google Maps
             </a>
           ) : null}
-          {/* Non-interactive badge on purpose: the parking guide still has no
-              destination, and a disabled control would imply otherwise. */}
-          <span className="parking-guide-note">Parking guide deferred</span>
+          <EventCalendar event={event} />
         </div>
       </div>
       {index === 0 ? (
-        <Decoration asset="ornament" className="decoration-event" sizes="78px" />
+        <Decoration
+          asset="ornament"
+          className="decoration-event"
+          sizes="78px"
+        />
       ) : null}
     </section>
   );
@@ -311,16 +408,31 @@ function EventSection({
 
 function DressCodeSection() {
   return (
-    <section className="invitation-section dress-code-section" aria-labelledby="dress-code-title">
+    <section
+      className="invitation-section dress-code-section"
+      aria-labelledby="dress-code-title"
+      data-invitation-reveal
+    >
       <Decoration
-        asset="corner"
+        asset="dressBloom"
         className="decoration-dress-right"
         sizes="(min-width: 412px) 64px, 16vw"
       />
       <p className="section-kicker">Fine Attire</p>
       <h2 id="dress-code-title">Dress Code</h2>
       <p>Formal / Modern / National / Batik</p>
-      <ul className="dress-swatch-list" aria-label="Dress code color references">
+      <span className="figma-dress-palette" aria-hidden="true">
+        <Image
+          src={figmaAssets.long_DressCodeColors}
+          alt=""
+          width={307}
+          height={47}
+        />
+      </span>
+      <ul
+        className="dress-swatch-list visually-hidden"
+        aria-label="Dress code color references"
+      >
         {dressCodeSwatches.map((swatch) => (
           <li key={swatch.color}>
             <span
@@ -346,28 +458,37 @@ function RsvpInformationSection({
   const deadlineLabel = formatDeadlineLabel(deadline);
 
   return (
-    <section className="invitation-section rsvp-information-section" aria-labelledby="rsvp-title">
+    <section
+      className="invitation-section rsvp-information-section"
+      aria-labelledby="rsvp-title"
+    >
       <Decoration
         asset="cluster"
         className="decoration-rsvp-left"
         sizes="(min-width: 412px) 126px, 31vw"
       />
       <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
-      {deadlineLabel ? <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p> : null}
+      <p className="figma-rsvp-intro">
+        To help us make proper arrangements with our venue and caterers, we
+        kindly ask that you confirm your attendance.
+      </p>
+      {deadlineLabel ? (
+        <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p>
+      ) : null}
       {children}
       <div className="rsvp-decoration-band" aria-hidden="true">
         <Decoration
-          asset="cluster"
+          asset="lowerBloom"
           className="decoration-rsvp-main"
           sizes="(min-width: 412px) 128px, 31vw"
         />
         <Decoration
-          asset="corner"
+          asset="cluster"
           className="decoration-rsvp-small-a"
           sizes="47px"
         />
         <Decoration
-          asset="corner"
+          asset="cluster"
           className="decoration-rsvp-small-b"
           sizes="66px"
         />
@@ -378,23 +499,13 @@ function RsvpInformationSection({
 
 function GallerySection() {
   return (
-    <section className="invitation-section gallery-section" aria-labelledby="gallery-title">
+    <section
+      className="invitation-section gallery-section"
+      aria-labelledby="gallery-title"
+      data-invitation-reveal
+    >
       <h2 id="gallery-title">Pre-wedding Gallery</h2>
-      <div className="gallery-mosaic" aria-hidden="true">
-        {galleryFrames.map((frame) => (
-          <div
-            key={frame.src}
-            className={`gallery-frame ${frame.variant}`}
-          >
-            <Image
-              src={frame.src}
-              alt=""
-              fill
-              sizes={frame.sizes}
-            />
-          </div>
-        ))}
-      </div>
+      <InvitationGallery />
       {/* Scripture belongs with the gallery in the updated baseline, not under
           an invented combined "scripture and words" heading. */}
       <div className="gallery-scripture">
@@ -414,13 +525,16 @@ function GallerySection() {
 
 function McCandlessQuoteSection() {
   return (
-    <section className="invitation-section quote-section">
+    <section
+      className="invitation-section quote-section"
+      data-invitation-reveal
+    >
       <blockquote>
         <p>Happiness is only real when shared</p>
         <cite>Christopher McCandless</cite>
       </blockquote>
       <Decoration
-        asset="cluster"
+        asset="lowerBloom"
         className="decoration-lower"
         sizes="(min-width: 412px) 144px, 35vw"
       />
@@ -430,7 +544,10 @@ function McCandlessQuoteSection() {
 
 function GuestMessageSection({ children }: { children: ReactNode }) {
   return (
-    <section className="invitation-section guest-message-section" aria-labelledby="message-title">
+    <section
+      className="invitation-section guest-message-section"
+      aria-labelledby="message-title"
+    >
       <h2 id="message-title">Leave a Message for the Bride &amp; Groom</h2>
       {children}
     </section>
@@ -439,8 +556,15 @@ function GuestMessageSection({ children }: { children: ReactNode }) {
 
 function ClosingSection() {
   return (
-    <footer className="invitation-section invitation-footer">
-      <Decoration asset="ornament" className="decoration-closing" sizes="78px" />
+    <footer
+      className="invitation-section invitation-footer"
+      data-invitation-reveal
+    >
+      <Decoration
+        asset="ornament"
+        className="decoration-closing"
+        sizes="78px"
+      />
       <p className="closing-copy">See you at the Wedding!</p>
       <p>Handcrafted with love by Angelina &amp; Yohanes</p>
       <p>100% human made, no AI.</p>

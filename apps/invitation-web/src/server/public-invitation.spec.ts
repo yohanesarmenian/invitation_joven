@@ -38,6 +38,7 @@ const fullInvitationResponse = {
         id: "event-1",
         slug: "akad",
         name: "Akad Nikah",
+        endsAt: null,
         startsAt: "2026-10-10T02:00:00.000Z",
         venueName: "Example Venue",
         address: "Example Address",
@@ -47,6 +48,7 @@ const fullInvitationResponse = {
         id: "event-2",
         slug: "resepsi",
         name: "Resepsi",
+        endsAt: null,
         startsAt: null,
         venueName: null,
         address: null,
@@ -73,6 +75,21 @@ const [fullEvent] = fullInvitation.events;
 const [fullInvitee] = fullInvitation.invitees;
 
 const malformedPayloads: Array<[string, unknown]> = [
+  [
+    "missing event endsAt",
+    {
+      invitation: {
+        ...fullInvitation,
+        events: [{ ...fullEvent, endsAt: undefined }],
+      },
+    },
+  ],
+  [
+    "invalid event endsAt type",
+    {
+      invitation: { ...fullInvitation, events: [{ ...fullEvent, endsAt: 1 }] },
+    },
+  ],
   ["missing invitation", {}],
   ["null invitation", { invitation: null }],
   [
@@ -90,13 +107,26 @@ const malformedPayloads: Array<[string, unknown]> = [
   ["events not an array", { invitation: { ...fullInvitation, events: {} } }],
   [
     "missing event name",
-    { invitation: { ...fullInvitation, events: [{ ...fullEvent, name: undefined }] } },
+    {
+      invitation: {
+        ...fullInvitation,
+        events: [{ ...fullEvent, name: undefined }],
+      },
+    },
   ],
   [
     "wrong event startsAt type",
-    { invitation: { ...fullInvitation, events: [{ ...fullEvent, startsAt: 1 }] } },
+    {
+      invitation: {
+        ...fullInvitation,
+        events: [{ ...fullEvent, startsAt: 1 }],
+      },
+    },
   ],
-  ["invitees not an array", { invitation: { ...fullInvitation, invitees: {} } }],
+  [
+    "invitees not an array",
+    { invitation: { ...fullInvitation, invitees: {} } },
+  ],
   [
     "wrong invitee id type",
     {
@@ -155,7 +185,9 @@ const malformedPayloads: Array<[string, unknown]> = [
   ],
   [
     "invalid rsvp status enum",
-    { invitation: { ...fullInvitation, rsvp: { status: "MAYBE", version: 1 } } },
+    {
+      invitation: { ...fullInvitation, rsvp: { status: "MAYBE", version: 1 } },
+    },
   ],
   [
     "missing rsvp version",
@@ -163,7 +195,12 @@ const malformedPayloads: Array<[string, unknown]> = [
   ],
   [
     "rsvp version below 1",
-    { invitation: { ...fullInvitation, rsvp: { status: "PENDING", version: 0 } } },
+    {
+      invitation: {
+        ...fullInvitation,
+        rsvp: { status: "PENDING", version: 0 },
+      },
+    },
   ],
 ];
 
@@ -211,7 +248,10 @@ describe("invitation API base configuration", () => {
   it.each([
     ["query string", "https://api.example.test?foo=bar"],
     ["fragment", "https://api.example.test/#fragment"],
-    ["query string and fragment", "https://api.example.test/base?foo=bar#fragment"],
+    [
+      "query string and fragment",
+      "https://api.example.test/base?foo=bar#fragment",
+    ],
   ])(
     "rejects a base URL carrying a %s without echoing the configured value",
     (_, value) => {
@@ -269,6 +309,7 @@ describe("public invitation retrieval", () => {
 
     expect(result).toEqual({
       status: "success",
+      receivedAt: expect.any(Number),
       data: publicInvitationResponse,
     });
     expect(requests).toHaveLength(1);
@@ -409,6 +450,7 @@ describe("public invitation payload validation", () => {
       }),
     ).resolves.toEqual({
       status: "success",
+      receivedAt: expect.any(Number),
       data: publicInvitationResponse,
     });
     expect(requests).toHaveLength(1);
@@ -424,6 +466,7 @@ describe("public invitation payload validation", () => {
 
     expect(result).toEqual({
       status: "success",
+      receivedAt: expect.any(Number),
       data: fullInvitationResponse,
     });
     expect(requests).toHaveLength(1);
@@ -445,7 +488,11 @@ describe("public invitation payload validation", () => {
         env: VALID_ENV,
         fetch,
       }),
-    ).resolves.toEqual({ status: "success", data: payload });
+    ).resolves.toEqual({
+      status: "success",
+      data: payload,
+      receivedAt: expect.any(Number),
+    });
   });
 
   it.each(malformedPayloads)(

@@ -166,6 +166,10 @@ QR scanner and venue check-in contract decisions. These are now authoritative fo
 
 ### Parking Guide behavior
 
+- OWNER workflow follow-up: per-Event form/upload, PostgreSQL draft/current-publication/media, explicit preview/publish/hide and credential-bound eligible asset access are implemented. The earlier file-only phase is superseded for guest content. Actual venue material and final approval remain unresolved; see `EVENT-CONTENT-ADMIN.md`.
+
+- Current decision (15 October 2026, owner-authorized mock integration): optional inline text plus a local image/full-image link, optional PDF, and optional approved Google Maps link, grouped by exact eligible Event ID. Draft data is restricted to an explicit development preview. Runtime file validation and components are implemented; actual venue instructions, denah/PDF and publication approval remain pending. This supersedes the unresolved behavior choices below; the final-content gate remains open. See `PARKING-RUNDOWN-CONTENT.md`.
+
 - Question: What should the Parking Guide action open or show?
 - Why it matters: Figma contains the control but not the production behavior.
 - Impacted components/documents: UI/UX Spec, Public Invitation API if dynamic content is needed, asset planning.
@@ -176,6 +180,10 @@ QR scanner and venue check-in contract decisions. These are now authoritative fo
 
 ### Final wedding copy
 
+- Final visual direction, 16 October 2026: the owner explicitly requires the Figma design as the visual source; REA informs animation/interactions only. This supersedes the prototype and partial CSS rollback choices. Four family names/titles remain confirmed. See design/jo-venta/FIGMA-FIDELITY.md.
+
+- Template redesign follow-up (15 October 2026): layout follows Figma by explicit owner direction; six original photos supplied in `gambar-edit`. The owner confirmed family names/titles on 16 October 2026, exactly as Figma: Venta — Mr. Agus Witjaksono & Mrs. Godeliva Yuniati; Jo — Mr. Eddy Frist Simamora & Mrs. Entin Kartini. These are now implemented. Final footer wording and venue materials remain review items; RSVP deadline is already resolved and must not be asked again. See `design/jo-venta/CONTENT-MATRIX.md`.
+
 - Question: What is the final production copy for names, greetings, event wording, verse, closing, and footer credits?
 - Why it matters: Implementation must not fabricate final wedding content.
 - Impacted components/documents: UI/UX Spec, public invitation frontend.
@@ -185,6 +193,8 @@ QR scanner and venue check-in contract decisions. These are now authoritative fo
 - Status: Unresolved.
 
 ### Final assets and envelope animation cuts
+
+- Local redesign update, 16 October 2026: six owner originals are now supplied and visually mapped; existing envelope/floral layers support the implemented 650 ms transition. The old approved hero/art assets remain byte-identical. Missing photography no longer blocks this local implementation. Production visual/device approval remains separate; see `design/jo-venta/IMPLEMENTATION.md`.
 
 - Question: Which final images and separated envelope/floral assets are approved for production?
 - Why it matters: Figma-flattened artwork may not map directly to responsive animation assets.
@@ -228,4 +238,4 @@ QR scanner and venue check-in contract decisions. These are now authoritative fo
 - Blocking phase: Phase 11 before report export implementation.
 - Phase 4 impact: non-blocking.
 - Possible choices: one summary CSV, invitations CSV, RSVP CSV, check-in CSV, dietary CSV.
-- Status: Unresolved.
+- Status: RESOLVED for the authorized local completion backlog on 15 October 2026: summary per event, RSVP/dietary per household, check-in per household/event, and not-arrived per household/event. See the Reporting contract in API-CONTRACT.md. No actual per-person/adult/child attendance is synthesized.

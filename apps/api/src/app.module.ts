@@ -8,6 +8,8 @@ import { InvitationsModule } from "./invitations/invitations.module.js";
 import { AppLoggingModule } from "./logging/logging.module.js";
 import { MessagesModule } from "./messages/messages.module.js";
 import { SecurityModule } from "./security/security.module.js";
+import { ReportsModule } from "./reports/reports.module.js";
+import { EventContentModule } from "./event-content/event-content.module.js";
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { SecurityModule } from "./security/security.module.js";
     InvitationsModule,
     MessagesModule,
     HealthModule,
+    ReportsModule,
+    EventContentModule,
   ],
 })
 export class AppModule {}

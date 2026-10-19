@@ -1,0 +1,19 @@
+import { redirect } from "next/navigation";
+import { getServerSession } from "../../../../src/auth/server-session";
+import { SESSION_ENDED_PATH } from "../../../../src/auth/auth-state";
+import { SessionUnavailable } from "../../../../components/session-unavailable";
+import { StaffManagement } from "../../../../components/staff-management";
+export default async function StaffPage() {
+  const session = await getServerSession();
+  if (session.kind === "unauthenticated") redirect(SESSION_ENDED_PATH);
+  if (session.kind !== "authenticated")
+    return <SessionUnavailable forbidden={session.kind === "forbidden"} />;
+  if (session.auth.user.mustChangePassword) redirect("/account/password");
+  if (session.auth.user.role !== "OWNER") redirect("/checkin");
+  return (
+    <>
+      <h1>Check-in staff</h1>
+      <StaffManagement csrfToken={session.auth.csrfToken} />
+    </>
+  );
+}

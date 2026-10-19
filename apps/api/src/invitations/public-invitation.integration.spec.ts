@@ -71,13 +71,15 @@ function uniqueDisplayOrderBase(): number {
   return randomInt(1, 1_000_000_000);
 }
 
-async function createFixture(options: {
-  firstOpenedAt?: Date | null;
-  lastOpenedAt?: Date | null;
-  openCount?: number;
-  status?: InvitationStatus;
-  withRsvp?: boolean;
-} = {}): Promise<PublicInvitationFixture> {
+async function createFixture(
+  options: {
+    firstOpenedAt?: Date | null;
+    lastOpenedAt?: Date | null;
+    openCount?: number;
+    status?: InvitationStatus;
+    withRsvp?: boolean;
+  } = {},
+): Promise<PublicInvitationFixture> {
   const invitationId = randomUUID();
   const credential = createCredential(invitationId);
   const lookupHash = createLookupHash(credential);
@@ -107,6 +109,7 @@ async function createFixture(options: {
       googleMapsUrl: "https://maps.example/reception",
       name: "Reception",
       slug: `slice3-reception-${suffix}`,
+      endsAt: null,
       startsAt: new Date("2026-12-12T12:00:00.000Z"),
       venueName: "Grand Ballroom",
     },
@@ -117,6 +120,7 @@ async function createFixture(options: {
       displayOrder: displayOrderBase + 10,
       name: "Ceremony",
       slug: `slice3-ceremony-${suffix}`,
+      endsAt: null,
       startsAt: null,
       venueName: null,
     },
@@ -330,10 +334,9 @@ describe("PublicInvitationService PostgreSQL retrieval", () => {
     expect(response.invitation.events.map(({ id }) => id)).not.toContain(
       fixture.unlinkedEventId,
     );
-    expect(response.invitation.invitees.map(({ fullName }) => fullName)).toEqual([
-      "First Guest",
-      "Second Guest",
-    ]);
+    expect(
+      response.invitation.invitees.map(({ fullName }) => fullName),
+    ).toEqual(["First Guest", "Second Guest"]);
     expect(JSON.stringify(response)).not.toContain(fixture.invitationId);
     expect(JSON.stringify(response)).not.toContain(fixture.lookupHash);
     expect(JSON.stringify(response)).not.toContain("displayOrder");
@@ -381,9 +384,10 @@ describe("PublicInvitationService PostgreSQL retrieval", () => {
     const staleCredential = createCredential(randomUUID());
 
     await expectUnavailable(service.retrievePublicInvitation("bad"), ["bad"]);
-    await expectUnavailable(service.retrievePublicInvitation(unknownCredential), [
-      unknownCredential,
-    ]);
+    await expectUnavailable(
+      service.retrievePublicInvitation(unknownCredential),
+      [unknownCredential],
+    );
     await expectUnavailable(service.retrievePublicInvitation(staleCredential), [
       staleCredential,
     ]);
@@ -397,7 +401,9 @@ describe("PublicInvitationService PostgreSQL retrieval", () => {
       lastOpenedAt: null,
       openCount: 0,
     });
-    expect(await getInvitationState(archivedFixture.invitationId)).toMatchObject({
+    expect(
+      await getInvitationState(archivedFixture.invitationId),
+    ).toMatchObject({
       firstOpenedAt: new Date("2026-01-01T00:00:00.000Z"),
       lastOpenedAt: new Date("2026-01-02T00:00:00.000Z"),
       openCount: 4,
@@ -435,7 +441,10 @@ describe("PublicInvitationService PostgreSQL retrieval", () => {
 
     await expect(
       prisma.$transaction(async (tx) => {
-        await readPublicInvitationProjectionForLookupHash(tx, fixture.lookupHash);
+        await readPublicInvitationProjectionForLookupHash(
+          tx,
+          fixture.lookupHash,
+        );
         throw new Error("controlled post-update failure");
       }),
     ).rejects.toThrow("controlled post-update failure");
@@ -483,7 +492,9 @@ describe("PublicInvitationService PostgreSQL lock ordering", () => {
     );
 
     await archiveLockedPromise;
-    const retrievalPromise = service.retrievePublicInvitation(fixture.credential);
+    const retrievalPromise = service.retrievePublicInvitation(
+      fixture.credential,
+    );
     await expectStillPending(retrievalPromise);
 
     releaseArchive();
@@ -513,7 +524,10 @@ describe("PublicInvitationService PostgreSQL lock ordering", () => {
 
     const publicOpenPromise = prisma.$transaction(
       async (tx) => {
-        await readPublicInvitationProjectionForLookupHash(tx, fixture.lookupHash);
+        await readPublicInvitationProjectionForLookupHash(
+          tx,
+          fixture.lookupHash,
+        );
         publicOpenRecorded();
         await releasePublicOpenPromise;
       },

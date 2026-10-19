@@ -1,0 +1,492 @@
+{
+  "date": "2026-10-16",
+  "mode": "built-local",
+  "scope": "Synthetic mock household only; no active pass; owner photos and preserved decorations",
+  "evidence": [
+    {
+      "width": 390,
+      "heroReadyMs": 57.10000002384186,
+      "images": [
+        {
+          "naturalWidth": 132,
+          "width": 140,
+          "height": 166.25,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 163,
+          "width": 143.96875,
+          "height": 196.890625,
+          "fit": "cover",
+          "position": "45% 45%"
+        },
+        {
+          "naturalWidth": 163,
+          "width": 152.625,
+          "height": 207.203125,
+          "fit": "cover",
+          "position": "50% 42%"
+        },
+        {
+          "naturalWidth": 277,
+          "width": 277.38861083984375,
+          "height": 185.33349609375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 128,
+          "width": 137.14346313476562,
+          "height": 138.0556640625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 59,
+          "width": 59,
+          "height": 51.625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 278,
+          "width": 277.671875,
+          "height": 278.890625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 178,
+          "width": 177.4375,
+          "height": 178.984375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 278,
+          "width": 157.34375,
+          "height": 156.875,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 62,
+          "width": 64,
+          "height": 85,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 307,
+          "width": 307,
+          "height": 47,
+          "fit": "fill",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 120,
+          "width": 126,
+          "height": 109.75,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 120,
+          "width": 127.81687927246094,
+          "height": 105.4482421875,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 47,
+          "width": 47,
+          "height": 41.125,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 66,
+          "width": 66,
+          "height": 57.75,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 342,
+          "width": 342,
+          "height": 228,
+          "fit": "cover",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 159,
+          "width": 165,
+          "height": 220,
+          "fit": "cover",
+          "position": "52% 65%"
+        },
+        {
+          "naturalWidth": 159,
+          "width": 165,
+          "height": 220,
+          "fit": "cover",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 342,
+          "width": 342,
+          "height": 256.5,
+          "fit": "cover",
+          "position": "50% 58%"
+        },
+        {
+          "naturalWidth": 97,
+          "width": 66,
+          "height": 78.375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 136,
+          "width": 144.45846557617188,
+          "height": 103.80360412597656,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 178,
+          "width": 177.4375,
+          "height": 178.984375,
+          "fit": "contain",
+          "position": "50% 50%"
+        }
+      ]
+    },
+    {
+      "width": 412,
+      "heroReadyMs": 52.400000005960464,
+      "images": [
+        {
+          "naturalWidth": 140,
+          "width": 140,
+          "height": 166.25,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 173,
+          "width": 153.234375,
+          "height": 209.5625,
+          "fit": "cover",
+          "position": "45% 45%"
+        },
+        {
+          "naturalWidth": 173,
+          "width": 162.453125,
+          "height": 220.546875,
+          "fit": "cover",
+          "position": "50% 42%"
+        },
+        {
+          "naturalWidth": 277,
+          "width": 277.38861083984375,
+          "height": 185.33349609375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 137,
+          "width": 137.14346313476562,
+          "height": 138.0556640625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 59,
+          "width": 59,
+          "height": 51.625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 278,
+          "width": 277.671875,
+          "height": 278.890625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 178,
+          "width": 177.4375,
+          "height": 178.984375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 278,
+          "width": 157.34375,
+          "height": 156.875,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 64,
+          "width": 64,
+          "height": 85,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 307,
+          "width": 307,
+          "height": 47,
+          "fit": "fill",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 125,
+          "width": 126,
+          "height": 109.75,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 128,
+          "width": 127.81687927246094,
+          "height": 105.4482421875,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 47,
+          "width": 47,
+          "height": 40.9375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 66,
+          "width": 66,
+          "height": 57.484375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 364,
+          "width": 364,
+          "height": 242.65625,
+          "fit": "cover",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 170,
+          "width": 176,
+          "height": 234.65625,
+          "fit": "cover",
+          "position": "52% 65%"
+        },
+        {
+          "naturalWidth": 170,
+          "width": 176,
+          "height": 234.65625,
+          "fit": "cover",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 364,
+          "width": 364,
+          "height": 273,
+          "fit": "cover",
+          "position": "50% 58%"
+        },
+        {
+          "naturalWidth": 102,
+          "width": 66,
+          "height": 78.375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 144,
+          "width": 144.4584503173828,
+          "height": 103.80360412597656,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 178,
+          "width": 177.4375,
+          "height": 178.984375,
+          "fit": "contain",
+          "position": "50% 50%"
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "heroReadyMs": 68.69999998807907,
+      "images": [
+        {
+          "naturalWidth": 140,
+          "width": 140,
+          "height": 166.25,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 209,
+          "width": 207.671875,
+          "height": 284.015625,
+          "fit": "cover",
+          "position": "45% 45%"
+        },
+        {
+          "naturalWidth": 209,
+          "width": 207.671875,
+          "height": 281.9375,
+          "fit": "cover",
+          "position": "50% 42%"
+        },
+        {
+          "naturalWidth": 277,
+          "width": 277.3885803222656,
+          "height": 185.33349609375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 137,
+          "width": 137.1434326171875,
+          "height": 138.0556640625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 59,
+          "width": 59,
+          "height": 51.625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 278,
+          "width": 277.671875,
+          "height": 278.890625,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 178,
+          "width": 177.4375,
+          "height": 178.984375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 278,
+          "width": 157.34375,
+          "height": 156.875,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 64,
+          "width": 64,
+          "height": 85,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 307,
+          "width": 307,
+          "height": 47,
+          "fit": "fill",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 125,
+          "width": 126,
+          "height": 109.75,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 128,
+          "width": 127.81689453125,
+          "height": 105.4482421875,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 47,
+          "width": 47,
+          "height": 40.9375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 66,
+          "width": 66,
+          "height": 57.484375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 1152,
+          "width": 1152,
+          "height": 720,
+          "fit": "cover",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 564,
+          "width": 564,
+          "height": 752,
+          "fit": "cover",
+          "position": "52% 65%"
+        },
+        {
+          "naturalWidth": 564,
+          "width": 564,
+          "height": 752,
+          "fit": "cover",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 840,
+          "width": 1152,
+          "height": 648,
+          "fit": "cover",
+          "position": "50% 58%"
+        },
+        {
+          "naturalWidth": 102,
+          "width": 66,
+          "height": 78.375,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 144,
+          "width": 144.45843505859375,
+          "height": 103.80360412597656,
+          "fit": "contain",
+          "position": "50% 50%"
+        },
+        {
+          "naturalWidth": 178,
+          "width": 177.4375,
+          "height": 178.984375,
+          "fit": "contain",
+          "position": "50% 50%"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Chromium desktop emulation only",
+    "Hero readiness measures the test-driver journey including interaction overhead; not LCP or field INP",
+    "Final content approval and physical devices remain pending"
+  ]
+}

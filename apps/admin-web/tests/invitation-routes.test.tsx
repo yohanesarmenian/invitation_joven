@@ -18,7 +18,7 @@ vi.mock("next/navigation", () => ({
 }));
 import InvitationsPage from "../app/(protected)/invitations/page";
 import InvitationDetailPage from "../app/(protected)/invitations/[id]/page";
-import { DetailContent } from "../app/(protected)/invitations/[id]/page";
+import { DetailContent } from "../components/invitation-detail-content";
 import EditInvitationPage from "../app/(protected)/invitations/[id]/edit/page";
 import NewInvitationPage from "../app/(protected)/invitations/new/page";
 import { InvitationDetail } from "../components/invitation-detail";
@@ -93,7 +93,9 @@ it("gates detail and edit pages before data access", async () => {
     }),
   ).resolves.toBeNull();
   await expect(
-    EditInvitationPage({ params: Promise.resolve({ id: detail.invitation.id }) }),
+    EditInvitationPage({
+      params: Promise.resolve({ id: detail.invitation.id }),
+    }),
   ).resolves.toBeNull();
   expect(read).not.toHaveBeenCalled();
 });

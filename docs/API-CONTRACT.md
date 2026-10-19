@@ -1,5 +1,31 @@
 # API Contract
 
+## OWNER event management (16 October 2026)
+
+`GET/POST /api/admin/event-management` and `PUT /api/admin/event-management/{eventId}` add an OWNER-only, no-store, versioned event editor. The existing `GET /api/admin/events` catalog contract is preserved. Full editable fields, limits, usage counts, conflict codes and locking policy are documented in [EVENT-MANAGEMENT.md](EVENT-MANAGEMENT.md). No Event delete operation exists. Event config is saved immediately; venue-material publication remains separate.
+
+## OWNER event materials and credential-bound media
+
+The generated OpenAPI contract now includes `AdminEventContentDto`, `EventVenueBodyDto`, versioned save/publish/hide/delete requests, multipart file upload, and public venue projections/media. The seven `/api/admin/event-content/{eventId}` operations are OWNER-only and share the existing session, role, first-password, CSRF and origin enforcement. Read/binary responses are no-store. Full route/payload/error/storage policy is locked in `EVENT-CONTENT-ADMIN.md`; typed clients are generated, not hand-maintained.
+
+New public `.../{publicCredential}/venue-content` and `.../{publicCredential}/venue-assets/{assetId}` operations are read-only and do not record invitation opens. They require a current ACTIVE invitation; only active eligible Event publications/assets are visible. Media must be referenced by the current publication. Unknown, draft-only, hidden, other-event, archived-invitation or rotated-credential media returns the same generic `404 INVITATION_NOT_AVAILABLE`. No raw filenames, binary bytes, hashes, session data, draft, version, or internal publication fields appear in the public JSON. New admin mutations use existing `VALIDATION_ERROR`, `CONFLICT`, `NOT_FOUND`, authentication and CSRF envelopes.
+
+## Public calendar and manual distribution (local lock, 15 October 2026)
+
+Public event projection addition for calendar: `PublicInvitationEventDto.endsAt` is a required nullable ISO instant, sourced only from existing `Event.endsAt`. No persistence migration or implied duration. Calendar export includes only the selected eligible event's public id/name/start/end/venue/address; never personal invitation credentials, QR, or invitation URLs. Invalid/non-increasing end values are omitted by calendar generation.
+
+Manual invitation-message preview uses the existing OWNER public-url read. The OWNER event catalog adds optional nullable `startsAt`, `venueName`, and `address` to its response event subtype, for displaying known event details in the message. Production catalog returns all three keys; older/synthetic payloads may omit them. It does not widen staff access or add event mutations. Copy fetches the current public URL again; if it changed, rebuild the preview and require explicit review/copy. Reading and copying never update invitation open aggregates.
+
+## Reporting contract (Phase 11, local implementation lock, 15 October 2026)
+
+All reporting endpoints are read-only, OWNER-only, use the shared session enforcement, and return `Cache-Control: no-store`. Staff and forced-password-change sessions are denied. No credential, credential hash, pass, QR payload, notes intended for internal administration, or guest message content is projected.
+
+- `GET /api/admin/reports/summary`: optional `archived=exclude|include` (default exclude), optional UUID `eventId`. Returns `generatedAt` (UTC ISO instant), `archived`, and `events[]`: event id/name/isActive, expectedAttendeeCount and expectedHouseholds from accepted attending RSVP selections, actualAttendeeCount and checkedInHouseholds from persisted CheckinRecord, and notArrivedHouseholds from accepted attending selections with no record for that household/event. Includes catalog events even at zero; retains historical inactive events. The counts are independently aggregated to avoid joins multiplying attendance.
+- `GET /api/admin/reports/households`: same filters, `kind=RSVP|CHECKIN|NOT_ARRIVED` (default RSVP), shared `page`/`pageSize` defaults and limits. Fixed sort displayName ASC, invitationId ASC, eventId ASC. Returns generatedAt, items and shared page metadata. RSVP is one row per household, including no response as PENDING; eventId restricts to households eligible for that event. CHECKIN is one confirmed household/event record; NOT_ARRIVED is one accepted attending household/event without a record. RSVP rows have no per-event counts. All rows include invitationId, displayName, invitationStatus, rsvpStatus, dietaryNotes, rsvpHouseholdSize (sum of RSVPAttendee.quantity), nullable eventId/eventName/expectedAttendeeCount/actualAttendeeCount/checkedInAt/method/operatorEmail. RSVP size describes intended household composition, not actual attendance. Dietary notes and operator email are OWNER-only personal data.
+- `GET /api/admin/reports/export`: same filters, `kind=SUMMARY|RSVP|CHECKIN|NOT_ARRIVED` (default SUMMARY); no pagination. CSV uses the same projections/sort. Export limit is 10,000 detail rows; exceeding it returns `409 REPORT_TOO_LARGE` and requires an event filter. UTF-8 BOM, CRLF, escaped quotes/newlines, neutralized spreadsheet formulas. UTC timestamps have explicit `Utc` headers. Filename is static per report kind. Never accepts user filenames or formula strings as expressions.
+
+Unknown query keys/invalid values return `400 VALIDATION_ERROR`. Each response/export is a repeatable-read database snapshot; separate refresh/export requests can reflect later commits. UI displays freshness and offers explicit refresh. No real-time stream, XLSX export, new tables or migrations.
+
 This document defines intended HTTP behavior. The future NestJS OpenAPI output is the executable contract source, but it must follow these semantics unless higher-level docs change.
 
 ## Conventions
@@ -42,26 +68,26 @@ Common statuses:
 
 Required error codes:
 
-| Code | Status | Meaning |
-|---|---:|---|
-| `INVITATION_NOT_AVAILABLE` | 404 | Public credential is malformed, unknown, stale, archived, or otherwise unavailable. Do not reveal which. |
-| `RSVP_VERSION_CONFLICT` | 409 | Submitted `expectedVersion` does not match current persisted RSVP state: a non-null integer differs from the reloaded `RSVP.version`, or `expectedVersion: null` is sent when an RSVP row already exists. |
-| `RSVP_DEADLINE_PASSED` | 422 | Public RSVP create or update was submitted after the invitation RSVP cutoff instant. |
-| `EVENT_NOT_ALLOWED` | 422 | Invitation is not eligible for the selected event. |
-| `EVENT_NOT_SELECTED` | 422 | RSVP does not select attendance for the event; also covers an `ACCEPTED` RSVP that selects zero attending events. |
-| `PLUS_ONE_NOT_ALLOWED` | 422 | RSVP included plus-one without permission. |
-| `ADDITIONAL_CHILD_LIMIT_EXCEEDED` | 422 | Additional child quantity exceeds allowance. |
-| `RSVP_ATTENDEE_INVALID` | 422 | RSVP attendee rows violate type/quantity/reference rules. |
-| `QR_INVALID` | 404 or 422 | Admin scanner received invalid/non-resolvable credential; response must not leak sensitive internals. |
-| `QR_REVOKED` | 422 | Admin scanner resolved a revoked/expired pass. |
-| `CHECKIN_ALREADY_CONFIRMED` | 409 | Invitation already has confirmed attendance for the event. |
-| `INVALID_CREDENTIALS` | 401 | Admin login failed. Covers unknown email, wrong password, and a `DISABLED` account, indistinguishably. |
-| `TOO_MANY_LOGIN_ATTEMPTS` | 429 | Admin login was rejected by the login throttle. Must not indicate whether the account exists. |
-| `UNAUTHENTICATED` | 401 | Admin request without a usable session: missing cookie, malformed session token, unknown session, expired session, idle-expired session, revoked session, or a session whose `AdminUser` is `DISABLED`. |
-| `FORBIDDEN` | 403 | Authenticated session without the required role. Phase 10 uses this for CHECKIN_STAFF attempts against OWNER-only endpoints. |
-| `CSRF_INVALID` | 403 | Unsafe authenticated admin request failed CSRF or admin-origin validation. Does not disclose which check failed. |
-| `NOT_FOUND` | 404 | Authenticated OWNER request referenced a missing admin resource. Admin-domain only. |
-| `CONFLICT` | 409 | Admin-domain state or concurrency conflict where no more-specific existing domain code applies. |
+| Code                              |     Status | Meaning                                                                                                                                                                                                   |
+| --------------------------------- | ---------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVITATION_NOT_AVAILABLE`        |        404 | Public credential is malformed, unknown, stale, archived, or otherwise unavailable. Do not reveal which.                                                                                                  |
+| `RSVP_VERSION_CONFLICT`           |        409 | Submitted `expectedVersion` does not match current persisted RSVP state: a non-null integer differs from the reloaded `RSVP.version`, or `expectedVersion: null` is sent when an RSVP row already exists. |
+| `RSVP_DEADLINE_PASSED`            |        422 | Public RSVP create or update was submitted after the invitation RSVP cutoff instant.                                                                                                                      |
+| `EVENT_NOT_ALLOWED`               |        422 | Invitation is not eligible for the selected event.                                                                                                                                                        |
+| `EVENT_NOT_SELECTED`              |        422 | RSVP does not select attendance for the event; also covers an `ACCEPTED` RSVP that selects zero attending events.                                                                                         |
+| `PLUS_ONE_NOT_ALLOWED`            |        422 | RSVP included plus-one without permission.                                                                                                                                                                |
+| `ADDITIONAL_CHILD_LIMIT_EXCEEDED` |        422 | Additional child quantity exceeds allowance.                                                                                                                                                              |
+| `RSVP_ATTENDEE_INVALID`           |        422 | RSVP attendee rows violate type/quantity/reference rules.                                                                                                                                                 |
+| `QR_INVALID`                      | 404 or 422 | Admin scanner received invalid/non-resolvable credential; response must not leak sensitive internals.                                                                                                     |
+| `QR_REVOKED`                      |        422 | Admin scanner resolved a revoked/expired pass.                                                                                                                                                            |
+| `CHECKIN_ALREADY_CONFIRMED`       |        409 | Invitation already has confirmed attendance for the event.                                                                                                                                                |
+| `INVALID_CREDENTIALS`             |        401 | Admin login failed. Covers unknown email, wrong password, and a `DISABLED` account, indistinguishably.                                                                                                    |
+| `TOO_MANY_LOGIN_ATTEMPTS`         |        429 | Admin login was rejected by the login throttle. Must not indicate whether the account exists.                                                                                                             |
+| `UNAUTHENTICATED`                 |        401 | Admin request without a usable session: missing cookie, malformed session token, unknown session, expired session, idle-expired session, revoked session, or a session whose `AdminUser` is `DISABLED`.   |
+| `FORBIDDEN`                       |        403 | Authenticated session without the required role. Phase 10 uses this for CHECKIN_STAFF attempts against OWNER-only endpoints.                                                                              |
+| `CSRF_INVALID`                    |        403 | Unsafe authenticated admin request failed CSRF or admin-origin validation. Does not disclose which check failed.                                                                                          |
+| `NOT_FOUND`                       |        404 | Authenticated OWNER request referenced a missing admin resource. Admin-domain only.                                                                                                                       |
+| `CONFLICT`                        |        409 | Admin-domain state or concurrency conflict where no more-specific existing domain code applies.                                                                                                           |
 
 Admin authentication error codes are locked by Phase 8 Slice 8B0 and must not be merged, split, or renamed during implementation. There is deliberately **no** public `SESSION_EXPIRED` code: an expired, revoked, idle-expired, missing, or disabled-account session all return `401 UNAUTHENTICATED` so the admin client shows one generic state.
 
@@ -108,6 +134,7 @@ Response:
         "slug": "holy-matrimony",
         "name": "Holy Matrimony",
         "startsAt": null,
+        "endsAt": null,
         "venueName": null,
         "address": null,
         "googleMapsUrl": null
@@ -147,6 +174,7 @@ Nullable fields:
 - `invitation.greetingName`
 - `invitation.rsvpDeadlineAt`
 - `invitation.events[].startsAt`
+- `invitation.events[].endsAt`
 - `invitation.events[].venueName`
 - `invitation.events[].address`
 - `invitation.events[].googleMapsUrl`
@@ -289,14 +317,14 @@ State transitions:
 
 Public QR consequence of each transition (Phase 6 lock):
 
-| RSVP transition | Pass result | Public `checkinPass` / QR result |
-| --- | --- | --- |
-| no RSVP row | none | `null` — no QR |
-| no RSVP row -> `ACCEPTED` | one new `ACTIVE` pass | `{ status, issuedAt, qrPayload }` — new QR |
-| `PENDING`/`ACCEPTED` -> `ACCEPTED` | same pass retained | same `qrPayload` — QR unchanged |
-| `ACCEPTED` -> `DECLINED` | active pass revoked | `null` — QR disappears |
-| `DECLINED` -> `ACCEPTED` | new pass issued | new `qrPayload` — new QR |
-| `DECLINED` -> `DECLINED` | none | `null` — no QR |
+| RSVP transition                    | Pass result           | Public `checkinPass` / QR result           |
+| ---------------------------------- | --------------------- | ------------------------------------------ |
+| no RSVP row                        | none                  | `null` — no QR                             |
+| no RSVP row -> `ACCEPTED`          | one new `ACTIVE` pass | `{ status, issuedAt, qrPayload }` — new QR |
+| `PENDING`/`ACCEPTED` -> `ACCEPTED` | same pass retained    | same `qrPayload` — QR unchanged            |
+| `ACCEPTED` -> `DECLINED`           | active pass revoked   | `null` — QR disappears                     |
+| `DECLINED` -> `ACCEPTED`           | new pass issued       | new `qrPayload` — new QR                   |
+| `DECLINED` -> `DECLINED`           | none                  | `null` — no QR                             |
 
 A `qrPayload` belonging to a revoked pass must never be redisplayed.
 
@@ -605,24 +633,24 @@ Broad CORS is not enabled to satisfy this, and `SameSite=Strict` is treated as d
 
 ### Role authorization matrix
 
-| Area / path pattern | OWNER | CHECKIN_STAFF | Unauthenticated |
-| --- | --- | --- | --- |
-| `POST /api/admin/auth/login` | allow | allow | allow |
-| `GET /api/admin/auth/me` | allow | allow | deny |
-| `POST /api/admin/auth/logout` | allow | allow | deny |
-| `POST /api/admin/auth/change-password` | allow | allow | deny |
-| Dashboard `/api/admin/dashboard` | allow | deny | deny |
-| Invitations `/api/admin/invitations/**` except check-in routes | allow | deny | deny |
-| Invitees `/api/admin/invitees/**` | allow | deny | deny |
-| Events general admin endpoints | allow | deny | deny |
-| RSVPs `/api/admin/rsvps/**` and OWNER override | allow | deny | deny |
-| Guest messages `/api/admin/messages/**` and scoped message lists | allow | deny | deny |
-| Imports `/api/admin/imports/**` | allow | deny | deny |
-| Staff management `/api/admin/staff/**` | allow | deny | deny |
-| Check-in event picker `GET /api/admin/checkin/events` | allow | allow | deny |
-| QR validate/confirm `/api/admin/checkin/validate`, `/confirm` | allow | allow | deny |
-| Manual search/confirm `/api/admin/checkin/search`, `/manual-confirm` | allow | allow | deny |
-| Reports `/api/admin/reports/**` | allow | deny | deny |
+| Area / path pattern                                                                           | OWNER | CHECKIN_STAFF | Unauthenticated |
+| --------------------------------------------------------------------------------------------- | ----- | ------------- | --------------- |
+| `POST /api/admin/auth/login`                                                                  | allow | allow         | allow           |
+| `GET /api/admin/auth/me`                                                                      | allow | allow         | deny            |
+| `POST /api/admin/auth/logout`                                                                 | allow | allow         | deny            |
+| `POST /api/admin/auth/change-password`                                                        | allow | allow         | deny            |
+| Dashboard `/api/admin/dashboard`                                                              | allow | deny          | deny            |
+| Invitations `/api/admin/invitations/**` except check-in routes                                | allow | deny          | deny            |
+| Invitees `/api/admin/invitees/**`                                                             | allow | deny          | deny            |
+| Events general admin endpoints                                                                | allow | deny          | deny            |
+| RSVPs `/api/admin/rsvps/**` and OWNER override                                                | allow | deny          | deny            |
+| Guest messages `/api/admin/messages/**` and scoped message lists                              | allow | deny          | deny            |
+| Imports `/api/admin/imports/**`                                                               | allow | deny          | deny            |
+| Staff management `/api/admin/staff/**`                                                        | allow | deny          | deny            |
+| Check-in event picker `GET /api/admin/checkin/events`                                         | allow | allow         | deny            |
+| QR validate/confirm `/api/admin/checkin/validate`, `/confirm`                                 | allow | allow         | deny            |
+| Manual search/confirm/status `/api/admin/checkin/search`, `/manual-confirm`, `/manual-status` | allow | allow         | deny            |
+| Reports `/api/admin/reports/**`                                                               | allow | deny          | deny            |
 
 `CHECKIN_STAFF` denial is a backend authorization decision, not a hidden-link convention. Direct requests to OWNER-only APIs return `403 FORBIDDEN` after authentication, with no privileged data in the response.
 
@@ -1218,7 +1246,10 @@ Shared item DTO:
   "items": [
     {
       "id": "a1b2c3d4-...",
-      "invitation": { "id": "0975522e-edc7-445e-80f2-c9f7c88a6ff2", "displayName": "John & Jane Smith Family" },
+      "invitation": {
+        "id": "0975522e-edc7-445e-80f2-c9f7c88a6ff2",
+        "displayName": "John & Jane Smith Family"
+      },
       "authorName": "Aunt May",
       "message": "Wishing you both a lifetime of happiness.",
       "createdAt": "2026-09-29T10:15:00.000Z",
@@ -1269,22 +1300,22 @@ Guest message content remains plain text in admin surfaces: no `dangerouslySetIn
 
 **Locked by Phase 8 Slice 8D0.** Admin authentication is not a reason to return raw database models. Admin responses use explicit DTOs, and the fields below are governed individually.
 
-| Field | Allowed surface | Forbidden surface | Why |
-| --- | --- | --- | --- |
-| `publicUrl` (the derived raw public credential, inside the URL) | `GET /api/admin/invitations/{id}/public-url` and `POST /api/admin/invitations/{id}/regenerate-token` **only** | Invitation list, Invitation detail, and every unrelated admin response; deliberate logs | It is the copyable invitation link; the OWNER cannot distribute it otherwise. It is bearer material, so it travels only through its two explicit endpoints and must never be deliberately logged. |
-| `publicTokenVersion` | Invitation **detail**, `public-url` response, `regenerate-token` response | Invitation **list** item and every unrelated admin summary | Operational metadata and the concurrency token for regeneration. Not a secret and does not resolve a link by itself. |
-| Raw `publicCredential` outside `publicUrl` | — | Every admin response, including list items, detail responses, and messages | Only the two explicit credential endpoints may surface it, and only as part of the URL. |
-| `publicTokenHash` | — | Every admin response, and all logs | Internal lookup hash with no admin use. |
-| `qrPayload` | — | Every Phase 8 admin response | Bearer check-in credential material. Phase 8 admin UI never renders or reissues guest QR credentials; a later check-in/reprint contract decides separately. |
-| `CheckinPass.tokenHash` | — | Every admin response, and all logs | Internal credential hash. |
-| Pass status/`issuedAt`/`revokedAt`/`revocationReason`/`expiresAt`/`credentialVersion` | Invitation detail pass history, RSVP detail | Unrelated admin summaries | Operational lifecycle metadata with no credential value. |
-| `sessionToken`, `sessionTokenHash`, `csrfTokenHash` | The locked Slice 8B0 auth responses: the CSRF token is returned only by the authorized auth endpoints and only as designed there | Every other admin response | Locked by Slice 8B0 and not reopened. |
-| `passwordHash` | — | Every admin response | Locked by Slice 8B0 and not reopened. |
-| `AdminSession.ipAddress` / `userAgent` | — | Every admin response | Locked by Slice 8B0 and not reopened. |
-| `GuestMessage.message` / `authorName` | Admin guest-message list, invitation-scoped message list, and the moderation response | Unrelated admin endpoints (invitation/dashboard/RSVP summaries), and all logs | Required for moderation; plain text only. Admin-visible personal content is not log material. |
-| `Invitation.notes` | Invitation **detail** | Invitation **list** item, the public invitation projection, and unrelated admin summaries | Admin-only management data. `PATCH` Invitation can write it; the public contract never returns it. |
-| `RSVP.dietaryNotes` | RSVP admin **detail**, and canonical RSVP responses where already contractually appropriate | Unrelated admin summaries | Operational catering need. |
-| `RSVP.guestNote` | RSVP admin **detail** | Unrelated admin summaries; the public projection | Readable admin-side and read-only in Phase 8: the OWNER override does not write it, and the existing value is preserved. It is not globally never-returned. |
+| Field                                                                                 | Allowed surface                                                                                                                  | Forbidden surface                                                                         | Why                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `publicUrl` (the derived raw public credential, inside the URL)                       | `GET /api/admin/invitations/{id}/public-url` and `POST /api/admin/invitations/{id}/regenerate-token` **only**                    | Invitation list, Invitation detail, and every unrelated admin response; deliberate logs   | It is the copyable invitation link; the OWNER cannot distribute it otherwise. It is bearer material, so it travels only through its two explicit endpoints and must never be deliberately logged. |
+| `publicTokenVersion`                                                                  | Invitation **detail**, `public-url` response, `regenerate-token` response                                                        | Invitation **list** item and every unrelated admin summary                                | Operational metadata and the concurrency token for regeneration. Not a secret and does not resolve a link by itself.                                                                              |
+| Raw `publicCredential` outside `publicUrl`                                            | —                                                                                                                                | Every admin response, including list items, detail responses, and messages                | Only the two explicit credential endpoints may surface it, and only as part of the URL.                                                                                                           |
+| `publicTokenHash`                                                                     | —                                                                                                                                | Every admin response, and all logs                                                        | Internal lookup hash with no admin use.                                                                                                                                                           |
+| `qrPayload`                                                                           | —                                                                                                                                | Every Phase 8 admin response                                                              | Bearer check-in credential material. Phase 8 admin UI never renders or reissues guest QR credentials; a later check-in/reprint contract decides separately.                                       |
+| `CheckinPass.tokenHash`                                                               | —                                                                                                                                | Every admin response, and all logs                                                        | Internal credential hash.                                                                                                                                                                         |
+| Pass status/`issuedAt`/`revokedAt`/`revocationReason`/`expiresAt`/`credentialVersion` | Invitation detail pass history, RSVP detail                                                                                      | Unrelated admin summaries                                                                 | Operational lifecycle metadata with no credential value.                                                                                                                                          |
+| `sessionToken`, `sessionTokenHash`, `csrfTokenHash`                                   | The locked Slice 8B0 auth responses: the CSRF token is returned only by the authorized auth endpoints and only as designed there | Every other admin response                                                                | Locked by Slice 8B0 and not reopened.                                                                                                                                                             |
+| `passwordHash`                                                                        | —                                                                                                                                | Every admin response                                                                      | Locked by Slice 8B0 and not reopened.                                                                                                                                                             |
+| `AdminSession.ipAddress` / `userAgent`                                                | —                                                                                                                                | Every admin response                                                                      | Locked by Slice 8B0 and not reopened.                                                                                                                                                             |
+| `GuestMessage.message` / `authorName`                                                 | Admin guest-message list, invitation-scoped message list, and the moderation response                                            | Unrelated admin endpoints (invitation/dashboard/RSVP summaries), and all logs             | Required for moderation; plain text only. Admin-visible personal content is not log material.                                                                                                     |
+| `Invitation.notes`                                                                    | Invitation **detail**                                                                                                            | Invitation **list** item, the public invitation projection, and unrelated admin summaries | Admin-only management data. `PATCH` Invitation can write it; the public contract never returns it.                                                                                                |
+| `RSVP.dietaryNotes`                                                                   | RSVP admin **detail**, and canonical RSVP responses where already contractually appropriate                                      | Unrelated admin summaries                                                                 | Operational catering need.                                                                                                                                                                        |
+| `RSVP.guestNote`                                                                      | RSVP admin **detail**                                                                                                            | Unrelated admin summaries; the public projection                                          | Readable admin-side and read-only in Phase 8: the OWNER override does not write it, and the existing value is preserved. It is not globally never-returned.                                       |
 
 `publicTokenVersion` is safe admin operational metadata. `publicUrl` is not: it is credential-bearing and confined to its two explicit endpoints. Every other credential, hash, or session secret is never returned outside the authorized auth responses.
 
@@ -1296,16 +1327,16 @@ Guest message content remains plain text in admin surfaces: no `dangerouslySetIn
 
 Base columns, in this exact order, followed by zero or more event eligibility columns:
 
-| Column | Maps to |
-| --- | --- |
-| `displayName` | `Invitation.displayName` |
-| `greetingName` | `Invitation.greetingName` |
-| `allowPlusOne` | `Invitation.allowPlusOne` |
-| `maxAdditionalChildren` | `Invitation.maxAdditionalChildren` |
-| `rsvpDeadlineLocal` | normalized into `Invitation.rsvpDeadlineAt` |
-| `notes` | `Invitation.notes` |
-| `invitees` | `Invitee[]` |
-| `event:<slug>` (zero or more) | `InvitationEvent` eligibility |
+| Column                        | Maps to                                     |
+| ----------------------------- | ------------------------------------------- |
+| `displayName`                 | `Invitation.displayName`                    |
+| `greetingName`                | `Invitation.greetingName`                   |
+| `allowPlusOne`                | `Invitation.allowPlusOne`                   |
+| `maxAdditionalChildren`       | `Invitation.maxAdditionalChildren`          |
+| `rsvpDeadlineLocal`           | normalized into `Invitation.rsvpDeadlineAt` |
+| `notes`                       | `Invitation.notes`                          |
+| `invitees`                    | `Invitee[]`                                 |
+| `event:<slug>` (zero or more) | `InvitationEvent` eligibility               |
 
 Header rules:
 
@@ -1755,6 +1786,68 @@ Request:
 ```
 
 Manual confirmation uses the same backend attendance domain service and transaction as QR confirmation after invitation resolution. It records `method = MANUAL`, no `checkinPassId`, and the authenticated operator's `AdminUser.id`. Validation, attendee-count bounds, duplicate handling, archive behavior, and concurrency behavior match QR confirmation.
+
+### Manual check-in status reconciliation
+
+`POST /api/admin/checkin/manual-status`
+
+Authentication: OWNER or CHECKIN_STAFF plus CSRF.
+
+Purpose: read-only authoritative attendance status for a previously selected exact household and exact Event. This is the recovery path for manual confirmation responses that are lost after submission; it does not create, update, retry, or correct a check-in.
+
+Request:
+
+```json
+{
+  "invitationId": "0975522e-edc7-445e-80f2-c9f7c88a6ff2",
+  "eventId": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4"
+}
+```
+
+Response `200 OK`, not confirmed:
+
+```json
+{
+  "status": "NOT_CONFIRMED",
+  "alreadyCheckedIn": false,
+  "previousCheckin": null
+}
+```
+
+Response `200 OK`, already confirmed:
+
+```json
+{
+  "status": "ALREADY_CONFIRMED",
+  "alreadyCheckedIn": true,
+  "previousCheckin": {
+    "checkedInAt": "2026-10-13T10:00:00.000Z",
+    "attendeeCount": 4,
+    "method": "MANUAL",
+    "confirmedBy": {
+      "id": "6a3e6cb6-5a1a-457d-9b36-7fb7cb8ac96a",
+      "email": "usher@example.com",
+      "role": "CHECKIN_STAFF"
+    }
+  }
+}
+```
+
+Rules:
+
+- The lookup uses exact `Invitation.id` plus exact `Event.id`; a check-in for Event A is never interpreted as status for Event B.
+- The response does not include household display name, Event name, RSVP details, invitees, contact data, public URL, raw public credential, `qrPayload`, credential hashes, pass history, guest messages, notes, or import history.
+- A historical `CheckinRecord` remains discoverable after the Invitation is archived, after display names change, after search ordering changes, or when the household no longer appears in the first ten manual-search results.
+- Historical attendance status is separate from current eligibility to perform a new check-in. Archived invitations remain ineligible for new validation/confirmation.
+- The status read takes the same Invitation-row lock order used by confirmation. If a status request queues behind an in-flight confirmation that already reached the Invitation lock, it observes the committed confirmation after the lock is released.
+- `NOT_CONFIRMED` means only that no matching committed `CheckinRecord` was observed at the authoritative read point. It does not prove that an earlier request cannot still reach the database and commit later. The frontend must keep an uncertain recovery state and allow explicit rechecking; it must not automatically replay `manual-confirm`.
+
+Errors:
+
+- `400 BAD_REQUEST` for malformed body, unsupported fields, or invalid UUIDs.
+- `401 UNAUTHENTICATED`.
+- `403 CSRF_INVALID` or `403 FORBIDDEN`.
+- `404 INVITATION_NOT_AVAILABLE` for unknown Invitation IDs, using the minimized existing error envelope.
 
 ### Post-check-in RSVP mutation error
 

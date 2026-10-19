@@ -1,8 +1,16 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { signOut } from "../src/auth/browser-client";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
+const subscribeHydration = () => () => {};
+const clientHydrated = () => true;
+const serverHydrated = () => false;
 export function LogoutButton({ csrfToken }: { csrfToken: string }) {
+  const hydrated = useSyncExternalStore(
+    subscribeHydration,
+    clientHydrated,
+    serverHydrated,
+  );
   const [token, setToken] = useState(csrfToken);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
@@ -11,6 +19,7 @@ export function LogoutButton({ csrfToken }: { csrfToken: string }) {
   async function logout() {
     if (locked.current || reload) return;
     locked.current = true;
+    window.dispatchEvent(new Event("admin:signout"));
     setPending(true);
     setMessage("");
     const result = await signOut(token);
@@ -35,7 +44,11 @@ export function LogoutButton({ csrfToken }: { csrfToken: string }) {
   }
   return (
     <div className="logout">
-      <button type="button" onClick={logout} disabled={pending || reload}>
+      <button
+        type="button"
+        onClick={logout}
+        disabled={!hydrated || pending || reload}
+      >
         {pending ? "Signing out…" : "Sign out"}
       </button>
       <div role="status" aria-live="polite">

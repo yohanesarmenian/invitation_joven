@@ -1,3 +1,4 @@
+import { weddingMedia } from "../../src/presentation/wedding-media";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -19,6 +20,7 @@ function renderInvitation(
         id: "22222222-2222-4222-8222-222222222222",
         name: "Zulu Reception",
         slug: "z-reception",
+        endsAt: null,
         startsAt: "2027-01-09T05:00:00.000Z",
         venueName: "Reception Venue",
       },
@@ -28,6 +30,7 @@ function renderInvitation(
         id: "11111111-1111-4111-8111-111111111111",
         name: "Alpha Holy Matrimony",
         slug: "a-holy-matrimony",
+        endsAt: null,
         startsAt: "2027-01-09T01:00:00.000Z",
         venueName: "Chapel Venue",
       },
@@ -54,6 +57,7 @@ function renderInvitation(
 
   return renderToStaticMarkup(
     createElement(PublicInvitationLongPage, {
+      initialNow: Date.parse("2026-10-15T00:00:00Z"),
       invitation: baseInvitation,
       rsvpForm: createElement("div", { "data-rsvp-slot": true }, "RSVP form"),
       guestMessageForm: createElement(GuestMessageForm, {
@@ -71,8 +75,8 @@ describe("PublicInvitationLongPage", () => {
     const html = renderInvitation();
     const orderedText = [
       "Example Guests",
-      '<h3 id="bride-title">Angelina Desandra Adventa</h3>',
-      '<h3 id="groom-title">Yohanes Armenian Putra</h3>',
+      '<h3 id="bride-title">Angelina Desandra Adventa <span class="couple-nickname">(Venta)</span></h3>',
+      '<h3 id="groom-title">Yohanes Armenian Putra <span class="couple-nickname">(Jo)</span></h3>',
       "Saturday",
       "09 January 2027",
       "Wedding Events",
@@ -95,7 +99,9 @@ describe("PublicInvitationLongPage", () => {
   });
 
   it("preserves API event order without sorting by name, slug, or UUID", () => {
-    const html = renderInvitation();
+    const rendered = renderInvitation();
+    // Countdown independently names the next event; the event-list order is authoritative.
+    const html = rendered.slice(rendered.indexOf('class="event-list"'));
 
     expect(html.indexOf("Zulu Reception")).toBeLessThan(
       html.indexOf("Alpha Holy Matrimony"),
@@ -111,6 +117,7 @@ describe("PublicInvitationLongPage", () => {
           id: "11111111-1111-4111-8111-111111111111",
           name: "Holy Matrimony",
           slug: "holy-matrimony",
+          endsAt: null,
           startsAt: "2027-01-09T01:00:00.000Z",
           venueName: "Church",
         },
@@ -132,6 +139,7 @@ describe("PublicInvitationLongPage", () => {
           id: "22222222-2222-4222-8222-222222222222",
           name: "Wedding Reception",
           slug: "wedding-reception",
+          endsAt: null,
           startsAt: "2027-01-09T05:00:00.000Z",
           venueName: "Reception Venue",
         },
@@ -152,6 +160,7 @@ describe("PublicInvitationLongPage", () => {
           id: "55555555-5555-4555-8555-555555555555",
           name: "Boundary Event",
           slug: "boundary-event",
+          endsAt: null,
           startsAt: "2027-01-08T18:30:00.000Z",
           venueName: null,
         },
@@ -162,6 +171,39 @@ describe("PublicInvitationLongPage", () => {
       '<time dateTime="2027-01-08T18:30:00.000Z">01.30</time>',
     );
     expect(html).not.toContain(">18.30</time>");
+    expect(html).toContain('<h2 id="wedding-date-title">09 January 2027</h2>');
+  });
+
+  it("uses the earliest eligible date from the API and hides the date/countdown when all dates are unknown", () => {
+    const event = {
+      id: "55555555-5555-4555-8555-555555555555",
+      slug: "updated-event",
+      name: "Updated event",
+      startsAt: "2028-02-10T17:30:00Z",
+      endsAt: null,
+      venueName: null,
+      address: null,
+      googleMapsUrl: null,
+    };
+    const html = renderInvitation({
+      events: [
+        {
+          ...event,
+          id: "66666666-6666-4666-8666-666666666666",
+          startsAt: "2028-02-12T00:00:00Z",
+        },
+        event,
+      ],
+    });
+    expect(html).toContain('<h2 id="wedding-date-title">11 February 2028</h2>');
+    expect(html).toContain('class="wedding-date-day">Friday</p>');
+    expect(html).not.toContain("09 January 2027");
+    const unknown = renderInvitation({
+      events: [{ ...event, startsAt: null }],
+    });
+    expect(unknown).not.toContain('id="wedding-date-title"');
+    expect(unknown).not.toContain('class="event-countdown"');
+    expect(unknown).toContain("Updated event");
   });
 
   it("handles nullable event fields without broken text or map links", () => {
@@ -173,6 +215,7 @@ describe("PublicInvitationLongPage", () => {
           id: "44444444-4444-4444-8444-444444444444",
           name: "Quiet Ceremony",
           slug: "quiet-ceremony",
+          endsAt: null,
           startsAt: null,
           venueName: null,
         },
@@ -206,8 +249,12 @@ describe("PublicInvitationLongPage", () => {
     expect(html).toContain("Fallback Household");
     expect(html).not.toContain("Example Guests");
     expect(html).not.toContain("[");
-    expect(html).not.toContain("Mr.");
-    expect(html).not.toContain("Mrs.");
+    const greeting = html.slice(
+      html.indexOf("<header"),
+      html.indexOf("</header>"),
+    );
+    expect(greeting).not.toContain("Mr.");
+    expect(greeting).not.toContain("Mrs.");
   });
 
   it("renders RSVP deadline only from API data", () => {
@@ -276,10 +323,16 @@ describe("PublicInvitationLongPage", () => {
       decodeURIComponent,
     );
 
-    expect(html).toContain("/assets/photos/bride.png");
-    expect(html).toContain("/assets/photos/groom.png");
-    expect(html.indexOf("/assets/photos/bride.png")).toBeLessThan(
-      html.indexOf("/assets/photos/groom.png"),
+    expect(html).toContain(weddingMedia.bride);
+    expect(html).toContain(weddingMedia.groom);
+    expect(html).toContain("Daughter of");
+    expect(html).toContain("Mr. Agus Witjaksono");
+    expect(html).toContain("&amp; Mrs. Godeliva Yuniati");
+    expect(html).toContain("Son of");
+    expect(html).toContain("Mr. Eddy Frist Simamora");
+    expect(html).toContain("Mrs. Entin Kartini");
+    expect(html.indexOf(weddingMedia.bride)).toBeLessThan(
+      html.indexOf(weddingMedia.groom),
     );
   });
 
@@ -290,13 +343,13 @@ describe("PublicInvitationLongPage", () => {
     );
     const gallery = html.slice(html.indexOf('class="gallery-mosaic"'));
     const images = (gallery.match(/<img[^>]*>/g) ?? []).filter((image) =>
-      image.includes("/assets/photos/"),
+      /\/assets\/photography\//.test(image),
     );
-    const assets = ["gallery-01", "gallery-02", "gallery-03", "gallery-04"];
+    const assets = weddingMedia.gallery.map((image) => image.src);
 
     expect(images).toHaveLength(4);
     assets.forEach((asset, index) => {
-      expect(images[index]).toContain(`/assets/photos/${asset}.png`);
+      expect(images[index]).toContain(asset);
     });
   });
 
@@ -306,13 +359,13 @@ describe("PublicInvitationLongPage", () => {
       decodeURIComponent,
     );
     const images = (html.match(/<img[^>]*>/g) ?? []).filter((image) =>
-      image.includes("/assets/photos/"),
+      /\/assets\/photography\//.test(image),
     );
 
     expect(images).toHaveLength(6);
 
     for (const image of images) {
-      expect(image).toMatch(/\/assets\/photos\/[a-z0-9-]+\.png/);
+      expect(image).toMatch(/\/assets\/photography\/[a-z0-9-]+\.webp/);
       expect(image).not.toContain("/assets/mock/");
       expect(image).toContain('srcSet="');
       expect(image).toContain('sizes="');
@@ -326,9 +379,9 @@ describe("PublicInvitationLongPage", () => {
     const html = renderInvitation();
 
     expect(html).toContain(
-      '<h3 id="bride-title">Angelina Desandra Adventa</h3>',
+      '<h3 id="bride-title">Angelina Desandra Adventa <span class="couple-nickname">(Venta)</span></h3>',
     );
-    expect(html).toContain('<p class="couple-nickname">Venta</p>');
+    expect(html).toContain('<span class="couple-nickname">(Venta)</span>');
   });
 
   it("renders the local floral sources and shared ornaments as decoration", () => {
@@ -337,16 +390,16 @@ describe("PublicInvitationLongPage", () => {
       decodeURIComponent,
     );
     const decorations = (html.match(/<img[^>]*>/g) ?? []).filter((image) =>
-      image.includes("/assets/decorative/"),
+      /long-img(?:Watercolor|Leaves|Calendar|Objects|ChatGpt)/.test(image),
     );
 
     for (const asset of [
-      "hydrangea-corner.png",
-      "hydrangea-cluster.png",
-      "groom-leaves.svg",
-      "calendar.svg",
-      "rings.svg",
-      "small-ornament.svg",
+      "WatercolorBloomingFlowers1.png",
+      "WatercolorBloomingFlowersCopyCopy1.png",
+      "Leaves1.png",
+      "Calendar1.png",
+      "Objects1.png",
+      "Objects1.png",
     ]) {
       expect(decorations.some((image) => image.includes(asset))).toBe(true);
     }
@@ -362,11 +415,11 @@ describe("PublicInvitationLongPage", () => {
       expect(wrapper).not.toContain("tabindex");
     }
     expect(
-      decorations.filter((image) => image.includes("rings.svg")),
-    ).toHaveLength(2);
+      decorations.filter((image) => image.includes("Objects1.png")),
+    ).toHaveLength(4);
     expect(
-      decorations.filter((image) => image.includes("small-ornament.svg")),
-    ).toHaveLength(2);
+      decorations.filter((image) => image.includes("Objects1.png")),
+    ).toHaveLength(4);
     expect(html).toContain('<h2 id="wedding-date-title">09 January 2027</h2>');
     expect(html).toContain(
       '<p class="closing-copy">See you at the Wedding!</p>',
@@ -377,8 +430,10 @@ describe("PublicInvitationLongPage", () => {
   it("maps the Groom role to Yohanes Armenian Putra with the Jo nickname", () => {
     const html = renderInvitation();
 
-    expect(html).toContain('<h3 id="groom-title">Yohanes Armenian Putra</h3>');
-    expect(html).toContain('<p class="couple-nickname">Jo</p>');
+    expect(html).toContain(
+      '<h3 id="groom-title">Yohanes Armenian Putra <span class="couple-nickname">(Jo)</span></h3>',
+    );
+    expect(html).toContain('<span class="couple-nickname">(Jo)</span>');
   });
 
   it("orders the Bride before the Groom and keeps both image roles matched", () => {
@@ -391,10 +446,10 @@ describe("PublicInvitationLongPage", () => {
       html.indexOf('id="groom-title"'),
     );
     expect(html.indexOf('class="couple-media-slot"')).toBeLessThan(
-      html.indexOf("/assets/photos/bride.png"),
+      html.indexOf(weddingMedia.bride),
     );
-    expect(html.indexOf("/assets/photos/bride.png")).toBeLessThan(
-      html.indexOf("/assets/photos/groom.png"),
+    expect(html.indexOf(weddingMedia.bride)).toBeLessThan(
+      html.indexOf(weddingMedia.groom),
     );
   });
 

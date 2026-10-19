@@ -27,7 +27,9 @@ describe("GuestCheckinPass", () => {
       marginSize: 4,
       size: 240,
     });
-    expect(html).not.toMatch(
+    // Next's image sizing marker is public rendering metadata, not pass data.
+    const privacyMarkup = html.replace(/\sdata-nimg="(?:1|fill)"/g, "");
+    expect(privacyMarkup).not.toMatch(
       /href=|type="hidden"|data-|issuedAt|tokenHash|credentialVersion|invitationId|rsvpId/,
     );
     expect(html).not.toContain(activePass.issuedAt);

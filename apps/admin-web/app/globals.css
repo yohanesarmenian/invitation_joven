@@ -1,5 +1,74 @@
 @import "tailwindcss";
 
+.checkin-workspace {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.checkin-inputs {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
+.checkin-workspace form {
+  display: grid;
+  gap: 0.75rem;
+}
+.checkin-workspace label {
+  display: block;
+  font-weight: 600;
+}
+.checkin-workspace input,
+.checkin-workspace select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--admin-slate);
+  border-radius: 0.4rem;
+  padding: 0.65rem;
+  background: white;
+  color: var(--admin-navy);
+}
+.checkin-workspace button {
+  min-height: 44px;
+  margin: 0.3rem;
+}
+.checkin-workspace button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.checkin-workspace ul {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+.report-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.report-table-scroll table {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: collapse;
+}
+.report-table-scroll th,
+.report-table-scroll td {
+  text-align: left;
+  border-bottom: 1px solid var(--admin-slate);
+  padding: 0.7rem;
+  vertical-align: top;
+}
+.report-table-scroll caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 0.7rem 0;
+}
+.checkin-workspace input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+  margin: 0.75rem;
+}
+
 .guest-import {
   display: grid;
   gap: 1.5rem;
@@ -1143,4 +1212,110 @@ button:disabled {
   .loading-grid > div {
     height: 88px;
   }
+}
+
+.event-content-workspace {
+  max-width: 64rem;
+}
+.event-management-workspace {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.event-management-workspace select {
+  min-width: 0;
+}
+.event-content-workspace fieldset {
+  min-width: 0;
+  margin: 1rem 0;
+}
+.event-content-workspace label {
+  display: block;
+  margin: 0.75rem 0;
+}
+.event-content-workspace input:not([type="checkbox"]),
+.event-content-workspace select,
+.event-content-workspace textarea {
+  display: block;
+  width: 100%;
+  max-width: 40rem;
+}
+.event-content-workspace textarea {
+  min-height: 6rem;
+}
+.event-content-workspace button,
+.event-content-workspace a {
+  min-height: 44px;
+  margin: 0.25rem;
+}
+.venue-admin-preview {
+  max-width: 480px;
+  background: #fff5e1;
+  color: #1e2952;
+  overflow-wrap: anywhere;
+}
+.venue-admin-preview .invitation-section {
+  padding: 2rem 1.25rem;
+}
+.venue-admin-preview .rundown-list {
+  list-style: none;
+  padding: 0;
+}
+.venue-admin-preview .rundown-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 7rem) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid #d5cbb5;
+}
+.venue-admin-preview .rundown-list time span,
+.venue-admin-preview .rundown-list time strong {
+  display: block;
+}
+.venue-admin-preview .parking-map {
+  position: relative;
+  display: block;
+  aspect-ratio: 3/2;
+}
+.venue-admin-preview .parking-map img {
+  object-fit: contain;
+}
+
+.event-content-workspace dialog {
+  width: min(90vw, 36rem);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+}
+.event-content-workspace dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+.event-content-workspace fieldset {
+  border: 1px solid #d5dbe5;
+  border-radius: 0.4rem;
+  padding: 1rem;
+}
+.event-content-workspace input:not([type="checkbox"]),
+.event-content-workspace select,
+.event-content-workspace textarea {
+  border: 1px solid #b8c1d6;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: inherit;
+  padding: 0.65rem;
+  font: inherit;
+  min-height: 44px;
+}
+.event-content-workspace label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.event-content-workspace input[type="checkbox"] {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  flex: 0 0 1.25rem;
+  padding: 0;
+  margin: 0;
 }

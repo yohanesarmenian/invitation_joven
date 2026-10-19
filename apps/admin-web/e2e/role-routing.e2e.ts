@@ -50,6 +50,7 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).not.toHaveURL("http://localhost:3001/login");
 }
 
 async function gotoAllowingRedirectAbort(page: Page, path: string) {
@@ -92,19 +93,19 @@ async function captureRouteBodies(
   return bodies;
 }
 
-async function expectCheckinHoldingRoute(page: Page, email = "staff@example.com") {
+async function expectCheckinHoldingRoute(
+  page: Page,
+  email = "staff@example.com",
+) {
   await expect(page).toHaveURL("http://localhost:3001/checkin");
   await expect(
-    page.getByRole("heading", { name: "Check-in access", exact: true }),
+    page.getByRole("heading", { name: "Check-in", exact: true, level: 1 }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Scanner access is not available in this slice."),
-  ).toBeVisible();
+  await expect(page.getByLabel("Event", { exact: true })).toBeVisible();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
-  await expect(page.locator("video, canvas, input[type='file']")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: /scan|camera|check in/i }),
-  ).toHaveCount(0);
+  await expect(page.locator("video, canvas, input[type='file']")).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("navigation")).toHaveCount(0);
   await expect(page.getByText("Wedding InvitationAdmin")).toHaveCount(0);
   for (const marker of ownerOnlyMarkers)
@@ -184,7 +185,15 @@ test("direct OWNER-route navigation by CHECKIN_STAFF never fetches or renders OW
   await signIn(page, "staff@example.com");
   await expectCheckinHoldingRoute(page);
 
-  for (const path of ["/", "/invitations", "/rsvps", "/messages"]) {
+  for (const path of [
+    "/",
+    "/invitations",
+    "/rsvps",
+    "/messages",
+    "/reports",
+    "/event-content",
+    "/settings/staff",
+  ]) {
     const bodies = await captureRouteBodies(page, path, () => page.goto(path));
     await expectCheckinHoldingRoute(page);
     const renderedText = await page.locator("body").innerText();
@@ -207,9 +216,9 @@ test("role redirects settle without loops for OWNER, staff, and forced-change se
   await signIn(page, "owner@example.com");
   navigations = 0;
   await gotoAllowingRedirectAbort(page, "/checkin");
-  await expect(page).toHaveURL("http://localhost:3001/");
+  await expect(page).toHaveURL("http://localhost:3001/checkin");
   await expect(
-    page.getByRole("heading", { name: "Dashboard", exact: true }),
+    page.getByRole("heading", { name: "Check-in", exact: true, level: 1 }),
   ).toBeVisible();
   expect(navigations).toBeLessThanOrEqual(3);
 

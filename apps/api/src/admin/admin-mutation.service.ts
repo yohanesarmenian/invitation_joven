@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { lockEvents } from "../events/event-lock.js";
 import { Inject, Injectable } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
 import {
@@ -707,6 +708,7 @@ export async function assertActiveEventIds(
   tx: Prisma.TransactionClient,
   eventIds: readonly string[],
 ): Promise<void> {
+  await lockEvents(tx, eventIds);
   const events = await tx.event.findMany({
     select: { id: true, isActive: true },
     where: { id: { in: [...eventIds] } },
@@ -1089,6 +1091,7 @@ export class AdminMutationService {
       });
       const currentEventIds = new Set(currentRows.map((row) => row.eventId));
       const desiredEventIdSet = new Set(desiredEventIds);
+      await lockEvents(tx, [...currentEventIds, ...desiredEventIds]);
       const events = await tx.event.findMany({
         select: {
           displayOrder: true,

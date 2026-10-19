@@ -304,10 +304,18 @@ export class AdminReadService {
         isActive: true,
         name: true,
         slug: true,
+        startsAt: true,
+        venueName: true,
+        address: true,
       },
     });
 
-    return { events };
+    return {
+      events: events.map((event) => ({
+        ...event,
+        startsAt: event.startsAt?.toISOString() ?? null,
+      })),
+    };
   }
 
   async listGuestMessages(

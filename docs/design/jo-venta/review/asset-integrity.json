@@ -1,0 +1,39 @@
+{
+  "verifiedAt": "2026-10-15T23:57:22.636Z",
+  "legacyAssets": {
+    "count": 31,
+    "byteIdentical": true
+  },
+  "originalPhotos": {
+    "count": 6,
+    "byteIdentical": true
+  },
+  "sourceSnapshot": "before-work SHA-256 snapshot, 645 source files",
+  "changedProductPaths": [
+    "apps/invitation-web/playwright.production.config.ts",
+    "apps/invitation-web/app/layout.tsx",
+    "apps/invitation-web/e2e/mock-public-invitation-api.ts",
+    "apps/invitation-web/e2e/public-enhancements.e2e.ts",
+    "apps/invitation-web/e2e/public-guest-message.e2e.ts",
+    "apps/invitation-web/e2e/public-rsvp.e2e.ts",
+    "apps/invitation-web/components/invitation/event-enhancements.tsx",
+    "apps/invitation-web/components/invitation/gallery.tsx",
+    "apps/invitation-web/components/invitation/guest-checkin-pass.spec.tsx",
+    "apps/invitation-web/components/invitation/guest-checkin-pass.tsx",
+    "apps/invitation-web/components/invitation/guest-message-form.tsx",
+    "apps/invitation-web/components/invitation/invitation-cover.spec.tsx",
+    "apps/invitation-web/components/invitation/invitation-cover.tsx",
+    "apps/invitation-web/components/invitation/invitation-opening-flow.tsx",
+    "apps/invitation-web/components/invitation/public-invitation-long-page.spec.tsx",
+    "apps/invitation-web/components/invitation/public-invitation-long-page.tsx",
+    "apps/invitation-web/components/invitation/public-rsvp-form.spec.tsx",
+    "apps/invitation-web/components/invitation/public-rsvp-form.tsx"
+  ],
+  "generatedBuildCachePaths": [
+    "apps/admin-web/tsconfig.tsbuildinfo",
+    "apps/invitation-web/tsconfig.tsbuildinfo"
+  ],
+  "backendAndAdminProductSourceUnchangedFromSnapshot": true,
+  "stagedFiles": 0,
+  "commitsCreated": 0
+}

@@ -1,0 +1,1472 @@
+/* Figma yZZNWQ8kQIymOTixjymzoC, 7:2 / 14:7 / 17:18 / 82:113.
+   Geometry at the 412px reference width; dynamic household forms reflow. */
+.invitation-viewport {
+  min-height: 100dvh;
+  background: #fff5e1;
+}
+.invitation-opening-flow {
+  width: 100%;
+  max-width: none;
+  margin-inline: auto;
+  container-type: inline-size;
+  background: #fff5e1;
+  color: #1e2952;
+  --figma-script: var(--font-luxurious-script), cursive;
+}
+.public-invitation-surface {
+  max-width: none;
+  background: #fff5e1;
+  overflow-x: clip;
+}
+.public-invitation-page {
+  background: #fff5e1;
+}
+.invitation-header {
+  min-height: 0;
+  padding: 67px 12.62% 41px;
+  gap: 0;
+  text-align: left;
+}
+.invitation-header .section-kicker,
+.invitation-header h1 {
+  font-family: var(--font-spectral), Georgia, serif;
+  font-size: 24px;
+  line-height: 1.32;
+  font-weight: 400;
+  letter-spacing: -1.68px;
+  text-transform: none;
+  color: #1e2952;
+}
+.invitation-header h1 {
+  overflow-wrap: anywhere;
+}
+.figma-header-rule {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 346px;
+  height: 1px;
+  overflow: hidden;
+}
+.figma-dress-palette {
+  display: block;
+  order: 3;
+  justify-self: center;
+  width: 307px;
+  margin-top: 24px;
+}
+.invitation-header > p:last-child {
+  margin-top: 21px;
+  font-size: 16px;
+  line-height: 1.32;
+  letter-spacing: -0.96px;
+}
+.decoration-top {
+  transform: none;
+  width: 140px;
+  height: 166px;
+  top: -36px;
+  right: -19px;
+  opacity: 0.56;
+}
+.couple-section {
+  position: relative;
+  padding: 0;
+  gap: 81px;
+}
+.couple-profile {
+  position: relative;
+  align-items: start;
+  gap: 5.57%;
+}
+.couple-profile-bride {
+  margin-left: 12.62%;
+  margin-right: 8.98%;
+  grid-template-columns: 42.1% minmax(0, 1fr);
+}
+.couple-profile-groom {
+  margin-left: 8.01%;
+  margin-right: 17.48%;
+  grid-template-columns: minmax(0, 1fr) 44.63%;
+}
+.couple-media-slot {
+  min-height: 0;
+  aspect-ratio: 136 / 186;
+  border: 0;
+  border-radius: 20px;
+}
+.couple-profile-bride .couple-media-slot img {
+  object-fit: fill;
+}
+.couple-profile-groom .couple-media-slot img {
+  max-width: none;
+  width: 146.71% !important;
+  height: 162.08% !important;
+  left: -27.73% !important;
+  top: -22.44% !important;
+  right: auto !important;
+  object-fit: fill;
+}
+.couple-copy {
+  display: block;
+  min-width: 0;
+  padding-top: 0;
+}
+.couple-profile-groom .couple-copy {
+  text-align: right;
+  padding-top: 0;
+}
+.couple-role {
+  position: static;
+  margin: 0 0 8px;
+  font: 36px/49px var(--figma-script);
+  color: black;
+  width: auto;
+  white-space: nowrap;
+}
+.couple-profile-groom .couple-role {
+  text-align: right;
+}
+.couple-copy h3 {
+  font:
+    700 14px/20px var(--font-spectral),
+    Georgia,
+    serif;
+  letter-spacing: -0.84px;
+  overflow-wrap: anywhere;
+}
+.couple-nickname {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+.couple-family-label {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: -0.66px;
+}
+.couple-family-names {
+  margin: 3px 0 0;
+  font-size: 14px;
+  line-height: 17px;
+  letter-spacing: -0.84px;
+  overflow-wrap: anywhere;
+}
+.decoration-bride-bloom {
+  position: absolute;
+  left: 36.16%;
+  top: 149px;
+  width: 78.19px;
+  height: 89.05px;
+  overflow: hidden;
+  opacity: 0.25;
+  transform: scaleY(-1) rotate(-0.15deg);
+}
+.decoration-bride-bloom img {
+  position: absolute;
+  max-width: none;
+  width: 354.17%;
+  height: 207.32%;
+  left: -253.94%;
+  top: 0;
+}
+.wedding-date-section {
+  display: grid;
+  grid-template-columns: 59px minmax(0, 1fr);
+  gap: 0 17px;
+  margin: 63px 8.01% 0;
+  padding: 18px 8.5%;
+  border-block: 1px solid #1e2952;
+  min-height: 110px;
+  text-align: left;
+  align-content: center;
+}
+.wedding-date-section > .section-kicker,
+.wedding-date-divider {
+  display: none;
+}
+.decoration-calendar {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 59px;
+  height: 52px;
+  align-self: center;
+  margin: 0;
+}
+.wedding-date-day {
+  grid-column: 2;
+  font:
+    400 24px/1.21 var(--font-spectral),
+    Georgia,
+    serif;
+  color: #1e2952;
+  text-transform: none;
+}
+.wedding-date-section h2 {
+  grid-column: 2;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.21;
+  letter-spacing: -0.96px;
+  overflow-wrap: anywhere;
+}
+.decoration-groom-leaves {
+  width: 108.823px;
+  height: 85.984px;
+  right: -6px;
+  top: -133px;
+  opacity: 0.34;
+  transform: rotate(133.39deg) scaleY(-1);
+}
+.events-section {
+  padding: 38px 10% 45px;
+}
+.events-section > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.event-list {
+  margin: 0;
+  gap: 55px;
+}
+.event-card {
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 0 17px;
+  padding: 0;
+  border: 0;
+}
+.event-time-block time {
+  font-size: 32px;
+  letter-spacing: -1.28px;
+  line-height: 1.4;
+  color: black;
+}
+.event-card h3 {
+  font: 36px/49px var(--figma-script);
+  color: black;
+}
+.event-detail-block {
+  min-width: 0;
+  gap: 0;
+  overflow-wrap: anywhere;
+}
+.event-venue {
+  font-size: 16px;
+  line-height: 1.35;
+}
+.event-card address {
+  font-size: 14px;
+  line-height: 1.35;
+  letter-spacing: -0.56px;
+}
+.event-actions {
+  margin-top: 12px;
+  gap: 8px;
+}
+.event-actions :is(a, button),
+.venue-information a {
+  min-height: 44px;
+}
+.event-actions .map-link {
+  min-width: 168px;
+  font:
+    14px var(--font-albert-sans),
+    Arial,
+    sans-serif;
+  color: white;
+}
+.decoration-rings {
+  position: relative;
+  width: 88px;
+  height: 58px;
+  overflow: hidden;
+  margin-top: 0;
+}
+.decoration-rings img {
+  position: absolute;
+  max-width: none;
+  width: 315.54%;
+  height: 480.85%;
+  left: -16.92%;
+  top: -114.89%;
+}
+.decoration-event,
+.decoration-closing {
+  position: relative;
+  width: 78px;
+  height: 37px;
+  overflow: hidden;
+}
+.decoration-event img,
+.decoration-closing img {
+  position: absolute;
+  max-width: none;
+  width: 227.49%;
+  height: 483.78%;
+  left: -106.69%;
+  top: -24.32%;
+}
+.dress-code-section {
+  margin: 0 8.01%;
+  padding: 28px 0 40px;
+  border-block: 1px solid #1e2952;
+  gap: 0;
+}
+.dress-code-section h2,
+.rsvp-information-section h2 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 30px;
+  letter-spacing: -0.96px;
+}
+.dress-code-section h2 {
+  order: 0;
+}
+.dress-code-section > p:not(.section-kicker) {
+  order: 1;
+  margin: 0;
+  font-size: 14px;
+  line-height: 30px;
+  letter-spacing: -0.56px;
+}
+.dress-code-section > .section-kicker {
+  order: 2;
+  font:
+    14px/20px var(--font-spectral),
+    Georgia,
+    serif;
+  color: #1e2952;
+  text-transform: none;
+}
+.dress-swatch-list {
+  order: 3;
+  margin: 24px 0 0;
+  gap: 16px;
+  flex-wrap: nowrap;
+}
+.dress-swatch-list li {
+  min-width: 0;
+  flex: 0 1 47px;
+}
+.dress-swatch {
+  width: 47px;
+  height: 47px;
+}
+.dress-swatch-list li > :not(.dress-swatch) {
+  display: none;
+}
+.decoration-dress-right {
+  transform: none;
+  width: 64px;
+  height: 85px;
+  top: 1px;
+  right: -36px;
+  opacity: 0.58;
+}
+.rsvp-information-section {
+  padding: 28px 12.62% 54px;
+  gap: 18px;
+}
+.rsvp-information-section > p {
+  font-size: 14px;
+  line-height: 22px;
+  letter-spacing: -0.56px;
+}
+.rsvp-information-section h2 {
+  text-transform: uppercase;
+}
+.decoration-rsvp-left {
+  transform: none;
+  width: 126px;
+  height: 110px;
+  left: -37px;
+  top: -74px;
+  opacity: 0.41;
+}
+.rsvp-decoration-band {
+  height: 60px;
+}
+.public-rsvp-form {
+  font-family: var(--font-spectral), Georgia, serif;
+  font-size: 14px;
+}
+.public-rsvp-form legend {
+  text-align: center;
+  font-size: 14px;
+  line-height: 30px;
+}
+.public-rsvp-form .rsvp-submit {
+  background: #6082ff;
+  color: black;
+  border: 1px solid black;
+  border-radius: 5px;
+  font:
+    14px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+  min-height: 44px;
+}
+.public-rsvp-form
+  :is(input:not([type="checkbox"]):not([type="radio"]), textarea),
+.guest-message-form :is(input, textarea) {
+  border-radius: 5px;
+  border: 1px solid black;
+  background: white;
+}
+.guest-message-form {
+  font:
+    14px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+}
+.guest-message-form button {
+  border-radius: 5px;
+  background: #1e2952;
+  min-height: 44px;
+}
+.guest-message-confirmation {
+  position: relative;
+  max-width: 326px;
+  margin-inline: auto;
+  padding: 98px 31px 28px;
+  background: #ffb39a;
+  border: 1px solid black;
+  border-radius: 15px;
+  box-shadow: 5px 4px 7px rgb(0 0 0 / 25%);
+  color: black;
+}
+.guest-message-confirmation h3 {
+  font:
+    italic 600 20px/22px var(--font-spectral),
+    Georgia,
+    serif;
+  letter-spacing: -0.8px;
+}
+.guest-message-confirmation p {
+  font:
+    500 15px/22px var(--font-spectral),
+    Georgia,
+    serif;
+  letter-spacing: -0.6px;
+}
+.figma-message-icon {
+  position: absolute;
+  top: 28px;
+  left: calc(50% - 33.5px);
+}
+.guest-checkin-pass {
+  max-width: 326px;
+  margin: 28px auto;
+  padding: 33px 31px 24px;
+  border: 1px solid black;
+  border-radius: 15px;
+  background: #ffb39a;
+  box-shadow: 5px 4px 7px rgb(0 0 0 / 25%);
+  color: black;
+}
+.guest-checkin-pass svg {
+  width: min(240px, 100%);
+  height: auto;
+  background: white;
+}
+.guest-checkin-pass h3 {
+  font:
+    italic 600 20px/22px var(--font-spectral),
+    Georgia,
+    serif;
+  letter-spacing: -0.8px;
+}
+.guest-checkin-pass > p {
+  font:
+    500 15px/22px var(--font-spectral),
+    Georgia,
+    serif;
+  letter-spacing: -0.6px;
+}
+.guest-checkin-pass .figma-pass-instruction {
+  color: #f90000;
+  font:
+    700 15px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+}
+.guest-checkin-pass .figma-pass-back {
+  min-height: 44px;
+  background: #11256e;
+  border: 1px solid black;
+  border-radius: 5px;
+  color: white;
+  font:
+    14px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+  margin-top: 16px;
+}
+.gallery-section {
+  padding: 0;
+  position: relative;
+}
+.gallery-section > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.gallery-mosaic {
+  margin: 0 0 0 -0.24cqw;
+  grid-template-columns: 47.09cqw 50.24cqw;
+  grid-template-rows: 62.62cqw 66.75cqw;
+  grid-template-areas: "large small" "tall medium";
+  gap: 2.91cqw;
+}
+.gallery-frame {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+.gallery-frame-large {
+  height: 62.62cqw;
+}
+.gallery-frame-small {
+  width: 29.61cqw;
+  height: 39.32cqw;
+}
+.gallery-frame-medium {
+  height: 66.75cqw;
+}
+.gallery-frame-medium img {
+  max-width: none;
+  width: 132.85% !important;
+  height: 150% !important;
+  left: -24.43% !important;
+  top: -24.83% !important;
+  right: auto !important;
+  object-fit: fill;
+}
+.gallery-frame-tall {
+  width: 37.38cqw;
+  height: 49.76cqw;
+  margin-left: 9.71cqw;
+}
+.gallery-scripture {
+  position: absolute;
+  left: 49.76%;
+  top: 42.23cqw;
+  width: 36.65%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+.gallery-scripture blockquote {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.gallery-scripture blockquote p {
+  font:
+    400 14px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+  letter-spacing: -0.56px;
+}
+.gallery-scripture cite {
+  font:
+    700 14px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+  margin: 0;
+}
+.decoration-gallery {
+  transform: none;
+  width: 66px;
+  height: 58px;
+  right: -43px;
+  top: -63px;
+  opacity: 0.41;
+}
+.quote-section {
+  padding: 65px 24px 48px;
+  gap: 0;
+}
+.quote-section blockquote p {
+  font:
+    400 14px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+  letter-spacing: -0.56px;
+  max-width: 197px;
+  margin-inline: auto;
+}
+.quote-section cite {
+  font:
+    italic 300 12px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+}
+.decoration-lower {
+  width: 135.837px;
+  height: 90.162px;
+  opacity: 0.54;
+  transform: rotate(-5.96deg) scaleY(-1);
+  margin: 0 auto 0;
+}
+.guest-message-section {
+  padding: 0 12.14% 40px;
+}
+.guest-message-section > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.invitation-footer {
+  padding: 30px 24px 28px;
+  gap: 0;
+}
+.closing-copy {
+  font: 36px/49px var(--figma-script);
+  color: black;
+}
+.invitation-footer p:not(.closing-copy) {
+  font:
+    300 14px/20px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+  margin-top: 22px;
+}
+.invitation-footer p:last-child {
+  margin-top: 0;
+}
+.invitation-closed-stage,
+.invitation-opened-stage {
+  display: block;
+  min-height: 100svh;
+}
+.invitation-envelope-button,
+.invitation-opened-cover {
+  width: 100%;
+  min-height: 100svh;
+  height: auto;
+  aspect-ratio: 412 / 917;
+  position: relative;
+  display: block;
+  padding: 0;
+}
+.invitation-cover-stack {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.invitation-cover-stack .invitation-closed-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: transparent;
+}
+.invitation-cover-underlay .invitation-opened-stage {
+  animation: none;
+}
+.invitation-envelope {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  perspective: 1200px;
+}
+.invitation-envelope-layer-front,
+.invitation-envelope-layer-right {
+  backface-visibility: hidden;
+  transform: rotateY(0deg);
+}
+.invitation-envelope-layer-front {
+  transform-origin: left center;
+}
+.invitation-envelope-layer-right {
+  transform-origin: right center;
+}
+.invitation-closed-stage[data-opening="true"] .invitation-envelope-layer-front {
+  transform: rotateY(-110deg);
+  opacity: 0;
+}
+.invitation-closed-stage[data-opening="true"] .invitation-envelope-layer-right {
+  transform: rotateY(110deg);
+  opacity: 0;
+}
+.invitation-opened-cover {
+  isolation: isolate;
+  overflow: hidden;
+}
+.invitation-opened-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  aspect-ratio: auto;
+  z-index: -2;
+}
+.invitation-opened-media img {
+  max-width: none;
+  width: 148.54% !important;
+  height: 100% !important;
+  left: -32.86% !important;
+  top: 0.03% !important;
+  right: auto !important;
+  object-fit: fill;
+}
+.invitation-opened-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 53.44%;
+  z-index: -1;
+  background: linear-gradient(
+    white,
+    rgb(255 255 255 / 94%) 49.52%,
+    transparent
+  );
+}
+.invitation-opened-title {
+  position: absolute;
+  inset: 0;
+  display: block;
+  max-width: none;
+}
+.invitation-opened-kicker {
+  position: absolute;
+  top: 16.575%;
+  left: 52.3%;
+  transform: translateX(-50%);
+  font:
+    400 32px/1.32 var(--font-spectral),
+    Georgia,
+    serif;
+  letter-spacing: -3.2px;
+  color: black;
+  white-space: nowrap;
+}
+.invitation-opened-names {
+  position: absolute;
+  top: 20.28%;
+  left: 52.43%;
+  transform: translateX(-50%);
+  width: 89.32%;
+  font: 400 96px/1.12 var(--figma-script);
+  letter-spacing: -2.88px;
+  color: black;
+  text-shadow: none;
+}
+.invitation-opened-action {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.invitation-opened-cover-fallback .invitation-opened-media {
+  position: relative;
+  inset: auto;
+  width: min(100%, 332px);
+  max-width: 332px;
+  height: auto;
+  aspect-ratio: 332 / 917;
+  margin-inline: auto;
+}
+.invitation-opened-cover-fallback .invitation-opened-media img {
+  width: 100% !important;
+  height: 100% !important;
+  inset: 0 !important;
+  object-fit: contain;
+}
+.invitation-opened-cover-fallback::before {
+  display: none;
+}
+@media (max-width: 360px) {
+  .couple-profile-bride {
+    grid-template-columns: 42.1% minmax(0, 1fr);
+  }
+  .couple-profile-groom {
+    grid-template-columns: minmax(0, 1fr) 44.63%;
+  }
+  .couple-role {
+    font-size: 30px;
+  }
+  .couple-copy h3,
+  .couple-family-names {
+    font-size: 12px;
+  }
+  .wedding-date-section {
+    padding-inline: 12px;
+    gap: 0 12px;
+  }
+  .wedding-date-day,
+  .wedding-date-section h2 {
+    font-size: 20px;
+  }
+  .event-card {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+  .dress-swatch-list {
+    gap: 8px;
+  }
+  .dress-swatch {
+    width: 38px;
+    height: 38px;
+  }
+  .invitation-opened-names {
+    font-size: 76px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .invitation-envelope-layer-front,
+  .invitation-envelope-layer-right {
+    transition: none;
+  }
+  .invitation-closed-stage[data-opening="true"]
+    .invitation-envelope-layer-front,
+  .invitation-closed-stage[data-opening="true"]
+    .invitation-envelope-layer-right {
+    transform: none;
+  }
+  .invitation-revealed {
+    animation: none;
+  }
+}
+
+/* Confirmation art remains below the opaque card and outside QR quiet space. */
+.guest-checkin-pass {
+  position: relative;
+  isolation: isolate;
+  width: 326px;
+  max-width: calc(100cqw - 24px);
+  margin-left: 50%;
+  transform: translateX(-50%);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.figma-pass-content {
+  position: relative;
+  z-index: 1;
+  min-height: 472px;
+  padding: 33px 31px 24px;
+  background: #ffb39a;
+  border: 1px solid black;
+  border-radius: 15px;
+  box-shadow: 5px 4px 7px rgb(0 0 0 / 25%);
+  display: grid;
+  justify-items: center;
+  gap: 15px;
+}
+.figma-pass-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.figma-pass-leaves {
+  position: absolute;
+  left: 83px;
+  top: 252px;
+}
+.figma-pass-top-art {
+  position: absolute;
+  left: -118px;
+  top: -200px;
+  width: 241.009px;
+  height: 210.945px;
+}
+.figma-pass-bottom-art {
+  position: absolute;
+  left: 61px;
+  top: 495px;
+  width: 344.501px;
+  height: 393.396px;
+}
+.figma-rsvp-intro {
+  font:
+    12px/17px var(--font-spectral),
+    Georgia,
+    serif !important;
+  letter-spacing: -0.48px !important;
+}
+.guest-message-confirmation button {
+  margin-top: 24px;
+  font:
+    14px/22px var(--font-tiktok-sans),
+    Arial,
+    sans-serif;
+  background-image: url("/assets/figma/82-113-imgVector.svg");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 28px;
+}
+
+.event-time-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.event-time-block time {
+  order: 0;
+  padding-left: 8px;
+}
+.decoration-rings {
+  order: 1;
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+.decoration-rings-small {
+  width: 68px;
+  height: 54px;
+  margin-top: 12px;
+}
+.decoration-rings-small img {
+  width: 231.39%;
+  height: 290.51%;
+  left: -119.52%;
+  top: -133.7%;
+}
+.public-rsvp-form .rsvp-submit {
+  background-image: url("/assets/figma/long-imgVector.svg");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 28px;
+}
+.guest-message-form form button {
+  background-image: url("/assets/figma/long-imgVector1.svg");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 28px;
+}
+
+.decoration-rsvp-main {
+  width: 109.749px;
+  height: 72.846px;
+  opacity: 0.36;
+  transform: rotate(160.4deg) scaleY(-1);
+}
+.decoration-rsvp-small-a {
+  width: 47px;
+  height: 41px;
+  opacity: 0.41;
+  transform: none;
+}
+.decoration-rsvp-small-b {
+  width: 66px;
+  height: 58px;
+  opacity: 0.41;
+  transform: none;
+}
+.rsvp-decoration-band {
+  height: 110px;
+}
+.public-rsvp-form .guest-checkin-pass {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.public-rsvp-form .guest-checkin-pass h3 {
+  font:
+    italic 600 20px/22px var(--font-spectral),
+    Georgia,
+    serif;
+  margin: 0;
+}
+
+.couple-profile-groom .couple-media-slot {
+  aspect-ratio: 137 / 186;
+}
+
+/* Owner revision: full viewport, Figma content with original photo-led composition. */
+html,
+body {
+  background: #fff5e1;
+}
+.invitation-opening-flow {
+  position: relative;
+}
+.invitation-motion-toggle {
+  position: fixed;
+  z-index: 20;
+  top: 14px;
+  right: 14px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid rgb(30 41 82 / 20%);
+  border-radius: 999px;
+  background: rgb(255 245 225 / 94%);
+  color: #1e2952;
+  font:
+    12px/1.3 var(--font-tiktok-sans),
+    sans-serif;
+  box-shadow: 0 3px 18px rgb(30 41 82 / 10%);
+}
+[data-stage="content"] > .invitation-motion-toggle {
+  position: absolute;
+}
+.invitation-envelope-button,
+.invitation-opened-cover {
+  aspect-ratio: auto;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+}
+.invitation-closed-stage,
+.invitation-opened-stage {
+  min-height: 100svh;
+}
+.invitation-envelope-layer {
+  object-fit: fill;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.invitation-envelope-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, #1c293e, #172e57);
+}
+.invitation-envelope-layer-front::before {
+  clip-path: polygon(0 0, 30% 0, 58% 50%, 30% 100%, 0 100%);
+  background: linear-gradient(110deg, #1c293e, #1a273a);
+}
+.invitation-envelope-layer-right::before {
+  clip-path: polygon(30% 0, 100% 0, 100% 100%, 30% 100%, 58% 50%);
+  background: linear-gradient(120deg, #1d3660, #172b51);
+}
+.invitation-envelope-wax {
+  position: absolute;
+  width: 128px;
+  height: 128px;
+  left: calc(50% - 64px);
+  top: calc(50% - 64px);
+  overflow: hidden;
+  clip-path: circle(49%);
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 20%));
+}
+.invitation-envelope-wax img {
+  max-width: none;
+  width: 320% !important;
+  height: 709% !important;
+  left: -110% !important;
+  top: -304% !important;
+  right: auto !important;
+  bottom: auto !important;
+  object-fit: fill;
+}
+.invitation-opened-media img {
+  width: 100% !important;
+  height: 100% !important;
+  inset: 0 !important;
+  object-fit: cover;
+  object-position: 50% 65%;
+}
+.invitation-opened-media::after {
+  background: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 96%) 0%,
+    rgb(255 255 255 / 52%) 27%,
+    transparent 55%,
+    rgb(0 0 0 / 30%) 100%
+  );
+}
+.invitation-opened-title {
+  top: 13%;
+}
+.invitation-opened-action {
+  position: absolute;
+  clip: auto;
+  clip-path: none;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
+  padding: 13px 24px;
+  border: 1px solid rgb(255 255 255 / 65%);
+  border-radius: 999px;
+  background: rgb(255 245 225 / 95%);
+  color: #1e2952;
+  white-space: nowrap;
+  font:
+    14px/1.4 var(--font-spectral),
+    serif;
+}
+.invitation-envelope-hint {
+  position: absolute;
+  z-index: 4;
+  bottom: 10%;
+  left: 0;
+  width: 100%;
+  color: #fff5e1;
+  font:
+    14px/1.4 var(--font-spectral),
+    serif;
+  letter-spacing: 0.08em;
+}
+[data-opening="true"] .invitation-envelope-hint {
+  opacity: 0;
+  transition: opacity 160ms;
+}
+[data-motion="full"] .invitation-envelope-layer-front,
+[data-motion="full"] .invitation-envelope-layer-right {
+  transition:
+    transform var(--invitation-fold-duration) var(--invitation-easing),
+    opacity 300ms ease calc(var(--invitation-fold-duration) - 300ms);
+}
+[data-motion="full"] .invitation-envelope-layer-right {
+  transition-delay:
+    var(--invitation-fold-stagger),
+    calc(
+      var(--invitation-fold-duration) + var(--invitation-fold-stagger) - 300ms
+    );
+}
+[data-motion="full"] [data-opening="true"] .invitation-envelope-layer-front {
+  transform: rotateY(-110deg);
+}
+[data-motion="full"] [data-opening="true"] .invitation-envelope-layer-right {
+  transform: rotateY(110deg);
+}
+[data-motion="full"] .invitation-cover-stack[data-exiting="true"] {
+  animation: invitation-cover-exit var(--invitation-entry-duration)
+    var(--invitation-easing) both;
+  pointer-events: none;
+}
+.invitation-opening-content[data-entering="true"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
+[data-motion="full"] .invitation-opening-content[data-entering="true"] {
+  animation: invitation-content-enter var(--invitation-entry-duration)
+    var(--invitation-easing) both;
+}
+[data-motion="full"]
+  .invitation-reveal-ready:not(.invitation-revealed):not(:focus-within) {
+  opacity: 0;
+  transform: translateY(18px);
+}
+[data-motion="full"] .invitation-revealed {
+  animation: invitation-section-enter var(--invitation-reveal-duration)
+    var(--invitation-easing) both;
+}
+[data-motion="reduced"] .invitation-revealed {
+  animation: none;
+}
+@keyframes invitation-cover-exit {
+  to {
+    opacity: 0;
+    transform: translateY(-2%);
+  }
+}
+@keyframes invitation-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes invitation-section-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.invitation-header {
+  max-width: 900px;
+  margin-inline: auto;
+  padding: 90px 8% 52px;
+}
+.figma-header-rule {
+  display: none;
+}
+.couple-section {
+  max-width: 1040px;
+  margin-inline: auto;
+  padding: 0 24px;
+  gap: 64px;
+}
+.couple-profile-bride,
+.couple-profile-groom {
+  margin-inline: 0;
+}
+.couple-profile .couple-media-slot img {
+  width: 100% !important;
+  height: 100% !important;
+  inset: 0 !important;
+  object-fit: cover;
+}
+.couple-profile-bride .couple-media-slot img {
+  object-position: 45% 45%;
+}
+.couple-profile-groom .couple-media-slot img {
+  object-position: 50% 42%;
+}
+.wedding-date-section {
+  max-width: 800px;
+  margin-inline: auto;
+  margin-top: 60px;
+}
+.events-section {
+  max-width: 1040px;
+  margin-inline: auto;
+  padding: 60px 24px;
+}
+.dress-code-section {
+  max-width: 640px;
+  margin-inline: auto;
+}
+.rsvp-information-section {
+  max-width: 780px;
+  margin-inline: auto;
+  padding: 64px 24px;
+}
+.guest-message-section {
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 64px 24px;
+}
+.event-countdown {
+  max-width: 620px;
+  margin: 24px auto 0;
+  padding: 20px 24px 40px;
+}
+.countdown-kicker {
+  margin: 0 0 20px;
+  font:
+    14px/1.5 var(--font-spectral),
+    serif;
+}
+.countdown-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.countdown-part {
+  display: grid;
+  gap: 6px;
+  padding: 18px 4px;
+  background: rgb(255 255 255 / 50%);
+  border: 1px solid rgb(30 41 82 / 15%);
+  border-radius: 12px;
+}
+.countdown-value {
+  font:
+    500 clamp(26px, 5vw, 44px)/1 var(--font-spectral),
+    serif;
+  font-variant-numeric: tabular-nums;
+}
+.countdown-label {
+  font:
+    10px/1.4 var(--font-tiktok-sans),
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.gallery-section {
+  max-width: none;
+  padding: 48px 0 0;
+  overflow: clip;
+}
+.gallery-section h2:not(.visually-hidden) {
+  text-align: center;
+}
+.gallery-mosaic {
+  display: grid;
+  position: relative;
+  height: auto;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: none;
+  grid-template-areas: none;
+  gap: 12px;
+  padding: 0 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  min-width: 0;
+}
+.gallery-mosaic .gallery-frame {
+  position: relative;
+  grid-area: auto;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3/4;
+  margin: 0;
+  border-radius: 0;
+}
+.gallery-mosaic .gallery-frame:first-child {
+  grid-column: 1 / -1;
+  aspect-ratio: 3/2;
+}
+.gallery-mosaic .gallery-frame:last-child {
+  grid-column: 1 / -1;
+  aspect-ratio: 4/3;
+}
+.gallery-mosaic .gallery-frame img {
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+.gallery-scripture {
+  position: relative;
+  inset: auto;
+  width: auto;
+  max-width: 680px;
+  margin: 48px auto;
+  padding: 0 24px;
+  text-align: center;
+  transform: none;
+}
+.gallery-scripture blockquote {
+  flex-direction: column;
+}
+.gallery-scripture blockquote p {
+  font:
+    26px/1.5 var(--font-spectral),
+    serif;
+}
+.gallery-section > h2 {
+  position: static;
+  clip-path: none;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  margin: 0 24px 32px;
+  font: 40px/1.2 var(--figma-script);
+}
+.quote-section {
+  max-width: 900px;
+  margin-inline: auto;
+}
+.public-rsvp-form legend {
+  text-align: left;
+  font-weight: 700;
+}
+.public-rsvp-form .rsvp-fields {
+  gap: 28px;
+}
+.public-rsvp-form .rsvp-group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+.public-rsvp-form .rsvp-choice {
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  min-height: 44px;
+}
+.public-rsvp-form input:is([type="radio"], [type="checkbox"]) {
+  appearance: none;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #1e2952;
+  border-radius: 5px;
+  background: white;
+  display: grid;
+  place-content: center;
+}
+.public-rsvp-form input:is([type="radio"], [type="checkbox"]):checked::after {
+  content: "✓";
+  font: bold 23px/1 sans-serif;
+  color: #1e2952;
+}
+.public-rsvp-form input:focus-visible {
+  outline: 3px solid #6082ff;
+  outline-offset: 3px;
+}
+.rsvp-attendance-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.rsvp-dietary-help {
+  font-size: 12px;
+  line-height: 1.6;
+}
+@media (min-width: 700px) {
+  .invitation-opened-title {
+    left: 8%;
+    width: 84%;
+    text-align: center;
+  }
+  .invitation-opened-kicker {
+    font-size: 38px;
+  }
+  .invitation-opened-names {
+    font-size: 120px;
+  }
+  .couple-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+  .couple-profile {
+    grid-template-columns: 44% minmax(0, 1fr);
+    gap: 16px;
+  }
+  .couple-profile-groom {
+    grid-template-columns: minmax(0, 1fr) 44%;
+  }
+  .couple-role {
+    font-size: 42px;
+    line-height: 1.3;
+  }
+  .couple-copy h3 {
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  .couple-family-label,
+  .couple-family-names {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .event-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+  .event-card {
+    padding: 0;
+  }
+  .gallery-mosaic {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+  .gallery-mosaic .gallery-frame:first-child {
+    aspect-ratio: 16/10;
+  }
+  .gallery-mosaic .gallery-frame:last-child {
+    aspect-ratio: 16/9;
+  }
+}
+@media (max-width: 360px) {
+  .rsvp-attendance-options {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

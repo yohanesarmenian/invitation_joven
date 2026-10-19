@@ -4,7 +4,7 @@ import { TextDecoder } from "node:util";
 import { ConflictException, Inject, Injectable } from "@nestjs/common";
 import { parse as parseCsvSync } from "csv-parse/sync";
 import ExcelJS from "exceljs";
-import type { Prisma } from "../generated/prisma/client.js";
+import { Prisma } from "../generated/prisma/client.js";
 import {
   GuestImportStatus,
   GuestImportPreviewStatus,
@@ -189,7 +189,10 @@ function assertUuid(value: string): void {
   }
 }
 
-function normalizeRowNumberArray(value: unknown, allowEmpty: boolean): number[] {
+function normalizeRowNumberArray(
+  value: unknown,
+  allowEmpty: boolean,
+): number[] {
   if (!Array.isArray(value) || (!allowEmpty && value.length === 0)) {
     validationError();
   }
@@ -313,8 +316,8 @@ function parseCsv(buffer: Buffer): RawRow[] {
     const records = parseCsvSync(text, {
       bom: true,
       delimiter: ",",
-      quote: "\"",
-      escape: "\"",
+      quote: '"',
+      escape: '"',
       relax_column_count: true,
       skip_empty_lines: false,
     }) as unknown[][];
@@ -372,7 +375,10 @@ async function parseXlsx(buffer: Buffer): Promise<RawRow[]> {
     fileIssue();
   }
 
-  if (Object.keys((worksheet as unknown as { _merges?: object })._merges ?? {}).length > 0) {
+  if (
+    Object.keys((worksheet as unknown as { _merges?: object })._merges ?? {})
+      .length > 0
+  ) {
     fileIssue();
   }
 
@@ -437,7 +443,10 @@ function validateHeader(header: RawRow): HeaderPlan {
   }
 
   const eventSlugs = headers.slice(BASE_HEADERS.length).map((headerName) => {
-    if (!headerName.startsWith("event:") || headerName.length <= "event:".length) {
+    if (
+      !headerName.startsWith("event:") ||
+      headerName.length <= "event:".length
+    ) {
       fileIssue();
     }
 
@@ -479,7 +488,13 @@ function parseText(
   if (value.length === 0) {
     if (required) {
       row.errors.push(
-        issue(row.rowNumber, column, field, "REQUIRED_FIELD", "Required field."),
+        issue(
+          row.rowNumber,
+          column,
+          field,
+          "REQUIRED_FIELD",
+          "Required field.",
+        ),
       );
     }
 
@@ -631,7 +646,13 @@ function parseJakartaDeadline(
 function parseInvitees(row: InternalRow, value: unknown) {
   if (typeof value !== "string") {
     row.errors.push(
-      issue(row.rowNumber, "invitees", "invitees", "INVALID_JSON", "Invalid JSON."),
+      issue(
+        row.rowNumber,
+        "invitees",
+        "invitees",
+        "INVALID_JSON",
+        "Invalid JSON.",
+      ),
     );
     return [];
   }
@@ -642,7 +663,13 @@ function parseInvitees(row: InternalRow, value: unknown) {
     parsed = JSON.parse(value);
   } catch {
     row.errors.push(
-      issue(row.rowNumber, "invitees", "invitees", "INVALID_JSON", "Invalid JSON."),
+      issue(
+        row.rowNumber,
+        "invitees",
+        "invitees",
+        "INVALID_JSON",
+        "Invalid JSON.",
+      ),
     );
     return [];
   }
@@ -660,67 +687,90 @@ function parseInvitees(row: InternalRow, value: unknown) {
     return [];
   }
 
-  return parsed.map((invitee) => {
-    if (
-      typeof invitee !== "object" ||
-      invitee === null ||
-      Array.isArray(invitee)
-    ) {
-      row.errors.push(
-        issue(row.rowNumber, "invitees", "invitees", "INVALID_INVITEE", "Invalid invitee."),
-      );
-      return null;
-    }
+  return parsed
+    .map((invitee) => {
+      if (
+        typeof invitee !== "object" ||
+        invitee === null ||
+        Array.isArray(invitee)
+      ) {
+        row.errors.push(
+          issue(
+            row.rowNumber,
+            "invitees",
+            "invitees",
+            "INVALID_INVITEE",
+            "Invalid invitee.",
+          ),
+        );
+        return null;
+      }
 
-    const keys = Object.keys(invitee);
-    const allowed = new Set(["fullName", "category", "label"]);
+      const keys = Object.keys(invitee);
+      const allowed = new Set(["fullName", "category", "label"]);
 
-    if (keys.some((key) => !allowed.has(key))) {
-      row.errors.push(
-        issue(
-          row.rowNumber,
-          "invitees",
-          "invitees",
-          "INVALID_INVITEE",
-          "Invitee contains unsupported field.",
-        ),
-      );
-      return null;
-    }
+      if (keys.some((key) => !allowed.has(key))) {
+        row.errors.push(
+          issue(
+            row.rowNumber,
+            "invitees",
+            "invitees",
+            "INVALID_INVITEE",
+            "Invitee contains unsupported field.",
+          ),
+        );
+        return null;
+      }
 
-    const item = invitee as Record<string, unknown>;
-    const fullName =
-      typeof item.fullName === "string" ? item.fullName.trim() : "";
-    const category =
-      typeof item.category === "string" ? item.category.trim().toUpperCase() : "";
-    const label =
-      item.label === undefined || item.label === null
-        ? null
-        : typeof item.label === "string"
-          ? item.label.trim() || null
-          : undefined;
+      const item = invitee as Record<string, unknown>;
+      const fullName =
+        typeof item.fullName === "string" ? item.fullName.trim() : "";
+      const category =
+        typeof item.category === "string"
+          ? item.category.trim().toUpperCase()
+          : "";
+      const label =
+        item.label === undefined || item.label === null
+          ? null
+          : typeof item.label === "string"
+            ? item.label.trim() || null
+            : undefined;
 
-    if (
-      fullName.length === 0 ||
-      (category !== InviteeCategory.ADULT && category !== InviteeCategory.CHILD) ||
-      label === undefined
-    ) {
-      row.errors.push(
-        issue(row.rowNumber, "invitees", "invitees", "INVALID_INVITEE", "Invalid invitee."),
-      );
-      return null;
-    }
+      if (
+        fullName.length === 0 ||
+        (category !== InviteeCategory.ADULT &&
+          category !== InviteeCategory.CHILD) ||
+        label === undefined
+      ) {
+        row.errors.push(
+          issue(
+            row.rowNumber,
+            "invitees",
+            "invitees",
+            "INVALID_INVITEE",
+            "Invalid invitee.",
+          ),
+        );
+        return null;
+      }
 
-    return {
-      category: category as InviteeCategory,
-      fullName,
-      label,
-    };
-  }).filter((invitee): invitee is NonNullable<typeof invitee> => invitee !== null);
+      return {
+        category: category as InviteeCategory,
+        fullName,
+        label,
+      };
+    })
+    .filter(
+      (invitee): invitee is NonNullable<typeof invitee> => invitee !== null,
+    );
 }
 
 function duplicateKey(value: string): string {
-  return value.normalize("NFKC").trim().replace(/\p{White_Space}+/gu, " ").toLowerCase();
+  return value
+    .normalize("NFKC")
+    .trim()
+    .replace(/\p{White_Space}+/gu, " ")
+    .toLowerCase();
 }
 
 function summary(rows: readonly InternalRow[]): GuestImportPreviewSummaryDto {
@@ -766,7 +816,9 @@ export class GuestImportService {
     }
 
     const headerPlan = validateHeader(parsedRows[0]!);
-    const dataRows = parsedRows.slice(1).filter((row) => !isBlankRecord(row.cells));
+    const dataRows = parsedRows
+      .slice(1)
+      .filter((row) => !isBlankRecord(row.cells));
 
     if (dataRows.length > MAX_IMPORT_ROWS) {
       fileIssue();
@@ -792,7 +844,8 @@ export class GuestImportService {
       input: row.normalized?.input
         ? {
             ...row.normalized.input,
-            rsvpDeadlineAt: row.normalized.input.rsvpDeadlineAt?.toISOString() ?? null,
+            rsvpDeadlineAt:
+              row.normalized.input.rsvpDeadlineAt?.toISOString() ?? null,
           }
         : null,
       parsed: row.parsed ?? null,
@@ -1097,6 +1150,9 @@ export class GuestImportService {
     const selectedSlugs = [
       ...new Set(selectedRows.flatMap((row) => row.eventSlugs)),
     ];
+    if (selectedSlugs.length > 0) {
+      await tx.$queryRaw`SELECT id FROM events WHERE slug IN (${Prisma.join(selectedSlugs)}) ORDER BY id FOR SHARE`;
+    }
     const events = await tx.event.findMany({
       orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
       select: { id: true, isActive: true, slug: true },
@@ -1184,7 +1240,10 @@ export class GuestImportService {
   private parseRow(
     rawRow: RawRow,
     headerPlan: HeaderPlan,
-    eventsBySlug: ReadonlyMap<string, { id: string; isActive: boolean; slug: string }>,
+    eventsBySlug: ReadonlyMap<
+      string,
+      { id: string; isActive: boolean; slug: string }
+    >,
   ): InternalRow {
     const row: InternalRow = {
       errors: [],
@@ -1318,7 +1377,9 @@ export class GuestImportService {
     const existing = await this.prisma.invitation.findMany({
       select: { displayName: true },
     });
-    const existingKeys = new Set(existing.map((row) => duplicateKey(row.displayName)));
+    const existingKeys = new Set(
+      existing.map((row) => duplicateKey(row.displayName)),
+    );
     const rowKeyCounts = new Map<string, number>();
 
     for (const key of keys) {

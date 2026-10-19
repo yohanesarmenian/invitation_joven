@@ -9,6 +9,11 @@ const destinations = [
   { label: "Invitations", href: "/invitations" },
   { label: "RSVPs", href: "/rsvps" },
   { label: "Messages", href: "/messages" },
+  { label: "Check-in", href: "/checkin" },
+  { label: "Staff", href: "/settings/staff" },
+  { label: "Reports", href: "/reports" },
+  { label: "Event materials", href: "/event-content" },
+  { label: "Events", href: "/events" },
 ];
 
 export function isCurrentSection(pathname: string, href: string) {

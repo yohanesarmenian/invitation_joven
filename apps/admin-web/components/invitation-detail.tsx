@@ -6,6 +6,7 @@ import type {
 } from "@wedding-invitation/api-client/src/index";
 import { InviteeEventManagement } from "./invitee-event-management";
 import { InvitationActions } from "./invitation-actions";
+import { PersonalInviteMessage } from "./personal-invite-message";
 
 type Invitation = AdminInvitationDetailResponse["invitation"];
 type EventOption = AdminEventsResponse["events"][number];
@@ -91,10 +92,7 @@ export function InvitationDetail({
             {
               label: "Archived",
               value: (
-                <DateValue
-                  value={invitation.archivedAt}
-                  empty="Not archived"
-                />
+                <DateValue value={invitation.archivedAt} empty="Not archived" />
               ),
             },
             { label: "Internal notes", value: invitation.notes ?? "None" },
@@ -172,8 +170,8 @@ export function InvitationDetail({
               label: "Guest messages",
               value: (
                 <>
-                  {invitation.messages.total} total, {invitation.messages.hidden}{" "}
-                  hidden
+                  {invitation.messages.total} total,{" "}
+                  {invitation.messages.hidden} hidden
                   <Link
                     className="detail-inline-link"
                     href={`/messages?invitationId=${invitation.id}`}
@@ -252,6 +250,21 @@ export function InvitationDetail({
         publicTokenVersion={invitation.publicTokenVersion}
         status={invitation.status}
       />
+      {invitation.status === "ACTIVE" && (
+        <PersonalInviteMessage
+          key={invitation.updatedAt}
+          invitationId={invitation.id}
+          context={{
+            greeting: invitation.greetingName ?? invitation.displayName,
+            deadline: invitation.rsvpDeadlineAt,
+            events: invitation.eligibility.map(
+              (item) =>
+                events.find((event) => event.id === item.event.id) ??
+                item.event,
+            ),
+          }}
+        />
+      )}
       <div className="detail-actions">
         {invitation.status === "ACTIVE" && (
           <Link

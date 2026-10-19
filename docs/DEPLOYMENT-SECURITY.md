@@ -1,5 +1,7 @@
 # Deployment Security
 
+Local completion update, 15 October 2026: `Dockerfile`, `compose.local-stack.yaml`, and `ops/Caddyfile.local` now describe an isolated built-app HTTPS rehearsal stack. Original `compose.yaml` remains the PostgreSQL-only development setup. Caddy local access/error output is discarded, and invitation-web disables incoming request/server-function logging. No production edge or platform has been deployed/verified. Browser suites disable automatic screenshots/traces; QR layout uses geometry assertions rather than QR screenshots. See `LOCAL-OPERATIONS.md` for local CA trust, one-instance constraint, migration, backup/restore and remaining venue gates.
+
 Operational security requirements for deploying the invitation platform. This is the
 deployment-facing companion to the logging direction in `TECHNICAL-ARCHITECTURE.md` and
 the Phase 12 tasks in `IMPLEMENTATION-ROADMAP.md`.
@@ -109,7 +111,7 @@ Verified during Slice 5E against the real compiled API and a production-like
 | Next application code    | **Safe.** No custom request logger, no `middleware.ts`, no `publicCredential` or URL logging in server retrieval, `error.tsx`, or `not-found.tsx`.                                                                                                                                                                       |
 | Next production runtime  | **No raw request access log.** A production-like `next start` emitted no request access log for `/i/<credential>` requests, and the synthetic credential appeared nowhere in stdout/stderr — including the 404 path and error output, which carries a generic message, a bundle-path stack, and an opaque `digest` only. |
 | Next development runtime | **Raw path visible.** Next's own dev logger prints `GET /i/<credential>`. This is framework dev output, is local and ephemeral, and is not reproduced in production mode.                                                                                                                                                |
-| Reverse proxy / edge     | **Not configured in this repository.** `compose.yaml` defines PostgreSQL only; there is no Dockerfile or proxy configuration. Any deployed edge must be checked at deployment time.                                                                                                                                      |
+| Reverse proxy / edge     | Docker packaging, a local Caddy rehearsal configuration, and a Coolify Compose definition are now present. Coolify/Traefik access/error log behavior and HTTPS routing are **not yet verified on the deployment server**; see `COOLIFY-DEPLOYMENT.md`.                                                                   |
 
 Do not read the Next production result as a permanent guarantee. It is a verified
 observation of the framework's current behavior in local production-mode testing, not a

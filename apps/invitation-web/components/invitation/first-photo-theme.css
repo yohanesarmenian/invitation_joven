@@ -1,0 +1,382 @@
+/* Restored from the first owner-photo prototype, before its Figma revision.
+   Existing forms, public API contracts and pass lifecycle remain authoritative. */
+.invitation-viewport {
+  min-height: 100dvh;
+  background: #fffaf0;
+}
+.invitation-opening-flow {
+  --first-ink: #25304b;
+  --first-navy: #1e2952;
+  --first-paper: #fffaf0;
+  --first-serif: var(--font-spectral), Georgia, serif;
+  --first-script: var(--font-parisienne), "Brush Script MT", cursive;
+  --first-padding: clamp(24px, 6vw, 60px);
+  max-width: none;
+  background: var(--first-paper);
+  color: var(--first-ink);
+  font-family: var(--first-serif);
+}
+.public-invitation-page,
+.public-invitation-surface {
+  background: var(--first-paper);
+  color: var(--first-ink);
+}
+.public-invitation-surface {
+  max-width: 620px;
+  line-height: 1.65;
+}
+.invitation-section {
+  padding: clamp(64px, 9vw, 92px) var(--first-padding);
+}
+.public-invitation-surface h2 {
+  font-size: clamp(30px, 3.7vw, 38px);
+  font-weight: 400;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.invitation-header {
+  min-height: 0;
+  padding-top: 94px;
+  padding-bottom: 78px;
+  gap: 20px;
+  text-align: center;
+}
+.invitation-header .section-kicker {
+  font-family: var(--first-serif);
+  font-size: 18px;
+  font-style: italic;
+  color: #666a73;
+  text-transform: none;
+}
+.invitation-header h1 {
+  font-size: clamp(34px, 7vw, 44px);
+  font-weight: 400;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.invitation-header > p:last-child {
+  max-width: 355px;
+  margin-inline: auto;
+  font-size: 16px;
+}
+.decoration-top {
+  top: 10px;
+  right: -28px;
+  width: 118px;
+  opacity: 0.7;
+  transform: rotate(10deg);
+}
+.couple-section {
+  padding-top: 32px;
+  gap: 64px;
+}
+.couple-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+.couple-media-slot {
+  grid-row: 1;
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: 4 / 5;
+  border: 0;
+  border-radius: 0;
+  background: #e6e4d9;
+}
+.couple-media-slot img {
+  object-position: 50% 36%;
+}
+.portrait-caption {
+  position: absolute;
+  bottom: 14px;
+  left: 18px;
+  color: white;
+  padding: 6px 10px;
+  background: rgb(16 32 61 / 80%);
+  font:
+    11px/1.4 Arial,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.couple-copy {
+  grid-row: 2;
+  min-width: 0;
+  display: block;
+  padding-top: 24px;
+}
+.couple-profile-groom .couple-copy {
+  text-align: right;
+}
+.couple-nickname {
+  font-family: var(--first-script);
+  font-size: 48px;
+  line-height: 1.2;
+  color: var(--first-ink);
+}
+.couple-copy h3 {
+  margin-top: 10px;
+  max-width: 340px;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.couple-profile-groom h3 {
+  margin-left: auto;
+}
+.couple-family-label {
+  margin: 16px 0 0;
+  color: #666a73;
+  font-size: 12px;
+}
+.couple-family-names {
+  margin: 4px 0 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.event-detail-block {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.event-card h3,
+.closing-copy {
+  font-family: var(--first-script);
+  font-weight: 400;
+}
+.event-card h3 {
+  font-size: 31px;
+}
+.event-actions :is(a, button),
+.venue-information a {
+  min-height: 44px;
+}
+.public-rsvp-form,
+.guest-message-form {
+  font-family: var(--first-serif);
+}
+.gallery-section {
+  background: #f1eee3;
+  padding-top: 60px;
+}
+.gallery-mosaic {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas: "large large" "small small" "medium tall";
+  gap: 10px;
+}
+.gallery-frame {
+  min-height: 0;
+  aspect-ratio: 3 / 4;
+  border-radius: 0;
+  border: 0;
+}
+.gallery-frame-large {
+  aspect-ratio: 4 / 5;
+}
+.gallery-frame-small {
+  aspect-ratio: 3 / 2;
+}
+.gallery-frame img {
+  object-fit: cover;
+}
+.quote-section blockquote > p {
+  font-size: 27px;
+  line-height: 1.5;
+}
+.closing-copy {
+  font-size: 43px;
+}
+.invitation-identity {
+  display: none;
+}
+.invitation-envelope-layer-front {
+  transition:
+    transform 650ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 650ms;
+}
+.invitation-closed-stage[data-opening="true"] .invitation-envelope-layer-front {
+  transform: translateX(14%) rotate(6deg);
+  opacity: 0;
+}
+.invitation-envelope-button:disabled {
+  cursor: default;
+}
+.invitation-opened-cover {
+  isolation: isolate;
+  min-height: 100svh;
+  overflow: hidden;
+  justify-content: space-between;
+  padding: 72px 24px 48px;
+}
+.invitation-opened-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  aspect-ratio: auto;
+  z-index: -2;
+}
+.invitation-opened-media img {
+  object-fit: cover;
+  object-position: 50% 48%;
+}
+.invitation-opened-cover::before,
+.invitation-identity::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgb(255 250 240 / 85%),
+    rgb(255 250 240 / 15%) 32%,
+    rgb(16 32 61 / 8%) 55%,
+    rgb(16 32 61 / 72%)
+  );
+}
+.invitation-opened-title {
+  color: #10203d;
+  gap: 20px;
+}
+.invitation-opened-kicker,
+.identity-eyebrow,
+.identity-date {
+  color: inherit;
+  font:
+    11px/1.5 Arial,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+.invitation-opened-names {
+  color: inherit;
+  font-family: var(--first-script);
+  font-size: clamp(62px, 16vw, 100px);
+  font-weight: 400;
+  text-shadow: none;
+}
+.invitation-opened-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 52px;
+  padding: 12px 22px;
+  background: var(--first-paper);
+  color: var(--first-navy);
+  font:
+    13px/1.5 Arial,
+    sans-serif;
+  border-radius: 2px;
+}
+.invitation-opened-cover-fallback {
+  padding: 0;
+  justify-content: center;
+}
+.invitation-opened-cover-fallback::before {
+  display: none;
+}
+.invitation-opened-cover-fallback .invitation-opened-media {
+  position: relative;
+  inset: auto;
+  width: min(100%, calc(100dvh * 332 / 917));
+  max-width: 332px;
+  height: auto;
+  aspect-ratio: 332 / 917;
+}
+.invitation-opened-cover-fallback .invitation-opened-media img {
+  object-fit: contain;
+}
+.invitation-opened-cover-fallback .invitation-opened-action {
+  position: absolute;
+  bottom: 24px;
+}
+.invitation-revealed {
+  animation: first-photo-reveal 450ms ease-out both;
+}
+@keyframes first-photo-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (min-width: 1024px) and (min-height: 650px) {
+  .invitation-opening-content {
+    display: grid;
+    grid-template-columns: 49% minmax(0, 1fr);
+    align-items: start;
+  }
+  .invitation-identity {
+    display: flex;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    isolation: isolate;
+    background: var(--first-navy);
+    color: #10203d;
+    text-align: center;
+    padding: 45px 24px 36px;
+  }
+  .invitation-identity > img {
+    z-index: -2;
+    object-fit: cover;
+    object-position: 50% 50%;
+  }
+  .invitation-identity-heading {
+    position: absolute;
+    top: 14%;
+    left: 0;
+    width: 100%;
+    padding-inline: 20px;
+  }
+  .identity-names {
+    font-family: var(--first-script);
+    font-size: clamp(60px, 6.8vw, 104px);
+    line-height: 1.2;
+    margin: 16px 0 0;
+  }
+  .identity-date {
+    margin-top: 22px;
+  }
+  .invitation-identity-verse {
+    align-self: flex-end;
+    width: 100%;
+    color: white;
+    font-size: 15px;
+    font-style: italic;
+  }
+  .invitation-identity-verse span {
+    font:
+      9px/1.6 Arial,
+      sans-serif;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .public-invitation-surface {
+    max-width: 620px;
+    --first-padding: 54px;
+  }
+  .couple-media-slot {
+    aspect-ratio: 5 / 6;
+  }
+  .couple-copy h3 {
+    max-width: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .invitation-envelope-layer-front {
+    transition: none;
+  }
+  .invitation-closed-stage[data-opening="true"]
+    .invitation-envelope-layer-front {
+    transform: none;
+  }
+  .invitation-revealed {
+    animation: none;
+  }
+}

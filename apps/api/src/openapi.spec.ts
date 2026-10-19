@@ -13,6 +13,8 @@ import { InvitationsModule } from "./invitations/invitations.module.js";
 import { ImportsModule } from "./imports/imports.module.js";
 import { MessagesModule } from "./messages/messages.module.js";
 import { createOpenApiDocument } from "./openapi.js";
+import { ReportsModule } from "./reports/reports.module.js";
+import { EventContentModule } from "./event-content/event-content.module.js";
 
 @Module({
   imports: [
@@ -22,11 +24,66 @@ import { createOpenApiDocument } from "./openapi.js";
     ImportsModule,
     InvitationsModule,
     MessagesModule,
+    ReportsModule,
+    EventContentModule,
   ],
 })
 class OpenApiTestModule {}
 
 describe("OpenAPI contract", () => {
+  it("documents OWNER event creation, versioned edits and usage without a delete operation", () => {
+    const document = createOpenApiDocument(app);
+    const list = document.paths["/api/admin/event-management"];
+    const item = document.paths["/api/admin/event-management/{eventId}"];
+    expect(list?.get?.responses).toHaveProperty("200");
+    expect(list?.post?.requestBody).toHaveProperty(
+      "content.application/json.schema.$ref",
+      "#/components/schemas/EventFieldsDto",
+    );
+    expect(item?.put?.requestBody).toHaveProperty(
+      "content.application/json.schema.$ref",
+      "#/components/schemas/SaveEventDto",
+    );
+    expect(item?.delete).toBeUndefined();
+    expect(document.components?.schemas?.SaveEventDto).toHaveProperty(
+      "properties.expectedVersion.minimum",
+      1,
+    );
+    expect(document.components?.schemas?.ManagedEventDto).toHaveProperty(
+      "properties.usage",
+    );
+  });
+  it("documents typed OWNER content, multipart upload and public credential-bound media contracts", () => {
+    const document = createOpenApiDocument(app);
+    for (const [path, method] of [
+      ["/api/admin/event-content/{eventId}", "get"],
+      ["/api/admin/event-content/{eventId}", "put"],
+      ["/api/admin/event-content/{eventId}/publish", "post"],
+      ["/api/admin/event-content/{eventId}/hide", "post"],
+      ["/api/admin/event-content/{eventId}/assets", "post"],
+      ["/api/admin/event-content/{eventId}/assets/{assetId}", "delete"],
+      ["/api/admin/event-content/{eventId}/assets/{assetId}", "get"],
+      ["/api/public/invitations/{publicCredential}/venue-content", "get"],
+      [
+        "/api/public/invitations/{publicCredential}/venue-assets/{assetId}",
+        "get",
+      ],
+    ] as const) {
+      const operation = document.paths[path]?.[method];
+      expect(operation).toBeDefined();
+      expect(operation?.parameters).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ in: "path", required: true }),
+        ]),
+      );
+    }
+    const upload =
+      document.paths["/api/admin/event-content/{eventId}/assets"]?.post;
+    expect(upload?.requestBody).toHaveProperty("content.multipart/form-data");
+    expect(document.components?.schemas?.AdminEventContentDto).toHaveProperty(
+      "properties.version",
+    );
+  });
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
@@ -101,7 +158,23 @@ describe("OpenAPI contract", () => {
     const adminCheckinSearchPath = document.paths["/api/admin/checkin/search"];
     const adminCheckinManualConfirmPath =
       document.paths["/api/admin/checkin/manual-confirm"];
+    const adminCheckinManualStatusPath =
+      document.paths["/api/admin/checkin/manual-status"];
     const schemas = document.components?.schemas ?? {};
+
+    for (const operation of [
+      adminStaffMemberPath?.patch,
+      adminStaffResetPath?.post,
+    ]) {
+      expect(operation?.parameters).toContainEqual(
+        expect.objectContaining({
+          in: "path",
+          name: "staffId",
+          required: true,
+          schema: expect.objectContaining({ type: "string", format: "uuid" }),
+        }),
+      );
+    }
 
     expect(getOperation).toBeDefined();
     expect(getOperation?.parameters).toContainEqual(
@@ -375,6 +448,13 @@ describe("OpenAPI contract", () => {
     expect(adminCheckinManualConfirmPath?.post?.responses).toHaveProperty(
       "422",
     );
+    expect(adminCheckinManualStatusPath?.post).toBeDefined();
+    expect(adminCheckinManualStatusPath?.post?.requestBody).toBeDefined();
+    expect(adminCheckinManualStatusPath?.post?.responses).toHaveProperty("200");
+    expect(adminCheckinManualStatusPath?.post?.responses).toHaveProperty("400");
+    expect(adminCheckinManualStatusPath?.post?.responses).toHaveProperty("401");
+    expect(adminCheckinManualStatusPath?.post?.responses).toHaveProperty("403");
+    expect(adminCheckinManualStatusPath?.post?.responses).toHaveProperty("404");
     expect(adminMessagesPath?.get?.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -458,6 +538,8 @@ describe("OpenAPI contract", () => {
     expect(schemas).toHaveProperty("AdminCheckinConfirmResponseDto");
     expect(schemas).toHaveProperty("AdminCheckinSearchResponseDto");
     expect(schemas).toHaveProperty("ManualConfirmAdminCheckinRequestDto");
+    expect(schemas).toHaveProperty("ManualStatusAdminCheckinRequestDto");
+    expect(schemas).toHaveProperty("AdminCheckinManualStatusResponseDto");
     expect(schemas).toHaveProperty("ApiErrorEnvelopeDto");
     const adminSchemas = Object.fromEntries(
       Object.entries(schemas).filter(([name]) => name.startsWith("Admin")),
@@ -545,6 +627,28 @@ describe("OpenAPI contract", () => {
         "attendeeCount",
       ]),
     });
+    expect(schemas.ManualStatusAdminCheckinRequestDto).toMatchObject({
+      properties: expect.objectContaining({
+        eventId: expect.objectContaining({
+          format: "uuid",
+          type: "string",
+        }),
+        invitationId: expect.objectContaining({
+          format: "uuid",
+          type: "string",
+        }),
+      }),
+      required: expect.arrayContaining(["invitationId", "eventId"]),
+    });
+    expect(schemas.AdminCheckinManualStatusResponseDto).toMatchObject({
+      properties: expect.objectContaining({
+        alreadyCheckedIn: expect.objectContaining({ type: "boolean" }),
+        previousCheckin: expect.objectContaining({ nullable: true }),
+        status: expect.objectContaining({
+          enum: ["ALREADY_CONFIRMED", "NOT_CONFIRMED"],
+        }),
+      }),
+    });
     expect(schemas.AdminCheckinValidateResponseDto).toMatchObject({
       properties: expect.objectContaining({
         alreadyCheckedIn: expect.objectContaining({ type: "boolean" }),
@@ -558,12 +662,15 @@ describe("OpenAPI contract", () => {
         }),
       }),
     });
-    expect(JSON.stringify(schemas.AdminCheckinValidateResponseDto)).not.toContain(
-      "qrPayload",
-    );
-    expect(JSON.stringify(schemas.AdminCheckinConfirmResponseDto)).not.toContain(
-      "qrPayload",
-    );
+    expect(
+      JSON.stringify(schemas.AdminCheckinValidateResponseDto),
+    ).not.toContain("qrPayload");
+    expect(
+      JSON.stringify(schemas.AdminCheckinConfirmResponseDto),
+    ).not.toContain("qrPayload");
+    expect(
+      JSON.stringify(schemas.AdminCheckinManualStatusResponseDto),
+    ).not.toContain("qrPayload");
     expect(schemas.SubmitPublicGuestMessageRequestDto).toMatchObject({
       properties: {
         authorName: expect.objectContaining({
@@ -689,12 +796,12 @@ describe("OpenAPI contract", () => {
       },
       required: ["items", "page"],
     });
-    expect(JSON.stringify(schemas.AdminStaffProvisionResponseDto)).not.toContain(
-      "passwordHash",
-    );
-    expect(JSON.stringify(schemas.AdminStaffProvisionResponseDto)).not.toContain(
-      "sessionToken",
-    );
+    expect(
+      JSON.stringify(schemas.AdminStaffProvisionResponseDto),
+    ).not.toContain("passwordHash");
+    expect(
+      JSON.stringify(schemas.AdminStaffProvisionResponseDto),
+    ).not.toContain("sessionToken");
     expect(schemas.AdminInvitationListItemDto).toMatchObject({
       properties: expect.objectContaining({
         displayName: expect.objectContaining({ type: "string" }),

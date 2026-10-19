@@ -1,4 +1,5 @@
 import type { AdminDashboardResponse } from "@wedding-invitation/api-client/src/index";
+import Link from "next/link";
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
@@ -11,6 +12,11 @@ function Metric({ label, value }: { label: string; value: number }) {
 export function Dashboard({ data }: { data: AdminDashboardResponse }) {
   return (
     <div className="dashboard-sections">
+      <p>
+        <Link href="/reports" prefetch={false}>
+          View actual attendance and export reports
+        </Link>
+      </p>
       <section
         className="dashboard-section"
         aria-labelledby="invitations-heading"

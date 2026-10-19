@@ -1,0 +1,22 @@
+{
+  # Local privacy rehearsal: discard access and error logs at this edge.
+  log default {
+    output discard
+  }
+}
+https://localhost:3000 {
+  tls internal
+  log {
+    output discard
+  }
+  header Referrer-Policy no-referrer
+  reverse_proxy invitation-web:3000
+}
+https://localhost:3001 {
+  tls internal
+  log {
+    output discard
+  }
+  header Referrer-Policy no-referrer
+  reverse_proxy admin-web:3001
+}

@@ -1,0 +1,26 @@
+{
+  "events": [
+    {
+      "slug": "development-ceremony",
+      "name": "Development ceremony — schedule and venue pending",
+      "displayOrder": 1,
+      "isActive": true,
+      "startsAt": null,
+      "endsAt": null,
+      "venueName": null,
+      "address": null,
+      "googleMapsUrl": null
+    },
+    {
+      "slug": "development-reception",
+      "name": "Development reception — schedule and venue pending",
+      "displayOrder": 2,
+      "isActive": true,
+      "startsAt": null,
+      "endsAt": null,
+      "venueName": null,
+      "address": null,
+      "googleMapsUrl": null
+    }
+  ]
+}

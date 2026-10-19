@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "status": "draft",
+  "timeZone": "Asia/Jakarta",
+  "schedules": [
+    {
+      "eventId": null,
+      "title": "[CONTOH] Urutan acara untuk tamu",
+      "items": [
+        {
+          "startsAt": "2027-01-09T11:30:00+07:00",
+          "title": "[CONTOH] Penerimaan tamu",
+          "description": "Waktu contoh, belum merupakan jadwal final."
+        },
+        {
+          "startsAt": "2027-01-09T12:00:00+07:00",
+          "title": "[CONTOH] Acara dimulai",
+          "description": "Ganti dengan kegiatan yang perlu diketahui tamu."
+        }
+      ]
+    }
+  ]
+}

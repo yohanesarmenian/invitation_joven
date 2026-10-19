@@ -1,0 +1,17 @@
+**/node_modules/**
+**/.next/**
+**/.next-journey/**
+**/.next-daily/**
+**/.turbo/**
+**/dist/**
+**/coverage/**
+**/test-results/**
+**/playwright-report/**
+**/.env
+**/.env.*
+**/.local-journey.json
+.local-daily/**
+apps/api/src/generated/prisma/**
+**/*.dump
+**/*.backup
+**/*.log

@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Jo & Venta — Design review 01</title>
+    <link rel="stylesheet" href="/prototype.css" />
+    <script src="/prototype.js" defer></script>
+  </head>
+  <body>
+    <div class="review-bar" aria-label="Design review controls">
+      <span
+        ><span class="review-dot"></span> Rancangan 01
+        <span class="review-detail">· foto Jo & Venta · data contoh</span></span
+      >
+      <button id="restart" type="button">
+        Lihat pembukaan <span aria-hidden="true">↗</span>
+      </button>
+    </div>
+
+    <section
+      class="opening-stage envelope-stage"
+      id="closed-stage"
+      aria-label="Invitation envelope"
+      hidden
+    >
+      <div class="envelope-caption">
+        <p class="eyebrow">A little invitation, a lifetime of love</p>
+        <p>Jo & Venta</p>
+      </div>
+      <button
+        id="open-envelope"
+        class="envelope-button"
+        type="button"
+        aria-label="Open invitation"
+      >
+        <img
+          class="envelope-base"
+          src="/assets/envelope/envelope-base.png"
+          alt=""
+        />
+        <img
+          class="envelope-front"
+          src="/assets/envelope/envelope-flap-seal.png"
+          alt=""
+        />
+        <span class="envelope-action"
+          >Open invitation <span aria-hidden="true">↗</span></span
+        >
+      </button>
+    </section>
+
+    <section
+      class="opening-stage opened-stage"
+      id="opened-stage"
+      aria-labelledby="opened-title"
+      hidden
+    >
+      <img
+        class="opening-photo"
+        src="/media/cover.webp"
+        alt="Jo and Venta holding hands in a garden"
+      />
+      <div class="photo-shade"></div>
+      <div class="opened-heading">
+        <p class="eyebrow">The Wedding of</p>
+        <h1 id="opened-title">Jo <span>&</span> Venta</h1>
+        <p class="cover-date">09 · 01 · 2027</p>
+      </div>
+      <div class="opened-footer">
+        <p class="eyebrow">Dear</p>
+        <p class="guest-name">Maya & Aditya</p>
+        <button class="button light-button" type="button" id="view-invitation">
+          View invitation <span aria-hidden="true">↓</span>
+        </button>
+      </div>
+    </section>
+
+    <div class="invitation-layout" id="content-stage">
+      <aside class="identity-panel" aria-label="Jo and Venta wedding">
+        <img
+          class="identity-photo"
+          src="/media/cover.webp"
+          alt="Jo and Venta in a garden"
+        />
+        <div class="photo-shade"></div>
+        <p class="identity-top eyebrow">Together with our families</p>
+        <div class="identity-title">
+          <p class="eyebrow">The Wedding of</p>
+          <p class="identity-names">Jo <span>&</span> Venta</p>
+          <p class="cover-date">09 · 01 · 2027</p>
+        </div>
+        <p class="identity-bottom">
+          We love because He first loved us.<br /><span>1 John 4:19</span>
+        </p>
+      </aside>
+
+      <main class="invitation-content" id="invitation-content" tabindex="-1">
+        <nav class="section-nav" aria-label="Invitation sections">
+          <a href="#events">The Day</a><a href="#rsvp">RSVP</a
+          ><a href="#gallery">Gallery</a>
+        </nav>
+        <header class="greeting section">
+          <img
+            class="flower greeting-flower"
+            src="/assets/decorative/hydrangea-corner.png"
+            alt=""
+          />
+          <p class="eyebrow">You are warmly invited</p>
+          <p class="greeting-dear">Dear,</p>
+          <h1 id="guest-heading">Maya & Aditya</h1>
+          <span class="fine-line" aria-hidden="true"></span>
+          <p class="intro-copy">
+            We joyfully invite you to witness and celebrate as we unite in the
+            Sacrament of Holy Matrimony.
+          </p>
+          <p class="script small-signature">With love, Jo & Venta</p>
+        </header>
+
+        <section
+          class="section couple-section"
+          aria-labelledby="couple-heading"
+        >
+          <p class="eyebrow">Two hearts, one promise</p>
+          <h2 id="couple-heading">The Bride & Groom</h2>
+          <article class="profile bride-profile" data-reveal>
+            <div class="portrait">
+              <img
+                src="/media/venta.webp"
+                alt="Venta standing by an archway"
+                loading="lazy"
+              /><span class="portrait-caption">The Bride</span>
+            </div>
+            <div class="profile-copy">
+              <p class="script nickname">Venta</p>
+              <h3>Angelina Desandra Adventa</h3>
+              <p class="family-label">Daughter of</p>
+              <p>Mr. Agus Witjaksono<br />& Mrs. Godeliva Yuniati</p>
+            </div>
+          </article>
+          <span class="couple-ampersand script" aria-hidden="true">&</span>
+          <article class="profile groom-profile" data-reveal>
+            <div class="portrait">
+              <img
+                src="/media/jo.webp"
+                alt="Jo standing under an archway"
+                loading="lazy"
+              /><span class="portrait-caption">The Groom</span>
+            </div>
+            <div class="profile-copy">
+              <p class="script nickname">Jo</p>
+              <h3>Yohanes Armenian Putra</h3>
+              <p class="family-label">Son of</p>
+              <p>Mr. Eddy Frist Simamora<br />& Mrs. Entin Kartini</p>
+            </div>
+          </article>
+        </section>
+
+        <section
+          class="date-section section"
+          id="events"
+          aria-labelledby="date-heading"
+          data-reveal
+        >
+          <p class="eyebrow">Save the date</p>
+          <p class="wedding-day">Saturday</p>
+          <h2 id="date-heading">
+            <span class="date-number">09</span
+            ><span class="date-month">January 2027</span>
+          </h2>
+          <span class="fine-line" aria-hidden="true"></span>
+          <p class="date-caption">A day to celebrate, together.</p>
+        </section>
+
+        <section class="section event-section" aria-labelledby="event-heading">
+          <p class="eyebrow">The celebration</p>
+          <h2 id="event-heading">Our Wedding Day</h2>
+          <article class="event-card" data-reveal>
+            <div class="event-time">08.00<span>WIB</span></div>
+            <div class="event-copy">
+              <p class="script event-title">Holy Matrimony</p>
+              <h3>Gereja Katolik Paroki Santo Paulus, Depok</h3>
+              <p>Jl. Melati No.4, Depok,<br />Kota Depok, Jawa Barat</p>
+              <div class="event-actions">
+                <a
+                  href="https://maps.app.goo.gl/WuDNWnbfAvYZRmZU9"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >View map <span aria-hidden="true">↗</span></a
+                ><button
+                  class="text-button"
+                  data-material="Holy Matrimony"
+                  type="button"
+                >
+                  Parking guide <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <button
+                class="calendar-button"
+                type="button"
+                data-calendar="Holy Matrimony"
+              >
+                Add to calendar <span aria-hidden="true">+</span>
+              </button>
+            </div>
+          </article>
+          <article class="event-card" data-reveal>
+            <div class="event-time">12.00<span>WIB</span></div>
+            <div class="event-copy">
+              <p class="script event-title">Wedding Reception</p>
+              <h3>The Margo Hotel Ballroom</h3>
+              <p>Jl. Margonda No.358,<br />Kota Depok, Jawa Barat</p>
+              <div class="event-actions">
+                <a
+                  href="https://maps.app.goo.gl/rTYGg9rKUUkKBo8HA"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >View map <span aria-hidden="true">↗</span></a
+                ><button
+                  class="text-button"
+                  data-material="Wedding Reception"
+                  type="button"
+                >
+                  Parking guide <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <button
+                class="calendar-button"
+                type="button"
+                data-calendar="Wedding Reception"
+              >
+                Add to calendar <span aria-hidden="true">+</span>
+              </button>
+            </div>
+          </article>
+          <p class="prototype-note">
+            Preview: contoh dua acara dari Figma. Halaman asli hanya menampilkan
+            acara yang diizinkan API; tombol parkir tampil saat materi sudah
+            published.
+          </p>
+        </section>
+
+        <section
+          class="section dress-section"
+          aria-labelledby="dress-heading"
+          data-reveal
+        >
+          <img
+            class="flower dress-flower"
+            src="/assets/decorative/hydrangea-corner.png"
+            alt=""
+            loading="lazy"
+          />
+          <p class="eyebrow">Fine attire</p>
+          <h2 id="dress-heading">Dress Code</h2>
+          <p>Formal / Modern / National / Batik</p>
+          <ul class="swatches" aria-label="Dress code color references">
+            <li><span class="swatch navy"></span>Deep navy</li>
+            <li><span class="swatch blue"></span>Soft blue</li>
+            <li><span class="swatch cream"></span>Warm cream</li>
+            <li><span class="swatch grey"></span>Modern grey</li>
+            <li><span class="swatch teal"></span>Fresh teal</li>
+          </ul>
+        </section>
+
+        <section
+          class="section rsvp-section"
+          id="rsvp"
+          aria-labelledby="rsvp-heading"
+        >
+          <p class="eyebrow">We would love to see you</p>
+          <h2 id="rsvp-heading">RSVP & Dietary<br />Information</h2>
+          <p>
+            To help us make proper arrangements with our venue and caterers, we
+            kindly ask that you confirm your attendance.
+          </p>
+          <p class="deadline">
+            Kindly reply by <strong>25 December 2026</strong>
+          </p>
+          <form id="rsvp-form" class="rsvp-form" novalidate>
+            <fieldset>
+              <legend>Attendance confirmation</legend>
+              <div class="choice-grid">
+                <label class="choice"
+                  ><input type="radio" name="attendance" value="accepted" />
+                  <span>Joyfully accept</span
+                  ><span class="choice-mark" aria-hidden="true">✓</span></label
+                ><label class="choice"
+                  ><input type="radio" name="attendance" value="declined" />
+                  <span>Regretfully decline</span
+                  ><span class="choice-mark" aria-hidden="true">✓</span></label
+                >
+              </div>
+            </fieldset>
+            <div id="attendance-details">
+              <fieldset>
+                <legend>Who will be joining us?</legend>
+                <label class="check-row"
+                  ><input type="checkbox" name="invitee" value="maya" checked />
+                  Maya</label
+                ><label class="check-row"
+                  ><input
+                    type="checkbox"
+                    name="invitee"
+                    value="aditya"
+                    checked
+                  />
+                  Aditya</label
+                >
+                <p class="field-hint">
+                  Named guests on this sample household invitation.
+                </p>
+              </fieldset>
+              <fieldset>
+                <legend>Events attending</legend>
+                <label class="check-row"
+                  ><input
+                    type="checkbox"
+                    name="event"
+                    value="matrimony"
+                    checked
+                  />
+                  Holy Matrimony</label
+                ><label class="check-row"
+                  ><input
+                    type="checkbox"
+                    name="event"
+                    value="reception"
+                    checked
+                  />
+                  Wedding Reception</label
+                >
+              </fieldset>
+              <label class="field-label" for="dietary"
+                >Dietary restrictions & preferences</label
+              >
+              <p class="field-hint">
+                All food served at our reception is 100% Halal. Please mention
+                any specific needs, such as allergies or vegan meals.
+              </p>
+              <textarea
+                id="dietary"
+                name="dietary"
+                rows="3"
+                placeholder="Let us know how we can accommodate you…"
+              ></textarea>
+            </div>
+            <div
+              class="form-error"
+              id="rsvp-error"
+              role="alert"
+              tabindex="-1"
+              hidden
+            >
+              <strong>Please review your response</strong>
+              <p>Choose whether you will be joining us.</p>
+            </div>
+            <button class="button primary-button" type="submit">
+              Send confirmation <span aria-hidden="true">↗</span>
+            </button>
+            <p class="prototype-note">
+              Simulasi lokal. Tidak mengirim RSVP atau membuat QR.
+            </p>
+          </form>
+          <details class="review-states">
+            <summary>Review kondisi error & konfirmasi</summary>
+            <div class="state-actions">
+              <button type="button" data-state="conflict">
+                Version conflict</button
+              ><button type="button" data-state="uncertain">
+                Lost response</button
+              ><button type="button" data-state="deadline">
+                Deadline passed</button
+              ><button type="button" data-state="accepted">Accepted</button
+              ><button type="button" data-state="declined">Declined</button>
+            </div>
+          </details>
+        </section>
+
+        <section
+          class="section gallery-section"
+          id="gallery"
+          aria-labelledby="gallery-heading"
+        >
+          <p class="eyebrow">Our moments</p>
+          <h2 id="gallery-heading">Pre-wedding Gallery</h2>
+          <div class="gallery-grid">
+            <button
+              class="gallery-photo gallery-lead"
+              type="button"
+              data-photo="0"
+              aria-label="View pre-wedding photograph 1"
+            >
+              <img
+                src="/media/pic-01.webp"
+                alt="Jo and Venta walking together under an archway"
+                loading="lazy"
+              /></button
+            ><button
+              class="gallery-photo gallery-landscape"
+              type="button"
+              data-photo="1"
+              aria-label="View pre-wedding photograph 2"
+            >
+              <img
+                src="/media/pic-02.webp"
+                alt="Jo and Venta with their cats"
+                loading="lazy"
+              /></button
+            ><button
+              class="gallery-photo"
+              type="button"
+              data-photo="2"
+              aria-label="View pre-wedding photograph 3"
+            >
+              <img
+                src="/media/pic-03.webp"
+                alt="Jo and Venta dancing"
+                loading="lazy"
+              /></button
+            ><button
+              class="gallery-photo"
+              type="button"
+              data-photo="3"
+              aria-label="View pre-wedding photograph 4"
+            >
+              <img
+                src="/media/cover.webp"
+                alt="Jo and Venta holding hands"
+                loading="lazy"
+              />
+            </button>
+          </div>
+          <blockquote class="scripture">
+            <p>We love because He first loved us.</p>
+            <cite>1 John 4:19</cite>
+          </blockquote>
+        </section>
+
+        <section class="section quote-section" data-reveal>
+          <span class="quote-mark" aria-hidden="true">“</span>
+          <blockquote>
+            <p>Happiness is only real<br />when shared.</p>
+            <cite>Christopher McCandless</cite>
+          </blockquote>
+        </section>
+
+        <section
+          class="section message-section"
+          aria-labelledby="message-heading"
+        >
+          <p class="eyebrow">A little note for us</p>
+          <h2 id="message-heading">
+            Leave a Message<br />for the Bride & Groom
+          </h2>
+          <form id="message-form" novalidate>
+            <label class="field-label" for="message">Your message</label
+            ><textarea
+              id="message"
+              rows="4"
+              placeholder="Your warm wishes…"
+              required
+            ></textarea>
+            <p
+              class="form-error"
+              id="message-error"
+              role="alert"
+              tabindex="-1"
+              hidden
+            >
+              Please write a message before sending.
+            </p>
+            <button class="button primary-button" type="submit">
+              Send message <span aria-hidden="true">↗</span>
+            </button>
+            <p class="prototype-note">
+              Pesan contoh hanya ada di halaman ini dan tidak disimpan.
+            </p>
+          </form>
+        </section>
+
+        <footer class="section closing-section">
+          <img
+            class="closing-flowers"
+            src="/assets/decorative/hydrangea-cluster.png"
+            alt=""
+            loading="lazy"
+          />
+          <p class="eyebrow">We cannot wait to celebrate with you</p>
+          <h2 class="script">See you at the Wedding!</h2>
+          <p class="closing-names">Jo & Venta</p>
+          <p class="credits">Handcrafted with love by Angelina & Yohanes</p>
+          <p class="prototype-note">
+            Copy penutup final menunggu review owner.
+          </p>
+        </footer>
+      </main>
+    </div>
+
+    <dialog
+      id="feedback-dialog"
+      class="feedback-dialog"
+      aria-labelledby="feedback-title"
+    >
+      <button
+        class="dialog-close"
+        type="button"
+        aria-label="Close confirmation"
+      >
+        ×
+      </button>
+      <p class="eyebrow" id="feedback-kicker">A little note</p>
+      <h2 id="feedback-title"></h2>
+      <p id="feedback-copy"></p>
+      <div id="pass-preview" class="pass-preview" hidden>
+        <span class="pass-preview-label">QR PASS — AREA PREVIEW</span>
+        <p>
+          QR asli ditampilkan aplikasi setelah RSVP tersimpan dan pass aktif.
+        </p>
+        <span>Preview ini tidak berisi kode yang dapat dipindai.</span>
+      </div>
+      <button class="button primary-button" type="button" id="feedback-back">
+        Back to invitation <span aria-hidden="true">↗</span>
+      </button>
+      <p class="prototype-note">Design preview · no data submitted</p>
+    </dialog>
+    <dialog
+      id="photo-dialog"
+      class="photo-dialog"
+      aria-label="Pre-wedding photo viewer"
+    >
+      <button class="photo-close" type="button" aria-label="Close photo viewer">
+        Close <span aria-hidden="true">×</span></button
+      ><img id="photo-view" alt="" />
+      <div class="photo-navigation">
+        <button
+          type="button"
+          id="photo-previous"
+          aria-label="Previous photograph"
+        >
+          ←
+        </button>
+        <p id="photo-position" aria-live="polite"></p>
+        <button type="button" id="photo-next" aria-label="Next photograph">
+          →
+        </button>
+      </div>
+    </dialog>
+    <noscript
+      ><div class="no-script">
+        This design preview needs JavaScript to switch opening states. The long
+        invitation remains available below.
+      </div></noscript
+    >
+  </body>
+</html>

@@ -20,8 +20,8 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     baseURL: APP_BASE_URL,
-    screenshot: "only-on-failure",
-    trace: "on-first-retry",
+    screenshot: "off",
+    trace: "off",
   },
   projects: [
     {
@@ -44,6 +44,7 @@ export default defineConfig({
       stdout: "pipe",
       env: {
         INVITATION_API_BASE_URL: MOCK_API_BASE_URL,
+        VENUE_CONTENT_PREVIEW: "1",
       },
     },
   ],

@@ -1,5 +1,29 @@
 # UI/UX Specification
 
+> Acuan final owner, 16 Oktober 2026: tampilan mengikuti Figma persis; REA hanya menjadi acuan animasi/interaksi. Runtime memakai figma-invitation-theme.css dan ekspor Figma terbaru. Lihat [pemetaan dan batas fidelity](design/jo-venta/FIGMA-FIDELITY.md). Keputusan prototype/susunan foto sebelumnya di bawah merupakan riwayat dan telah superseded.
+
+## Figma template and owner photography, 16 October 2026
+
+The invitation uses one centered column (maximum 480 px), left-aligned greeting, alternating bride/groom photo and copy, navy/cream theme and the existing Figma section order. All four parental names/titles are owner-confirmed and rendered exactly as Figma. The clean owner Cover photo has separate semantic text; the preserved old hero is used only on image failure. Envelope transition takes 650 ms, prevents repeated activation and transfers focus; reduced motion advances immediately. Section reveal is optional and excludes forms, errors and the QR pass. Gallery uses reviewed original-photo derivatives, including a portrait thumbnail with an uncropped full-photo viewer. Photo filenames contain content digests so replacements change the cache key. Domain form behavior and eligibility remain authoritative from the existing contracts. See [implementation evidence and runbook](design/jo-venta/IMPLEMENTATION.md). Physical-device/screen-reader QA, final venue/footer copy and hosting remain pending.
+
+## OWNER event materials
+
+`/event-content` has an Event picker, optional parking/rundown forms, WIB datetime input, bounded activity add/remove, supporting-file upload and a reference-aware file library. Switching events is disabled while dirty or uncertain. Save draft does not publish. Preview draft/current publication uses the same original renderer as the invitation; unfinished times are explicitly omitted in draft preview. Publish/hide/delete and discarding local edits for reload require explicit confirmation. Referenced files cannot be deleted; clear the draft reference and update/hide publication first.
+
+Busy and uncertain states prevent duplicate actions. Version conflicts or uncertain outcomes preserve local edits and require explicit authoritative reload; neither action is replayed automatically. Reload is a point-in-time read and warns that an earlier uncertain request may still finish. Unauthenticated responses end the session; CSRF refresh does not replay writes. File objects and draft/preview state stay in memory, not browser storage, and sign-out clears them. Guest sections remain optional and only contain backend-authorized current publications. User-facing errors are fixed messages without backend diagnostics or uploaded contents. Final content approval remains pending.
+
+## Optional parking and rundown
+
+Validated published venue content appears between Wedding Events and Dress Code. Each guide/schedule uses the authoritative eligible event's name. Parking shows text instructions, an optional lazy-loaded responsive map linking to its full image, an optional clearly labeled PDF link, and an optional Google Maps link. No empty actions or technical placeholder badge appear. Rundown uses an ordered list with explicit date and `HH.mm WIB`, including multi-day schedules. Text is escaped, never rendered as HTML. Empty, invalid, draft and ineligible sections are omitted.
+
+Draft preview is at `/dev/venue-preview` with explicit `VENUE_CONTENT_PREVIEW=1` in development only. A notice identifies sample content and non-final directions/times. Synthetic event labels make clear that this is a content preview, not an actual household eligibility check. The No eligible event control demonstrates hidden sections. Fixed diagnostics identify invalid/missing files or assets without echoing file contents. The preview uses no guest credentials and returns 404 in production. Keyboard links have visible focus and 44px minimum targets; schedule columns wrap within mobile widths. Approved opening, hero and photos stay intact.
+
+## Local completion additions (15 October 2026)
+
+OWNER `/reports` shows expected/actual counts and household counts separately for each event, last-refresh time, explicit refresh, archived inclusion and optional event filter. Detail tabs/groupings are RSVP/dietary households, check-ins and not-arrived household/event rows; paginated detail and full filtered CSV share backend projections. Downloading a report never changes attendance. Missing data, errors, forbidden and loading have explicit states. Staff receives no report navigation or HTML.
+
+Eligible public event cards may offer ICS only when startsAt is valid; endsAt is omitted when null and no duration is invented. Countdown chooses the next future eligible start without changing API event order; no eligible future instant hides it. Gallery opens a modal with keyboard navigation, Escape, focus containment/return and on-demand large image loading, preserving existing assets/hero. Missing parking/rundown content means no functional action or invented schedule. OWNER personal invitation message is an editable preview containing the currently fetched link and only known eligible event information, copied by explicit action in memory.
+
 Figma design: `https://www.figma.com/design/yZZNWQ8kQIymOTixjymzoC/Wedding-invitation`
 
 Figma remains the visual source of truth, but Figma visual representation is not literal production implementation. Responsive web layout, semantic controls, backend-generated QR, accessibility, and domain validation take precedence where needed.
@@ -32,12 +56,12 @@ Known Figma screens/states:
 
 Verified Figma node references:
 
-| State | Node | Reference size |
-| --- | --- | --- |
-| Closed invitation | `7:2` | 412 x 917 |
-| Opened cover | `14:7` | 412 x 917 |
-| Long invitation | `17:18` | 412 x 3610 |
-| Registered | `81:42` | 412 x 917 |
+| State                | Node     | Reference size        |
+| -------------------- | -------- | --------------------- |
+| Closed invitation    | `7:2`    | 412 x 917             |
+| Opened cover         | `14:7`   | 412 x 917             |
+| Long invitation      | `17:18`  | 412 x 3610            |
+| Registered           | `81:42`  | 412 x 917             |
 | Message confirmation | `82:113` | later-phase reference |
 
 Phase 4 implements only `closed page`, `opened page`, `long page`, loading,
@@ -115,16 +139,16 @@ Unavailable and error UX:
 
 Phase 4 visible data classification:
 
-| Area | Field/source | Phase 4 handling |
-| --- | --- | --- |
-| Guest | `greetingName`, `displayName` | API-backed dynamic content for greeting/household copy; prefer `greetingName` where present and fall back to `displayName` where design needs a guest label. |
-| Events | `name`, `startsAt`, `venueName`, `address`, `googleMapsUrl` | API-backed dynamic event content. Preserve API order. Render event time from `startsAt` in Asia/Jakarta as `HH.mm`. Render maps link only when `googleMapsUrl` is present. |
-| Rules | `allowPlusOne`, `maxAdditionalChildren` | Later RSVP behavior data. Do not expose as raw rules unless required by read-only explanatory RSVP layout. |
-| RSVP | `status`, `version` | Later RSVP/update behavior data. May inform read-only copy only if a later Phase 4 slice explicitly needs it; do not create working RSVP state. |
-| Deadline | `rsvpDeadlineAt` | API-backed dynamic deadline when shown. The authority is the persisted `Invitation.rsvpDeadlineAt`; the Phase 5 public baseline is `25 December 2026, 23:59:59 Asia/Jakarta` (`2026-12-25T16:59:59Z`). Do not hard-code a deadline in the frontend. |
-| Wedding content | names, parent names, quote, closing, credits | Fixed design/content reference, content pending until approved. |
-| RSVP controls | accept/decline, event choices, attendee choices, dietary fields, send confirmation | Later-phase interaction. Phase 4 must not create working form state, persistence, submission, confirmation, or QR display. |
-| Guest message controls | message input and send message | Later Phase 7 interaction. No POST, fake submit, local persistence, or success overlay in Phase 4. |
+| Area                   | Field/source                                                                       | Phase 4 handling                                                                                                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guest                  | `greetingName`, `displayName`                                                      | API-backed dynamic content for greeting/household copy; prefer `greetingName` where present and fall back to `displayName` where design needs a guest label.                                                                                        |
+| Events                 | `name`, `startsAt`, `venueName`, `address`, `googleMapsUrl`                        | API-backed dynamic event content. Preserve API order. Render event time from `startsAt` in Asia/Jakarta as `HH.mm`. Render maps link only when `googleMapsUrl` is present.                                                                          |
+| Rules                  | `allowPlusOne`, `maxAdditionalChildren`                                            | Later RSVP behavior data. Do not expose as raw rules unless required by read-only explanatory RSVP layout.                                                                                                                                          |
+| RSVP                   | `status`, `version`                                                                | Later RSVP/update behavior data. May inform read-only copy only if a later Phase 4 slice explicitly needs it; do not create working RSVP state.                                                                                                     |
+| Deadline               | `rsvpDeadlineAt`                                                                   | API-backed dynamic deadline when shown. The authority is the persisted `Invitation.rsvpDeadlineAt`; the Phase 5 public baseline is `25 December 2026, 23:59:59 Asia/Jakarta` (`2026-12-25T16:59:59Z`). Do not hard-code a deadline in the frontend. |
+| Wedding content        | names, parent names, quote, closing, credits                                       | Fixed design/content reference, content pending until approved.                                                                                                                                                                                     |
+| RSVP controls          | accept/decline, event choices, attendee choices, dietary fields, send confirmation | Later-phase interaction. Phase 4 must not create working form state, persistence, submission, confirmation, or QR display.                                                                                                                          |
+| Guest message controls | message input and send message                                                     | Later Phase 7 interaction. No POST, fake submit, local persistence, or success overlay in Phase 4.                                                                                                                                                  |
 
 Event rendering contract:
 
@@ -460,16 +484,16 @@ Admin login screen design fidelity (fields, labels, visual treatment, responsive
 
 Protected routes, all behind the server-side session bootstrap:
 
-| Route | Surface |
-| --- | --- |
-| `/` | Dashboard |
-| `/invitations` | Invitation list |
-| `/invitations/new` | Create invitation |
-| `/invitations/[invitationId]` | Invitation detail, invitees, eligibility, and bounded message summary |
-| `/invitations/[invitationId]/edit` | Invitation edit |
-| `/rsvps` | RSVP list |
-| `/rsvps/[rsvpId]` | RSVP detail and OWNER override |
-| `/messages` | Global guest-message moderation |
+| Route                              | Surface                                                               |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `/`                                | Dashboard                                                             |
+| `/invitations`                     | Invitation list                                                       |
+| `/invitations/new`                 | Create invitation                                                     |
+| `/invitations/[invitationId]`      | Invitation detail, invitees, eligibility, and bounded message summary |
+| `/invitations/[invitationId]/edit` | Invitation edit                                                       |
+| `/rsvps`                           | RSVP list                                                             |
+| `/rsvps/[rsvpId]`                  | RSVP detail and OWNER override                                        |
+| `/messages`                        | Global guest-message moderation                                       |
 
 There is no top-level `/invitees`, `/events`, `/checkin`, `/imports`, or `/reports` route in Phase 8. Invitees and eligibility are managed from the invitation detail route, and invitation-scoped messages are read through the scoped API rather than a dedicated route.
 
@@ -528,10 +552,10 @@ The `/messages` page shows plain-text content, an `authorName` value or an expli
 
 ### Routes and role-specific shell
 
-| Route | Surface | OWNER | CHECKIN_STAFF |
-| --- | --- | --- | --- |
-| `/checkin` | QR scanner and manual check-in | allowed | allowed |
-| `/settings/staff` | Staff account management | allowed | forbidden |
+| Route             | Surface                        | OWNER   | CHECKIN_STAFF |
+| ----------------- | ------------------------------ | ------- | ------------- |
+| `/checkin`        | QR scanner and manual check-in | allowed | allowed       |
+| `/settings/staff` | Staff account management       | allowed | forbidden     |
 
 After login, OWNER lands on the dashboard unless they originally requested another authorized route. CHECKIN_STAFF lands on `/checkin`. Staff use a restricted scanner shell with Event picker, scan/manual controls, password/account controls, and logout only; no Dashboard, Invitations, RSVPs, Messages, Imports, Reports, or staff-management navigation is rendered.
 
@@ -584,8 +608,8 @@ The scanner must not put `qrPayload` in the URL, browser history, persistent sto
 
 ### Route and entry point
 
-| Route | Surface |
-| --- | --- |
+| Route                 | Surface               |
+| --------------------- | --------------------- |
 | `/invitations/import` | CSV/XLSX guest import |
 
 - The route is reached from an explicit **Import CSV/XLSX** action on `/invitations`. There is no top-level Imports navigation item.
@@ -684,32 +708,32 @@ Do not assume flattened Figma images are already suitable as separated animation
 
 Phase 4 asset classification:
 
-| Asset category | Status |
-| --- | --- |
-| Bride image | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
-| Groom image | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
-| Pre-wedding gallery images | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
-| Floral watercolor decoration | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
-| Leaves | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
-| Rings illustration/icon | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
-| Calendar artwork | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
-| Decorative objects | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Asset category                | Status                                                                                                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bride image                   | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Groom image                   | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Pre-wedding gallery images    | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Floral watercolor decoration  | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Leaves                        | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Rings illustration/icon       | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Calendar artwork              | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
+| Decorative objects            | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
 | Couple/opened-page hero image | Available in Figma only; missing from repo; approval/export required for final fidelity; structural placeholder allowed only if explicitly approved. |
-| Envelope visuals | Available in Figma only; separated production cuts missing from repo; blocks final envelope animation fidelity. |
-| Wax seal | Available in Figma only; missing from repo; approval/export required for final fidelity. |
+| Envelope visuals              | Available in Figma only; separated production cuts missing from repo; blocks final envelope animation fidelity.                                      |
+| Wax seal                      | Available in Figma only; missing from repo; approval/export required for final fidelity.                                                             |
 
 Do not download Figma assets, create AI replacements, or commit font/image files
 without approval and licensing clearance.
 
 ## Font Contract
 
-| Font | Design use | Phase 4 status |
-| --- | --- | --- |
-| Spectral | Primary editorial/content typography | Available through Google Fonts; usable through `next/font/google`. |
-| Luxurious Script | Bride, Groom, Holy Matrimony, Wedding Reception, display closing text | Available through Google Fonts; usable through `next/font/google`. |
-| Parisienne | `Jo & Venta` display title | Available through Google Fonts; usable through `next/font/google`. |
-| TikTok Sans | Supporting/UI content | Publicly released under the SIL Open Font License with a Google Fonts download path; usable when available through the selected font loading path. |
-| Albert Sans | Action buttons such as View in Google Maps and Parking Guide | Available through Google Fonts; usable through `next/font/google`. |
+| Font             | Design use                                                            | Phase 4 status                                                                                                                                     |
+| ---------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Spectral         | Primary editorial/content typography                                  | Available through Google Fonts; usable through `next/font/google`.                                                                                 |
+| Luxurious Script | Bride, Groom, Holy Matrimony, Wedding Reception, display closing text | Available through Google Fonts; usable through `next/font/google`.                                                                                 |
+| Parisienne       | `Jo & Venta` display title                                            | Available through Google Fonts; usable through `next/font/google`.                                                                                 |
+| TikTok Sans      | Supporting/UI content                                                 | Publicly released under the SIL Open Font License with a Google Fonts download path; usable when available through the selected font loading path. |
+| Albert Sans      | Action buttons such as View in Google Maps and Parking Guide          | Available through Google Fonts; usable through `next/font/google`.                                                                                 |
 
 Do not copy fonts from a local system or container. Non-Google/custom fonts
 require an approved licensed local source before use. Exact replacements must be
@@ -729,13 +753,13 @@ The five source-backed families are loaded through `next/font/google` with
 `display: "swap"`, exposing CSS variables consumed by scoped invitation
 selectors:
 
-| Family | Variable | Weights |
-| --- | --- | --- |
-| Spectral | `--font-spectral` | 400, 700 |
-| Luxurious Script | `--font-luxurious-script` | 400 |
-| Parisienne | `--font-parisienne` | 400 |
-| TikTok Sans | `--font-tiktok-sans` | 300, 400, 700 |
-| Albert Sans | `--font-albert-sans` | 400 |
+| Family           | Variable                  | Weights       |
+| ---------------- | ------------------------- | ------------- |
+| Spectral         | `--font-spectral`         | 400, 700      |
+| Luxurious Script | `--font-luxurious-script` | 400           |
+| Parisienne       | `--font-parisienne`       | 400           |
+| TikTok Sans      | `--font-tiktok-sans`      | 300, 400, 700 |
+| Albert Sans      | `--font-albert-sans`      | 400           |
 
 - Fonts are route-scoped to the public invitation route via a route layout;
   they are not applied globally to `body`.

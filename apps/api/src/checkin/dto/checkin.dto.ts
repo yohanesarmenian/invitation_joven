@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import type {
   CheckinConfirmCommand,
   CheckinManualConfirmCommand,
+  CheckinManualStatusCommand,
   CheckinSearchCommand,
   CheckinValidateCommand,
 } from "../checkin.service.js";
@@ -18,6 +19,7 @@ const MANUAL_CONFIRM_FIELDS = new Set([
   "eventId",
   "invitationId",
 ]);
+const MANUAL_STATUS_FIELDS = new Set(["eventId", "invitationId"]);
 
 export const adminCheckinValidateStatuses = [
   "VALID",
@@ -25,6 +27,13 @@ export const adminCheckinValidateStatuses = [
 ] as const;
 export type AdminCheckinValidateStatus =
   (typeof adminCheckinValidateStatuses)[number];
+
+export const adminCheckinManualStatusStatuses = [
+  "ALREADY_CONFIRMED",
+  "NOT_CONFIRMED",
+] as const;
+export type AdminCheckinManualStatusStatus =
+  (typeof adminCheckinManualStatusStatuses)[number];
 
 export const adminCheckinMethods = ["QR", "MANUAL"] as const;
 export type AdminCheckinMethod = (typeof adminCheckinMethods)[number];
@@ -75,6 +84,14 @@ export class ManualConfirmAdminCheckinRequestDto {
 
   @ApiProperty({ minimum: 1, type: Number })
   attendeeCount: number;
+}
+
+export class ManualStatusAdminCheckinRequestDto {
+  @ApiProperty({ format: "uuid", type: String })
+  invitationId: string;
+
+  @ApiProperty({ format: "uuid", type: String })
+  eventId: string;
 }
 
 export class AdminCheckinInvitationSummaryDto {
@@ -158,6 +175,17 @@ export class AdminCheckinRecordDto {
 export class AdminCheckinConfirmResponseDto {
   @ApiProperty({ type: () => AdminCheckinRecordDto })
   checkinRecord: AdminCheckinRecordDto;
+}
+
+export class AdminCheckinManualStatusResponseDto {
+  @ApiProperty({ enum: adminCheckinManualStatusStatuses, type: String })
+  status: AdminCheckinManualStatusStatus;
+
+  @ApiProperty({ type: Boolean })
+  alreadyCheckedIn: boolean;
+
+  @ApiProperty({ nullable: true, type: () => AdminPreviousCheckinDto })
+  previousCheckin: AdminPreviousCheckinDto | null;
 }
 
 export class AdminCheckinSearchItemDto {
@@ -266,6 +294,21 @@ export function mapManualConfirmAdminCheckinRequest(
 
   return {
     attendeeCount: parseAttendeeCount(body.attendeeCount),
+    eventId: parseUuid(body.eventId),
+    invitationId: parseUuid(body.invitationId),
+  };
+}
+
+export function mapManualStatusAdminCheckinRequest(
+  body: unknown,
+): CheckinManualStatusCommand {
+  if (!isRecord(body)) {
+    badRequest();
+  }
+
+  assertNoUnsupportedFields(body, MANUAL_STATUS_FIELDS);
+
+  return {
     eventId: parseUuid(body.eventId),
     invitationId: parseUuid(body.invitationId),
   };

@@ -54,7 +54,10 @@ function databaseUrl() {
   const disposableName = /(?:test|smoke|local|dev)/i.test(
     url.pathname.replace(/^\//, ""),
   );
-  if (!localHost || !disposableName) {
+  const explicitQa =
+    process.env.INVITATION_WORKFLOW_TEST === "1" &&
+    /^invitation_(ci|qa_[a-z0-9_]+)$/.test(url.pathname.slice(1));
+  if (!localHost || !(disposableName || explicitQa)) {
     throw new Error(
       `Refusing live import QA against non-disposable database ${url.hostname}/${url.pathname.slice(1)}.`,
     );
@@ -265,7 +268,7 @@ async function setup(runId) {
     );
 
     return {
-      adminOrigin: "http://localhost:3001",
+      adminOrigin: process.env.ADMIN_ORIGIN ?? "http://localhost:3001",
       ceremonySlug,
       database: {
         database: new URL(databaseUrl()).pathname.slice(1),

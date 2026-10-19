@@ -30,7 +30,11 @@ describe("PublicRsvpForm rendering", () => {
     expect(html).toContain('aria-label="Your RSVP"');
     expect(html.match(/type="radio"/g)).toHaveLength(2);
     expect(html).not.toContain('checked=""');
-    expect(html).not.toContain("<textarea");
+    expect(html).toContain("<textarea");
+    expect(html).toContain("Attendance Confirmation");
+    expect(html).toContain("Events Attending");
+    expect(html).toContain("Bring someone special?");
+    expect(html).toContain("Dietary Restrictions");
     expect(html).not.toContain("guest-checkin-pass");
     expect(html).toContain("Joyfully Accept");
     expect(html).toContain("Regretfully Decline");
@@ -48,7 +52,7 @@ describe("PublicRsvpForm rendering", () => {
     for (const text of [
       "Alex Guest",
       "Robin Guest",
-      "Bring a plus one",
+      "Of Course I will bring my Wife/Husband or plus one!",
       "Additional children",
       "Holy Matrimony",
       "Reception",
@@ -76,7 +80,9 @@ describe("PublicRsvpForm rendering", () => {
         data: { rsvp: acceptedRsvp, checkinPass: null },
       },
     });
-    expect(html).not.toContain("Bring a plus one");
+    expect(html).not.toContain(
+      "Of Course I will bring my Wife/Husband or plus one!",
+    );
     expect(html).not.toContain("Additional children");
   });
   it("preselects decline while hiding all accepted-only controls", () => {

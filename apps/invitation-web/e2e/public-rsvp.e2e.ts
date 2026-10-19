@@ -1,3 +1,4 @@
+import { MOCK_API_ORIGIN } from "./harness";
 import {
   expect,
   test,
@@ -7,7 +8,7 @@ import {
 } from "@playwright/test";
 import type { SubmitPublicRsvpRequest } from "../../../packages/api-client/src/index";
 
-const MOCK = "http://127.0.0.1:4010";
+const MOCK = MOCK_API_ORIGIN;
 const PATH = `/i/${"A".repeat(43)}`;
 const browserErrors = new WeakMap<Page, string[]>();
 const accepted = {
@@ -93,10 +94,26 @@ async function expectPass(page: Page, payload: string | null) {
   ).toBe(false);
 }
 
-async function passScreenshot(page: Page, info: TestInfo, width: number) {
+async function assertPassLayout(page: Page) {
   const pass = page.locator(".guest-checkin-pass");
   await page.evaluate(() => document.fonts.ready);
   await pass.scrollIntoViewIfNeeded();
+  await pass.locator("img").evaluateAll((nodes) => {
+    nodes.forEach((node) => {
+      (node as HTMLImageElement).loading = "eager";
+    });
+  });
+  await expect
+    .poll(() =>
+      pass.locator("img").evaluateAll(
+        (nodes) =>
+          nodes.filter((node) => {
+            const image = node as HTMLImageElement;
+            return !image.complete || image.naturalWidth === 0;
+          }).length,
+      ),
+    )
+    .toBe(0);
   const geometry = await pass.evaluate((element) => {
     const box = element.getBoundingClientRect();
     const qr = element.querySelector("svg")!.getBoundingClientRect();
@@ -136,12 +153,7 @@ async function passScreenshot(page: Page, info: TestInfo, width: number) {
     selectable: true,
     overlaps: false,
   });
-  await pass.screenshot({
-    path: info.outputPath(`checkin-pass-${width}.png`),
-    animations: "disabled",
-    // Keep the Next development indicator out of review screenshots.
-    style: "nextjs-portal { visibility: hidden; }",
-  });
+  // Geometry assertions provide QR layout proof without capturing bearer material.
 }
 
 test.beforeEach(async ({ request, page }) => {
@@ -233,7 +245,11 @@ for (const width of [320, 375, 412, 768, 1280]) {
     const form = page.getByRole("form", { name: "Your RSVP" });
     await expect(form.locator("input:checked")).toHaveCount(0);
     await accept(page);
-    await page.getByRole("checkbox", { name: "Bring a plus one" }).check();
+    await page
+      .getByRole("checkbox", {
+        name: "Of Course I will bring my Wife/Husband or plus one!",
+      })
+      .check();
     await page
       .getByRole("spinbutton", { name: /Additional children/ })
       .fill("2");
@@ -327,7 +343,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     ).toContainText("before the reply deadline");
     await noticeScreenshot(page, testInfo, `accepted-${width}`);
     await expectPass(page, firstPass);
-    await passScreenshot(page, testInfo, width);
+    await assertPassLayout(page);
     const originalModules = await page
       .locator(".guest-checkin-pass svg")
       .innerHTML();
@@ -458,9 +474,17 @@ test("validates required choice, people, events and counts; normalizes compositi
     page.locator(".rsvp-information-section").getByRole("alert"),
   ).toContainText("event count");
   expect(await submissions(request)).toHaveLength(0);
-  await page.getByRole("checkbox", { name: "Bring a plus one" }).check();
+  await page
+    .getByRole("checkbox", {
+      name: "Of Course I will bring my Wife/Husband or plus one!",
+    })
+    .check();
   await expect(count).toHaveValue("2");
-  await page.getByRole("checkbox", { name: "Bring a plus one" }).uncheck();
+  await page
+    .getByRole("checkbox", {
+      name: "Of Course I will bring my Wife/Husband or plus one!",
+    })
+    .uncheck();
   await expect(count).toHaveValue("1");
 });
 
@@ -719,7 +743,11 @@ for (const [code, button, group] of [
     ).toHaveAttribute("aria-describedby", /error/);
     await configure(request, {});
     if (code === "PLUS_ONE_NOT_ALLOWED")
-      await page.getByRole("checkbox", { name: "Bring a plus one" }).uncheck();
+      await page
+        .getByRole("checkbox", {
+          name: "Of Course I will bring my Wife/Husband or plus one!",
+        })
+        .uncheck();
     else
       await page
         .getByRole("checkbox", { name: "Reception Test", exact: true })
@@ -830,7 +858,9 @@ test("declined initial state hides stale values and respects companion permissio
   ).toHaveCount(0);
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
   await expect(
-    page.getByRole("checkbox", { name: "Bring a plus one" }),
+    page.getByRole("checkbox", {
+      name: "Of Course I will bring my Wife/Husband or plus one!",
+    }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("spinbutton", { name: /Additional children/ }),
@@ -873,6 +903,11 @@ test("attendance and event choices are keyboard operable with visible focus", as
   await expect(choice).not.toBeChecked();
   await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("checkbox", { name: "Attend all invited events" }),
+  ).toBeFocused();
+  const guest = page.getByRole("checkbox", { name: "Test Guest", exact: true });
+  await guest.focus();
   await page.keyboard.press("Space");
   await expect(
     page.getByRole("checkbox", { name: "Test Guest", exact: true }),

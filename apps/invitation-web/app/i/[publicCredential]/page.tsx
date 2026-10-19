@@ -5,6 +5,7 @@ import {
   type PublicInvitationLongPageModel,
 } from "@/components/invitation/public-invitation-long-page";
 import { retrievePublicInvitation } from "@/src/server/public-invitation";
+import { retrievePublishedVenue } from "@/src/server/published-venue";
 import { retrievePublicRsvp, submitPublicRsvp } from "@/src/server/public-rsvp";
 import { PublicRsvpForm } from "@/components/invitation/public-rsvp-form";
 import { GuestMessageForm } from "@/components/invitation/guest-message-form";
@@ -33,6 +34,10 @@ export default async function PublicInvitationPage({
   }
 
   const initialRsvp = await retrievePublicRsvp(publicCredential);
+  const venueContent = await retrievePublishedVenue(
+    publicCredential,
+    result.data.invitation.events,
+  );
   async function sendGuestMessage(request: SubmitPublicGuestMessageRequest) {
     "use server";
     return submitPublicGuestMessage(publicCredential, request);
@@ -51,6 +56,8 @@ export default async function PublicInvitationPage({
   const invitation: PublicInvitationLongPageModel = {
     displayName: result.data.invitation.displayName,
     events: result.data.invitation.events.map((event) => ({
+      id: event.id,
+      endsAt: event.endsAt,
       address: event.address,
       googleMapsUrl: event.googleMapsUrl,
       name: event.name,
@@ -64,7 +71,9 @@ export default async function PublicInvitationPage({
   return (
     <InvitationOpeningFlow>
       <PublicInvitationLongPage
+        initialNow={result.receivedAt}
         invitation={invitation}
+        venueContent={venueContent}
         guestMessageForm={<GuestMessageForm submitAction={sendGuestMessage} />}
         rsvpForm={
           <PublicRsvpForm

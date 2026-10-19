@@ -50,7 +50,10 @@ export async function readPublicInvitationProjectionForLookupHash(
 
   const lockedInvitation = lockedRows[0];
 
-  if (!lockedInvitation || lockedInvitation.status !== InvitationStatus.ACTIVE) {
+  if (
+    !lockedInvitation ||
+    lockedInvitation.status !== InvitationStatus.ACTIVE
+  ) {
     throw new InvitationNotAvailableError();
   }
 
@@ -106,6 +109,7 @@ export async function readPublicInvitationProjectionForLookupHash(
       slug: true,
       name: true,
       startsAt: true,
+      endsAt: true,
       venueName: true,
       address: true,
       googleMapsUrl: true,

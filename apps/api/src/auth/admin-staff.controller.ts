@@ -18,6 +18,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -75,6 +76,7 @@ export class AdminStaffController {
   }
 
   @Patch(":staffId")
+  @ApiParam({ name: "staffId", format: "uuid", type: String })
   @ApiOperation({ summary: "Update a check-in staff account status" })
   @ApiBody({ type: UpdateAdminStaffRequestDto })
   @ApiOkResponse({ type: AdminStaffDto })
@@ -94,6 +96,7 @@ export class AdminStaffController {
   }
 
   @Post(":staffId/reset-password")
+  @ApiParam({ name: "staffId", format: "uuid", type: String })
   @HttpCode(200)
   @ApiOperation({ summary: "Reset a check-in staff account password" })
   @ApiOkResponse({ type: AdminStaffProvisionResponseDto })
