@@ -6,4 +6,6 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 docker compose "$@" up -d --wait postgres
-docker compose "$@" --profile migration run --rm migrate
+docker compose "$@" run --rm migrate
+# Diagnostic/manual gate only. Production startup is also gated in Compose.
+# A standalone successful run is not approval to bypass dependencies on rollout.

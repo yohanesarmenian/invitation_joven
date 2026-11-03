@@ -1,5 +1,13 @@
 # Production preparation verification
 
+Latest closure: **READY_FOR_REVIEW for GHCR release and migration-gate infrastructure**.
+See [GHCR release and migration-gate closure](#ghcr-release-and-migration-gate-closure--2026-11-03).
+The earlier preparation/failed runtime sections below are historical records;
+their BLOCKED results are superseded only by the specifically rerun gates in
+the latest closure. Production deployment remains unapproved and unperformed.
+
+## Historical preparation run
+
 Verification date: 2026-11-03 (Asia/Jakarta).
 Branch: `infra/coolify-production-deployment`.
 Base HEAD: `c6f1626a6b8c0b045a5ea32266be987fa7c4a23d`.
@@ -184,3 +192,166 @@ mandatory migration-gate proof, and live TLS/backup/restore/log-privacy checks.
 The existing P2 check-in abuse-control decision and Phase 10E/10F acceptance remain
 outside verified readiness. No unrelated app source, schema, migration, local
 Compose, authentication or reference-asset changes were made.
+
+## GHCR release and migration-gate closure - 2026-11-03
+
+Status: **READY_FOR_REVIEW**, local infrastructure verification only.
+Branch: `infra/ghcr-release-migration-gate`.
+Base and final HEAD: `f85312825e6dbd78ac6f303f2071ba4c19a9a5c3`.
+Changes remain unstaged/uncommitted. No source push, registry push, GitHub
+Release, Coolify credential change, production DB access or deployment occurred.
+
+### Docker recovery and local build evidence
+
+Earlier image attempts were interrupted by Docker/WSL transport EOF and
+bootstrap exit `0xc00000fd`. Windows Event 1000 identified wslservice.exe 2.6.3
+stack exhaustion; Event 2004 also recorded Windows committed memory at 99.7%
+of its limit while the pagefile was fixed at 4942 MiB. Updating WSL alone did
+not make the first repeat build stable. WSL was then capped at 4 CPUs/6 GiB
+RAM/4 GiB swap with gradual memory reclaim, Windows automatic pagefile
+management was enabled, and the user restarted Windows before this closure.
+
+After restart: WSL 3.0.3, kernel 6.18.54.1-microsoft-standard-WSL2, Docker Engine
+29.9.2, Compose v5.6.1. All three image builds and both container-smoke runners
+then completed without another observed crash. This is bounded local evidence,
+not a guarantee against every future host resource failure. These host repairs
+are outside Git. The pre-repair 7 containers, 8 image inventory entries and 26
+volumes were retained. An offline VHD backup remains at
+`D:\Backups\Docker\2026-11-03-wsl-repair`; file sizes and sampled regions were
+checked, not a full-file checksum or restore rehearsal.
+
+`node ops/deploy/production-smoke.mjs` completed for the random owned project
+`invitation-production-qa-8a6ec32e`, then removed only that QA project/volume.
+The following are **local image configuration IDs**, not GHCR registry manifest
+digests and not a published release manifest:
+
+| APP            | Inspected platform / runtime user | Local image ID                                                          |
+| -------------- | --------------------------------- | ----------------------------------------------------------------------- |
+| api            | linux/amd64 / node                | sha256:d1ab87a390bd4c6808bee9b85ea805f1a9046fda6e806ebdfc6a35bc2ccb9049 |
+| admin-web      | linux/amd64 / node                | sha256:006835d78f6c289b50d8e83c4e040ad20eddcb2ec150bb702ecb08386c62ceb4 |
+| invitation-web | linux/amd64 / node                | sha256:9a451fccd41cfeda7b510ad0570ed628b2ce5210dde94a3ba01b2c48527e9c11 |
+
+### Migration failure, ordering, concurrency and privileges
+
+The production Compose file now includes a one-shot migration service without
+a profile. API requires its successful completion; the webs require healthy API.
+The same API image supplies a locked `prisma migrate deploy` runner. It uses
+only the invitation_migrator URL, while the API receives invitation_app only.
+
+The smoke copied approved migrations into its ignored QA directory, added an
+intentionally invalid SQL migration there and targeted a separate disposable
+`invitation_failure_qa` database. It did not modify source migrations.
+Ordinary `compose up -d api admin-web invitation-web` returned failure. The
+QA `_prisma_migrations` table contained the failed SQL migration, and all three
+application containers had never started. **Failed migration blocking new
+application startup is TESTED with real PostgreSQL/Prisma, not inferred from
+unit tests or a successful health check.**
+
+A dedicated PostgreSQL session held advisory lock (1783901285,1). A competing
+migration container failed while that lock was held. After release, normal
+Compose startup migrated successfully and all services became healthy.
+This verifies migration exclusion, not serialization or atomicity of entire
+concurrent Coolify deployments; resource deployments must remain serialized.
+
+PostgreSQL reported **18.6**. The smoke used independent random administrator,
+application and migrator passwords and verified:
+
+- Application role: no superuser, CREATEDB or CREATEROLE; no public schema CREATE.
+- Migrator: public schema CREATE available; actual migrations succeed.
+- Application connection: synthetic table INSERT/SELECT/UPDATE/DELETE succeed;
+  CREATE TABLE fails with PostgreSQL `42501`.
+- Application role has no SELECT/INSERT/UPDATE/DELETE on `_prisma_migrations`.
+  The gate revokes bootstrap default grants on migration history before reuse
+  and after the first successful migration. Business-table grants remain intact.
+- The migration runner rejects runtime application credentials.
+- Repeated migration preserves the synthetic sentinel row.
+- Runtime API has the app-role URL and no MIGRATION_DATABASE_URL.
+- Image health checks, internal web-to-API `/health` (database=ok), same-origin
+  unauthenticated admin proxy (401), custom-format dump and isolated restore pass.
+- Missing required image/credential environment values fail Compose validation.
+
+### Commands rerun after recovery
+
+| Command / gate                                                            | Result                                                                                                                |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| node ops/deploy/production-smoke.mjs                                      | PASS: 3 amd64 builds, real migration failure/success/lock, privileges, health/networking, dump/restore, exact cleanup |
+| pnpm deploy:containers                                                    | PASS: 12 checks, status=verified, 27014 ms, exact owned QA cleanup                                                    |
+| pnpm deploy:test                                                          | PASS: 22 tests, no skips                                                                                              |
+| pnpm deploy:lint                                                          | PASS                                                                                                                  |
+| actionlint 1.7.7 on image-release.yml                                     | PASS; standalone checksum-verified tool under ignored .local-daily, no package dependency changes                     |
+| Git Bash -n production-init.sh and production-migrate.sh                  | PASS                                                                                                                  |
+| pnpm db:validate                                                          | PASS                                                                                                                  |
+| pnpm db:generate                                                          | PASS through typecheck/build/test prerequisites and image builds                                                      |
+| pnpm db:migrate:deploy / pnpm db:status                                   | PASS: 5 migrations, up to date on disposable invitation_ci PostgreSQL 18.6                                            |
+| Focused public/admin HTTP integration                                     | PASS: 28 tests (also included in the full suite)                                                                      |
+| pnpm --filter api test                                                    | PASS: 40 files, 305 tests, real DB tests enabled                                                                      |
+| pnpm test                                                                 | PASS: 80 files, 856 tests; API 305, admin 312, invitation 232, api-client 7                                           |
+| pnpm lint / pnpm typecheck / pnpm build                                   | PASS: 5 Turbo tasks each, cached application tasks; generation rerun                                                  |
+| git diff --check                                                          | PASS                                                                                                                  |
+| GitHub publisher execution, GHCR push/private pull and live Coolify proof | NOT RUN: outside local review authorization                                                                           |
+| Full Playwright browser/venue/physical-camera acceptance                  | NOT RUN in this infrastructure slice                                                                                  |
+
+Host API/root tests used a separately owned tmpfs PostgreSQL container
+`invitation-qa-closure-72dedd33` with loopback-only random port and explicit
+INVITATION_DATABASE_TESTS=1. Database identity was checked before migrations;
+the container was removed after tests. No protected/local daily DB was used.
+The existing TikTok Sans fallback-font warning remains non-blocking. No test
+guard was bypassed and no real-DB test was replaced with a mock.
+
+### Release and production acceptance boundaries
+
+The new manual image-release workflow verifies the exact master dispatch SHA
+against merged master ancestry and its latest successful master-push CI. Its
+read-only verifier is separated from the environment-gated packages:write job;
+all external actions are commit-pinned and publication is sequential amd64.
+It never deploys. The manifest and checksum are generated only from actual
+build/push digest outputs, with source/workflow SHA, CI/run IDs, release ID,
+image names, immutable references and platform. No real registry digest was
+invented or published during this review. Manifest tests use explicit synthetic
+fixtures and do not create an operator release receipt.
+
+Before production approval, operators still must configure/prove GitHub master
+protection, image-release environment reviewers/branch restrictions, package
+visibility/access, a successful authorized publishing run and private read-only
+pulls from the destination. Coolify must preserve the migration dependency graph
+in its installed version's generated Compose; rehearse failed migration there
+before accepting traffic. A container pre-deployment hook is not treated as a
+host shell or as sufficient first-deployment enforcement. If normalization
+cannot enforce the graph, use the explicitly serialized private destination
+procedure in PRODUCTION-COOLIFY.md, with its documented privileged-operator
+bypass limitation and ingress kept closed until success.
+
+Actual domains, HTTPS/cookies/CSRF, network/proxy log privacy, stable volume
+identity across redeployment, off-server backups and isolated restore rehearsal
+remain live acceptance gates. Rollback uses the previous three approved image
+digests only with compatible schema; no automatic reverse migration, reset or
+restore over the current DB. Prior Phase 10E/10F and abuse-control sign-off are
+not implied by this result.
+
+### Complete review inventory
+
+Modified tracked files:
+
+- Dockerfile
+- compose.production.yaml
+- docs/PRODUCTION-COOLIFY.md
+- docs/PRODUCTION-VERIFICATION.md
+- ops/deploy/production-compose.test.mjs
+- ops/deploy/production-migrate.sh
+- ops/deploy/production-smoke.mjs
+- ops/deploy/production.env.example
+
+New untracked implementation/test files (must accompany any future reviewed commit):
+
+- .github/workflows/image-release.yml
+- ops/deploy/image-release.mjs
+- ops/deploy/image-release.test.mjs
+- ops/deploy/migrate.mjs
+- ops/deploy/migration-gate.test.mjs
+
+No diff in compose.yaml, app business/authentication source, API contracts,
+Prisma schema/migrations, dependency manifests/lockfile or PNG/Figma assets.
+No PNG was untracked at this slice's clean starting baseline. Ignored QA logs,
+copied failure-fixture migrations, standalone lint tooling and host recovery
+receipts are not release artifacts and must remain uncommitted. Nothing staged,
+committed, pushed or merged; production has not been deployed.

@@ -1,5 +1,5 @@
 # Pull immutable linux/amd64 images built externally using the root Dockerfile.
-# Explicit migration step: see docs/PRODUCTION-COOLIFY.md before first deployment.
+# One-shot migration must succeed before API startup. Never use --no-deps.
 x-runtime: &runtime
   restart: unless-stopped
   init: true
@@ -38,15 +38,17 @@ services:
 
   migrate:
     image: ${API_IMAGE:?Set immutable API image digest}
-    profiles: [migration]
     restart: "no"
+    init: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     mem_limit: 512m
     environment:
       NODE_ENV: production
       DATABASE_URL: ${MIGRATION_DATABASE_URL:?}
     networks: [database]
     working_dir: /workspace/apps/api
-    command: [node, node_modules/prisma/build/index.js, migrate, deploy]
+    command: [node, /workspace/ops/deploy/migrate.mjs]
     healthcheck: { disable: true }
     depends_on:
       postgres: { condition: service_healthy }
@@ -69,6 +71,7 @@ services:
     networks: [default, database]
     depends_on:
       postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   admin-web:
     <<: *runtime
