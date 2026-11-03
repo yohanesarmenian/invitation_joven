@@ -1,0 +1,102 @@
+# Pull immutable linux/amd64 images built externally using the root Dockerfile.
+# Explicit migration step: see docs/PRODUCTION-COOLIFY.md before first deployment.
+x-runtime: &runtime
+  restart: unless-stopped
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:18}
+    restart: unless-stopped
+    mem_limit: 1g
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      APP_DATABASE_PASSWORD: ${APP_DATABASE_PASSWORD:?}
+      MIGRATOR_DATABASE_PASSWORD: ${MIGRATOR_DATABASE_PASSWORD:?}
+    volumes:
+      - invitation_postgres_data:/var/lib/postgresql
+      - ./ops/deploy/production-init.sh:/docker-entrypoint-initdb.d/010-roles.sh:ro
+    networks: [database]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  migrate:
+    image: ${API_IMAGE:?Set immutable API image digest}
+    profiles: [migration]
+    restart: "no"
+    mem_limit: 512m
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?}
+    networks: [database]
+    working_dir: /workspace/apps/api
+    command: [node, node_modules/prisma/build/index.js, migrate, deploy]
+    healthcheck: { disable: true }
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *runtime
+    image: ${API_IMAGE:?Set immutable API image digest}
+    mem_limit: 768m
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=512
+      DATABASE_URL: ${DATABASE_URL:?}
+      CREDENTIAL_SECRET: ${CREDENTIAL_SECRET:?}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:?}
+      PUBLIC_INVITATION_BASE_URL: ${PUBLIC_INVITATION_BASE_URL:?}
+      API_HOST: 0.0.0.0
+      PORT: "4000"
+      LOG_LEVEL: info
+    expose: ["4000"]
+    networks: [default, database]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  admin-web:
+    <<: *runtime
+    image: ${ADMIN_WEB_IMAGE:?Set immutable admin web image digest}
+    mem_limit: 640m
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=384
+      ADMIN_API_INTERNAL_BASE_URL: http://api:4000
+    expose: ["3001"]
+    depends_on:
+      api: { condition: service_healthy }
+
+  invitation-web:
+    <<: *runtime
+    image: ${INVITATION_WEB_IMAGE:?Set immutable invitation web image digest}
+    mem_limit: 640m
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=384
+      INVITATION_API_BASE_URL: http://api:4000
+    expose: ["3000"]
+    depends_on:
+      api: { condition: service_healthy }
+
+networks:
+  database:
+    internal: true
+
+volumes:
+  invitation_postgres_data:

@@ -133,6 +133,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build and smoke test all production images on synthetic PostgreSQL
         run: pnpm deploy:containers
+      - name: Verify image-only production Compose, role initialization and restore
+        run: node ops/deploy/production-smoke.mjs
 
   ready:
     if: always()
