@@ -21,13 +21,16 @@ test("production pulls images, keeps DB private and migration explicit", async (
       "invitation_postgres_data:/var/lib/postgresql",
     ),
   );
-  assert.deepEqual(doc.services.migrate.profiles, ["migration"]);
+  assert.equal(doc.services.migrate.profiles, undefined);
   assert.deepEqual(doc.services.migrate.command, [
     "node",
-    "node_modules/prisma/build/index.js",
-    "migrate",
-    "deploy",
+    "/workspace/ops/deploy/migrate.mjs",
   ]);
+  assert.equal(doc.services.migrate.restart, "no");
+  assert.equal(
+    doc.services.api.depends_on.migrate.condition,
+    "service_completed_successfully",
+  );
   assert.equal(doc.services.api.environment.DATABASE_URL, "${DATABASE_URL:?}");
   assert.equal(doc.services.api.environment.MIGRATION_DATABASE_URL, undefined);
   assert.equal(doc.services.api.environment.NODE_ENV, "production");

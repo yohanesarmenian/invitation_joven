@@ -1,0 +1,145 @@
+name: Publish production images
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full current master SHA (must match this dispatch) with successful master-push CI
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghcr-production-images
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/master' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.authority.outputs.sha }}
+      ci_run_id: ${{ steps.authority.outputs.ci_run_id }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+      - name: Verify release authority
+        id: authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.source_sha }}
+        run: node ops/deploy/image-release.mjs verify
+
+  publish:
+    needs: verify
+    if: github.ref == 'refs/heads/master' && github.event_name == 'workflow_dispatch'
+    environment: image-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Trusted release tooling
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+      - name: Exact verified source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+      - name: Lowercase image namespace and unique release tag
+        id: names
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ needs.verify.outputs.sha }}
+        run: |
+          printf 'prefix=ghcr.io/%s\n' "${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          printf 'tag=%s-%s-%s\n' "$SOURCE_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      # Sequential builds keep builder memory bounded; no VPS builds or production secrets.
+      - name: Publish API
+        id: api
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: source
+          file: source/Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.prefix }}/api:${{ steps.names.outputs.tag }}
+          build-args: |
+            APP=api
+            SOURCE_COMMIT=${{ needs.verify.outputs.sha }}
+            ADMIN_API_INTERNAL_BASE_URL=http://api:4000
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          provenance: mode=min
+      - name: Publish Admin Web
+        id: admin
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: source
+          file: source/Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.prefix }}/admin-web:${{ steps.names.outputs.tag }}
+          build-args: |
+            APP=admin-web
+            SOURCE_COMMIT=${{ needs.verify.outputs.sha }}
+            ADMIN_API_INTERNAL_BASE_URL=http://api:4000
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          provenance: mode=min
+      - name: Publish Invitation Web
+        id: invitation
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: source
+          file: source/Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.prefix }}/invitation-web:${{ steps.names.outputs.tag }}
+          build-args: |
+            APP=invitation-web
+            SOURCE_COMMIT=${{ needs.verify.outputs.sha }}
+            ADMIN_API_INTERNAL_BASE_URL=http://api:4000
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          provenance: mode=min
+      - name: Record actual registry digests
+        env:
+          RELEASE_SHA: ${{ needs.verify.outputs.sha }}
+          CI_RUN_ID: ${{ needs.verify.outputs.ci_run_id }}
+          API_DIGEST: ${{ steps.api.outputs.digest }}
+          ADMIN_DIGEST: ${{ steps.admin.outputs.digest }}
+          INVITATION_DIGEST: ${{ steps.invitation.outputs.digest }}
+        run: node tooling/ops/deploy/image-release.mjs manifest
+      - name: Preserve complete release receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-images-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 90

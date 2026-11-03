@@ -35,7 +35,7 @@ LABEL org.opencontainers.image.revision=${SOURCE_COMMIT}
 # Preserve pnpm workspace symlinks. Raw photo sources, private data, and docs
 # are excluded by .dockerignore; public photo exports remain in the image.
 COPY --from=build --chown=node:node /workspace /workspace
-COPY --chown=node:node ops/deploy/start.sh ops/deploy/healthcheck.mjs ops/deploy/bootstrap-owner.mjs ./ops/deploy/
+COPY --chown=node:node ops/deploy/start.sh ops/deploy/healthcheck.mjs ops/deploy/bootstrap-owner.mjs ops/deploy/migrate.mjs ./ops/deploy/
 USER node
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=10 CMD ["node", "ops/deploy/healthcheck.mjs"]
 CMD ["sh", "ops/deploy/start.sh"]
