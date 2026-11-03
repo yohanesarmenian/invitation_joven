@@ -1,13 +1,13 @@
 import "reflect-metadata";
 import { randomInt, randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Module } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { configureApp } from "../app.setup.js";
 import { getDatabaseUrl } from "../database/database-url.js";
 import { PrismaClient } from "../generated/prisma/client.js";
@@ -28,6 +28,24 @@ import type {
 } from "../security/credential.types.js";
 import { AppLogger } from "../logging/app-logger.js";
 import { InvitationsModule } from "./invitations.module.js";
+import { PUBLIC_RSVP_CLOCK } from "./public-rsvp.service.js";
+
+const TEST_NOW = new Date("2026-10-01T00:00:00.000Z");
+const FIXTURE_DEADLINE = new Date(
+  TEST_NOW.getTime() + 30 * 24 * 60 * 60 * 1000,
+);
+const FIXTURE_EVENT = new Date(TEST_NOW.getTime() + 60 * 24 * 60 * 60 * 1000);
+let rsvpNow = new Date(TEST_NOW);
+
+// App-scoped DI clock; the process clock and unrelated suites are unaffected.
+@Global()
+@Module({
+  providers: [
+    { provide: PUBLIC_RSVP_CLOCK, useValue: () => new Date(rsvpNow) },
+  ],
+  exports: [PUBLIC_RSVP_CLOCK],
+})
+class PublicRsvpHttpClockModule {}
 
 const TEST_SECRET = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
 const TEST_SECRET_BYTES = Buffer.from(TEST_SECRET, "base64url");
@@ -63,7 +81,7 @@ const testLogger = {
 };
 
 @Module({
-  imports: [InvitationsModule],
+  imports: [PublicRsvpHttpClockModule, InvitationsModule],
   providers: [
     {
       provide: AppLogger,
@@ -124,7 +142,7 @@ async function createFixture(
       publicTokenVersion: tokenVersion,
       rsvpDeadlineAt: options.withNullableProjection
         ? null
-        : (options.rsvpDeadlineAt ?? new Date("2026-11-01T12:00:00.000Z")),
+        : (options.rsvpDeadlineAt ?? FIXTURE_DEADLINE),
       status: options.status ?? InvitationStatus.ACTIVE,
     },
   });
@@ -140,9 +158,7 @@ async function createFixture(
       name: "Reception",
       slug: `slice4-reception-${suffix}`,
       endsAt: null,
-      startsAt: options.withNullableProjection
-        ? null
-        : new Date("2026-12-12T12:00:00.000Z"),
+      startsAt: options.withNullableProjection ? null : FIXTURE_EVENT,
       venueName: options.withNullableProjection ? null : "Grand Ballroom",
     },
   });
@@ -290,6 +306,10 @@ async function cleanupFixtures() {
 
 describe("GET /api/public/invitations/:publicCredential", () => {
   let app: NestFastifyApplication;
+
+  beforeEach(() => {
+    rsvpNow = new Date(TEST_NOW);
+  });
 
   beforeAll(async () => {
     app = await NestFactory.create<NestFastifyApplication>(
@@ -650,7 +670,7 @@ describe("GET /api/public/invitations/:publicCredential", () => {
 
   it("returns accepted RSVP state from the dedicated RSVP GET", async () => {
     const fixture = await createFixture();
-    await app
+    const accepted = await app
       .getHttpAdapter()
       .getInstance()
       .inject({
@@ -675,6 +695,7 @@ describe("GET /api/public/invitations/:publicCredential", () => {
         },
         url: `/api/public/invitations/${fixture.credential}/rsvp`,
       });
+    expect(accepted.statusCode).toBe(200);
     const [activePass] = await prisma.checkinPass.findMany({
       where: {
         invitationId: fixture.invitationId,
@@ -826,6 +847,7 @@ describe("GET /api/public/invitations/:publicCredential", () => {
         },
         url: `/api/public/invitations/${fixture.credential}/rsvp`,
       });
+    expect(firstAccept.statusCode).toBe(200);
     const firstPass = await prisma.checkinPass.findFirstOrThrow({
       where: {
         invitationId: fixture.invitationId,
@@ -834,7 +856,6 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     });
     const firstPayload = firstAccept.json().checkinPass.qrPayload;
 
-    expect(firstAccept.statusCode).toBe(200);
     expect(hashDerivedCredential(firstPayload)).toBe(firstPass.tokenHash);
 
     const acceptedUpdate = await app
@@ -910,7 +931,7 @@ describe("GET /api/public/invitations/:publicCredential", () => {
 
   it("rejects public RSVP submissions after the persisted deadline", async () => {
     const fixture = await createFixture({
-      rsvpDeadlineAt: new Date("2020-01-01T00:00:00.000Z"),
+      rsvpDeadlineAt: new Date(TEST_NOW.getTime() - 1),
     });
 
     const response = await app
@@ -936,6 +957,47 @@ describe("GET /api/public/invitations/:publicCredential", () => {
       },
     });
   });
+
+  it.each([
+    { label: "before", offset: -1, status: 200 },
+    { label: "at", offset: 0, status: 200 },
+    { label: "after", offset: 1, status: 422 },
+  ])(
+    "enforces the inclusive UTC deadline $label the cutoff",
+    async ({ offset, status }) => {
+      const fixture = await createFixture({ rsvpDeadlineAt: FIXTURE_DEADLINE });
+      rsvpNow = new Date(FIXTURE_DEADLINE.getTime() + offset);
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: "PUT",
+          payload: {
+            attendees: [],
+            eventSelections: [],
+            expectedVersion: null,
+            status: RSVPStatus.DECLINED,
+          },
+          url: `/api/public/invitations/${fixture.credential}/rsvp`,
+        });
+      expect(response.statusCode).toBe(status);
+      const rsvp = await prisma.rSVP.findUnique({
+        where: { invitationId: fixture.invitationId },
+      });
+      if (offset > 0) {
+        expect(response.json().error.code).toBe("RSVP_DEADLINE_PASSED");
+        expect(rsvp).toBeNull();
+      } else {
+        expect(rsvp?.status).toBe(RSVPStatus.DECLINED);
+        expect(rsvp?.version).toBe(1);
+      }
+      await expect(
+        prisma.checkinPass.count({
+          where: { invitationId: fixture.invitationId },
+        }),
+      ).resolves.toBe(0);
+    },
+  );
 
   it("rejects event selections outside the invitation eligibility list", async () => {
     const fixture = await createFixture();

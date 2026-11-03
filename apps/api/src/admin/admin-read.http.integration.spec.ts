@@ -14,6 +14,7 @@ import { AppModule } from "../app.module.js";
 import { configureApp } from "../app.setup.js";
 import { getDatabaseUrl } from "../database/database-url.js";
 import {
+  AdminRole,
   CheckinPassStatus,
   InviteeCategory,
   InvitationStatus,
@@ -142,10 +143,17 @@ async function cleanDatabase() {
   await prisma.adminUser.deleteMany();
 }
 
-async function createOwnerAndSession() {
+async function createOwnerAndSession(
+  input: { role?: AdminRole; mustChangePassword?: boolean } = {},
+) {
   const owner = await prisma.adminUser.create({
     data: {
-      email: OWNER_EMAIL,
+      email:
+        input.role || input.mustChangePassword
+          ? `inventory-${randomUUID()}@example.com`
+          : OWNER_EMAIL,
+      role: input.role ?? AdminRole.OWNER,
+      mustChangePassword: input.mustChangePassword ?? false,
       passwordHash: await passwordService.hashPassword(OWNER_PASSWORD),
     },
   });
@@ -340,7 +348,7 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(45);
+    expect(routes).toHaveLength(48);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "POST /api/admin/invitations",
@@ -373,6 +381,7 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/dashboard",
       "GET /api/admin/event-content/:eventId",
       "GET /api/admin/event-content/:eventId/assets/:assetId",
+      "GET /api/admin/event-management",
       "GET /api/admin/events",
       "GET /api/admin/invitations",
       "GET /api/admin/invitations/:invitationId",
@@ -399,6 +408,7 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/event-content/:eventId/assets",
       "POST /api/admin/event-content/:eventId/hide",
       "POST /api/admin/event-content/:eventId/publish",
+      "POST /api/admin/event-management",
       "POST /api/admin/imports/guest/commit",
       "POST /api/admin/imports/guest/validate",
       "POST /api/admin/invitations",
@@ -408,6 +418,7 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/staff",
       "POST /api/admin/staff/:staffId/reset-password",
       "PUT /api/admin/event-content/:eventId",
+      "PUT /api/admin/event-management/:eventId",
       "PUT /api/admin/invitations/:invitationId/events",
       "PUT /api/admin/invitations/:invitationId/rsvp",
     ]);
@@ -471,6 +482,7 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/event-content/:eventId/assets",
       "POST /api/admin/event-content/:eventId/hide",
       "POST /api/admin/event-content/:eventId/publish",
+      "POST /api/admin/event-management",
       "POST /api/admin/imports/guest/commit",
       "POST /api/admin/imports/guest/validate",
       "POST /api/admin/invitations",
@@ -480,6 +492,7 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/staff",
       "POST /api/admin/staff/:staffId/reset-password",
       "PUT /api/admin/event-content/:eventId",
+      "PUT /api/admin/event-management/:eventId",
       "PUT /api/admin/invitations/:invitationId/events",
       "PUT /api/admin/invitations/:invitationId/rsvp",
     ]);
@@ -528,6 +541,7 @@ describe("admin read HTTP integration", () => {
 
     for (const path of [
       "/api/admin/dashboard",
+      "/api/admin/event-management",
       `/api/admin/invitations/${invitation.id}`,
     ]) {
       const response = await app
@@ -540,6 +554,38 @@ describe("admin read HTTP integration", () => {
         });
 
       expect(response.statusCode, path).toBe(200);
+    }
+  });
+
+  it("keeps Event Management OWNER-only and enforces forced password change", async () => {
+    const staff = await createOwnerAndSession({
+      role: AdminRole.CHECKIN_STAFF,
+    });
+    const forcedOwner = await createOwnerAndSession({
+      mustChangePassword: true,
+    });
+    const event = await createEvent({ displayOrder: 1 });
+    for (const session of [staff, forcedOwner]) {
+      for (const [method, url] of [
+        ["GET", "/api/admin/event-management"],
+        ["POST", "/api/admin/event-management"],
+        ["PUT", `/api/admin/event-management/${event.id}`],
+      ] as const) {
+        const response = await app
+          .getHttpAdapter()
+          .getInstance()
+          .inject({
+            method,
+            url,
+            headers: {
+              cookie: session.cookie,
+              origin: ADMIN_ORIGIN,
+              "x-csrf-token": session.csrfToken,
+            },
+          });
+        expect(response.statusCode, `${method} ${url}`).toBe(403);
+        expect(response.json().error.code).toBe("FORBIDDEN");
+      }
     }
   });
 
