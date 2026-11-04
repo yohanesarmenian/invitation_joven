@@ -4,7 +4,7 @@
 
 ## Figma template and owner photography, 16 October 2026
 
-The invitation uses one centered column (maximum 480 px), left-aligned greeting, alternating bride/groom photo and copy, navy/cream theme and the existing Figma section order. All four parental names/titles are owner-confirmed and rendered exactly as Figma. The clean owner Cover photo has separate semantic text; the preserved old hero is used only on image failure. Envelope transition takes 650 ms, prevents repeated activation and transfers focus; reduced motion advances immediately. Section reveal is optional and excludes forms, errors and the QR pass. Gallery uses reviewed original-photo derivatives, including a portrait thumbnail with an uncropped full-photo viewer. Photo filenames contain content digests so replacements change the cache key. Domain form behavior and eligibility remain authoritative from the existing contracts. See [implementation evidence and runbook](design/jo-venta/IMPLEMENTATION.md). Physical-device/screen-reader QA, final venue/footer copy and hosting remain pending.
+The current owner revision uses a full-viewport cream canvas with centered, readable inner sections; it supersedes the earlier 480 px outer-frame limit. The greeting remains left-aligned, bride/groom photo and copy alternate, and the existing Figma section order remains. See the [current owner revision](design/jo-venta/FIGMA-FIDELITY.md) and Responsive Strategy below for the active width contract. All four parental names/titles are owner-confirmed and rendered exactly as Figma. The clean owner Cover photo has separate semantic text; the preserved old hero is used only on image failure. Envelope transition takes 650 ms, prevents repeated activation and transfers focus; reduced motion advances immediately. Section reveal is optional and excludes forms, errors and the QR pass. Gallery uses reviewed original-photo derivatives, including a portrait thumbnail with an uncropped full-photo viewer. Photo filenames contain content digests so replacements change the cache key. Domain form behavior and eligibility remain authoritative from the existing contracts. See [implementation evidence and runbook](design/jo-venta/IMPLEMENTATION.md). Physical-device/screen-reader QA, final venue/footer copy and hosting remain pending.
 
 ## OWNER event materials
 
@@ -328,14 +328,29 @@ Do not merge dress-code swatches into the normal UI theme. Treat them as semanti
 - Design is mobile-first around 412 px width.
 - Do not copy absolute Figma positioning directly into CSS.
 - Public invitation should support approximately 320, 360, 375, 390, 412, 430, and 480 px mobile widths.
-- On larger screens, keep the invitation as a centered narrow editorial experience.
-- Initial max invitation content width: approximately 480 px.
-- Do not turn the public invitation into a wide desktop dashboard.
-- Production CSS should use fluid behavior such as `width: 100%` and an
-  approximately `480px` max width rather than one breakpoint per reference
-  width.
-- On desktop viewports, the surrounding viewport/background may frame the
-  invitation, but the invitation content itself remains narrow and centered.
+- The current owner revision uses a full-viewport cream canvas. Both
+  `.invitation-opening-flow` and `.public-invitation-surface` fill the viewport;
+  the earlier centered 480 px outer-frame limit is superseded. Do not restore
+  narrow outer gutters or turn the invitation into an admin dashboard.
+- Inner sections remain horizontally centered with these maximum border-box
+  widths, shrinking fluidly to fit smaller viewports:
+
+  | Inner section                   | Maximum width |
+  | ------------------------------- | ------------- |
+  | Greeting/header, quote          | 900 px        |
+  | Couple profiles, wedding events | 1040 px       |
+  | Wedding date                    | 800 px        |
+  | Dress code                      | 640 px        |
+  | RSVP information                | 780 px        |
+  | Guest messages                  | 720 px        |
+  | Countdown                       | 620 px        |
+  | Gallery mosaic                  | 1200 px       |
+
+- At 700 px and above, couple profiles and wedding events use their existing
+  two-column layouts within these limits. Mobile layouts retain their existing
+  reflow behavior. No supported viewport may have horizontal document overflow.
+- Browser QA covers 320, 375, 412, 480, 768 and 1280 px with a 2 px geometry
+  tolerance, checking both the full-width canvas and centered inner limits.
 
 ## Animation Intent
 
