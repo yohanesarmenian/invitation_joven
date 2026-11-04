@@ -18,9 +18,20 @@ const SUCCESS_PATH = `/i/${TEST_PUBLIC_CREDENTIAL}`;
 const UNAVAILABLE_PATH = `/i/${TEST_UNAVAILABLE_CREDENTIAL}`;
 const MALFORMED_PATH = `/i/${TEST_MALFORMED_CREDENTIAL}`;
 
-// Documented invitation width: `.invitation-opening-flow` and
-// `.public-invitation-surface` are both `max-width: 480px; margin: 0 auto`.
-const INVITATION_MAX_WIDTH = 480;
+// Current owner contract: full-viewport canvas, centered readable sections.
+// See docs/UI-UX-SPEC.md, Responsive Strategy, and FIGMA-FIDELITY.md.
+const CONTENT_MAX_WIDTHS = [
+  [".invitation-header", 900],
+  [".couple-section", 1040],
+  [".wedding-date-section", 800],
+  [".events-section", 1040],
+  [".dress-code-section", 640],
+  [".rsvp-information-section", 780],
+  [".guest-message-section", 720],
+  [".event-countdown", 620],
+  [".gallery-mosaic", 1200],
+  [".quote-section", 900],
+] as const;
 // Sub-pixel / rounding tolerance. Geometry is asserted loosely on purpose.
 const TOLERANCE = 2;
 
@@ -29,6 +40,7 @@ const VIEWPORTS = [
   { width: 375, height: 800 },
   { width: 412, height: 800 },
   { width: 480, height: 800 },
+  { width: 768, height: 900 },
   { width: 1280, height: 900 },
 ];
 
@@ -62,6 +74,10 @@ async function advanceToContent(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Open invitation" }).click();
   await page.getByRole("button", { name: "View invitation" }).click();
   await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
 }
 
 test.beforeEach(async ({ request }) => {
@@ -104,23 +120,40 @@ for (const viewport of VIEWPORTS) {
       }
     }
 
-    if (viewport.width === 1280) {
-      const flowBox = await page
-        .locator(".invitation-opening-flow")
-        .boundingBox();
-      expect(flowBox).not.toBeNull();
-      expect(flowBox!.width).toBeLessThanOrEqual(
-        INVITATION_MAX_WIDTH + TOLERANCE,
-      );
-
-      const flowCenter = flowBox!.x + flowBox!.width / 2;
+    for (const selector of [
+      ".invitation-opening-flow",
+      ".public-invitation-surface",
+    ]) {
+      const frameBox = await page.locator(selector).boundingBox();
+      expect(frameBox, `${selector} should have a box`).not.toBeNull();
       expect(
-        Math.abs(flowCenter - viewport.width / 2),
-        "invitation should stay horizontally centered",
+        Math.abs(frameBox!.width - viewport.width),
+        `${selector} should fill the viewport`,
+      ).toBeLessThanOrEqual(TOLERANCE);
+      expect(
+        Math.abs(frameBox!.x + frameBox!.width / 2 - viewport.width / 2),
+        `${selector} should stay horizontally centered`,
       ).toBeLessThanOrEqual(TOLERANCE);
     }
 
-    // Placeholder-state QA artifact: real Slice 4B assets are not integrated yet.
+    if (viewport.width >= 700) {
+      for (const [selector, maxWidth] of CONTENT_MAX_WIDTHS) {
+        const section = page.locator(selector);
+        await expect(section).toHaveCount(1);
+        const box = await section.boundingBox();
+        expect(box, `${selector} should have a box`).not.toBeNull();
+        expect(
+          box!.width,
+          `${selector} should retain its readable width`,
+        ).toBeLessThanOrEqual(Math.min(viewport.width, maxWidth) + TOLERANCE);
+        expect(
+          Math.abs(box!.x + box!.width / 2 - viewport.width / 2),
+          `${selector} should stay horizontally centered`,
+        ).toBeLessThanOrEqual(TOLERANCE);
+      }
+    }
+
+    // Synthetic guest data with the current reviewed presentation assets.
     await page.screenshot({
       path: testInfo.outputPath(`invitation-${viewport.width}.png`),
       fullPage: true,
