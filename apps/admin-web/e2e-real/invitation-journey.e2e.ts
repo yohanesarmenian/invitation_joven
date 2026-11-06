@@ -191,15 +191,46 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
 
     await installCamera(page, svg);
     await staffLogin(page);
-    for (const invalid of [household.publicCredential, firstCode]) {
+    // Keep an unrelated live alert present: Next's route announcer must never
+    // satisfy (or make ambiguous) an assertion about the check-in result.
+    await page.evaluate(() => {
+      const announcer = document.createElement("div");
+      announcer.setAttribute("role", "alert");
+      announcer.textContent = "Journey navigation announcement";
+      document.body.append(announcer);
+    });
+    for (const [invalid, code, message] of [
+      [
+        household.publicCredential,
+        "QR_INVALID",
+        "This QR is invalid or no longer available. Check the code or search the household.",
+      ],
+      [
+        firstCode,
+        "QR_REVOKED",
+        "This QR has been revoked. Ask the guest for their current pass.",
+      ],
+    ] as const) {
       await page.getByLabel("QR code", { exact: true }).fill(invalid);
+      const rejected = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/admin/checkin/validate" &&
+          response.request().method() === "POST",
+      );
       await page
         .getByRole("button", { name: "Validate QR", exact: true })
         .click();
+      const response = await rejected;
+      expect(response.status()).toBe(422);
+      expect((await response.json()).error.code).toBe(code);
       await expect(
         page.getByRole("button", { name: "Confirm check-in", exact: true }),
       ).toHaveCount(0);
-      await expect(page.getByRole("alert")).toBeVisible();
+      const alert = page
+        .getByRole("region", { name: "Check-in result", exact: true })
+        .getByRole("alert");
+      await expect(alert).toBeVisible();
+      await expect(alert).toHaveText(message);
     }
     let validations = 0,
       writes = 0;
