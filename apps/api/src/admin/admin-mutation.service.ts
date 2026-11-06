@@ -793,6 +793,8 @@ export class AdminMutationService {
     body: unknown,
   ): Promise<CreateAdminInvitationResponseDto> {
     const input = normalizeAdminCreateInvitationInput(body);
+    // A configuration error must fail before a household can be committed.
+    const publicOrigin = this.publicBaseUrlService.getBaseOrigin();
     const created = await this.prisma.$transaction((tx) =>
       createAdminInvitationGraph(tx, this.credentialService, input),
     );
@@ -802,9 +804,7 @@ export class AdminMutationService {
     return {
       invitation: detail.invitation,
       publicTokenVersion: created.publicTokenVersion,
-      publicUrl: this.publicBaseUrlService.buildInvitationUrl(
-        created.publicCredential,
-      ),
+      publicUrl: `${publicOrigin}/i/${created.publicCredential}`,
     };
   }
 

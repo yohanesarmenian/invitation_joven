@@ -122,12 +122,24 @@ export async function getEvents(): Promise<ReadResult<AdminEventsResponse>> {
           kind: "ready",
           data: {
             events: read.data.events.map(
-              ({ id, slug, name, isActive, displayOrder }) => ({
+              ({
                 id,
                 slug,
                 name,
                 isActive,
                 displayOrder,
+                startsAt,
+                venueName,
+                address,
+              }) => ({
+                id,
+                slug,
+                name,
+                isActive,
+                displayOrder,
+                ...(startsAt !== undefined ? { startsAt } : {}),
+                ...(venueName !== undefined ? { venueName } : {}),
+                ...(address !== undefined ? { address } : {}),
               }),
             ),
           },

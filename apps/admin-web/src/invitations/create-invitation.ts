@@ -5,11 +5,14 @@ import {
 } from "@wedding-invitation/api-client/src/index";
 import { currentSession } from "../auth/browser-client";
 import { errorCode, FORBIDDEN } from "../auth/auth-state";
+import { safeInvitationUrl } from "./create-workflow";
 
 export const UNCERTAIN_CREATE =
   "The creation result could not be confirmed. Check the invitations list before attempting another create; the invitation may already exist.";
 export type CreateResult =
-  | { kind: "created" | "session-ended" | "uncertain" }
+  | { kind: "created"; invitationId: string; publicUrl: string }
+  | { kind: "session-ended" }
+  | { kind: "uncertain" }
   | { kind: "rejected"; message: string }
   | { kind: "csrf"; csrfToken: string }
   | { kind: "reload"; message: string };
@@ -28,15 +31,18 @@ export async function createInvitation(
       { body, headers: { "X-CSRF-Token": csrfToken } },
     );
     if (response.status === 201) {
-      // Validate the acknowledgement we consume; discard the credential-bearing
-      // response immediately. Never render, store or navigate to publicUrl.
+      // Keep only the verified acknowledgement in this mounted OWNER form.
+      // Never persist the bearer URL or copy it into the admin router.
       return data &&
         typeof data.invitation?.id === "string" &&
         /^[a-f\d]{8}(-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(data.invitation.id) &&
         data.publicTokenVersion === 1 &&
-        typeof data.publicUrl === "string" &&
-        data.publicUrl.length > 0
-        ? { kind: "created" }
+        safeInvitationUrl(data.publicUrl)
+        ? {
+            kind: "created",
+            invitationId: data.invitation.id,
+            publicUrl: data.publicUrl,
+          }
         : { kind: "uncertain" };
     }
     if (response.status === 401) return { kind: "session-ended" };

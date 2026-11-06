@@ -337,6 +337,32 @@ describe("admin invitation mutations HTTP integration", () => {
     expect(validCreate.statusCode).toBe(201);
   });
 
+  it("rejects a misconfigured public origin before committing an invitation", async () => {
+    const session = await createOwnerAndSession();
+    const event = await createEvent({ displayOrder: 1 });
+    process.env.PUBLIC_INVITATION_BASE_URL =
+      "https://invite.example.com/unexpected-path";
+    try {
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: ownerHeaders(session),
+          method: "POST",
+          payload: validCreateBody([event.id]),
+          url: "/api/admin/invitations",
+        });
+      expect(response.statusCode).toBe(500);
+      expect(await prisma.invitation.count()).toBe(0);
+      expect(await prisma.invitee.count()).toBe(0);
+      expect(await prisma.invitationEvent.count()).toBe(0);
+      expect(await prisma.event.count()).toBe(1);
+      expect(response.body).not.toContain("unexpected-path");
+    } finally {
+      process.env.PUBLIC_INVITATION_BASE_URL = PUBLIC_ORIGIN;
+    }
+  });
+
   it("creates an active invitation atomically with safe credential response", async () => {
     const session = await createOwnerAndSession();
     const ceremony = await createEvent({ displayOrder: 1, slug: "create-a" });

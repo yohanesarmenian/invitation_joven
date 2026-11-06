@@ -4,6 +4,7 @@ import { auth, failure, json } from "./fixtures";
 import { body, item } from "./invitation-fixtures";
 const NativeRequest = Request,
   fetchMock = vi.fn();
+const publicUrl = "http://localhost:3000/i/" + "A".repeat(43);
 beforeEach(() => {
   vi.stubGlobal(
     "Request",
@@ -22,19 +23,21 @@ beforeEach(() => {
   fetchMock.mockReset();
 });
 afterEach(() => vi.unstubAllGlobals());
-it("sends one exact generated body same-origin with CSRF and discards bearer response", async () => {
+it("sends one exact body with CSRF and returns only the verified in-memory acknowledgement", async () => {
   fetchMock.mockResolvedValue(
     json(
       {
         invitation: item,
         publicTokenVersion: 1,
-        publicUrl: "http://localhost/i/synthetic",
+        publicUrl,
       },
       201,
     ),
   );
   expect(await createInvitation(body, "synthetic-csrf")).toEqual({
     kind: "created",
+    invitationId: item.id,
+    publicUrl,
   });
   expect(fetchMock).toHaveBeenCalledTimes(1);
   const req = fetchMock.mock.calls[0]![0] as Request;

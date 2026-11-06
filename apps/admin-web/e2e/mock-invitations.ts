@@ -70,7 +70,10 @@ function syncRow(email: string, next: Detail) {
       : row;
   created.set(email, (created.get(email) ?? []).map(update));
 }
-function inviteeMutation(invitationId: string, invitee: Detail["invitees"][number]) {
+function inviteeMutation(
+  invitationId: string,
+  invitee: Detail["invitees"][number],
+) {
   return {
     ...invitee,
     invitationId,
@@ -98,20 +101,16 @@ export async function mockInvitations(
   session?: { email: string; csrf: string },
 ): Promise<boolean> {
   const url = new URL(request.url!, "http://localhost");
-  if (
-    !(
-      ["/api/admin/invitations", "/api/admin/events"].includes(url.pathname) ||
-      /^\/api\/admin\/invitations\/[^/]+(\/(archive|public-url|regenerate-token))?$/.test(
-        url.pathname,
-      ) ||
-      /^\/api\/admin\/invitations\/[^/]+\/(invitees|events)$/.test(
-        url.pathname,
-      ) ||
-      /^\/api\/admin\/invitees\/[^/]+$/.test(
-        url.pathname,
-      )
-    )
-  )
+  if (!(
+    ["/api/admin/invitations", "/api/admin/events"].includes(url.pathname) ||
+    /^\/api\/admin\/invitations\/[^/]+(\/(archive|public-url|regenerate-token))?$/.test(
+      url.pathname,
+    ) ||
+    /^\/api\/admin\/invitations\/[^/]+\/(invitees|events)$/.test(
+      url.pathname,
+    ) ||
+    /^\/api\/admin\/invitees\/[^/]+$/.test(url.pathname)
+  ))
     return false;
   const fail = (status: number, code: string) => {
     response.statusCode = status;
@@ -147,7 +146,14 @@ export async function mockInvitations(
     if (url.pathname === "/api/admin/events") {
       response.end(
         JSON.stringify({
-          events: session.email.startsWith("no-events") ? [] : events,
+          events: session.email.startsWith("no-events")
+            ? []
+            : session.email.startsWith("single-inactive")
+              ? [{ ...events[0]!, isActive: false }]
+              : session.email.startsWith("create-") ||
+                  session.email.startsWith("list-slow")
+                ? [events[0]!]
+                : events,
         }),
       );
       return true;
@@ -284,7 +290,7 @@ export async function mockInvitations(
       JSON.stringify({
         invitation: row,
         publicTokenVersion: 1,
-        publicUrl: "http://localhost:3000/i/synthetic-create-only",
+        publicUrl: "http://localhost:3000/i/" + "A".repeat(43),
       }),
     );
     return true;
@@ -436,7 +442,8 @@ export async function mockInvitations(
       return true;
     }
     const body = await readBody<{ expectedTokenVersion: number }>(request);
-    const observed = publicVersions.get(stateKey(session.email, current.id)) ?? 1;
+    const observed =
+      publicVersions.get(stateKey(session.email, current.id)) ?? 1;
     if (body.expectedTokenVersion !== observed) {
       fail(409, "CONFLICT");
       return true;
@@ -462,7 +469,9 @@ export async function mockInvitations(
       fail(400, "VALIDATION_ERROR");
       return true;
     }
-    const updatedAt = new Date(Date.parse(current.updatedAt) + 1000).toISOString();
+    const updatedAt = new Date(
+      Date.parse(current.updatedAt) + 1000,
+    ).toISOString();
     const invitee = {
       id: randomUUID(),
       fullName: body.fullName.trim(),
@@ -487,7 +496,9 @@ export async function mockInvitations(
     const body = await readBody<ReplaceAdminInvitationEventsRequest>(request);
     if (
       !Array.isArray(body.eventIds) ||
-      body.eventIds.some((eventId) => !events.some((event) => event.id === eventId))
+      body.eventIds.some(
+        (eventId) => !events.some((event) => event.id === eventId),
+      )
     ) {
       fail(400, "VALIDATION_ERROR");
       return true;

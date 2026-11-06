@@ -796,6 +796,68 @@ button:disabled {
 .invitation-create {
   max-width: 880px;
 }
+
+/* Keep the one-wedding create flow in the document scroll, including 100% zoom. */
+.invitation-create {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.invitation-create > fieldset {
+  margin: 0;
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+.create-event-summary,
+.create-review,
+.invitation-created {
+  min-width: 0;
+  max-width: 880px;
+  border: 1px solid #dce0e7;
+  border-radius: 0.625rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background: white;
+  overflow-wrap: anywhere;
+}
+.create-event-summary {
+  border-left: 4px solid #204d87;
+}
+.create-event-summary h2,
+.create-review h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+.invitation-create details {
+  min-width: 0;
+}
+.invitation-create summary {
+  cursor: pointer;
+  padding: 0.75rem 0;
+  min-height: 48px;
+  font-weight: 700;
+}
+.invitation-create .invitee-row {
+  min-width: 0;
+  border: 1px solid #dce0e7;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+.create-recovery,
+.invitation-share {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  margin: 1rem 0;
+}
+.invitation-share input {
+  max-width: 100%;
+  min-width: 0;
+}
+.invitation-create [tabindex="-1"] {
+  scroll-margin-top: 1rem;
+}
+.invitation-created > .invitation-actions {
+  margin-top: 1.5rem;
+}
 .invitation-create legend {
   font-size: 1.05rem;
   font-weight: 700;

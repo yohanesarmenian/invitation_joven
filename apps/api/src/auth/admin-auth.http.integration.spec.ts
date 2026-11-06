@@ -481,6 +481,72 @@ describe("admin auth HTTP integration", () => {
     expect(otherSession.statusCode).toBe(401);
   });
 
+  it("rotates the existing OWNER with Argon2id without changing identity or business rows", async () => {
+    const owner = await createOwner();
+    const sessionA = await createSession(owner.id);
+    const sessionB = await createSession(owner.id);
+    const replacement = "synthetic owner replacement password";
+    const before = {
+      events: await prisma.event.count(),
+      invitations: await prisma.invitation.count(),
+      rsvps: await prisma.rSVP.count(),
+    };
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: {
+          cookie: `admin_session=${sessionA.sessionToken}`,
+          origin: ADMIN_ORIGIN,
+          "x-csrf-token": sessionA.csrfToken,
+        },
+        method: "POST",
+        payload: { currentPassword: OWNER_PASSWORD, newPassword: replacement },
+        url: "/api/admin/auth/change-password",
+      });
+    expect(response.statusCode).toBe(204);
+    const updated = await prisma.adminUser.findUniqueOrThrow({
+      where: { id: owner.id },
+    });
+    expect(updated).toMatchObject({
+      id: owner.id,
+      email: owner.email,
+      role: AdminRole.OWNER,
+      status: AdminUserStatus.ACTIVE,
+      mustChangePassword: false,
+    });
+    expect(updated.passwordHash.startsWith("$argon2id$")).toBe(true);
+    expect(
+      await passwordService.verifyPassword(updated.passwordHash, replacement),
+    ).toBe(true);
+    expect(await prisma.adminUser.count()).toBe(1);
+    expect({
+      events: await prisma.event.count(),
+      invitations: await prisma.invitation.count(),
+      rsvps: await prisma.rSVP.count(),
+    }).toEqual(before);
+    const oldLogin = await login(app);
+    const freshLogin = await login(app, {
+      email: OWNER_EMAIL,
+      password: replacement,
+    });
+    expect(oldLogin.statusCode).toBe(401);
+    expect(freshLogin.statusCode).toBe(200);
+    const revoked = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: `admin_session=${sessionB.sessionToken}` },
+        method: "GET",
+        url: "/api/admin/auth/me",
+      });
+    expect(revoked.statusCode).toBe(401);
+    for (const secret of [OWNER_PASSWORD, replacement, updated.passwordHash]) {
+      expect(JSON.stringify(logEntries).includes(secret)).toBe(false);
+      expect(response.body.includes(secret)).toBe(false);
+    }
+  });
+
   it("does not update lastSeenAt before the threshold", async () => {
     await createOwner();
     const loginResponse = await login(app);

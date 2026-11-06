@@ -526,6 +526,16 @@ List screens: the contracted filters and search, pagination controls, and determ
 
 Forms: field-level validation, a pending lock that prevents duplicate submission, server-side validation feedback, an explicit conflict state, and an explicit retry affordance. Unsafe mutations never auto-retry.
 
+### Personal wedding invitation creation — production recovery
+
+This create screen reuses the one existing wedding Event automatically. It does not create, replace, activate, or edit Events. A missing, inactive, invalid, or unexpectedly multiple Event catalog blocks creation with an operator diagnostic. Existing generic API and eligibility-edit contracts are unchanged.
+
+The primary flow is **Invitations → Create invitation → Guest information → Review and create → Copy Link**. Only the first named guest is required from the OWNER. The optional invitation/household name defaults to that guest's name. Additional named guests are explicit; their default category is `ADULT`. Greeting, plus-one, additional children, deadline, and internal notes are grouped as optional settings with their existing validated defaults. Event time/location are shown from the catalog; incomplete metadata is disclosed rather than invented.
+
+A verified `201` renders an immediate success receipt with the authorized public URL, Copy Link, an encoded WhatsApp share link, and Open invitation. The bearer URL remains in mounted component memory and the explicitly authorized share controls; it is not placed in admin router state, browser storage, logs, or analytics. WhatsApp sharing requires a deliberate user action and does not send a message automatically.
+
+The create button is disabled while pending. Unknown outcomes lock the draft across reload via a non-secret session marker and require checking the list before starting a separate invitation. Neither reload nor CSRF refresh automatically replays a POST. This guard does not deduplicate independent tabs or make the API idempotent. Success is shown only after a valid server acknowledgement. Field errors focus the relevant input; document scrolling and wrapping must keep essential controls reachable at 100% browser zoom and 320, 375, 412, and desktop widths.
+
 The session-ended state is the Phase 8B0 generic state; management screens must not distinguish expired, revoked, disabled, or missing sessions.
 
 ### Destructive actions

@@ -860,10 +860,12 @@ Rules:
 
 Response: `201 Created` with the created invitation detail plus a public URL object (`publicUrl` and `publicTokenVersion`).
 
+The configured public invitation origin is validated before the create transaction starts. An invalid `PUBLIC_INVITATION_BASE_URL` must fail without creating an invitation graph. Later transport/read failures can still have an uncertain outcome; this does not make create idempotent.
+
 Create retry doctrine — **create is not idempotent** and no idempotency key is introduced:
 
 - admin-web prevents duplicate pending submissions, never auto-retries after an uncertain network result, and never claims success without a confirmed response.
-- If the outcome is uncertain, admin-web reloads the invitation list and lets the OWNER determine whether the invitation was created before explicitly submitting again.
+- If the outcome is uncertain, admin-web locks the draft and offers a fresh invitation-list read in another tab. A non-secret `invitation-create-pending=pending` session marker preserves this lock across reloads. The marker contains no guest information, credentials, or public URL. After checking the list, the OWNER may explicitly start a separate invitation; the original draft is never replayed automatically. This per-tab guard is not server-side idempotency or cross-tab deduplication.
 - No content-based deduplication is attempted.
 
 ### Get invitation detail
