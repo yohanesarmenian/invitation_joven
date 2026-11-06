@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
-const ADMIN_ORIGIN = process.env.ADMIN_ORIGIN ?? "http://localhost:3001";
+import { runnerOrigins } from "./origins";
+const { admin: ADMIN_ORIGIN } = runnerOrigins();
 let fixture: Awaited<ReturnType<typeof createWorkflowFixture>>;
 test.beforeAll(async () => {
   fixture = await createWorkflowFixture();
@@ -8,12 +9,17 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await fixture?.cleanup();
 });
-async function login(page: Page, email: string, password = fixture.password) {
+async function login(
+  page: Page,
+  email: string,
+  password = fixture.password,
+  landing = email === fixture.owner.email ? "/" : "/checkin",
+) {
   await page.goto("/login");
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).not.toHaveURL(`${ADMIN_ORIGIN}/login`);
+  await expect(page).toHaveURL(new URL(landing, ADMIN_ORIGIN).href);
 }
 async function checkin(page: Page) {
   await page.goto("/checkin");
@@ -337,7 +343,7 @@ test("real OWNER reset and disable revoke staff sessions; first sign-in enforces
     expect((await context.request.get("/api/admin/auth/me")).status()).toBe(
       401,
     );
-    await login(staff, fixture.staff.email, temporary);
+    await login(staff, fixture.staff.email, temporary, "/account/password");
     await expect(staff).toHaveURL(`${ADMIN_ORIGIN}/account/password`);
     await staff.getByLabel("Current password", { exact: true }).fill(temporary);
     await staff

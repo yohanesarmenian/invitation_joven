@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { configureRunnerOrigins } from "./e2e-real/origins";
+
+const origins = configureRunnerOrigins();
 
 // Dedicated ports/output directories preserve the owner's visual preview.
 export default defineConfig({
@@ -15,7 +18,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     ...devices["Desktop Chrome"],
-    baseURL: "http://localhost:3101",
+    baseURL: origins.admin,
     launchOptions: { args: ["--disable-gpu", "--renderer-process-limit=2"] },
     screenshot: "off",
     trace: "off",
@@ -24,32 +27,32 @@ export default defineConfig({
   webServer: [
     {
       command: "pnpm --filter api exec node dist/main.js",
-      url: "http://127.0.0.1:4100/health",
+      url: `${origins.api}/health`,
       reuseExistingServer: false,
       env: {
-        PORT: "4100",
-        ADMIN_ORIGIN: "http://localhost:3101",
-        PUBLIC_INVITATION_BASE_URL: "http://localhost:3100",
+        PORT: new URL(origins.api).port,
+        ADMIN_ORIGIN: origins.admin,
+        PUBLIC_INVITATION_BASE_URL: origins.invitation,
       },
     },
     {
-      command: "pnpm exec next dev --port 3101",
-      url: "http://localhost:3101/login",
+      command: `pnpm exec next dev --port ${new URL(origins.admin).port}`,
+      url: `${origins.admin}/login`,
       reuseExistingServer: false,
       env: {
         RAYON_NUM_THREADS: "2",
         NEXT_QA_DIST_DIR: ".next-journey",
-        ADMIN_API_INTERNAL_BASE_URL: "http://127.0.0.1:4100",
+        ADMIN_API_INTERNAL_BASE_URL: origins.api,
       },
     },
     {
-      command: "pnpm --filter invitation-web exec next dev --port 3100",
-      url: "http://localhost:3100",
+      command: `pnpm --filter invitation-web exec next dev --port ${new URL(origins.invitation).port}`,
+      url: origins.invitation,
       reuseExistingServer: false,
       env: {
         RAYON_NUM_THREADS: "2",
         NEXT_QA_DIST_DIR: ".next-journey",
-        INVITATION_API_BASE_URL: "http://127.0.0.1:4100",
+        INVITATION_API_BASE_URL: origins.api,
       },
     },
   ],

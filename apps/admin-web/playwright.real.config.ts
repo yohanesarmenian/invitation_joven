@@ -1,4 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
+import { configureRunnerOrigins } from "./e2e-real/origins";
+
+const origins = configureRunnerOrigins({
+  admin: "http://localhost:3001",
+  api: "http://127.0.0.1:4000",
+  invitation: "http://localhost:3000",
+});
 export default defineConfig({
   testDir: "./e2e-real",
   testMatch: ["**/checkin.e2e.ts", "**/event-content.e2e.ts"],
@@ -9,7 +16,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     ...devices["Desktop Chrome"],
-    baseURL: "http://localhost:3001",
+    baseURL: origins.admin,
     screenshot: "off",
     trace: "off",
     video: "off",
@@ -17,28 +24,28 @@ export default defineConfig({
   webServer: [
     {
       command: "pnpm --filter api exec node dist/main.js",
-      url: "http://127.0.0.1:4000/health",
+      url: `${origins.api}/health`,
       reuseExistingServer: false,
       stdout: "pipe",
       env: {
-        PORT: "4000",
-        ADMIN_ORIGIN: "http://localhost:3001",
-        PUBLIC_INVITATION_BASE_URL: "http://localhost:3000",
+        PORT: new URL(origins.api).port,
+        ADMIN_ORIGIN: origins.admin,
+        PUBLIC_INVITATION_BASE_URL: origins.invitation,
       },
     },
     {
-      command: "pnpm run dev",
-      url: "http://localhost:3001/login",
+      command: `pnpm exec next dev --port ${new URL(origins.admin).port}`,
+      url: `${origins.admin}/login`,
       reuseExistingServer: false,
       stdout: "pipe",
-      env: { ADMIN_API_INTERNAL_BASE_URL: "http://127.0.0.1:4000" },
+      env: { ADMIN_API_INTERNAL_BASE_URL: origins.api },
     },
     {
-      command: "pnpm --filter invitation-web dev",
-      url: "http://localhost:3000",
+      command: `pnpm --filter invitation-web exec next dev --port ${new URL(origins.invitation).port}`,
+      url: origins.invitation,
       reuseExistingServer: false,
       stdout: "pipe",
-      env: { INVITATION_API_BASE_URL: "http://127.0.0.1:4000" },
+      env: { INVITATION_API_BASE_URL: origins.api },
     },
   ],
 });

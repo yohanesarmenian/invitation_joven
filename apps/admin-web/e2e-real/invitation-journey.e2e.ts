@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
+import { runnerOrigins } from "./origins";
 
-const publicOrigin =
-  process.env.PUBLIC_INVITATION_BASE_URL ?? "http://localhost:3100";
+const origins = runnerOrigins();
+const publicOrigin = origins.invitation;
 let fixture: Awaited<ReturnType<typeof createWorkflowFixture>>;
 test.beforeAll(async () => {
   fixture = await createWorkflowFixture();
@@ -44,7 +45,7 @@ async function staffLogin(page: Page) {
   await page.getByLabel("Email", { exact: true }).fill(fixture.staff.email);
   await page.getByLabel("Password", { exact: true }).fill(fixture.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(/\/checkin$/);
+  await expect(page).toHaveURL(new URL("/checkin", origins.admin).href);
   await page
     .getByLabel("Event", { exact: true })
     .selectOption(fixture.event.id);
