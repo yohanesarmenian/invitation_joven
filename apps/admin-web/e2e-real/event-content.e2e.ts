@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
+import { runnerOrigins } from "./origins";
+const origins = runnerOrigins();
 let fixture: Awaited<ReturnType<typeof createWorkflowFixture>>;
 test.beforeAll(async () => {
   fixture = await createWorkflowFixture();
@@ -14,7 +16,7 @@ async function editor(page: Page) {
   await page.getByLabel("Email", { exact: true }).fill(fixture.owner.email);
   await page.getByLabel("Password", { exact: true }).fill(fixture.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).not.toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(new URL("/", origins.admin).href);
   await page.goto("/event-content");
   await page
     .getByLabel("Event", { exact: true })
@@ -56,11 +58,11 @@ test("real draft/upload/preview/publish/hide survives reload and controls guest 
       .getByRole("status"),
   ).toHaveText("Draft saved. Published content is unchanged.");
   const publicContext = await browser.newContext({
-    baseURL: process.env.PUBLIC_INVITATION_BASE_URL ?? "http://localhost:3000",
+    baseURL: origins.invitation,
   });
   const publicRead = () =>
     publicContext.request.get(
-      `${process.env.ADMIN_API_INTERNAL_BASE_URL ?? "http://127.0.0.1:4000"}/api/public/invitations/${guest.publicCredential}/venue-content`,
+      `${origins.api}/api/public/invitations/${guest.publicCredential}/venue-content`,
     );
   try {
     expect((await (await publicRead()).json()).items).toEqual([]);
