@@ -44,7 +44,7 @@ export default async function InvitationsPage({
             href="/invitations/new"
             prefetch={false}
           >
-            New invitation
+            Create invitation
           </Link>
         </div>
       </header>

@@ -14,14 +14,23 @@ async function login(page: Page, email = "list-owner@example.com") {
 async function form(page: Page, email = "create-owner@example.com") {
   await login(page, email);
   await page.goto("/invitations/new");
-  await expect(page.getByLabel("Display name (required)")).toBeVisible();
+  await expect(
+    page.getByLabel("Invitation / household name (optional)"),
+  ).toBeVisible();
   await page
-    .getByLabel("Display name (required)")
+    .getByLabel("Invitation / household name (optional)")
     .fill("  New sample household  ");
   await page
     .getByLabel("Full name (required)", { exact: true })
     .fill("Sample guest");
-  await page.getByLabel("Reception", { exact: true }).check();
+  await expect(
+    page.getByRole("region", { name: "Wedding event" }),
+  ).toContainText("included automatically");
+  await page
+    .getByText("Greeting, additional guests, children and RSVP deadline", {
+      exact: true,
+    })
+    .click();
 }
 test.beforeEach(async ({ page }) => {
   page.on("pageerror", () => {
@@ -148,11 +157,98 @@ test("no active events blocks creation", async ({ page }) => {
   await login(page, "no-events@example.com");
   await page.goto("/invitations/new");
   await expect(
-    page.getByRole("heading", { name: "No active events available" }),
+    page.getByRole("heading", { name: "Wedding event unavailable" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Create invitation", exact: true }),
   ).toHaveCount(0);
+});
+
+for (const [email, diagnostic] of [
+  ["single-inactive@example.com", "The wedding event is inactive"],
+  ["list-owner@example.com", "More than one wedding event"],
+] as const)
+  test(`existing wedding prerequisite blocks unsafe create: ${email}`, async ({
+    page,
+  }) => {
+    await login(page, email);
+    await page.goto("/invitations/new");
+    await expect(
+      page.getByRole("heading", { name: "Wedding event unavailable" }),
+    ).toBeVisible();
+    await expect(page.getByRole("main")).toContainText(diagnostic);
+    await expect(
+      page.getByRole("button", { name: "Create invitation", exact: true }),
+    ).toHaveCount(0);
+  });
+
+test("unavailable session storage blocks create before any POST", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "invitation-create-pending")
+        throw new DOMException(
+          "Synthetic unavailable storage",
+          "QuotaExceededError",
+        );
+      original.call(this, key, value);
+    };
+  });
+  await form(page);
+  let posts = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/admin/invitations"
+    )
+      posts++;
+  });
+  await page
+    .getByRole("button", { name: "Create invitation", exact: true })
+    .click();
+  await expect(
+    page.getByRole("form", { name: "Create invitation" }).getByRole("alert"),
+  ).toContainText("Browser submission protection is unavailable");
+  await expect(
+    page.getByRole("button", { name: "Create invitation", exact: true }),
+  ).toBeDisabled();
+  expect(posts).toBe(0);
+});
+
+test("invalid optional settings reopen and focus their accessible error without POST", async ({
+  page,
+}) => {
+  await form(page);
+  await page
+    .getByLabel("Maximum additional children", { exact: true })
+    .fill("-1");
+  await page
+    .getByText("Greeting, additional guests, children and RSVP deadline", {
+      exact: true,
+    })
+    .click();
+  let posts = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/admin/invitations"
+    )
+      posts++;
+  });
+  await page
+    .getByRole("button", { name: "Create invitation", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Maximum additional children", { exact: true }),
+  ).toBeFocused();
+  await expect(page.locator("#children-error")).toBeVisible();
+  await expect(page.locator("#children")).toHaveAttribute(
+    "aria-describedby",
+    "children-error",
+  );
+  expect(posts).toBe(0);
 });
 
 test("loading announces list and event reads without fake rows or an incomplete form", async ({
@@ -167,7 +263,7 @@ test("loading announces list and event reads without fake rows or an incomplete 
   await expect(page.getByRole("table").locator("tbody tr")).toHaveCount(25);
   await page.goto("/invitations/new", { waitUntil: "commit" });
   await expect(
-    page.getByText("Loading event options…", { exact: true }),
+    page.getByText("Loading wedding event…", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Create invitation", exact: true }),
@@ -180,19 +276,25 @@ test("create exact body, event order, duplicate names, double-submit and fresh s
   page,
 }) => {
   await form(page, "create-success@example.com");
-  await expect(page.getByLabel("Old event (inactive)")).toBeDisabled();
+  await expect(page.getByLabel("Reception", { exact: true })).toHaveCount(0);
   await page
     .getByLabel("Greeting name", { exact: true })
     .fill("  Dear guests ");
-  await page.getByLabel("Maximum additional children (required)").fill("2");
+  await page
+    .getByLabel("Maximum additional children", { exact: true })
+    .fill("2");
   await page
     .getByLabel("RSVP deadline", { exact: true })
     .fill("2026-12-25T23:59:59");
   await page.getByLabel("Internal notes").fill(" private note ");
   await page.getByLabel("Allow one plus-one guest").check();
-  await page.getByRole("button", { name: "Add invitee", exact: true }).click();
+  await page.getByRole("button", { name: "Add guest", exact: true }).click();
   await expect(page.locator("#invitee-1")).toBeFocused();
   await page.locator("#invitee-1").fill("Sample guest");
+  await page
+    .getByText("Guest options (adult by default)", { exact: true })
+    .nth(1)
+    .click();
   await page.locator("#category-1").selectOption("CHILD");
   let posts = 0;
   let payload: unknown;
@@ -224,7 +326,19 @@ test("create exact body, event order, duplicate names, double-submit and fresh s
   await expect(
     page.getByText("Creating invitation… Please wait."),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/invitations\?created=1$/);
+  await expect(
+    page.getByRole("heading", { name: "Invitation created", exact: true }),
+  ).toBeVisible();
+  const publicUrl = await page
+    .getByLabel("Public invitation link")
+    .inputValue();
+  expect(new URL(publicUrl).pathname).toMatch(/^\/i\/[\w-]{43}$/);
+  const share = await page
+    .getByRole("link", { name: "Share on WhatsApp" })
+    .getAttribute("href");
+  expect(new URL(share!).searchParams.get("text")!.endsWith(publicUrl)).toBe(
+    true,
+  );
   expect(posts).toBe(1);
   expect(secure).toBe(true);
   expect(payload).toEqual({
@@ -240,14 +354,17 @@ test("create exact body, event order, duplicate names, double-submit and fresh s
       { fullName: "Sample guest", category: "CHILD", label: null },
     ],
   });
-  await expect(
-    page.getByRole("rowheader", { name: "New sample household Dear guests" }),
-  ).toHaveCount(1);
-  await expect(page.getByText("Invitation created.")).toBeVisible();
   expect(
     await page.evaluate(() => localStorage.length + sessionStorage.length),
   ).toBe(0);
   await expect(page.locator("body")).not.toContainText("synthetic-create-only");
+  await page
+    .getByRole("link", { name: "Back to invitations", exact: true })
+    .last()
+    .click();
+  await expect(
+    page.getByRole("rowheader", { name: "New sample household Dear guests" }),
+  ).toHaveCount(1);
 });
 test("detail maps safe projections and loads public link only on demand", async ({
   page,
@@ -515,7 +632,7 @@ test("archive confirmation and regeneration lost-response recovery stay explicit
 test("client validation focuses errors without POST, dynamic remove retains rows", async ({
   page,
 }) => {
-  await login(page);
+  await login(page, "create-validation@example.com");
   await page.goto("/invitations/new");
   let posts = 0;
   page.on("request", (r) => {
@@ -525,15 +642,15 @@ test("client validation focuses errors without POST, dynamic remove retains rows
   await page
     .getByRole("button", { name: "Create invitation", exact: true })
     .click();
-  await expect(page.getByLabel("Display name (required)")).toBeFocused();
-  await expect(
-    page.getByText("Select at least one active event."),
-  ).toBeVisible();
+  await expect(page.locator("#invitee-0")).toBeFocused();
+  await expect(page.getByText("Select at least one active event.")).toHaveCount(
+    0,
+  );
   expect(posts).toBe(0);
-  await page.getByRole("button", { name: "Add invitee", exact: true }).click();
+  await page.getByRole("button", { name: "Add guest", exact: true }).click();
   await page.locator("#invitee-1").fill("Keep guest");
   await page
-    .getByRole("button", { name: "Remove invitee 1", exact: true })
+    .getByRole("button", { name: "Remove guest 1", exact: true })
     .click();
   await expect(page.locator("#invitee-0")).toHaveValue("Keep guest");
 });
@@ -560,9 +677,9 @@ for (const [status, code, copy] of [
     await expect(
       page.getByRole("form", { name: "Create invitation" }).getByRole("alert"),
     ).toContainText(copy);
-    await expect(page.getByLabel("Display name (required)")).toHaveValue(
-      "  New sample household  ",
-    );
+    await expect(
+      page.getByLabel("Invitation / household name (optional)"),
+    ).toHaveValue("  New sample household  ");
     await expect(
       page.getByRole("button", { name: "Create invitation", exact: true }),
     ).toBeEnabled();
@@ -598,7 +715,20 @@ for (const mode of ["network", "500", "malformed"] as const)
         ),
       );
     expect(posts).toBe(1);
-    await page.getByRole("link", { name: "Check invitations list" }).click();
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Create invitation", exact: true }),
+    ).toBeDisabled();
+    expect(
+      await page.evaluate(() =>
+        sessionStorage.getItem("invitation-create-pending"),
+      ),
+    ).toBe("pending");
+    expect(posts).toBe(1);
+    await expect(
+      page.getByRole("link", { name: "Check invitations list" }),
+    ).toHaveAttribute("href", "/invitations");
+    await page.goto("/invitations");
     await expect(page.getByRole("table")).toBeVisible();
   });
 test("create 401 redirects; CSRF recovery never replays POST", async ({
@@ -642,21 +772,21 @@ test("create 401 redirects; CSRF recovery never replays POST", async ({
 test("list and dynamic create fit all required widths; keyboard controls work", async ({
   page,
 }) => {
-  await login(page);
+  await login(page, "create-layout@example.com");
   for (const width of [320, 375, 412, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     for (const path of ["/invitations", "/invitations/new"]) {
       await page.goto(path);
       await expect(
         page.getByRole("heading", {
-          name: path.endsWith("new") ? "New invitation" : "Invitations",
+          name: path.endsWith("new") ? "Create invitation" : "Invitations",
           exact: true,
           level: 1,
         }),
       ).toBeVisible();
       if (path.endsWith("new")) {
         await page
-          .getByRole("button", { name: "Add invitee", exact: true })
+          .getByRole("button", { name: "Add guest", exact: true })
           .click();
         await expect(page.locator("#invitee-1")).toBeFocused();
       } else {

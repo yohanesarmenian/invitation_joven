@@ -1,5 +1,11 @@
 "use client";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
 import type {
   AdminEventsResponse,
   AdminInvitationDetailResponse,
@@ -32,6 +38,9 @@ const emptyFields: InviteeFields = {
   category: "ADULT",
   label: "",
 };
+const subscribeToReadiness = () => () => {};
+const clientReady = () => true;
+const serverNotReady = () => false;
 const reloadDetail = (invitationId: string) => `/invitations/${invitationId}`;
 const nullable = (value: string) => {
   const trimmed = value.trim();
@@ -71,9 +80,7 @@ function nextDetail(invitationId: string, query: string) {
 
 function mutationMessage(
   result:
-    | InviteeMutationResult
-    | DeleteInviteeResult
-    | ReplaceInvitationEventsResult,
+    InviteeMutationResult | DeleteInviteeResult | ReplaceInvitationEventsResult,
 ) {
   if (result.kind === "not-found") return "Invitation data was not found.";
   if (result.kind === "validation")
@@ -87,7 +94,10 @@ function eventOptions(
   invitation: Invitation,
 ): EventOption[] {
   const merged = new Map<string, EventOption>();
-  for (const event of [...events, ...invitation.eligibility.map((e) => e.event)])
+  for (const event of [
+    ...events,
+    ...invitation.eligibility.map((e) => e.event),
+  ])
     merged.set(event.id, event);
   return [...merged.values()].sort(
     (a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name),
@@ -126,7 +136,13 @@ export function InviteeEventManagement({
   const [selectedEvents, setSelectedEvents] = useState(
     () => new Set(initialEventIds),
   );
-  const locked = reload || invitation.status !== "ACTIVE";
+  // Server HTML must not offer actions before their event handlers attach.
+  const hydrated = useSyncExternalStore(
+    subscribeToReadiness,
+    clientReady,
+    serverNotReady,
+  );
+  const locked = !hydrated || reload || invitation.status !== "ACTIVE";
 
   function feedback(text: string, requiresReload = false) {
     setMessage(text);
@@ -171,7 +187,9 @@ export function InviteeEventManagement({
     value: InviteeFields[K],
   ) {
     setDialog((current) =>
-      current ? { ...current, fields: { ...current.fields, [key]: value } } : current,
+      current
+        ? { ...current, fields: { ...current.fields, [key]: value } }
+        : current,
     );
   }
   async function submitInvitee(event: FormEvent<HTMLFormElement>) {
@@ -287,7 +305,8 @@ export function InviteeEventManagement({
     "aria-describedby": errors[id] ? `${id}-error` : undefined,
   });
   const sortedInvitees = [...invitation.invitees].sort(
-    (a, b) => a.displayOrder - b.displayOrder || a.fullName.localeCompare(b.fullName),
+    (a, b) =>
+      a.displayOrder - b.displayOrder || a.fullName.localeCompare(b.fullName),
   );
 
   return (
