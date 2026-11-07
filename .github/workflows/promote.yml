@@ -1,4 +1,4 @@
-name: Promote to Coolify
+name: Legacy staging source promotion
 
 on:
   workflow_run:
@@ -9,7 +9,7 @@ on:
     inputs:
       environment:
         type: choice
-        options: [staging, production]
+        options: [staging]
         default: staging
         required: true
       release_sha:

@@ -129,20 +129,13 @@ test("missing release is created exactly once then read authoritatively", async 
     sha,
   });
 });
-test("production update is fast-forward only and cannot overwrite master", async () => {
-  const api = transport([
-    ...prefix(),
-    ref("deploy/production", older),
-    ref("deploy/production"),
-    ref("deploy/production"),
-  ]);
-  assert.equal(
-    (await promote({ ...options, ...api, environment: "production" })).status,
-    "PROMOTED",
+test("legacy production promotion cannot provide an approval or image-verification bypass", async () => {
+  const api = transport([]);
+  await assert.rejects(
+    promote({ ...options, ...api, environment: "production" }),
+    /Invalid promotion/,
   );
-  const write = api.calls.find((call) => call.method === "PATCH");
-  assert.ok(write.url.endsWith("/git/refs/heads/deploy/production"));
-  assert.deepEqual(JSON.parse(write.body), { sha, force: false });
+  assert.equal(api.calls.length, 0);
 });
 test("lost mutation response is reconciled without sending a second write", async () => {
   const api = transport([

@@ -1,7 +1,9 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const targets = { staging: "deploy/staging", production: "deploy/production" };
+// Production uses verified immutable images and the OWNER-approved deployment
+// workflow. This legacy source-ref path must never provide another entrypoint.
+const targets = { staging: "deploy/staging" };
 const shaPattern = /^[a-f0-9]{40}$/;
 
 export async function promote({
