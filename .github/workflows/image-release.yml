@@ -1,10 +1,14 @@
 name: Publish production images
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
     inputs:
       source_sha:
-        description: Full current master SHA (must match this dispatch) with successful master-push CI
+        description: Full current master SHA with successful validate, containers and ready master-push CI
         required: true
         type: string
 
@@ -17,7 +21,12 @@ concurrency:
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/master' && github.event_name == 'workflow_dispatch'
+    if: >-
+      github.ref == 'refs/heads/master' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'master' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -39,12 +48,12 @@ jobs:
         id: authority
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_SHA: ${{ inputs.source_sha }}
+          RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.source_sha }}
         run: node ops/deploy/image-release.mjs verify
 
   publish:
     needs: verify
-    if: github.ref == 'refs/heads/master' && github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/master' && needs.verify.result == 'success'
     environment: image-release
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -138,6 +147,8 @@ jobs:
           ADMIN_DIGEST: ${{ steps.admin.outputs.digest }}
           INVITATION_DIGEST: ${{ steps.invitation.outputs.digest }}
         run: node tooling/ops/deploy/image-release.mjs manifest
+      - name: Verify all immutable registry images and runtime source metadata
+        run: node tooling/ops/deploy/verify-images.mjs release/release.json
       - name: Preserve complete release receipt
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

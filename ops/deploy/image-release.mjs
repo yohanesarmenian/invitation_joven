@@ -14,18 +14,33 @@ export async function verifyRelease({
   workflowSha,
   ref,
   event,
+  triggeringRun,
   fetchImpl = fetch,
 }) {
   if (
     ref !== "refs/heads/master" ||
-    event !== "workflow_dispatch" ||
+    !["workflow_dispatch", "workflow_run"].includes(event) ||
     !token ||
     !repositoryPattern.test(repository ?? "") ||
     !shaPattern.test(sha ?? "") ||
     sha !== workflowSha
   )
     throw Error(
-      "Release requires a manual master workflow and its exact full source SHA.",
+      "Release requires a trusted master workflow and its exact full source SHA.",
+    );
+  if (
+    event === "workflow_run" &&
+    (!Number.isSafeInteger(triggeringRun?.id) ||
+      triggeringRun.head_sha !== sha ||
+      triggeringRun.head_branch !== "master" ||
+      triggeringRun.event !== "push" ||
+      triggeringRun.status !== "completed" ||
+      triggeringRun.conclusion !== "success" ||
+      triggeringRun.path !== ".github/workflows/ci.yml" ||
+      triggeringRun.head_repository?.full_name !== repository)
+  )
+    throw Error(
+      "Automatic publication requires a successful trusted master-push CI event.",
     );
   async function get(path) {
     const response = await fetchImpl(
@@ -47,14 +62,12 @@ export async function verifyRelease({
   if (
     master.ref !== "refs/heads/master" ||
     master.object?.type !== "commit" ||
-    !shaPattern.test(master.object.sha)
+    !shaPattern.test(master.object.sha) ||
+    master.object.sha !== sha
   )
-    throw Error("Master identity is unresolved.");
+    throw Error("Master identity is unresolved or this release is stale.");
   const comparison = await get(`/compare/${sha}...${master.object.sha}`);
-  if (
-    comparison.base_commit?.sha !== sha ||
-    !["ahead", "identical"].includes(comparison.status)
-  )
+  if (comparison.base_commit?.sha !== sha || comparison.status !== "identical")
     throw Error("Source SHA must already be merged into master.");
   const query = new URLSearchParams({
     head_sha: sha,
@@ -72,10 +85,25 @@ export async function verifyRelease({
     run.conclusion !== "success" ||
     run.head_repository?.full_name !== repository ||
     !Number.isSafeInteger(run.id) ||
-    run.id <= 0
+    run.id <= 0 ||
+    (event === "workflow_run" && run.id !== triggeringRun.id)
   )
     throw Error(
       "Latest master-push CI for the exact source SHA must have succeeded.",
+    );
+  const jobs = await get(`/actions/runs/${run.id}/jobs?per_page=100`);
+  if (
+    !["validate", "containers", "ready"].every((name) => {
+      const matches = jobs.jobs?.filter((job) => job.name === name);
+      return (
+        matches?.length === 1 &&
+        matches[0].status === "completed" &&
+        matches[0].conclusion === "success"
+      );
+    })
+  )
+    throw Error(
+      "All real validate, containers and ready CI gates must succeed.",
     );
   return { sha, ciRunId: run.id };
 }
@@ -93,6 +121,7 @@ export function releaseManifest({
     !repositoryPattern.test(repository ?? "") ||
     !shaPattern.test(sha ?? "") ||
     !shaPattern.test(workflowSha ?? "") ||
+    workflowSha !== sha ||
     ![runId, runAttempt, ciRunId].every((value) =>
       /^[1-9][0-9]*$/.test(String(value ?? "")),
     )
@@ -138,6 +167,12 @@ if (
   try {
     const env = process.env;
     if (process.argv[2] === "verify") {
+      const { readFile } = await import("node:fs/promises");
+      const triggeringRun =
+        env.GITHUB_EVENT_NAME === "workflow_run"
+          ? JSON.parse(await readFile(env.GITHUB_EVENT_PATH, "utf8"))
+              .workflow_run
+          : undefined;
       const result = await verifyRelease({
         repository: env.GITHUB_REPOSITORY,
         token: env.GH_TOKEN,
@@ -145,6 +180,7 @@ if (
         workflowSha: env.GITHUB_SHA,
         ref: env.GITHUB_REF,
         event: env.GITHUB_EVENT_NAME,
+        triggeringRun,
       });
       // Only validated identifiers go to outputs, never token or API response bodies.
       const { appendFile } = await import("node:fs/promises");
