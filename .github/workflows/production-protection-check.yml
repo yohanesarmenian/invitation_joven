@@ -1,0 +1,35 @@
+name: Read-only production protection API
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - ops/deploy/release-authority*
+      - ops/deploy/production-protection-check*
+      - .github/workflows/production-protection-check.yml
+
+permissions:
+  contents: read
+
+jobs:
+  protection:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Match production prepare's read-only token permissions. No environment,
+    # Coolify credential, production write endpoint or deployment action.
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+      - name: Check both protection reads with the Actions token before and after registry-like blocking
+        run: node ops/deploy/production-protection-check.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
