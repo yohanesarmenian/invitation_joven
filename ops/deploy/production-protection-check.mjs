@@ -19,6 +19,7 @@ if (process.env.GITHUB_REPOSITORY !== repository || !process.env.GH_TOKEN) {
   let reads = [],
     shapes = [];
   const transport = async (url, init) => {
+    const started = Date.now();
     const parsed = new URL(url);
     const path = parsed.pathname.replace(`/repos/${repository}`, "");
     if (
@@ -44,6 +45,13 @@ if (process.env.GITHUB_REPOSITORY !== repository || !process.env.GH_TOKEN) {
         transportCode: allowed.includes(error.cause?.code)
           ? error.cause.code
           : "OMITTED",
+        errorType: ["TypeError", "TimeoutError", "AbortError"].includes(
+          error.name,
+        )
+          ? error.name
+          : "OMITTED",
+        elapsedMs: Date.now() - started,
+        signalAborted: init.signal.aborted,
       });
       throw Error("Read-only transport failed");
     }
