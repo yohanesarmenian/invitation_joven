@@ -150,6 +150,7 @@ export async function loadPublishedRelease({
   runId,
   token,
   directory,
+  onStage = () => {},
   fetchImpl = fetch,
   extract = (archive, entry) =>
     execFileSync("unzip", ["-p", archive, entry], {
@@ -159,6 +160,7 @@ export async function loadPublishedRelease({
     }),
 }) {
   if (!idPattern.test(String(runId))) throw Error("Invalid publisher run ID.");
+  onStage("RELEASE_AUTHORITY");
   const get = github(token, fetchImpl);
   const run = await get(`/actions/runs/${runId}`);
   if (
@@ -195,6 +197,7 @@ export async function loadPublishedRelease({
     event: "workflow_dispatch",
     fetchImpl,
   });
+  onStage("ARTIFACT_VALIDATION");
   const artifactName = `production-images-${runId}-${run.run_attempt}`;
   const artifacts = await get(
     `/actions/runs/${runId}/artifacts?name=${artifactName}&per_page=100`,
