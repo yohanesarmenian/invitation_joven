@@ -21,21 +21,18 @@ No production secret belongs in a build argument or build environment.
 
 ### Controlled image release
 
-After review/merge, use GitHub Actions **Publish production images**
+The approved automation is documented in [PRODUCTION-AUTOMATION.md](PRODUCTION-AUTOMATION.md): successful exact master-push CI automatically publishes images, then the separate `production` Environment requires OWNER approval before any Coolify write. Complete its one-time activation safeguards first. The legacy promotion workflow is staging-only.
+
+After review/merge and successful `validate`, `containers`, and `ready` jobs, **Publish production images** starts automatically. For a deliberate manual publication, use GitHub Actions **Publish production images**
 (`.github/workflows/image-release.yml`) > Run workflow, select **master**, and
 enter the full 40-character approved `source_sha`. It must match the master SHA
-selected by that dispatch, still be an ancestor of master, and its latest
+selected by that dispatch, still be the current master tip, and its latest
 master-push CI run must be completed/success. Tooling and build source therefore
 come from the same reviewed revision containing this migration gate. The workflow
 does not accept PR code or dispatches from another branch. It never calls
 Coolify, changes Git refs, creates a GitHub Release or deploys a server.
 
-Before enabling releases, create GitHub Environment `image-release`, restrict
-deployment branches to master, require an independent reviewer and disable
-self-approval where supported by the account plan. Protect master and review
-workflow/Dockerfile changes. Environment protection is operator configuration;
-YAML cannot create or prove it. Without plan support, an independently reviewed
-manual dispatch remains necessary; do not claim an enforced second approval.
+Keep GitHub Environment `image-release` restricted to master. Production approval is enforced separately in Environment `production`, with required OWNER review and no administrator bypass. Protect master and review workflow/Dockerfile changes. YAML alone does not configure these rules: the automation validates the required reviewer/branch restrictions and this run's recorded approval before production writes. See the automation runbook for the verified configuration and remaining one-time UI steps.
 
 The verification job has contents:read/actions:read. Only the protected publish
 job receives contents:read/packages:write and uses its short-lived GITHUB_TOKEN.

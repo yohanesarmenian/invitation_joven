@@ -15,7 +15,7 @@ const options = {
   event: "workflow_dispatch",
 };
 function responses({
-  status = "ahead",
+  status = "identical",
   conclusion = "success",
   event = "push",
   headRepository = repository,
@@ -23,7 +23,7 @@ function responses({
   return [
     {
       ref: "refs/heads/master",
-      object: { type: "commit", sha: "b".repeat(40) },
+      object: { type: "commit", sha },
     },
     { base_commit: { sha }, status },
     {
@@ -38,6 +38,13 @@ function responses({
           id: 123,
         },
       ],
+    },
+    {
+      jobs: ["validate", "containers", "ready"].map((name) => ({
+        name,
+        status: "completed",
+        conclusion: "success",
+      })),
     },
   ];
 }
@@ -137,14 +144,24 @@ test("manifest rejects missing or mutable digest references and invalid provenan
     );
   assert.throws(() => releaseManifest({ ...manifestInput, sha: "master" }));
 });
-test("publisher is manual-only, isolated, pinned, least-privilege and never deploys", async () => {
+test("publisher follows trusted successful master CI or manual dispatch, stays pinned and never deploys", async () => {
   const doc = parse(
     await readFile(
       new URL("../../.github/workflows/image-release.yml", import.meta.url),
       "utf8",
     ),
   );
-  assert.deepEqual(Object.keys(doc.on), ["workflow_dispatch"]);
+  assert.deepEqual(Object.keys(doc.on), ["workflow_run", "workflow_dispatch"]);
+  assert.deepEqual(doc.on.workflow_run, {
+    workflows: ["CI"],
+    types: ["completed"],
+    branches: ["master"],
+  });
+  assert.match(doc.jobs.verify.if, /workflow_run\.event == 'push'/);
+  assert.match(
+    doc.jobs.verify.if,
+    /head_repository.full_name == github.repository/,
+  );
   assert.deepEqual(doc.permissions, { contents: "read" });
   assert.equal(doc.jobs.verify.permissions.actions, "read");
   assert.equal(doc.jobs.verify.permissions.packages, undefined);
@@ -157,7 +174,6 @@ test("publisher is manual-only, isolated, pinned, least-privilege and never depl
   assert.equal(doc.concurrency["cancel-in-progress"], false);
   for (const job of Object.values(doc.jobs)) {
     assert.match(job.if, /refs\/heads\/master/);
-    assert.match(job.if, /workflow_dispatch/);
     for (const step of job.steps) {
       if (step.uses) assert.match(step.uses, /@[a-f0-9]{40}$/);
       if (step.uses?.startsWith("actions/checkout"))
@@ -168,6 +184,12 @@ test("publisher is manual-only, isolated, pinned, least-privilege and never depl
       );
     }
   }
+  const names = doc.jobs.publish.steps.map((step) => step.name);
+  assert.ok(
+    names.indexOf(
+      "Verify all immutable registry images and runtime source metadata",
+    ) < names.indexOf("Preserve complete release receipt"),
+  );
   const builds = doc.jobs.publish.steps.filter((step) =>
     step.uses?.startsWith("docker/build-push-action"),
   );
@@ -182,4 +204,71 @@ test("publisher is manual-only, isolated, pinned, least-privilege and never depl
       /PASSWORD|DATABASE_URL|CREDENTIAL_SECRET/,
     );
   }
+});
+
+test("automatic publication binds the trigger to the exact latest successful master-push run", async () => {
+  const trigger = {
+    id: 123,
+    head_sha: sha,
+    head_branch: "master",
+    event: "push",
+    status: "completed",
+    conclusion: "success",
+    path: ".github/workflows/ci.yml",
+    head_repository: { full_name: repository },
+  };
+  assert.equal(
+    (
+      await verifyRelease({
+        ...options,
+        event: "workflow_run",
+        triggeringRun: trigger,
+        fetchImpl: transport(responses()),
+      })
+    ).ciRunId,
+    123,
+  );
+  for (const change of [
+    { event: "pull_request" },
+    { conclusion: "failure" },
+    { status: "in_progress" },
+    { head_sha: "b".repeat(40) },
+    { head_repository: { full_name: "fork/project" } },
+    { path: ".github/workflows/other.yml" },
+  ]) {
+    await assert.rejects(
+      verifyRelease({
+        ...options,
+        event: "workflow_run",
+        triggeringRun: { ...trigger, ...change },
+        fetchImpl: () =>
+          assert.fail("Untrusted trigger must fail before API access"),
+      }),
+    );
+  }
+  await assert.rejects(
+    verifyRelease({
+      ...options,
+      event: "workflow_run",
+      triggeringRun: { ...trigger, id: 122 },
+      fetchImpl: transport(responses()),
+    }),
+  );
+});
+
+test("a successful workflow conclusion cannot substitute for actual validate, containers and ready gates", async () => {
+  for (const name of ["validate", "containers", "ready"]) {
+    const data = responses();
+    data[3].jobs.find((job) => job.name === name).conclusion = "skipped";
+    await assert.rejects(
+      verifyRelease({ ...options, fetchImpl: transport(data) }),
+      /real validate, containers and ready/,
+    );
+  }
+  const stale = responses();
+  stale[0].object.sha = "b".repeat(40);
+  await assert.rejects(
+    verifyRelease({ ...options, fetchImpl: transport(stale) }),
+    /stale/,
+  );
 });
