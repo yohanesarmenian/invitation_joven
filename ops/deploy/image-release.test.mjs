@@ -52,6 +52,7 @@ function transport(data) {
   return async (_url, request) => {
     assert.equal(request.redirect, "error");
     assert.equal(request.method, undefined); // read-only GitHub authority checks
+    assert.equal(request.headers.Connection, "close");
     return { ok: true, json: async () => data.shift() };
   };
 }

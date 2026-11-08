@@ -7,7 +7,7 @@ import { basename, join, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { releaseManifest } from "./image-release.mjs";
+import { releaseManifest, verifyRelease } from "./image-release.mjs";
 import {
   repository,
   owner,
@@ -297,7 +297,12 @@ test("protection reads survive a peer closing an idle socket while registry work
     const server = http.createServer((req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Keep-Alive', 'timeout=60');
-      res.end(JSON.stringify(req.url.endsWith('/deployment-branch-policies') ? policies : environment));
+      let body = req.url.endsWith('/deployment-branch-policies') ? policies : environment;
+      if (req.url.includes('/git/ref/heads/master')) body = {ref:'refs/heads/master',object:{type:'commit',sha:'${sha}'}};
+      if (req.url.includes('/compare/')) body = {base_commit:{sha:'${sha}'},status:'identical'};
+      if (req.url.includes('/actions/workflows/ci.yml/runs')) body = {workflow_runs:[{id:123,head_sha:'${sha}',head_branch:'master',event:'push',status:'completed',conclusion:'success',head_repository:{full_name:'${repository}'}}]};
+      if (req.url.includes('/actions/runs/123/jobs')) body = {jobs:['validate','containers','ready'].map(name=>({name,status:'completed',conclusion:'success'}))};
+      res.end(JSON.stringify(body));
     });
     server.keepAliveTimeout = 25;
     server.keepAliveTimeoutBuffer = 0;
@@ -313,17 +318,29 @@ test("protection reads survive a peer closing an idle socket while registry work
   });
   const [port] = await once(server, "message");
   let reads = 0;
-  const get = github(token, (url, init) => {
+  const transport = (url, init) => {
     reads++;
     return fetch(`http://127.0.0.1:${port}${new URL(url).pathname}`, init);
+  };
+  const get = github(token, transport);
+  await verifyProductionProtection(get);
+  await verifyRelease({
+    repository,
+    token,
+    sha,
+    workflowSha: sha,
+    ref: "refs/heads/master",
+    event: "workflow_dispatch",
+    fetchImpl: transport,
   });
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 120);
   await verifyProductionProtection(get);
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 120);
   await verifyProductionProtection(get);
   assert.equal(
     reads,
-    4,
-    "Each check performs exactly two reads, with no retry",
+    10,
+    "CI authority and protection retain their exact read counts, with no retry",
   );
 });
 
