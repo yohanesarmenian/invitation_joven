@@ -16,6 +16,39 @@ export const imageKeys = {
 export const shaPattern = /^[a-f0-9]{40}$/;
 export const idPattern = /^[1-9][0-9]*$/;
 
+class GitHubReadError extends Error {
+  constructor(reason, httpStatus, transportCode) {
+    super("GitHub read failed; response details omitted.");
+    const knownTransportCodes = [
+      "ECONNRESET",
+      "UND_ERR_SOCKET",
+      "ETIMEDOUT",
+      "UND_ERR_CONNECT_TIMEOUT",
+      "ECONNREFUSED",
+    ];
+    this.diagnostic = Object.freeze({
+      reason,
+      ...(Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599
+        ? { httpStatus }
+        : {}),
+      ...(knownTransportCodes.includes(transportCode) ? { transportCode } : {}),
+    });
+  }
+}
+
+class ProtectionError extends Error {
+  constructor(diagnostic) {
+    super(
+      "Production protection could not be verified; sensitive details omitted.",
+    );
+    this.diagnostic = Object.freeze(diagnostic);
+  }
+}
+
+export function productionProtectionDiagnostic(error) {
+  return error instanceof ProtectionError ? error.diagnostic : undefined;
+}
+
 export function github(token, fetchImpl = fetch) {
   if (!token) throw Error("GitHub read authority is missing.");
   return async (path, { binaryRedirect = false } = {}) => {
@@ -30,18 +63,30 @@ export function github(token, fetchImpl = fetch) {
             Authorization: `Bearer ${token}`,
             Accept: "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
+            // Docker inspection blocks the event loop while GitHub may expire
+            // an idle pooled socket. Do not retain API sockets across that gap.
+            Connection: "close",
           },
           redirect: binaryRedirect ? "manual" : "error",
           signal: AbortSignal.timeout(30_000),
         },
       );
-      if (binaryRedirect && response.status === 302) return response;
-      if (response.ok) return await response.json();
-    } catch {
+    } catch (error) {
       // Never propagate a URL, token, response body or underlying exception.
-      throw Error("GitHub read failed; response details omitted.");
+      throw new GitHubReadError(
+        "API_TRANSPORT_ERROR",
+        undefined,
+        error?.cause?.code,
+      );
     }
-    throw Error("GitHub read was refused; response details omitted.");
+    if (binaryRedirect && response.status === 302) return response;
+    if (!response.ok)
+      throw new GitHubReadError("API_HTTP_ERROR", response.status);
+    try {
+      return await response.json();
+    } catch {
+      throw new GitHubReadError("API_JSON_ERROR");
+    }
   };
 }
 
@@ -59,29 +104,70 @@ export async function assertCurrentSource(get, sha) {
 }
 
 export async function verifyProductionProtection(get, runId) {
-  const environment = await get("/environments/production");
-  const policies = await get(
-    "/environments/production/deployment-branch-policies",
+  const read = async (path, endpoint) => {
+    try {
+      return await get(path);
+    } catch (error) {
+      throw new ProtectionError({
+        endpoint,
+        ...(error instanceof GitHubReadError
+          ? error.diagnostic
+          : { reason: "API_READ_ERROR" }),
+      });
+    }
+  };
+  const environment = await read(
+    "/environments/production",
+    "PRODUCTION_ENVIRONMENT",
   );
-  const reviewers = environment.protection_rules?.find(
-    (rule) => rule.type === "required_reviewers",
+  const policies = await read(
+    "/environments/production/deployment-branch-policies",
+    "DEPLOYMENT_BRANCH_POLICIES",
+  );
+  if (!environment || !Array.isArray(environment.protection_rules))
+    throw new ProtectionError({
+      endpoint: "PRODUCTION_ENVIRONMENT",
+      reason: "MALFORMED_RESPONSE",
+    });
+  if (!policies || !Array.isArray(policies.branch_policies))
+    throw new ProtectionError({
+      endpoint: "DEPLOYMENT_BRANCH_POLICIES",
+      reason: "MALFORMED_RESPONSE",
+    });
+  const reviewers = environment.protection_rules.find(
+    (rule) => rule?.type === "required_reviewers",
   )?.reviewers;
+  let field;
   if (
     environment.name !== "production" ||
-    !Number.isSafeInteger(environment.id) ||
-    reviewers?.length !== 1 ||
-    reviewers[0].type !== "User" ||
-    reviewers[0].reviewer?.id !== owner.id ||
-    reviewers[0].reviewer?.login !== owner.login ||
-    environment.deployment_branch_policy?.protected_branches !== false ||
-    environment.deployment_branch_policy?.custom_branch_policies !== true ||
-    policies.branch_policies?.length !== 1 ||
-    policies.branch_policies[0].name !== "master" ||
-    policies.branch_policies[0].type !== "branch"
+    !Number.isSafeInteger(environment.id)
   )
-    throw Error(
-      "Production OWNER-review and master-only protection is missing.",
-    );
+    field = "ENVIRONMENT_IDENTITY";
+  else if (
+    !Array.isArray(reviewers) ||
+    reviewers.length !== 1 ||
+    reviewers[0]?.type !== "User" ||
+    reviewers[0]?.reviewer?.id !== owner.id ||
+    reviewers[0]?.reviewer?.login !== owner.login
+  )
+    field = "OWNER_REVIEWER";
+  else if (
+    environment.deployment_branch_policy?.protected_branches !== false ||
+    environment.deployment_branch_policy?.custom_branch_policies !== true
+  )
+    field = "BRANCH_POLICY_MODE";
+  else if (
+    policies.branch_policies.length !== 1 ||
+    policies.branch_policies[0]?.name !== "master" ||
+    policies.branch_policies[0]?.type !== "branch"
+  )
+    field = "MASTER_BRANCH_POLICY";
+  if (field)
+    throw new ProtectionError({
+      endpoint: "PROTECTION_POLICY",
+      reason: "POLICY_MISMATCH",
+      field,
+    });
   if (runId !== undefined) {
     if (!idPattern.test(String(runId)))
       throw Error("Invalid deployment run ID.");

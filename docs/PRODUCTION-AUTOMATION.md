@@ -33,6 +33,20 @@ read shows correct environment settings. Use authenticated read-only probes to
 separate transport/permission failures from policy violations; do not dump raw
 responses or infer a cause from elapsed time alone.
 
+Protection failures include a typed, sanitized diagnostic: a fixed endpoint name,
+`API_HTTP_ERROR` with numeric HTTP status, `API_TRANSPORT_ERROR` with an allowlisted
+transport code when available, `API_JSON_ERROR`, `MALFORMED_RESPONSE`, or
+`POLICY_MISMATCH` with a fixed policy-field identifier. Exception text, causes,
+response bodies, credentials and URLs remain omitted.
+
+GitHub API reads use `Connection: close`. Synchronous registry inspection can
+block Node's event loop while the remote peer expires an idle keep-alive socket;
+the next protection request must not reuse that socket. This changes connection
+lifetime only: no retry, longer timeout, permission expansion or skipped check.
+The read-only protection PR workflow tests the same Actions/Contents/Packages
+read token model before and after a controlled registry-length synchronous gap.
+It has no production environment binding, Coolify credential or write operation.
+
 Do not rerun a failed production workflow: attempt 2 is forbidden. After merging
 a code correction, require fresh successful master-push CI and a successful
 publisher for that new master SHA before a fresh production run. Keep the native

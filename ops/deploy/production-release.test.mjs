@@ -6,6 +6,7 @@ import { basename, join, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { execute } from "./production-release.mjs";
+import { github, verifyProductionProtection } from "./release-authority.mjs";
 
 const repository = "yohanesarmenian/invitation_joven";
 const sensitive = "https://private.invalid/?credential=synthetic-secret";
@@ -204,6 +205,32 @@ test("failed summary I/O preserves a sanitized failure code and never authorizes
   assert.doesNotMatch(
     JSON.stringify(f.diagnostics),
     /synthetic-secret|private\.invalid/,
+  );
+  await assert.rejects(readFile(f.env.GITHUB_OUTPUT), { code: "ENOENT" });
+});
+
+test("prepare publishes only the typed protection endpoint/status and retains a failing result", async (t) => {
+  const f = await fixture(t);
+  f.dependencies.verifyProtection = () =>
+    verifyProductionProtection(
+      github(
+        "synthetic-secret",
+        async () => new Response(sensitive, { status: 403 }),
+      ),
+    );
+  await assert.rejects(execute("prepare", f.env, f.dependencies), {
+    code: "PRODUCTION_PROTECTION_FAILED",
+  });
+  assert.deepEqual(f.diagnostics.at(-1).protection, {
+    endpoint: "PRODUCTION_ENVIRONMENT",
+    reason: "API_HTTP_ERROR",
+    httpStatus: 403,
+  });
+  const summary = await readFile(f.env.GITHUB_STEP_SUMMARY, "utf8");
+  assert.match(summary, /API_HTTP_ERROR/);
+  assert.doesNotMatch(
+    summary + JSON.stringify(f.diagnostics),
+    /private\.invalid|synthetic-secret/,
   );
   await assert.rejects(readFile(f.env.GITHUB_OUTPUT), { code: "ENOENT" });
 });
