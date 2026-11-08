@@ -14,6 +14,30 @@ Normal delivery is now **merge to master → CI succeeds → three GHCR images p
 
 Repository administrators can change workflows, secrets and protection rules. The workflow does not claim to constrain a malicious repository administrator or a human using Coolify directly. Keep workflow changes reviewed, keep the Coolify token environment-scoped, disable native admin bypass, and coordinate other production writers. There is no automatic approval API call.
 
+## Read-only prepare diagnostics
+
+Preparation emits JSON with fixed local stage identifiers and `STARTED`,
+`SUCCEEDED`, or `FAILED` status. A failure also records its code in the Actions
+summary, without the underlying exception, URL, credentials or API body:
+
+- `WORKFLOW_IDENTITY_FAILED`: trusted workflow context or publisher trigger.
+- `RELEASE_AUTHORITY_FAILED`: publisher identity, current master or successful CI.
+- `ARTIFACT_VALIDATION_FAILED`: artifact identity/download, ZIP digest, entries or manifest.
+- `REGISTRY_VERIFICATION_FAILED`: immutable registry images and runtime metadata.
+- `PRODUCTION_PROTECTION_FAILED`: GitHub protection reads or OWNER/master policy.
+- `PREPARE_OUTPUT_FAILED`: writing the verified preparation outputs/summary.
+
+A stage code identifies the failed validation, not necessarily its underlying
+cause. An unavailable GitHub read must still fail closed even when an independent
+read shows correct environment settings. Use authenticated read-only probes to
+separate transport/permission failures from policy violations; do not dump raw
+responses or infer a cause from elapsed time alone.
+
+Do not rerun a failed production workflow: attempt 2 is forbidden. After merging
+a code correction, require fresh successful master-push CI and a successful
+publisher for that new master SHA before a fresh production run. Keep the native
+OWNER approval gate. A local read-only replay is not hosted CI or deployment proof.
+
 ## One-time setup — current status and exact steps
 
 On 7 November 2026, live read-only UI inspection verified Coolify **v4.6.0**, resource `i1ny5d0qigqbvbybbabmzo7l`, VPS `vps.heyjo.my.id`, managed Compose `/compose.production.yaml`, and preserved repository mode. **Deploy on push (webhooks) was still enabled. No live settings were changed.** API tokens were not available to the development session; authenticated live API reads/writes and a real rollout have not been tested. The adapter is based on the installed version's official source and tested with isolated API fixtures. The first live plan rechecks version, schema and settings before permitting writes.

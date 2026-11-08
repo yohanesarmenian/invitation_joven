@@ -340,6 +340,7 @@ test("artifact download verifies exact trusted publisher, CI jobs, archive SHA a
   };
   const extract = (_path, entry) =>
     entry === "release.json" ? content : checksum(content);
+  const stages = [];
   assert.deepEqual(
     (
       await loadPublishedRelease({
@@ -348,15 +349,37 @@ test("artifact download verifies exact trusted publisher, CI jobs, archive SHA a
         directory,
         fetchImpl,
         extract,
+        onStage: (stage) => stages.push(stage),
       })
     ).manifest,
     manifest,
   );
-  responses["/actions/runs/456"].conclusion = "failure";
+  assert.deepEqual(stages, ["RELEASE_AUTHORITY", "ARTIFACT_VALIDATION"]);
+  const artifact =
+    responses[
+      "/actions/runs/456/artifacts?name=production-images-456-1&per_page=100"
+    ].artifacts[0];
+  const verifiedDigest = artifact.digest;
+  artifact.digest = digest("f");
   await assert.rejects(
     loadPublishedRelease({ runId: 456, token, directory, fetchImpl, extract }),
+    /archive digest does not match/,
+  );
+  artifact.digest = verifiedDigest;
+  stages.length = 0;
+  responses["/actions/runs/456"].conclusion = "failure";
+  await assert.rejects(
+    loadPublishedRelease({
+      runId: 456,
+      token,
+      directory,
+      fetchImpl,
+      extract,
+      onStage: (stage) => stages.push(stage),
+    }),
     /successful trusted/,
   );
+  assert.deepEqual(stages, ["RELEASE_AUTHORITY"]);
 });
 
 test("workflow chain keeps all production writes behind OWNER environment, lock and verified read-only preparation", async () => {

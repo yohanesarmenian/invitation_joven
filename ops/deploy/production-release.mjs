@@ -19,7 +19,62 @@ import {
   DeploymentError,
 } from "./coolify-production.mjs";
 
-export async function execute(action, env = process.env) {
+const prepareStages = [
+  "WORKFLOW_IDENTITY",
+  "RELEASE_AUTHORITY",
+  "ARTIFACT_VALIDATION",
+  "REGISTRY_VERIFICATION",
+  "PRODUCTION_PROTECTION",
+  "PREPARE_OUTPUT",
+];
+
+export async function execute(action, env = process.env, dependencies = {}) {
+  if (action !== "prepare") return executeRelease(action, env, dependencies);
+  const report =
+    dependencies.report ?? ((entry) => console.info(JSON.stringify(entry)));
+  let stage;
+  const onStage = (next) => {
+    if (!prepareStages.includes(next)) throw Error("Invalid diagnostic stage.");
+    if (stage) report({ stage, status: "SUCCEEDED" });
+    stage = next;
+    report({ stage, status: "STARTED" });
+  };
+  onStage("WORKFLOW_IDENTITY");
+  try {
+    const result = await executeRelease(action, env, {
+      ...dependencies,
+      onStage,
+    });
+    report({ stage, status: "SUCCEEDED" });
+    return result;
+  } catch {
+    // Only fixed local identifiers may reach logs/summary. Never forward a
+    // provider/command exception, its cause, headers, response body or URL.
+    const code = `${stage}_FAILED`;
+    report({ stage, status: "FAILED", code });
+    if (env.GITHUB_STEP_SUMMARY)
+      await appendFile(
+        env.GITHUB_STEP_SUMMARY,
+        `\n## Production preparation blocked\n\nCode: \`${code}\`. Sensitive details omitted. No production deployment was authorized.\n`,
+      ).catch(() => {
+        // Keep the same fail-closed result and console code if summary I/O fails.
+      });
+    throw Object.assign(Error(`Production preparation blocked: ${code}.`), {
+      code,
+    });
+  }
+}
+
+async function executeRelease(
+  action,
+  env,
+  {
+    onStage = () => {},
+    loadRelease = loadPublishedRelease,
+    verifyRegistry = verifyImages,
+    verifyProtection = verifyProductionProtection,
+  } = {},
+) {
   if (
     !["prepare", "plan", "deploy"].includes(action) ||
     env.GITHUB_REPOSITORY !== repository ||
@@ -51,17 +106,21 @@ export async function execute(action, env = process.env) {
   )
     throw Error("Untrusted publisher trigger.");
   const directory = resolve("production-release");
-  const { manifest, artifactDigest } = await loadPublishedRelease({
+  const { manifest, artifactDigest } = await loadRelease({
     runId: env.RELEASE_RUN_ID,
     token: env.GH_TOKEN,
     directory,
+    onStage,
   });
-  await verifyImages(manifest);
-  await verifyProductionProtection(
+  onStage("REGISTRY_VERIFICATION");
+  await verifyRegistry(manifest);
+  onStage("PRODUCTION_PROTECTION");
+  await verifyProtection(
     get,
     action === "prepare" ? undefined : env.GITHUB_RUN_ID,
   );
   if (action === "prepare") {
+    onStage("PREPARE_OUTPUT");
     await appendFile(
       env.GITHUB_OUTPUT,
       `source_sha=${manifest.sourceSha}\nrelease_run_id=${manifest.workflowRunId}\n`,
