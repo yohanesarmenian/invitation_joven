@@ -5,7 +5,9 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import { parse } from "yaml";
-import { releaseManifest } from "./image-release.mjs";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { releaseManifest, verifyRelease } from "./image-release.mjs";
 import {
   repository,
   owner,
@@ -13,6 +15,7 @@ import {
   github,
   assertCurrentSource,
   verifyProductionProtection,
+  productionProtectionDiagnostic,
   validateManifest,
   loadPublishedRelease,
 } from "./release-authority.mjs";
@@ -177,6 +180,168 @@ test("stale SHA and unavailable GitHub authority fail closed without credential 
         !error.message.includes(token) &&
         !error.message.includes("private.example"),
     );
+});
+
+test("protection distinguishes HTTP, transport and JSON read failures without leaking provider content", async () => {
+  const secret = "https://private.invalid/?token=synthetic-secret";
+  for (const endpoint of [
+    "PRODUCTION_ENVIRONMENT",
+    "DEPLOYMENT_BRANCH_POLICIES",
+  ]) {
+    for (const failure of ["HTTP", "TRANSPORT", "JSON"]) {
+      const get = github(token, async (url) => {
+        if (
+          endpoint === "DEPLOYMENT_BRANCH_POLICIES" &&
+          !url.endsWith("/deployment-branch-policies")
+        )
+          return new Response(JSON.stringify(environment));
+        if (failure === "HTTP") return new Response(secret, { status: 403 });
+        if (failure === "TRANSPORT")
+          throw Error(secret, { cause: { code: "ECONNRESET" } });
+        return new Response(secret, { status: 200 });
+      });
+      await assert.rejects(verifyProductionProtection(get), (error) => {
+        const diagnostic = productionProtectionDiagnostic(error);
+        assert.equal(diagnostic.endpoint, endpoint);
+        assert.equal(diagnostic.reason, `API_${failure}_ERROR`);
+        if (failure === "HTTP") assert.equal(diagnostic.httpStatus, 403);
+        if (failure === "TRANSPORT")
+          assert.equal(diagnostic.transportCode, "ECONNRESET");
+        assert.equal(error.cause, undefined);
+        assert.doesNotMatch(
+          JSON.stringify(diagnostic) + error.stack,
+          /private\.invalid|synthetic-secret/,
+        );
+        return true;
+      });
+    }
+  }
+  assert.equal(
+    productionProtectionDiagnostic(
+      Object.assign(Error(secret), { diagnostic: { reason: secret } }),
+    ),
+    undefined,
+  );
+});
+
+test("malformed protection responses and policy fields reject with distinct safe diagnostics", async () => {
+  const cases = [
+    [{ "/environments/production": null }, "MALFORMED_RESPONSE", undefined],
+    [
+      { "/environments/production": { ...environment, protection_rules: {} } },
+      "MALFORMED_RESPONSE",
+      undefined,
+    ],
+    [
+      {
+        "/environments/production/deployment-branch-policies": {
+          branch_policies: {},
+        },
+      },
+      "MALFORMED_RESPONSE",
+      undefined,
+    ],
+    [
+      { "/environments/production": { ...environment, name: "other" } },
+      "POLICY_MISMATCH",
+      "ENVIRONMENT_IDENTITY",
+    ],
+    [
+      { "/environments/production": { ...environment, protection_rules: [] } },
+      "POLICY_MISMATCH",
+      "OWNER_REVIEWER",
+    ],
+    [
+      {
+        "/environments/production": {
+          ...environment,
+          deployment_branch_policy: { protected_branches: true },
+        },
+      },
+      "POLICY_MISMATCH",
+      "BRANCH_POLICY_MODE",
+    ],
+    [
+      {
+        "/environments/production/deployment-branch-policies": {
+          branch_policies: [{ name: "master", type: "tag" }],
+        },
+      },
+      "POLICY_MISMATCH",
+      "MASTER_BRANCH_POLICY",
+    ],
+  ];
+  for (const [changes, reason, field] of cases)
+    await assert.rejects(
+      verifyProductionProtection(protectionGet(changes)),
+      (error) => {
+        assert.equal(productionProtectionDiagnostic(error).reason, reason);
+        assert.equal(productionProtectionDiagnostic(error).field, field);
+        return true;
+      },
+    );
+});
+
+test("protection reads survive a peer closing an idle socket while registry work blocks the event loop", async (t) => {
+  // A separate peer can expire its socket while this process is blocked, just
+  // like GitHub during synchronous Docker work. No external network or secret.
+  const server = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+    import http from 'node:http';
+    const environment = ${JSON.stringify(environment)};
+    const policies = ${JSON.stringify(policies)};
+    const server = http.createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Keep-Alive', 'timeout=60');
+      let body = req.url.endsWith('/deployment-branch-policies') ? policies : environment;
+      if (req.url.includes('/git/ref/heads/master')) body = {ref:'refs/heads/master',object:{type:'commit',sha:'${sha}'}};
+      if (req.url.includes('/compare/')) body = {base_commit:{sha:'${sha}'},status:'identical'};
+      if (req.url.includes('/actions/workflows/ci.yml/runs')) body = {workflow_runs:[{id:123,head_sha:'${sha}',head_branch:'master',event:'push',status:'completed',conclusion:'success',head_repository:{full_name:'${repository}'}}]};
+      if (req.url.includes('/actions/runs/123/jobs')) body = {jobs:['validate','containers','ready'].map(name=>({name,status:'completed',conclusion:'success'}))};
+      res.end(JSON.stringify(body));
+    });
+    server.keepAliveTimeout = 25;
+    server.keepAliveTimeoutBuffer = 0;
+    server.listen(0, '127.0.0.1', () => process.send(server.address().port));
+  `,
+    ],
+    { stdio: ["ignore", "ignore", "pipe", "ipc"], windowsHide: true },
+  );
+  t.after(async () => {
+    const closed = once(server, "exit");
+    server.kill();
+    await closed;
+  });
+  const [port] = await once(server, "message");
+  let reads = 0;
+  const transport = (url, init) => {
+    reads++;
+    return fetch(`http://127.0.0.1:${port}${new URL(url).pathname}`, init);
+  };
+  const get = github(token, transport);
+  await verifyProductionProtection(get);
+  await verifyRelease({
+    repository,
+    token,
+    sha,
+    workflowSha: sha,
+    ref: "refs/heads/master",
+    event: "workflow_dispatch",
+    fetchImpl: transport,
+  });
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 120);
+  await verifyProductionProtection(get);
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 120);
+  await verifyProductionProtection(get);
+  assert.equal(
+    reads,
+    10,
+    "CI authority and protection retain their exact read counts, with no retry",
+  );
 });
 
 function imageCommand(changes = {}) {

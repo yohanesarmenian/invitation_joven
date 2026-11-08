@@ -50,6 +50,8 @@ export async function verifyRelease({
           Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28",
+          // Share the no-idle-socket policy with release-authority.mjs.
+          Connection: "close",
         },
         redirect: "error",
         signal: AbortSignal.timeout(30_000),

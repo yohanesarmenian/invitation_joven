@@ -8,6 +8,7 @@ import {
   repository,
   loadPublishedRelease,
   verifyProductionProtection,
+  productionProtectionDiagnostic,
 } from "./release-authority.mjs";
 import { inspectImage, verifyImages } from "./verify-images.mjs";
 import {
@@ -47,15 +48,21 @@ export async function execute(action, env = process.env, dependencies = {}) {
     });
     report({ stage, status: "SUCCEEDED" });
     return result;
-  } catch {
+  } catch (error) {
     // Only fixed local identifiers may reach logs/summary. Never forward a
     // provider/command exception, its cause, headers, response body or URL.
     const code = `${stage}_FAILED`;
-    report({ stage, status: "FAILED", code });
+    const protection = productionProtectionDiagnostic(error);
+    report({
+      stage,
+      status: "FAILED",
+      code,
+      ...(protection ? { protection } : {}),
+    });
     if (env.GITHUB_STEP_SUMMARY)
       await appendFile(
         env.GITHUB_STEP_SUMMARY,
-        `\n## Production preparation blocked\n\nCode: \`${code}\`. Sensitive details omitted. No production deployment was authorized.\n`,
+        `\n## Production preparation blocked\n\nCode: \`${code}\`. Sensitive details omitted. No production deployment was authorized.\n${protection ? `\nProtection diagnostic: \`${JSON.stringify(protection)}\`\n` : ""}`,
       ).catch(() => {
         // Keep the same fail-closed result and console code if summary I/O fails.
       });
