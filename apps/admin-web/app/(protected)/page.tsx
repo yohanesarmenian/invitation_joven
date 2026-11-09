@@ -2,6 +2,7 @@ import { getServerSession } from "../../src/auth/server-session";
 import { Suspense } from "react";
 import { DashboardContent } from "../../components/dashboard-content";
 import { DashboardLoading } from "../../components/dashboard";
+import Link from "next/link";
 
 export default async function DashboardPage() {
   // Next may evaluate pages alongside layouts. Gate this payload too, before
@@ -10,9 +11,18 @@ export default async function DashboardPage() {
   return (
     <>
       <header className="dashboard-heading">
-        <p className="eyebrow">Wedding overview</p>
-        <h1>Dashboard</h1>
-        <p>Overview of invitations and RSVP activity.</p>
+        <div className="dashboard-heading-copy">
+          <p className="eyebrow">Your wedding, at a glance</p>
+          <h1>Dashboard</h1>
+          <p>Every invitation, every response, one beautiful day.</p>
+        </div>
+        <Link
+          className="invitation-primary dashboard-primary"
+          href="/invitations/new"
+          prefetch={false}
+        >
+          Create invitation
+        </Link>
       </header>
       <Suspense fallback={<DashboardLoading />}>
         <DashboardContent />

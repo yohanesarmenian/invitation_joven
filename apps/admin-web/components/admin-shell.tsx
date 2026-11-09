@@ -15,18 +15,28 @@ export function AdminShell({
         Skip to content
       </a>
       <aside className="admin-sidebar" aria-label="Admin workspace">
-        <p className="brand">
-          Wedding Invitation<span>Admin</span>
-        </p>
+        <div className="brand">
+          <p className="brand-wordmark">
+            heyjo<span>.</span>
+          </p>
+          <p className="brand-caption">Wedding workspace</p>
+          <p className="brand-couple">Jo &amp; Venta</p>
+        </div>
         <AdminNavigation />
         <div className="admin-account">
           <p className="identity">
-            <span>OWNER</span> {email}
+            <span>OWNER workspace</span> {email}
           </p>
           <LogoutButton csrfToken={csrfToken} />
         </div>
       </aside>
       <main id="main-content" className="admin-main" tabIndex={-1}>
+        <div className="workspace-context">
+          <span>Jo &amp; Venta / Wedding workspace</span>
+          <span className="workspace-owner">
+            Personal invitations, thoughtfully managed
+          </span>
+        </div>
         {children}
       </main>
     </div>

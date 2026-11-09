@@ -12,11 +12,18 @@ function Metric({ label, value }: { label: string; value: number }) {
 export function Dashboard({ data }: { data: AdminDashboardResponse }) {
   return (
     <div className="dashboard-sections">
-      <p>
-        <Link href="/reports" prefetch={false}>
-          View actual attendance and export reports
+      <section
+        className="dashboard-wedding-context"
+        aria-labelledby="wedding-context-heading"
+      >
+        <div>
+          <h2 id="wedding-context-heading">Your wedding workspace</h2>
+          <p>Personal invitations and guest responses for your day.</p>
+        </div>
+        <Link className="dashboard-text-link" href="/events" prefetch={false}>
+          Review wedding details
         </Link>
-      </p>
+      </section>
       <section
         className="dashboard-section"
         aria-labelledby="invitations-heading"
@@ -37,17 +44,52 @@ export function Dashboard({ data }: { data: AdminDashboardResponse }) {
           />
         </dl>
       </section>
-      <section className="dashboard-section" aria-labelledby="rsvp-heading">
-        <div className="section-heading">
-          <h2 id="rsvp-heading">RSVP status</h2>
-          <p>Responses for active invitations.</p>
-        </div>
-        <dl className="metric-grid rsvp-metrics">
-          <Metric label="Pending" value={data.rsvp.pending} />
-          <Metric label="Accepted" value={data.rsvp.accepted} />
-          <Metric label="Declined" value={data.rsvp.declined} />
-        </dl>
-      </section>
+      <div className="dashboard-columns">
+        <section
+          className="dashboard-section dashboard-rsvp-section"
+          aria-labelledby="rsvp-heading"
+        >
+          <div className="section-heading">
+            <h2 id="rsvp-heading">RSVP responses</h2>
+            <p>Responses for active invitations.</p>
+          </div>
+          <dl className="metric-grid rsvp-metrics">
+            <Metric label="Pending" value={data.rsvp.pending} />
+            <Metric label="Accepted" value={data.rsvp.accepted} />
+            <Metric label="Declined" value={data.rsvp.declined} />
+          </dl>
+        </section>
+        <aside
+          className="dashboard-tasks"
+          aria-labelledby="dashboard-tasks-heading"
+        >
+          <p className="eyebrow">Your next step</p>
+          <h2 id="dashboard-tasks-heading">
+            Make room for the people you love.
+          </h2>
+          <p>
+            Create a personal invitation, check the guest names, then share
+            their link.
+          </p>
+          <ul className="dashboard-task-links">
+            <li>
+              <Link href="/invitations" prefetch={false}>
+                Manage invitations
+              </Link>
+            </li>
+            <li>
+              <Link href="/rsvps" prefetch={false}>
+                RSVP overview
+              </Link>
+            </li>
+            <li>
+              <Link href="/messages" prefetch={false}>
+                Guest messages
+              </Link>
+            </li>
+          </ul>
+        </aside>
+      </div>
       <section
         className="dashboard-section attendance-section"
         aria-labelledby="attendance-heading"
@@ -83,6 +125,37 @@ export function Dashboard({ data }: { data: AdminDashboardResponse }) {
             </p>
           </div>
         )}
+      </section>
+      <section
+        className="dashboard-section dashboard-operations"
+        aria-labelledby="dashboard-operations-heading"
+      >
+        <div className="section-heading">
+          <h2 id="dashboard-operations-heading">Wedding day &amp; access</h2>
+          <p>Check-in, attendance reports and the tools for your team.</p>
+        </div>
+        <ul className="dashboard-task-links">
+          <li>
+            <Link href="/checkin" prefetch={false}>
+              Open check-in
+            </Link>
+          </li>
+          <li>
+            <Link href="/reports" prefetch={false}>
+              View actual attendance and export reports
+            </Link>
+          </li>
+          <li>
+            <Link href="/event-content" prefetch={false}>
+              Event materials
+            </Link>
+          </li>
+          <li>
+            <Link href="/settings/staff" prefetch={false}>
+              Team access
+            </Link>
+          </li>
+        </ul>
       </section>
     </div>
   );
