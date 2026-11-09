@@ -341,7 +341,10 @@ describe("PublicInvitationLongPage", () => {
       /(?:src|srcSet)="[^"]*"/g,
       decodeURIComponent,
     );
-    const gallery = html.slice(html.indexOf('class="gallery-mosaic"'));
+    const gallery = html.slice(
+      html.indexOf('class="gallery-mosaic"'),
+      html.indexOf('class="gallery-scripture"'),
+    );
     const images = (gallery.match(/<img[^>]*>/g) ?? []).filter((image) =>
       /\/assets\/photography\//.test(image),
     );
@@ -353,7 +356,7 @@ describe("PublicInvitationLongPage", () => {
     });
   });
 
-  it("keeps all six real photos local, responsive, and decorative", () => {
+  it("keeps all interior photos local, responsive, lazy and decorative", () => {
     const html = renderInvitation().replace(
       /(?:src|srcSet)="[^"]*"/g,
       decodeURIComponent,
@@ -362,7 +365,7 @@ describe("PublicInvitationLongPage", () => {
       /\/assets\/photography\//.test(image),
     );
 
-    expect(images).toHaveLength(6);
+    expect(images).toHaveLength(7);
 
     for (const image of images) {
       expect(image).toMatch(/\/assets\/photography\/[a-z0-9-]+\.webp/);
@@ -372,6 +375,7 @@ describe("PublicInvitationLongPage", () => {
       expect(image).toContain('alt=""');
       expect(image).not.toContain("http");
       expect(image).toContain('data-nimg="fill"');
+      expect(image).toContain('loading="lazy"');
     }
   });
 

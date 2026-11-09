@@ -85,7 +85,7 @@ describe("invitation cover markup", () => {
     expect(html).not.toContain("/assets/mock/hero.svg");
     expect(html).toContain('data-nimg="fill"');
     expect(html).toContain('alt=""');
-    expect(image).toContain('sizes="(min-width: 900px) 58vw, 100vw"');
+    expect(image).toContain('sizes="100vw"');
     expect(image).toContain('loading="eager"');
     expect(image).toContain('fetchPriority="high"');
   });

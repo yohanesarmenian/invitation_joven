@@ -1,6 +1,18 @@
 # Figma content with a full-viewport invitation
 
-## Current owner revision — 9 November 2026
+## Current interior direction — Phase 3, 9 November 2026
+
+The owner approved Concept B, Romantic Cinematic, for the public invitation interior. This replaces the earlier interior geometry, small family typography and uniform cream composition described in the historical sections below. Admin retains Concept A. The full-width public canvas and centered readable content limits remain authoritative.
+
+The interior uses warm ivory, muted rose and plum-charcoal, with existing Spectral, Luxurious Script and TikTok Sans font roles. A full-bleed photographic hero follows the native navy/champagne envelope. Hero copy occupies the upper image area, with a controlled scrim and crop keeping the faces clear. The static Y & A monograms represent Yohanes & Angelina; Jo & Venta remain informal headings.
+
+The long page alternates a personal editorial greeting, offset arched portraits, a rose wedding-date/countdown field, a ruled event schedule, a warm RSVP area, a staggered photo gallery, an existing quote over approved photography, guest messages and a script-led closing. Family text is at least 17 px at the default root size. Portrait copy follows each photograph instead of being compressed beside it. Event data, API order, eligibility, Asia/Jakarta date/time formatting and all approved personal/family/quote copy are retained.
+
+`romantic-invitation-theme.css` owns the active interior presentation. It replaces the Figma theme import and the accumulated public layout rules in global CSS. `editorial-envelope.css` retains native envelope presentation; hero styles move into the interior theme. The opening state machine, readiness timers, inert content, focus handling, saved motion preference and reduced-motion behavior are retained. Gallery frame instances and controls remain mounted with deferred lazy images. Portraits and the lower quote photograph are lazy. Form logic, credentials, API/server actions and data models retain their existing contracts.
+
+The original Concept B review package informed the composition. Historical fixed Figma coordinates and QA counts below describe earlier implementations. Current Phase 3 evidence is reviewed at 320, 375, 412, 768 and 1280 px with safe synthetic invitations. Local browser tests do not establish production deployment or OWNER visual approval.
+
+## Phase 2 opening baseline — 9 November 2026
 
 The latest instruction supersedes the centered 412 px layout and the strict Figma gallery geometry below. Content, family names, typography and local decorations follow the owner's design. The application fills the browser width with readable inner content limits on desktop. The cream canvas has no navy outer gutters. The envelope occupies one viewport height. Its non-interactive photo hero reflows to keep copy and photography readable.
 

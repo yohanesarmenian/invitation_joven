@@ -7,22 +7,26 @@ const frames = [
   {
     ...weddingMedia.gallery[0],
     variant: "gallery-frame-large",
-    sizes: "(min-width: 1200px) 1152px, calc(100vw - 48px)",
+    sizes:
+      "(min-width: 1248px) 688px, (min-width: 700px) 58vw, calc(100vw - 48px)",
   },
   {
     ...weddingMedia.gallery[1],
     variant: "gallery-frame-small",
-    sizes: "(min-width: 1200px) 564px, calc(50vw - 36px)",
+    sizes:
+      "(min-width: 1248px) 380px, (min-width: 700px) 32vw, calc(50vw - 34px)",
   },
   {
     ...weddingMedia.gallery[2],
     variant: "gallery-frame-medium",
-    sizes: "(min-width: 1200px) 564px, calc(50vw - 36px)",
+    sizes:
+      "(min-width: 1248px) 484px, (min-width: 700px) 40vw, calc(50vw - 34px)",
   },
   {
     ...weddingMedia.gallery[3],
     variant: "gallery-frame-tall",
-    sizes: "(min-width: 1200px) 1152px, calc(100vw - 48px)",
+    sizes:
+      "(min-width: 1248px) 584px, (min-width: 700px) 48vw, calc(100vw - 48px)",
   },
 ] as const;
 export function InvitationGallery() {

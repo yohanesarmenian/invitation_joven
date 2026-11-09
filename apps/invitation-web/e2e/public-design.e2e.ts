@@ -571,7 +571,7 @@ test("responsive layout fills the viewport and keeps labels clear of photos", as
 }) => {
   test.setTimeout(90_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const width of [320, 360, 390, 412, 768, 1024, 1440]) {
+  for (const width of [320, 360, 375, 390, 412, 768, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Open invitation" }).click();
@@ -596,27 +596,27 @@ test("responsive layout fills the viewport and keeps labels clear of photos", as
       const copy = await profile.locator(".couple-copy").boundingBox();
       const title = await profile.locator(".couple-role").boundingBox();
       const name = await profile.locator("h3").boundingBox();
-      // Script labels must remain in the text column, clear of photos/names.
-      expect(
-        role === "bride"
-          ? title!.x >= photo!.x + photo!.width
-          : title!.x + title!.width <= photo!.x,
-      ).toBe(true);
-      expect(title!.y + title!.height).toBeLessThanOrEqual(name!.y);
-      expect(role === "bride" ? photo!.x < copy!.x : photo!.x > copy!.x).toBe(
-        true,
+      // Concept B pairs each arched portrait with readable copy below it.
+      expect(copy!.y).toBeGreaterThanOrEqual(photo!.y + photo!.height + 18);
+      expect(title!.x).toBeGreaterThanOrEqual(copy!.x - 1);
+      expect(title!.x + title!.width).toBeLessThanOrEqual(
+        copy!.x + copy!.width + 1,
       );
-      expect(Math.abs(photo!.y - copy!.y)).toBeLessThan(photo!.height);
+      expect(title!.y + title!.height).toBeLessThanOrEqual(name!.y);
       expect(
         await profile
           .locator("h3")
-          .evaluate((node) => getComputedStyle(node).fontSize),
-      ).toBe(width <= 360 ? "12px" : width >= 700 ? "18px" : "14px");
+          .evaluate((node) => parseFloat(getComputedStyle(node).fontSize)),
+      ).toBeGreaterThanOrEqual(24);
       expect(
         await profile
-          .locator(".couple-role")
-          .evaluate((node) => getComputedStyle(node).fontSize),
-      ).toBe(width <= 360 ? "30px" : width >= 700 ? "42px" : "36px");
+          .locator(".couple-family-names")
+          .evaluate((node) => parseFloat(getComputedStyle(node).fontSize)),
+      ).toBeGreaterThanOrEqual(17);
+      await expect(profile.locator(".couple-media-slot img")).toHaveCSS(
+        "object-fit",
+        "cover",
+      );
     }
   }
   await page.setViewportSize({ width: 320, height: 900 });
@@ -639,6 +639,79 @@ test("responsive layout fills the viewport and keeps labels clear of photos", as
     );
   expect(clipped).toEqual([]);
   await expect(page.locator(".public-rsvp-form")).toBeVisible();
+});
+
+test("cinematic photographs retain both faces across the five review viewports", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // Conservative face regions in the approved, unchanged cover and Pic1 assets.
+  // Bounds are normalized source-image coordinates, before object-fit cropping.
+  const photographs = [
+    {
+      selector: ".invitation-hero",
+      faces: [
+        { left: 0.36, right: 0.49, top: 0.48, bottom: 0.59 },
+        { left: 0.56, right: 0.7, top: 0.51, bottom: 0.63 },
+      ],
+    },
+    {
+      selector: ".quote-section",
+      faces: [
+        { left: 0.34, right: 0.48, top: 0.31, bottom: 0.47 },
+        { left: 0.64, right: 0.78, top: 0.36, bottom: 0.52 },
+      ],
+    },
+  ];
+  for (const width of [320, 375, 412, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(fixturePath);
+    await page.getByRole("button", { name: "Open invitation" }).click();
+    await expectContent(page);
+    for (const photograph of photographs) {
+      const section = page.locator(photograph.selector);
+      await section.scrollIntoViewIfNeeded();
+      const image = section.locator("img").first();
+      await image.evaluate((node: HTMLImageElement) => node.decode());
+      const geometry = await image.evaluate((node: HTMLImageElement) => {
+        const box = node.getBoundingClientRect();
+        const frame = node.closest("header, section")!.getBoundingClientRect();
+        const position = getComputedStyle(node)
+          .objectPosition.split(" ")
+          .map(parseFloat);
+        const scale = Math.max(
+          box.width / node.naturalWidth,
+          box.height / node.naturalHeight,
+        );
+        return {
+          width: node.naturalWidth * scale,
+          height: node.naturalHeight * scale,
+          left:
+            box.left +
+            ((box.width - node.naturalWidth * scale) * position[0]!) / 100,
+          top:
+            box.top +
+            ((box.height - node.naturalHeight * scale) * position[1]!) / 100,
+          frameTop: frame.top,
+          frameBottom: frame.bottom,
+        };
+      });
+      for (const face of photograph.faces) {
+        expect(
+          geometry.left + face.left * geometry.width,
+        ).toBeGreaterThanOrEqual(0);
+        expect(geometry.left + face.right * geometry.width).toBeLessThanOrEqual(
+          width,
+        );
+        expect(
+          geometry.top + face.top * geometry.height,
+        ).toBeGreaterThanOrEqual(geometry.frameTop + 8);
+        expect(
+          geometry.top + face.bottom * geometry.height,
+        ).toBeLessThanOrEqual(geometry.frameBottom - 8);
+      }
+    }
+  }
 });
 
 test("missing reveal observer leaves invitation text, forms and gallery usable", async ({

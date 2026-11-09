@@ -1,0 +1,1392 @@
+/* Concept B owns the interior. Native envelope folds live in editorial-envelope.css. */
+.invitation-opening-flow {
+  --romantic-paper: #fffaf3;
+  --romantic-ink: #493d42;
+  --romantic-muted: #705d64;
+  --romantic-rose: #eadbd5;
+  --romantic-plum: #714c59;
+  --romantic-line: #cdb7b0;
+  --romantic-serif: var(--font-spectral), Georgia, serif;
+  --romantic-script: var(--font-luxurious-script), cursive;
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  color: var(--romantic-ink);
+  background: var(--romantic-paper);
+  font-family: var(--romantic-serif);
+}
+
+.invitation-viewport {
+  min-height: 100dvh;
+  background: #fffaf3;
+}
+
+.invitation-opening-content {
+  outline: none;
+}
+
+.invitation-motion-toggle {
+  position: fixed;
+  z-index: 20;
+  top: 14px;
+  right: 14px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #cdb7b0;
+  border-radius: 999px;
+  background: #fffaf3;
+  color: #493d42;
+  font:
+    12px/1.4 var(--font-tiktok-sans),
+    sans-serif;
+  cursor: pointer;
+}
+
+[data-stage="content"] > .invitation-motion-toggle {
+  position: absolute;
+}
+
+.invitation-opening-flow
+  :is(a, button, input, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--romantic-plum);
+  outline-offset: 4px;
+}
+
+/* Text stays above the subjects. A separate lower scrim protects the footer. */
+.invitation-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: max(840px, 100svh);
+  color: #fffaf3;
+  background: #493d42;
+}
+
+.invitation-hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.invitation-hero-media > img {
+  object-fit: cover;
+  object-position: 50% 38%;
+}
+
+.invitation-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgb(32 31 29 / 72%),
+    rgb(32 31 29 / 62%) 50%,
+    rgb(32 31 29 / 10%) 65%,
+    rgb(32 31 29 / 72%)
+  );
+}
+
+.invitation-hero-copy {
+  display: flex;
+  flex-direction: column;
+  min-height: inherit;
+  padding: 42px clamp(28px, 7vw, 110px) 40px;
+}
+
+.invitation-hero-monogram {
+  align-self: flex-start;
+  font: 32px/1.2 var(--romantic-serif);
+  letter-spacing: -0.06em;
+}
+
+.invitation-hero-monogram > span,
+.invitation-hero-title i {
+  color: #f0d8ba;
+}
+
+.invitation-hero-introduction {
+  padding-block: clamp(64px, 9vh, 100px) 40px;
+  max-width: 620px;
+  text-shadow: 0 2px 16px rgb(0 0 0 / 28%);
+}
+
+.invitation-hero-kicker,
+.invitation-hero-foot,
+.section-kicker {
+  font:
+    12px/1.6 var(--font-tiktok-sans),
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.invitation-hero-kicker {
+  margin: 0 0 20px;
+}
+
+.invitation-hero-title {
+  margin: 0 0 24px;
+  font: 400 clamp(88px, 10vw, 150px)/1.05 var(--romantic-script);
+  letter-spacing: 0;
+}
+
+.invitation-hero-title i {
+  font-weight: 400;
+}
+
+.invitation-hero-message {
+  margin: 0;
+  max-width: 360px;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.invitation-hero-foot {
+  margin: auto 0 0;
+  padding-top: 100px;
+}
+
+.invitation-hero-paper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  padding: 48px 24px 140px;
+  color: #493d42;
+  background: radial-gradient(ellipse at 10% 20%, #fffaf3, #eadbd5);
+  text-transform: uppercase;
+  font:
+    11px/1.6 var(--font-tiktok-sans),
+    sans-serif;
+  letter-spacing: 0.15em;
+}
+
+.invitation-hero-paper-monogram {
+  font: 100px/1.2 var(--romantic-serif);
+  letter-spacing: -0.08em;
+}
+
+.invitation-hero-paper-monogram > i {
+  color: #714c59;
+}
+
+.invitation-hero[data-fallback="true"] {
+  color: #493d42;
+}
+
+.invitation-hero[data-fallback="true"]::after {
+  background: none;
+}
+
+.invitation-hero[data-fallback="true"] .invitation-hero-introduction {
+  text-shadow: none;
+}
+
+.invitation-hero[data-fallback="true"]
+  :is(.invitation-hero-monogram > span, .invitation-hero-title i) {
+  color: #714c59;
+}
+
+.public-invitation-page,
+.public-invitation-surface {
+  width: 100%;
+  margin: 0;
+  background: var(--romantic-paper);
+  color: var(--romantic-ink);
+}
+
+.public-invitation-surface {
+  overflow-x: clip;
+}
+
+.invitation-section {
+  position: relative;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+.invitation-section :is(h1, h2, h3, p, address) {
+  overflow-wrap: anywhere;
+}
+
+.invitation-section h2 {
+  font: 400 clamp(32px, 4vw, 50px)/1.2 var(--romantic-serif);
+  letter-spacing: -0.035em;
+}
+
+.invitation-section p,
+.invitation-section address {
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.invitation-header {
+  max-width: 900px;
+  padding-block: 100px 88px;
+}
+
+.invitation-header .section-kicker {
+  margin: 0 0 16px;
+  color: var(--romantic-plum);
+}
+
+.invitation-header h1 {
+  margin: 0 0 28px;
+  max-width: 640px;
+  font: 400 clamp(42px, 6vw, 72px)/1.15 var(--romantic-serif);
+  letter-spacing: -0.04em;
+}
+
+.invitation-header > p:last-child {
+  max-width: 530px;
+  margin: 0;
+}
+
+.couple-section {
+  max-width: 1040px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 64px 90px;
+  padding-bottom: 140px;
+}
+
+.couple-section .couple-section-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  font: 400 clamp(58px, 7vw, 90px)/1.1 var(--romantic-script);
+  text-align: center;
+}
+
+.couple-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  min-width: 0;
+}
+
+.couple-profile-groom {
+  padding-top: 90px;
+}
+
+.couple-media-slot {
+  position: relative;
+  grid-row: 1;
+  width: 100%;
+  max-width: 350px;
+  aspect-ratio: 2 / 3;
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: 50% 50% 4px 4px / 32% 32% 4px 4px;
+  background: var(--romantic-rose);
+}
+
+.couple-media-slot img {
+  object-fit: cover;
+  object-position: 50% 50%;
+}
+
+.couple-copy {
+  grid-row: 2;
+  max-width: 350px;
+  margin-inline: auto;
+  width: 100%;
+}
+
+.couple-copy .couple-role {
+  margin: 0 0 12px;
+  color: var(--romantic-plum);
+  font: 400 44px/1.15 var(--romantic-script);
+}
+
+.couple-copy h3 {
+  margin: 0 0 22px;
+  font: 400 1.625rem/1.4 var(--romantic-serif);
+}
+
+.couple-nickname {
+  font-size: 0.8em;
+}
+
+.couple-copy .couple-family-label {
+  margin: 0 0 6px;
+  color: var(--romantic-muted);
+  font-size: 0.9375rem;
+}
+
+.couple-copy .couple-family-names {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.8;
+}
+
+/* Full-width color fields retain centered, bounded content. */
+:is(
+  .wedding-date-section,
+  .event-countdown,
+  .rsvp-information-section,
+  .guest-message-section
+)::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  z-index: -1;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: var(--romantic-rose);
+}
+
+.wedding-date-section {
+  isolation: isolate;
+  max-width: 800px;
+  padding-block: 80px 28px;
+  text-align: center;
+}
+
+.wedding-date-section .section-kicker {
+  margin: 0 0 24px;
+  color: var(--romantic-plum);
+}
+
+.wedding-date-day {
+  margin: 0 0 12px;
+  font-style: italic;
+}
+
+.wedding-date-section h2 {
+  margin: 0;
+  font-size: clamp(38px, 6vw, 64px);
+}
+
+.event-countdown {
+  position: relative;
+  isolation: isolate;
+  max-width: 620px;
+  margin-inline: auto;
+  padding: 10px 24px 76px;
+  text-align: center;
+}
+
+.countdown-kicker {
+  margin: 0 0 24px;
+  font-size: 15px;
+}
+
+.countdown-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.countdown-part + .countdown-part {
+  border-left: 1px solid #b69b98;
+}
+
+.countdown-value,
+.countdown-label {
+  display: block;
+}
+
+.countdown-value {
+  font-size: clamp(28px, 5vw, 48px);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown-label {
+  margin-top: 10px;
+  font:
+    11px/1.5 var(--font-tiktok-sans),
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.events-section {
+  max-width: 1040px;
+  padding-block: 110px 60px;
+}
+
+.events-section > h2 {
+  margin: 0 0 54px;
+  max-width: 400px;
+  font: 400 clamp(60px, 8vw, 88px)/1.1 var(--romantic-script);
+}
+
+.event-list {
+  display: grid;
+  gap: 48px;
+}
+
+.event-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 36px;
+  padding-top: 36px;
+  border-top: 1px solid var(--romantic-line);
+}
+
+.event-time-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.event-number {
+  color: var(--romantic-plum);
+  font-size: 14px;
+  letter-spacing: 0.15em;
+}
+
+.event-time-block time {
+  font-size: clamp(30px, 4vw, 42px);
+  line-height: 1;
+}
+
+.event-time-zone {
+  font:
+    11px/1.5 var(--font-tiktok-sans),
+    sans-serif;
+  letter-spacing: 0.15em;
+}
+
+.event-card h3 {
+  margin: 0 0 18px;
+  font: 400 clamp(30px, 4vw, 42px)/1.25 var(--romantic-serif);
+}
+
+.event-detail-block {
+  min-width: 0;
+}
+
+.event-detail-block p {
+  margin: 0 0 8px;
+}
+
+.event-card address {
+  font-style: normal;
+  color: var(--romantic-muted);
+}
+
+.event-actions,
+.venue-content-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.map-link,
+.venue-content-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 1px solid var(--romantic-plum);
+  border-radius: 4px;
+  background: var(--romantic-plum);
+  color: #fffaf3;
+  font:
+    14px/1.5 var(--font-tiktok-sans),
+    sans-serif;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+}
+
+.calendar-button {
+  background: transparent;
+  color: var(--romantic-plum);
+}
+
+.dress-code-section {
+  max-width: 640px;
+  padding-block: 50px 100px;
+  text-align: center;
+}
+
+.dress-code-section h2 {
+  margin: 10px 0 18px;
+}
+
+.figma-dress-palette {
+  display: block;
+  width: min(307px, 100%);
+  margin: 28px auto 0;
+}
+
+.figma-dress-palette img {
+  width: 100%;
+  height: auto;
+}
+
+.rsvp-information-section {
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 28px 40px;
+  max-width: 780px;
+  padding-block: 90px;
+}
+
+.rsvp-information-section::before {
+  background: #f3eae4;
+}
+
+.rsvp-section-copy h2 {
+  margin: 0 0 26px;
+  font-size: 38px;
+}
+
+.rsvp-section-copy p {
+  margin: 0 0 20px;
+}
+
+.deadline-copy {
+  color: var(--romantic-plum);
+  font-weight: 700;
+}
+
+.public-rsvp-form,
+.guest-message-form {
+  min-width: 0;
+  text-align: left;
+  font:
+    16px/1.65 var(--font-tiktok-sans),
+    sans-serif;
+}
+
+.public-rsvp-form {
+  padding: 28px 24px;
+  border: 1px solid #e3d3cb;
+  border-radius: 8px;
+  background: var(--romantic-paper);
+}
+
+.public-rsvp-form :is(.rsvp-fields, .rsvp-group),
+.guest-message-form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.public-rsvp-form .rsvp-fields {
+  display: grid;
+  gap: 26px;
+}
+
+.public-rsvp-form .rsvp-group legend {
+  width: 100%;
+  padding-bottom: 12px;
+  font: 700 19px/1.5 var(--romantic-serif);
+}
+
+.public-rsvp-form .rsvp-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding-block: 10px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.public-rsvp-form input:is([type="radio"], [type="checkbox"]) {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--romantic-plum);
+}
+
+.rsvp-event {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--romantic-line);
+}
+
+.rsvp-count {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  align-items: center;
+  gap: 12px;
+  padding-block: 12px;
+}
+
+.rsvp-count small {
+  display: block;
+}
+
+.public-rsvp-form :is(input[type="number"], textarea),
+.guest-message-form :is(input, textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid #8c6b75;
+  border-radius: 4px;
+  color: var(--romantic-ink);
+  background: #fffdfa;
+  font: inherit;
+  font-size: 16px;
+}
+
+.public-rsvp-form textarea,
+.guest-message-form textarea {
+  resize: vertical;
+}
+
+.rsvp-dietary {
+  display: grid;
+  gap: 10px;
+}
+
+.invitation-section .rsvp-dietary-help,
+.invitation-section .guest-message-limit {
+  color: var(--romantic-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.rsvp-dietary > p:last-child {
+  margin: 0;
+  text-align: right;
+}
+
+.rsvp-submit,
+.rsvp-notice-action,
+.figma-pass-back,
+.guest-message-confirmation button,
+.guest-message-form button,
+.gallery-dialog button {
+  min-height: 48px;
+  max-width: 100%;
+  padding: 12px 20px;
+  border: 1px solid var(--romantic-plum);
+  border-radius: 4px;
+  color: #fffaf3;
+  background: var(--romantic-plum);
+  font:
+    15px/1.5 var(--font-tiktok-sans),
+    sans-serif;
+  cursor: pointer;
+}
+
+.rsvp-submit,
+.guest-message-form button {
+  width: 100%;
+}
+
+.invitation-opening-flow :disabled {
+  cursor: default;
+}
+
+.public-rsvp-form button:disabled,
+.guest-message-form button:disabled {
+  opacity: 0.65;
+}
+
+.rsvp-notice,
+.guest-message-error,
+.guest-message-confirmation,
+.guest-checkin-pass {
+  padding: 18px;
+  border: 1px solid var(--romantic-line);
+  border-radius: 4px;
+  background: #fffdfa;
+  overflow-wrap: anywhere;
+}
+
+.rsvp-notice,
+.guest-checkin-pass {
+  margin-bottom: 24px;
+}
+
+.rsvp-notice h3,
+.guest-message-confirmation h3,
+.guest-checkin-pass h3 {
+  margin: 0 0 10px;
+  font: 700 22px/1.4 var(--romantic-serif);
+}
+
+.rsvp-notice-success {
+  border-top: 3px solid #4e6b55;
+}
+
+.rsvp-notice-error,
+.guest-message-error {
+  border-top: 3px solid #97414b;
+}
+
+.rsvp-notice-conflict {
+  border-top: 3px solid #8a632d;
+}
+
+.rsvp-notice-action {
+  margin-top: 14px;
+}
+
+.guest-checkin-pass {
+  position: relative;
+  isolation: isolate;
+  max-width: 100%;
+  padding: 12px;
+  text-align: center;
+}
+
+.figma-pass-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  min-width: 0;
+  background: #fffdfa;
+}
+
+.figma-pass-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.2;
+}
+
+.figma-pass-top-art {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 210px;
+}
+
+.figma-pass-bottom-art {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 340px;
+  height: 393px;
+}
+
+.figma-pass-leaves {
+  position: absolute;
+  top: 50%;
+  left: 0;
+}
+
+.guest-checkin-pass svg {
+  display: block;
+  width: 240px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  margin: 20px auto;
+}
+
+.checkin-code {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.gallery-section {
+  padding-block: 110px 0;
+}
+
+.gallery-section > h2 {
+  max-width: 1200px;
+  margin: 0 auto 54px;
+  font: 400 clamp(56px, 7vw, 88px)/1.1 var(--romantic-script);
+}
+
+.gallery-mosaic {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 32px;
+  max-width: 1200px;
+  margin-inline: auto;
+  align-items: start;
+}
+
+.gallery-mosaic .gallery-frame {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--romantic-rose);
+  cursor: zoom-in;
+}
+
+.gallery-frame-large {
+  grid-column: 1 / 8;
+  aspect-ratio: 3 / 2;
+}
+
+.gallery-frame-small {
+  grid-column: 9 / 13;
+  aspect-ratio: 2 / 3;
+  margin-top: 90px;
+}
+
+.gallery-frame-medium {
+  grid-column: 1 / 6;
+  aspect-ratio: 2 / 3;
+  margin-top: -40px;
+}
+
+.gallery-frame-tall {
+  grid-column: 7 / 13;
+  aspect-ratio: 2 / 3;
+  margin-top: 80px;
+}
+
+.gallery-frame img {
+  object-fit: cover;
+}
+
+.gallery-scripture {
+  position: relative;
+  max-width: 760px;
+  margin: 70px auto 0;
+  padding: 50px 24px 90px;
+  text-align: center;
+}
+
+.gallery-scripture blockquote {
+  margin: 0;
+}
+
+.gallery-scripture blockquote p {
+  margin: 0 0 18px;
+  font-size: clamp(26px, 4vw, 36px);
+  line-height: 1.5;
+}
+
+.gallery-scripture cite,
+.quote-section cite {
+  font:
+    12px/1.6 var(--font-tiktok-sans),
+    sans-serif;
+  font-style: normal;
+  letter-spacing: 0.1em;
+}
+
+.gallery-dialog {
+  width: min(94vw, 1100px);
+  max-height: 95dvh;
+  padding: 20px;
+  border: 0;
+  border-radius: 6px;
+  background: #fffaf3;
+  color: #493d42;
+}
+
+.gallery-dialog::backdrop {
+  background: rgb(27 26 24 / 88%);
+}
+
+.gallery-dialog-image {
+  position: relative;
+  width: 100%;
+  height: 70dvh;
+  margin-block: 16px;
+}
+
+.gallery-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quote-section {
+  isolation: isolate;
+  display: flex;
+  align-items: flex-end;
+  min-height: 620px;
+  max-width: 900px;
+  padding-block: 100px;
+  color: #fffaf3;
+}
+
+.quote-section .quote-photograph {
+  z-index: -2;
+  width: 100vw !important;
+  max-width: none;
+  left: 50% !important;
+  transform: translateX(-50%);
+  object-fit: cover;
+  object-position: 50% 35%;
+}
+
+.quote-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgb(30 29 27 / 16%), rgb(30 29 27 / 80%));
+}
+
+.quote-section blockquote {
+  max-width: 550px;
+  margin: 0;
+  padding: 0 12px;
+}
+
+.quote-section blockquote p {
+  margin: 0 0 24px;
+  font-size: clamp(32px, 4.5vw, 52px);
+  line-height: 1.25;
+}
+
+.guest-message-section {
+  isolation: isolate;
+  max-width: 720px;
+  padding-block: 90px;
+}
+
+.guest-message-section::before {
+  background: #f3eae4;
+}
+
+.guest-message-section h2 {
+  margin: 0 0 40px;
+  max-width: 540px;
+}
+
+.guest-message-form fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.guest-message-form label {
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+.guest-message-form label span {
+  font-weight: 400;
+}
+
+.guest-message-form button {
+  margin-top: 16px;
+}
+
+.invitation-footer {
+  display: grid;
+  justify-items: center;
+  padding-block: 90px 48px;
+  background: var(--romantic-rose);
+  text-align: center;
+}
+
+.closing-monogram {
+  margin-bottom: 30px;
+  font: 52px/1.2 var(--romantic-serif);
+  letter-spacing: -0.07em;
+}
+
+.closing-monogram > span {
+  color: var(--romantic-plum);
+  font-style: italic;
+}
+
+.invitation-footer .closing-copy {
+  max-width: 800px;
+  margin: 0 0 38px;
+  font: 400 clamp(58px, 9vw, 100px)/1.2 var(--romantic-script);
+}
+
+.invitation-footer p:not(.closing-copy) {
+  margin: 6px 0;
+  font:
+    12px/1.7 var(--font-tiktok-sans),
+    sans-serif;
+}
+
+/* Reuse the approved exported artwork, with section-owned footprints. */
+.invitation-decoration {
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.invitation-decoration img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.decoration-top {
+  position: absolute;
+  top: 20px;
+  right: 12px;
+  width: 120px;
+  opacity: 0.5;
+}
+
+.decoration-bride-bloom {
+  position: absolute;
+  top: 470px;
+  left: 4%;
+  width: 90px;
+  height: 94px;
+  overflow: hidden;
+}
+
+.decoration-bride-bloom img {
+  position: absolute;
+  max-width: none;
+  width: 354.17%;
+  height: 207.32%;
+  left: -253.94%;
+}
+
+.decoration-calendar {
+  width: 50px;
+  margin: 0 auto 22px;
+}
+
+.decoration-groom-leaves {
+  position: absolute;
+  right: 0;
+  top: 12px;
+  width: 100px;
+  opacity: 0.3;
+}
+
+.decoration-rings {
+  position: relative;
+  width: 60px;
+  height: 40px;
+  overflow: hidden;
+  opacity: 0.6;
+}
+
+.decoration-rings img {
+  position: absolute;
+  max-width: none;
+  width: 315.54%;
+  height: 480.85%;
+  left: -16.92%;
+  top: -114.89%;
+}
+
+.decoration-event,
+.decoration-closing {
+  position: relative;
+  width: 60px;
+  height: 29px;
+  overflow: hidden;
+  margin: 18px auto;
+  opacity: 0.45;
+}
+
+.decoration-event img,
+.decoration-closing img {
+  position: absolute;
+  max-width: none;
+  width: 227.49%;
+  height: 483.78%;
+  left: -106.69%;
+  top: -24.32%;
+}
+
+.decoration-event {
+  grid-column: 1 / -1;
+}
+
+.decoration-dress-right {
+  position: absolute;
+  width: 80px;
+  right: 0;
+  bottom: 12px;
+  opacity: 0.45;
+}
+
+.decoration-rsvp-left {
+  position: absolute;
+  top: -25px;
+  left: 0;
+  width: 90px;
+}
+
+.rsvp-decoration-band {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  height: 85px;
+}
+
+.decoration-rsvp-main {
+  width: 100px;
+  opacity: 0.45;
+}
+
+.decoration-rsvp-small-a,
+.decoration-rsvp-small-b {
+  width: 42px;
+  opacity: 0.3;
+}
+
+.decoration-gallery {
+  width: 80px;
+  margin: 0 auto 24px;
+  opacity: 0.6;
+}
+
+.decoration-lower {
+  position: absolute;
+  width: 90px;
+  right: 24px;
+  bottom: 18px;
+  opacity: 0.45;
+}
+
+.venue-information {
+  max-width: 1040px;
+  padding-block: 40px;
+  overflow-wrap: anywhere;
+}
+
+.venue-information h2 {
+  margin: 0 0 32px;
+}
+
+.venue-content-card + .venue-content-card {
+  margin-top: 32px;
+}
+
+.venue-content-card h3 {
+  font-size: 24px;
+}
+
+.venue-content-card ul {
+  padding-left: 22px;
+}
+
+.parking-map {
+  display: block;
+  position: relative;
+  aspect-ratio: 3 / 2;
+  margin-block: 24px;
+}
+
+.parking-map img {
+  object-fit: contain;
+}
+
+.rundown-list {
+  list-style: none;
+  padding: 0;
+}
+
+.rundown-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 110px) minmax(0, 1fr);
+  gap: 20px;
+  padding-block: 20px;
+  border-top: 1px solid var(--romantic-line);
+}
+
+.rundown-list time span,
+.rundown-list time strong {
+  display: block;
+}
+
+.rundown-list h4,
+.rundown-list p {
+  margin: 0 0 6px;
+}
+
+.venue-preview-notice {
+  padding: 24px;
+  background: #fff1b8;
+}
+
+.venue-preview-notice nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+[data-motion="full"]
+  .invitation-reveal-ready:not(.invitation-revealed):not(:focus-within) {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+[data-motion="full"] .invitation-revealed {
+  animation: romantic-section-enter var(--invitation-reveal-duration)
+    var(--invitation-easing) both;
+}
+
+@keyframes romantic-section-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 699px) {
+  .invitation-hero-copy {
+    padding: 34px 28px;
+  }
+
+  .invitation-hero-introduction {
+    padding-block: 70px 30px;
+    text-align: center;
+  }
+
+  .invitation-hero-title {
+    font-size: clamp(78px, 20vw, 116px);
+    line-height: 1;
+  }
+
+  .invitation-hero-title > span {
+    display: block;
+  }
+
+  .invitation-hero-message {
+    margin-inline: auto;
+    font-size: 16px;
+  }
+
+  .invitation-hero-foot {
+    text-align: center;
+  }
+
+  .invitation-header {
+    padding-block: 90px 70px;
+  }
+
+  .couple-section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 56px;
+    padding-bottom: 90px;
+  }
+
+  .couple-profile {
+    width: 86%;
+  }
+
+  .couple-profile-groom {
+    justify-self: end;
+    padding-top: 0;
+  }
+
+  .couple-media-slot {
+    max-width: 280px;
+  }
+
+  .couple-copy {
+    max-width: 280px;
+  }
+
+  .couple-copy h3 {
+    font-size: 1.5rem;
+  }
+
+  .decoration-bride-bloom {
+    top: 430px;
+    left: auto;
+    right: 0;
+    width: 65px;
+  }
+
+  .event-card {
+    grid-template-columns: 80px minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .rsvp-information-section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding-block: 70px 40px;
+  }
+
+  .public-rsvp-form {
+    padding: 24px 18px;
+  }
+
+  .gallery-mosaic {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .gallery-frame-large {
+    grid-column: 1 / -1;
+  }
+
+  .gallery-frame-small {
+    grid-column: 2;
+    margin-top: 20px;
+  }
+
+  .gallery-frame-medium {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 60px;
+  }
+
+  .gallery-frame-tall {
+    grid-column: 1 / -1;
+    margin-top: 12px;
+    aspect-ratio: 2 / 3;
+  }
+
+  .quote-section {
+    min-height: 560px;
+    padding-block: 70px;
+  }
+}
+
+@media (max-width: 360px) {
+  .event-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .event-time-block {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .gallery-dialog {
+    padding: 12px;
+  }
+
+  .gallery-dialog-actions {
+    flex-wrap: wrap;
+  }
+}
+
+[data-motion="reduced"] .invitation-revealed {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invitation-opening-flow:not([data-motion="full"]) .invitation-revealed {
+    animation: none;
+  }
+}

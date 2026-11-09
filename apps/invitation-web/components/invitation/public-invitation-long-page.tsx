@@ -32,7 +32,7 @@ export type PublicInvitationLongPageModel = {
 const BRIDE_PHOTO = weddingMedia.bride;
 const GROOM_PHOTO = weddingMedia.groom;
 const COUPLE_PHOTO_SIZES =
-  "(min-width: 1040px) 210px, (min-width: 700px) 21vw, 42vw";
+  "(min-width: 1040px) 350px, (min-width: 700px) 34vw, 70vw";
 
 const decorativeAssets = {
   corner: {
@@ -188,7 +188,7 @@ function CoupleSection() {
       className="invitation-section couple-section"
       aria-labelledby="couple-title"
     >
-      <h2 id="couple-title" className="visually-hidden">
+      <h2 id="couple-title" className="couple-section-title">
         Bride and Groom
       </h2>
       {/* Family names and titles confirmed by the owner against Figma. */}
@@ -236,7 +236,7 @@ function CoupleProfile({
         alt=""
         fill
         sizes={COUPLE_PHOTO_SIZES}
-        loading="eager"
+        loading="lazy"
       />
     </div>
   );
@@ -350,6 +350,9 @@ function EventSection({
   return (
     <section className="event-card" aria-labelledby={titleId}>
       <div className="event-time-block">
+        <span className="event-number" aria-hidden="true">
+          {String(index + 1).padStart(2, "0")}
+        </span>
         <Decoration
           asset="rings"
           className={
@@ -360,7 +363,10 @@ function EventSection({
           sizes={index === 0 ? "88px" : "68px"}
         />
         {timeLabel ? (
-          <time dateTime={event.startsAt ?? undefined}>{timeLabel}</time>
+          <>
+            <time dateTime={event.startsAt ?? undefined}>{timeLabel}</time>
+            <span className="event-time-zone">WIB</span>
+          </>
         ) : (
           <span aria-hidden="true" />
         )}
@@ -467,14 +473,16 @@ function RsvpInformationSection({
         className="decoration-rsvp-left"
         sizes="(min-width: 412px) 126px, 31vw"
       />
-      <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
-      <p className="figma-rsvp-intro">
-        To help us make proper arrangements with our venue and caterers, we
-        kindly ask that you confirm your attendance.
-      </p>
-      {deadlineLabel ? (
-        <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p>
-      ) : null}
+      <div className="rsvp-section-copy">
+        <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
+        <p className="figma-rsvp-intro">
+          To help us make proper arrangements with our venue and caterers, we
+          kindly ask that you confirm your attendance.
+        </p>
+        {deadlineLabel ? (
+          <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p>
+        ) : null}
+      </div>
       {children}
       <div className="rsvp-decoration-band" aria-hidden="true">
         <Decoration
@@ -529,6 +537,14 @@ function McCandlessQuoteSection() {
       className="invitation-section quote-section"
       data-invitation-reveal
     >
+      <Image
+        className="quote-photograph"
+        src={weddingMedia.gallery[2].src}
+        alt=""
+        fill
+        sizes="100vw"
+        loading="lazy"
+      />
       <blockquote>
         <p>Happiness is only real when shared</p>
         <cite>Christopher McCandless</cite>
@@ -565,6 +581,9 @@ function ClosingSection() {
         className="decoration-closing"
         sizes="78px"
       />
+      <span className="closing-monogram" aria-hidden="true">
+        Y<span>&amp;</span>A
+      </span>
       <p className="closing-copy">See you at the Wedding!</p>
       <p>Handcrafted with love by Angelina &amp; Yohanes</p>
       <p>100% human made, no AI.</p>
