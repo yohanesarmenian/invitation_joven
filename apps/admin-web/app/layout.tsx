@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import "./editorial.css";
+import { editorial, interfaceFont } from "./fonts";
 
 export const metadata: Metadata = {
-  title: "Wedding Invitation Admin",
-  description: "Admin application foundation.",
+  title: "HeyJo — Wedding Workspace",
+  description: "Jo and Venta’s wedding invitation workspace.",
 };
 
 export default function RootLayout({
@@ -14,7 +16,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={`${editorial.variable} ${interfaceFont.variable}`}>
+        {children}
+      </body>
     </html>
   );
 }

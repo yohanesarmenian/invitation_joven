@@ -4,17 +4,70 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 
-const destinations = [
-  { label: "Dashboard", href: "/" },
-  { label: "Invitations", href: "/invitations" },
-  { label: "RSVPs", href: "/rsvps" },
-  { label: "Messages", href: "/messages" },
-  { label: "Check-in", href: "/checkin" },
-  { label: "Staff", href: "/settings/staff" },
-  { label: "Reports", href: "/reports" },
-  { label: "Event materials", href: "/event-content" },
-  { label: "Events", href: "/events" },
+const groups = [
+  {
+    label: "Your guests",
+    items: [
+      {
+        label: "Dashboard",
+        href: "/",
+        icon: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+      },
+      {
+        label: "Invitations",
+        href: "/invitations",
+        icon: "M3 5h18v14H3zM3 5l9 8 9-8",
+      },
+      { label: "RSVPs", href: "/rsvps", icon: "M5 12l4 4L19 6M4 21h16" },
+      {
+        label: "Messages",
+        href: "/messages",
+        icon: "M3 4h18v13H8l-5 4zM7 8h10M7 12h6",
+      },
+    ],
+  },
+  {
+    label: "Wedding day",
+    items: [
+      {
+        label: "Check-in",
+        href: "/checkin",
+        icon: "M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5M7 12l3 3 7-7",
+      },
+      {
+        label: "Reports",
+        href: "/reports",
+        icon: "M4 3v18h17M9 16V9M14 16V5M19 16v-5",
+      },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [
+      {
+        label: "Events",
+        href: "/events",
+        icon: "M4 5h16v16H4zM8 2v6M16 2v6M4 11h16",
+      },
+      {
+        label: "Event materials",
+        href: "/event-content",
+        icon: "M3 4h7l2 3h9v14H3zM8 12h8M8 16h5",
+      },
+      {
+        label: "Staff",
+        href: "/settings/staff",
+        icon: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21v-3a7 7 0 0 1 14 0v3M17 4a4 4 0 0 1 0 7M19 15a6 6 0 0 1 3 6",
+      },
+      {
+        label: "Change password",
+        href: "/account/password",
+        icon: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4M12 14v3",
+      },
+    ],
+  },
 ];
+const destinations = groups.flatMap((group) => group.items);
 
 export function isCurrentSection(pathname: string, href: string) {
   return href === "/"
@@ -58,25 +111,42 @@ export function AdminNavigation() {
           expanded ? "primary-navigation is-open" : "primary-navigation"
         }
       >
-        <ul>
-          {destinations.map((item) => (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                prefetch={false}
-                aria-current={
-                  isCurrentSection(pathname, item.href) ? "page" : undefined
-                }
-                onClick={() => {
-                  setExpanded(false);
-                  trigger.current?.focus();
-                }}
-              >
-                {item.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        {groups.map((group) => (
+          <div className="navigation-group" key={group.label}>
+            <p className="navigation-group-label">{group.label}</p>
+            <ul>
+              {group.items.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    prefetch={false}
+                    aria-current={
+                      isCurrentSection(pathname, item.href) ? "page" : undefined
+                    }
+                    onClick={() => {
+                      setExpanded(false);
+                      trigger.current?.focus();
+                    }}
+                  >
+                    <svg
+                      className="navigation-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d={item.icon} />
+                    </svg>
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </nav>
     </div>
   );

@@ -14,6 +14,7 @@ async function login(page: Page, email = "list-owner@example.com") {
 async function form(page: Page, email = "create-owner@example.com") {
   await login(page, email);
   await page.goto("/invitations/new");
+  await page.getByText("Household name (optional)", { exact: true }).click();
   await expect(
     page.getByLabel("Invitation / household name (optional)"),
   ).toBeVisible();

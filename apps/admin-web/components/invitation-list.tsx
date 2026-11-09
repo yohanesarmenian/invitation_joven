@@ -102,8 +102,8 @@ export function InvitationList({
       ) : (
         <>
           <p className="hint" id="table-help">
-            Dates are shown in Asia/Jakarta (UTC+07:00). On smaller screens,
-            scroll the table horizontally.
+            Dates are shown in Asia/Jakarta (UTC+07:00). Select an invitation to
+            manage its guest details, sharing and settings.
           </p>
           <div
             className="invitation-table-scroll"
@@ -112,27 +112,58 @@ export function InvitationList({
             aria-describedby="table-help"
             tabIndex={0}
           >
-            <table className="invitation-table">
+            <table
+              className="invitation-table invitation-table--responsive"
+              role="table"
+            >
               <caption className="sr-only">
                 Invitations with status, RSVP and opening activity
               </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Invitation</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">RSVP</th>
-                  <th scope="col">Invitees</th>
-                  <th scope="col">Opens</th>
-                  <th scope="col">Last opened</th>
-                  <th scope="col">RSVP deadline</th>
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">
+                    Invitation
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Status
+                  </th>
+                  <th scope="col" role="columnheader">
+                    RSVP
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Invitees
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Opens
+                  </th>
+                  <th scope="col" role="columnheader">
+                    Last opened
+                  </th>
+                  <th scope="col" role="columnheader">
+                    RSVP deadline
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {items.map((item) => (
-                  <tr key={item.id}>
-                    <th scope="row">
-                      <Link href={`/invitations/${item.id}`} prefetch={false}>
-                        {item.displayName}
+                  <tr key={item.id} className="invitation-row" role="row">
+                    <th
+                      scope="row"
+                      role="rowheader"
+                      className="invitation-identity"
+                    >
+                      <Link
+                        className="invitation-identity-link"
+                        href={`/invitations/${item.id}`}
+                        prefetch={false}
+                      >
+                        <span className="invitation-name">
+                          {item.displayName}
+                        </span>
+                        {/* One link keeps the existing guest-name selector and tab stop. */}
+                        <span className="invitation-manage" aria-hidden="true">
+                          Manage invitation <span>↗</span>
+                        </span>
                       </Link>
                       {item.greetingName && (
                         <span className="greeting-name">
@@ -140,24 +171,57 @@ export function InvitationList({
                         </span>
                       )}
                     </th>
-                    <td>
-                      <span className="status-label">
+                    <td
+                      role="cell"
+                      className="invitation-status-cell"
+                      data-label="Status"
+                    >
+                      <span className="status-label" data-status={item.status}>
                         {item.status === "ACTIVE" ? "Active" : "Archived"}
                       </span>
                     </td>
-                    <td>
-                      {item.rsvpStatus === "PENDING"
-                        ? "Pending"
-                        : item.rsvpStatus === "ACCEPTED"
-                          ? "Accepted"
-                          : "Declined"}
+                    <td
+                      role="cell"
+                      className="invitation-rsvp-cell"
+                      data-label="RSVP"
+                    >
+                      <span
+                        className="invitation-rsvp"
+                        data-rsvp-status={item.rsvpStatus}
+                      >
+                        {item.rsvpStatus === "PENDING"
+                          ? "Pending"
+                          : item.rsvpStatus === "ACCEPTED"
+                            ? "Accepted"
+                            : "Declined"}
+                      </span>
                     </td>
-                    <td>{item.inviteeCount}</td>
-                    <td>{item.openCount}</td>
-                    <td>
+                    <td
+                      role="cell"
+                      className="invitation-invitees-cell"
+                      data-label="Invitees"
+                    >
+                      {item.inviteeCount}
+                    </td>
+                    <td
+                      role="cell"
+                      className="invitation-opens-cell"
+                      data-label="Opens"
+                    >
+                      {item.openCount}
+                    </td>
+                    <td
+                      role="cell"
+                      className="invitation-opened-cell"
+                      data-label="Last opened"
+                    >
                       <DateValue value={item.lastOpenedAt} empty="Not opened" />
                     </td>
-                    <td>
+                    <td
+                      role="cell"
+                      className="invitation-deadline-cell"
+                      data-label="RSVP deadline"
+                    >
                       <DateValue
                         value={item.rsvpDeadlineAt}
                         empty="No deadline"

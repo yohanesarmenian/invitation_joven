@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { AdminEventsResponse } from "@wedding-invitation/api-client/src/index";
 import {
@@ -188,6 +189,10 @@ export function CreateInvitationForm({
     return (
       <section className="invitation-created" aria-labelledby="created-title">
         <div ref={notice} tabIndex={-1}>
+          <span className="creation-confirmation" aria-hidden="true">
+            ✓
+          </span>
+          <p className="eyebrow">Ready to share</p>
           <h2 id="created-title">Invitation created</h2>
           <p role="status">
             One invitation was confirmed by the server. Copy its link to send to
@@ -310,241 +315,302 @@ export function CreateInvitationForm({
         )}
       </section>
 
-      <fieldset disabled={pending || locked || checking}>
-        <legend>Guest information</legend>
-        <p className="hint">
-          Enter the main guest&apos;s name. Add other named guests only when
-          they share this invitation.
-        </p>
-        {error("invitees")}
-        {fields.invitees.map((row, index) => (
-          <fieldset key={keys[index]} className="invitee-row">
-            <legend>Guest {index + 1}</legend>
-            <div className="field">
-              <label htmlFor={"invitee-" + index}>Full name (required)</label>
-              <input
-                id={"invitee-" + index}
-                required
-                autoComplete="off"
-                value={row.fullName}
-                onChange={(e) =>
-                  field(
-                    "invitees",
-                    fields.invitees.map((item, i) =>
-                      i === index
-                        ? { ...item, fullName: e.target.value }
-                        : item,
-                    ),
-                  )
-                }
-                {...errorProps("invitee-" + index)}
-              />
-              {error("invitee-" + index)}
-            </div>
-            <details>
-              <summary>Guest options (adult by default)</summary>
-              <div className="create-grid">
+      <div className="create-columns">
+        <div className="create-fields">
+          <fieldset disabled={pending || locked || checking}>
+            <legend>Guest information</legend>
+            <p className="create-step">01 / The guest</p>
+            <h2>Who are you inviting?</h2>
+            <p className="hint">
+              Enter the main guest&apos;s name. Add other named guests only when
+              they share this invitation.
+            </p>
+            {error("invitees")}
+            {fields.invitees.map((row, index) => (
+              <fieldset key={keys[index]} className="invitee-row">
+                <legend>Guest {index + 1}</legend>
                 <div className="field">
-                  <label htmlFor={"category-" + index}>Category</label>
-                  <select
-                    id={"category-" + index}
-                    value={row.category}
-                    onChange={(e) => {
-                      const category = e.target.value;
-                      if (category === "ADULT" || category === "CHILD")
-                        field(
-                          "invitees",
-                          fields.invitees.map((item, i) =>
-                            i === index ? { ...item, category } : item,
-                          ),
-                        );
-                    }}
-                    {...errorProps("category-" + index)}
-                  >
-                    <option value="ADULT">Adult</option>
-                    <option value="CHILD">Child</option>
-                  </select>
-                  {error("category-" + index)}
-                </div>
-                <div className="field">
-                  <label htmlFor={"label-" + index}>Label (optional)</label>
+                  <label htmlFor={"invitee-" + index}>
+                    Full name (required)
+                  </label>
                   <input
-                    id={"label-" + index}
-                    value={row.label ?? ""}
+                    id={"invitee-" + index}
+                    required
+                    autoComplete="off"
+                    value={row.fullName}
                     onChange={(e) =>
                       field(
                         "invitees",
                         fields.invitees.map((item, i) =>
                           i === index
-                            ? { ...item, label: e.target.value }
+                            ? { ...item, fullName: e.target.value }
                             : item,
                         ),
                       )
                     }
+                    {...errorProps("invitee-" + index)}
                   />
+                  {error("invitee-" + index)}
                 </div>
-              </div>
-            </details>
+                <details>
+                  <summary>Guest options (adult by default)</summary>
+                  <div className="create-grid">
+                    <div className="field">
+                      <label htmlFor={"category-" + index}>Category</label>
+                      <select
+                        id={"category-" + index}
+                        value={row.category}
+                        onChange={(e) => {
+                          const category = e.target.value;
+                          if (category === "ADULT" || category === "CHILD")
+                            field(
+                              "invitees",
+                              fields.invitees.map((item, i) =>
+                                i === index ? { ...item, category } : item,
+                              ),
+                            );
+                        }}
+                        {...errorProps("category-" + index)}
+                      >
+                        <option value="ADULT">Adult</option>
+                        <option value="CHILD">Child</option>
+                      </select>
+                      {error("category-" + index)}
+                    </div>
+                    <div className="field">
+                      <label htmlFor={"label-" + index}>Label (optional)</label>
+                      <input
+                        id={"label-" + index}
+                        value={row.label ?? ""}
+                        onChange={(e) =>
+                          field(
+                            "invitees",
+                            fields.invitees.map((item, i) =>
+                              i === index
+                                ? { ...item, label: e.target.value }
+                                : item,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                </details>
+                {fields.invitees.length > 1 && (
+                  <button
+                    type="button"
+                    className="invitation-secondary"
+                    disabled={fields.invitees.length === 1}
+                    onClick={() => {
+                      setKeys((current) =>
+                        current.filter((_, i) => i !== index),
+                      );
+                      field(
+                        "invitees",
+                        fields.invitees.filter((_, i) => i !== index),
+                      );
+                      requestAnimationFrame(() =>
+                        document
+                          .getElementById("invitee-" + Math.max(0, index - 1))
+                          ?.focus(),
+                      );
+                    }}
+                  >
+                    Remove guest {index + 1}
+                  </button>
+                )}
+              </fieldset>
+            ))}
             <button
               type="button"
               className="invitation-secondary"
-              disabled={fields.invitees.length === 1}
               onClick={() => {
-                setKeys((current) => current.filter((_, i) => i !== index));
-                field(
-                  "invitees",
-                  fields.invitees.filter((_, i) => i !== index),
-                );
+                setKeys((current) => [...current, nextKey.current++]);
+                const index = fields.invitees.length;
+                field("invitees", [
+                  ...fields.invitees,
+                  { fullName: "", category: "ADULT", label: "" },
+                ]);
                 requestAnimationFrame(() =>
-                  document
-                    .getElementById("invitee-" + Math.max(0, index - 1))
-                    ?.focus(),
+                  document.getElementById("invitee-" + index)?.focus(),
                 );
               }}
             >
-              Remove guest {index + 1}
+              Add guest
             </button>
+            <details className="create-household">
+              <summary>Household name (optional)</summary>
+              <div className="field">
+                <label htmlFor="displayName">
+                  Invitation / household name (optional)
+                </label>
+                <input
+                  id="displayName"
+                  value={fields.displayName}
+                  onChange={(e) => field("displayName", e.target.value)}
+                  {...errorProps("displayName")}
+                  aria-describedby={`displayName-help${errors.displayName ? " displayName-error" : ""}`}
+                />
+                <p id="displayName-help" className="hint">
+                  Leave blank to use the first guest&apos;s name. For a family,
+                  enter the household name here.
+                </p>
+                {error("displayName")}
+              </div>
+            </details>
           </fieldset>
-        ))}
-        <button
-          type="button"
-          className="invitation-secondary"
-          onClick={() => {
-            setKeys((current) => [...current, nextKey.current++]);
-            const index = fields.invitees.length;
-            field("invitees", [
-              ...fields.invitees,
-              { fullName: "", category: "ADULT", label: "" },
-            ]);
-            requestAnimationFrame(() =>
-              document.getElementById("invitee-" + index)?.focus(),
-            );
-          }}
-        >
-          Add guest
-        </button>
-        <div className="field">
-          <label htmlFor="displayName">
-            Invitation / household name (optional)
-          </label>
-          <input
-            id="displayName"
-            value={fields.displayName}
-            onChange={(e) => field("displayName", e.target.value)}
-            {...errorProps("displayName")}
-            aria-describedby={`displayName-help${errors.displayName ? " displayName-error" : ""}`}
-          />
-          <p id="displayName-help" className="hint">
-            Leave blank to use the first guest&apos;s name. For a family, enter
-            the household name here.
-          </p>
-          {error("displayName")}
-        </div>
-      </fieldset>
 
-      <fieldset
-        disabled={pending || locked || checking}
-        className="create-settings"
-      >
-        <legend>Optional invitation settings</legend>
-        <details>
-          <summary>
-            Greeting, additional guests, children and RSVP deadline
-          </summary>
-          <div className="field">
-            <label htmlFor="greetingName">Greeting name</label>
-            <input
-              id="greetingName"
-              value={fields.greetingName ?? ""}
-              onChange={(e) => field("greetingName", e.target.value)}
+          <fieldset
+            disabled={pending || locked || checking}
+            className="create-settings"
+          >
+            <legend>Optional invitation settings</legend>
+            <p className="create-step">02 / The invitation</p>
+            <h2>A few thoughtful details</h2>
+            <details>
+              <summary>
+                Greeting, additional guests, children and RSVP deadline
+              </summary>
+              <div className="field">
+                <label htmlFor="greetingName">Greeting name</label>
+                <input
+                  id="greetingName"
+                  value={fields.greetingName ?? ""}
+                  onChange={(e) => field("greetingName", e.target.value)}
+                />
+                <p className="hint">
+                  Leave blank to greet the invitation / household name.
+                </p>
+              </div>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={fields.allowPlusOne}
+                  onChange={(e) => field("allowPlusOne", e.target.checked)}
+                />
+                Allow one plus-one guest
+              </label>
+              <div className="create-grid">
+                <div className="field">
+                  <label htmlFor="children">Maximum additional children</label>
+                  <input
+                    id="children"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={fields.children}
+                    onChange={(e) => field("children", e.target.value)}
+                    {...errorProps("children")}
+                  />
+                  {error("children")}
+                </div>
+                <div className="field">
+                  <label htmlFor="deadline">RSVP deadline</label>
+                  <input
+                    id="deadline"
+                    type="datetime-local"
+                    step="0.001"
+                    value={fields.deadline}
+                    onChange={(e) => field("deadline", e.target.value)}
+                    {...errorProps("deadline")}
+                    aria-describedby={`deadline-help${errors.deadline ? " deadline-error" : ""}`}
+                  />
+                  <p className="hint" id="deadline-help">
+                    Asia/Jakarta (UTC+07:00). Leave blank for no deadline.
+                  </p>
+                  {error("deadline")}
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="notes">Internal notes</label>
+                <textarea
+                  id="notes"
+                  rows={3}
+                  value={fields.notes ?? ""}
+                  onChange={(e) => field("notes", e.target.value)}
+                />
+                <p className="hint">Visible only to the administrator.</p>
+              </div>
+            </details>
+          </fieldset>
+        </div>
+        <aside
+          className="create-sidebar"
+          aria-label="Invitation preview and review"
+        >
+          <p className="create-step">03 / Review</p>
+          <figure
+            className="create-preview"
+            aria-label="Illustrative guest-facing preview"
+          >
+            <Image
+              src="/assets/wedding-cover.webp"
+              alt="Jo and Venta together in the garden"
+              width={768}
+              height={1024}
+              sizes="(max-width: 1100px) 72px, 400px"
             />
+            <div className="create-preview-copy">
+              <p>The wedding of</p>
+              <h2>Jo &amp; Venta</h2>
+              <p>A personal invitation for</p>
+              <strong>
+                {fields.greetingName?.trim() ||
+                  withGuestDisplayName(fields).displayName ||
+                  "Your guest"}
+              </strong>
+            </div>
+          </figure>
+          <section className="create-review" aria-label="Review invitation">
+            <h2>Review and create</h2>
+            <dl className="create-summary">
+              <div>
+                <dt>Named guests</dt>
+                <dd>{fields.invitees.length}</dd>
+              </div>
+              <div>
+                <dt>Invitation name</dt>
+                <dd>
+                  {withGuestDisplayName(fields).displayName ||
+                    "Enter a guest name"}
+                </dd>
+              </div>
+              <div>
+                <dt>Plus-one</dt>
+                <dd>
+                  {fields.allowPlusOne ? "One guest allowed" : "Not included"}
+                </dd>
+              </div>
+              <div>
+                <dt>Additional children</dt>
+                <dd>{fields.children || "0"}</dd>
+              </div>
+              <div>
+                <dt>Wedding event</dt>
+                <dd>Included</dd>
+              </div>
+            </dl>
             <p className="hint">
-              Leave blank to greet the invitation / household name.
+              Creates one household invitation. Share its link after the server
+              confirms success.
             </p>
+          </section>
+          <p role="status" aria-live="polite">
+            {checking
+              ? "Checking previous submission…"
+              : pending
+                ? "Creating invitation… Please wait."
+                : ""}
+          </p>
+          <div className="invitation-actions">
+            <button type="submit" disabled={pending || locked || checking}>
+              {pending ? "Creating…" : "Create invitation"}
+            </button>
+            <Link href="/invitations" prefetch={false}>
+              Cancel
+            </Link>
           </div>
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={fields.allowPlusOne}
-              onChange={(e) => field("allowPlusOne", e.target.checked)}
-            />
-            Allow one plus-one guest
-          </label>
-          <div className="create-grid">
-            <div className="field">
-              <label htmlFor="children">Maximum additional children</label>
-              <input
-                id="children"
-                type="number"
-                min={0}
-                step={1}
-                value={fields.children}
-                onChange={(e) => field("children", e.target.value)}
-                {...errorProps("children")}
-              />
-              {error("children")}
-            </div>
-            <div className="field">
-              <label htmlFor="deadline">RSVP deadline</label>
-              <input
-                id="deadline"
-                type="datetime-local"
-                step="0.001"
-                value={fields.deadline}
-                onChange={(e) => field("deadline", e.target.value)}
-                {...errorProps("deadline")}
-                aria-describedby={`deadline-help${errors.deadline ? " deadline-error" : ""}`}
-              />
-              <p className="hint" id="deadline-help">
-                Asia/Jakarta (UTC+07:00). Leave blank for no deadline.
-              </p>
-              {error("deadline")}
-            </div>
-          </div>
-          <div className="field">
-            <label htmlFor="notes">Internal notes</label>
-            <textarea
-              id="notes"
-              rows={3}
-              value={fields.notes ?? ""}
-              onChange={(e) => field("notes", e.target.value)}
-            />
-            <p className="hint">Visible only to the administrator.</p>
-          </div>
-        </details>
-      </fieldset>
-      <section className="create-review" aria-label="Review invitation">
-        <h2>Review and create</h2>
-        <p>
-          <strong>
-            {withGuestDisplayName(fields).displayName ||
-              "Enter a guest name above"}
-          </strong>
-          {" · "}
-          {fields.invitees.length} named{" "}
-          {fields.invitees.length === 1 ? "guest" : "guests"}
-          {" · "}
-          {event!.name}
-        </p>
-        <p className="hint">
-          Creating saves one household invitation. Its public link will appear
-          here after the server confirms success.
-        </p>
-      </section>
-      <p role="status" aria-live="polite">
-        {checking
-          ? "Checking previous submission…"
-          : pending
-            ? "Creating invitation… Please wait."
-            : ""}
-      </p>
-      <div className="invitation-actions">
-        <button type="submit" disabled={pending || locked || checking}>
-          {pending ? "Creating…" : "Create invitation"}
-        </button>
-        <Link href="/invitations" prefetch={false}>
-          Cancel
-        </Link>
+        </aside>
       </div>
     </form>
   );

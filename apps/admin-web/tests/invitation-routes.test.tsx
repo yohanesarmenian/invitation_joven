@@ -74,6 +74,142 @@ it("maps distinct fields with Jakarta dates and no raw IDs or credentials", () =
   expect(html).not.toContain(`>${list.items[0]!.id}<`);
   expect(html).not.toContain("publicUrl");
 });
+it("keeps one semantic table and one detail link per invitation for responsive rows", () => {
+  const html = renderToStaticMarkup(
+    <InvitationList query={query} data={list} />,
+  );
+  expect(html.match(/<table\b/g)).toHaveLength(1);
+  expect(html.match(/<tbody\b/g)).toHaveLength(1);
+  expect(html.match(/scope="col"/g)).toHaveLength(7);
+  expect(html.match(/scope="row"/g)).toHaveLength(list.items.length);
+  expect(html).toContain(
+    'class="invitation-table invitation-table--responsive" role="table"',
+  );
+  expect(html).toContain('aria-label="Invitations table"');
+  expect(html).toContain('aria-describedby="table-help" tabindex="0"');
+  expect(html).toContain(
+    '<th scope="row" role="rowheader" class="invitation-identity">',
+  );
+  expect(html.match(/<a\b/g)).toHaveLength(list.items.length);
+  expect(html).toContain(`href="/invitations/${list.items[0]!.id}"`);
+  expect(html).toContain(
+    '<span class="invitation-name">Sample household</span>',
+  );
+  expect(html).toContain(
+    '<span class="invitation-manage" aria-hidden="true">Manage invitation',
+  );
+  expect(html.match(/Sample household/g)).toHaveLength(1);
+  expect(html.match(/Dear sample guests/g)).toHaveLength(1);
+  for (const label of [
+    "Status",
+    "RSVP",
+    "Invitees",
+    "Opens",
+    "Last opened",
+    "RSVP deadline",
+  ])
+    expect(html).toContain(`data-label="${label}"`);
+  expect(html).not.toContain("scroll the table horizontally");
+});
+it.each([
+  ["ACTIVE", "PENDING", "Active", "Pending"],
+  ["ARCHIVED", "ACCEPTED", "Archived", "Accepted"],
+  ["ACTIVE", "DECLINED", "Active", "Declined"],
+] as const)(
+  "retains %s/%s status, zero counts and missing activity",
+  (status, rsvpStatus, statusLabel, rsvpLabel) => {
+    const html = renderToStaticMarkup(
+      <InvitationList
+        query={query}
+        data={{
+          ...list,
+          items: [
+            {
+              ...list.items[0]!,
+              status,
+              rsvpStatus,
+              greetingName: null,
+              inviteeCount: 0,
+              openCount: 0,
+              lastOpenedAt: null,
+              rsvpDeadlineAt: null,
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain(`data-status="${status}">${statusLabel}</span>`);
+    expect(html).toContain(
+      `data-rsvp-status="${rsvpStatus}">${rsvpLabel}</span>`,
+    );
+    expect(html).toContain('data-label="Invitees">0</td>');
+    expect(html).toContain('data-label="Opens">0</td>');
+    expect(html).toContain("Not opened");
+    expect(html).toContain("No deadline");
+    expect(html).not.toContain('class="greeting-name"');
+    expect(html).not.toContain("<time");
+  },
+);
+it("retains filtered totals and query parameters in both pagination links", () => {
+  const filteredQuery = parseInvitationQuery({
+    search: "Sample & family",
+    status: "ARCHIVED",
+    rsvpStatus: "PENDING",
+    page: "2",
+  })!;
+  const html = renderToStaticMarkup(
+    <InvitationList
+      query={filteredQuery}
+      data={{
+        ...list,
+        page: { ...list.page, number: 2, totalPages: 3, totalItems: 51 },
+      }}
+    />,
+  );
+  expect(html).toContain("51 invitations matching your search and filters");
+  expect(html).toContain("Page 2 · 3 pages of results");
+  expect(html).toContain(
+    'href="/invitations?page=1&amp;pageSize=25&amp;sortBy=createdAt&amp;sortOrder=desc&amp;status=ARCHIVED&amp;rsvpStatus=PENDING&amp;search=Sample+%26+family">Previous',
+  );
+  expect(html).toContain(
+    'href="/invitations?page=3&amp;pageSize=25&amp;sortBy=createdAt&amp;sortOrder=desc&amp;status=ARCHIVED&amp;rsvpStatus=PENDING&amp;search=Sample+%26+family">Next',
+  );
+});
+it.each([
+  [false, 0, "No invitations yet", "/invitations/new", "Create an invitation"],
+  [
+    true,
+    0,
+    "No matching invitations",
+    "/invitations",
+    "Clear search and filters",
+  ],
+  [
+    true,
+    1,
+    "No invitations on this page",
+    "/invitations?page=1&amp;pageSize=25&amp;sortBy=createdAt&amp;sortOrder=desc&amp;search=Sample",
+    "First page",
+  ],
+] as const)(
+  "retains the empty result recovery for filtered=%s total=%s",
+  (filtered, totalItems, heading, href, action) => {
+    const html = renderToStaticMarkup(
+      <InvitationList
+        query={
+          filtered
+            ? parseInvitationQuery({ search: "Sample", page: "2" })!
+            : query
+        }
+        data={{ items: [], page: { ...list.page, totalItems } }}
+      />,
+    );
+    expect(html).toContain(`<h3>${heading}</h3>`);
+    expect(html).toContain(`href="${href}">${action}</a>`);
+    expect(html).not.toContain("<table");
+    expect(html).not.toContain('class="invitation-manage"');
+  },
+);
 it("late backend 401 redirects; 403 remains bounded", async () => {
   read.mockResolvedValue({ kind: "unauthenticated" });
   await expect(InvitationResults({ query })).rejects.toThrow(

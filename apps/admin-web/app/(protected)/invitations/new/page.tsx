@@ -26,11 +26,10 @@ export default async function NewInvitationPage() {
   return (
     <>
       <header className="dashboard-heading">
-        <p className="eyebrow">Guest management</p>
+        <p className="eyebrow">Invitations / A personal welcome</p>
         <h1>Create invitation</h1>
         <p>
-          Enter your guest details, create the invitation, then copy its link.
-          Your existing wedding event is included automatically.
+          Add your guests, review the details, then share their personal link.
         </p>
         <Link href="/invitations" prefetch={false}>
           Back to invitations
