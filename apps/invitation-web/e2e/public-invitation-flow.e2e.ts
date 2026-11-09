@@ -35,27 +35,31 @@ test.beforeEach(async ({ request }) => {
   await resetMockRequestCount(request);
 });
 
-test("closed to opened to content retrieves the invitation exactly once", async ({
+test("one activation opens content and retrieves the invitation exactly once", async ({
   page,
   request,
 }) => {
   await page.goto(TEST_INVITATION_PATH);
 
-  // Closed state: only the envelope is rendered, no invitation content yet.
+  // Content is mounted behind the closed envelope and excluded from interaction.
   const openButton = page.getByRole("button", { name: "Open invitation" });
+  const flow = page.locator(".invitation-opening-flow");
+  const content = page.locator(".invitation-opening-content");
   await expect(openButton).toBeVisible();
+  await expect(flow).toHaveAttribute("data-stage", "closed");
+  await expect(content).toHaveAttribute("inert", "");
+  await expect(content).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByRole("heading", { name: "Test Guest" })).toBeHidden();
   expect(await readMockRequestCount(request)).toBe(1);
 
   await openButton.click();
 
-  // Opened state: still no new server render, so still one retrieval.
-  const viewButton = page.getByRole("button", { name: "View invitation" });
-  await expect(viewButton).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Test Guest" })).toBeHidden();
+  // The opening transition is local and needs no second activation.
   expect(await readMockRequestCount(request)).toBe(1);
-
-  await viewButton.click();
+  await expect(flow).toHaveAttribute("data-stage", "content");
+  await expect(content).not.toHaveAttribute("inert");
+  await expect(content).not.toHaveAttribute("aria-hidden", "true");
+  await expect(content).toBeFocused();
 
   // Content state: API-driven data from the single server-side retrieval.
   await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
@@ -79,7 +83,10 @@ test("event map links point at the fixture URLs with safe target and rel", async
 }) => {
   await page.goto(TEST_INVITATION_PATH);
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
 
   const churchLink = eventCard(page, "Holy Matrimony Test").getByRole("link", {
     name: "View in Google Maps",
@@ -110,7 +117,10 @@ test("reload resets to closed state and triggers one new server retrieval", asyn
 }) => {
   await page.goto(TEST_INVITATION_PATH);
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
   await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
   expect(await readMockRequestCount(request)).toBe(1);
 
@@ -121,5 +131,13 @@ test("reload resets to closed state and triggers one new server retrieval", asyn
   await expect(
     page.getByRole("button", { name: "Open invitation" }),
   ).toBeVisible();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "closed",
+  );
+  await expect(page.locator(".invitation-opening-content")).toHaveAttribute(
+    "inert",
+    "",
+  );
   expect(await readMockRequestCount(request)).toBe(2);
 });

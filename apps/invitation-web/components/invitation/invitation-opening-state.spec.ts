@@ -9,12 +9,12 @@ describe("invitation opening state", () => {
     expect(INITIAL_INVITATION_STAGE).toBe("closed");
   });
 
-  it("transitions closed -> opened", () => {
-    expect(nextInvitationStage("closed")).toBe("opened");
+  it("transitions closed -> opening", () => {
+    expect(nextInvitationStage("closed")).toBe("opening");
   });
 
-  it("transitions opened -> content", () => {
-    expect(nextInvitationStage("opened")).toBe("content");
+  it("transitions opening -> content without another activation", () => {
+    expect(nextInvitationStage("opening")).toBe("content");
   });
 
   it("keeps content stable with no backwards transition", () => {

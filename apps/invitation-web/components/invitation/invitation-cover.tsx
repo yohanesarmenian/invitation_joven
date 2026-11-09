@@ -1,11 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type Ref } from "react";
+import { useRef, useState } from "react";
 import { weddingMedia } from "../../src/presentation/wedding-media";
-import { figmaAssets } from "../../src/presentation/figma-assets";
-
-const OPENED_HERO_SIZES = "100vw";
 
 export function ClosedEnvelopeCover({
   onOpen,
@@ -20,6 +17,15 @@ export function ClosedEnvelopeCover({
   ready?: boolean;
   onOpeningComplete?: () => void;
 }) {
+  const busy = !ready || opening || preparing;
+  const status = !ready
+    ? "Loading invitation…"
+    : preparing
+      ? "Preparing your invitation…"
+      : opening
+        ? "Opening invitation…"
+        : "";
+
   return (
     <div
       className="invitation-closed-stage"
@@ -30,8 +36,8 @@ export function ClosedEnvelopeCover({
         className="invitation-envelope-button"
         aria-label="Open invitation"
         onClick={onOpen}
-        disabled={!ready || opening || preparing}
-        aria-busy={!ready || opening || preparing || undefined}
+        disabled={busy}
+        aria-busy={busy || undefined}
       >
         <span className="invitation-envelope" aria-hidden="true">
           <span
@@ -47,85 +53,109 @@ export function ClosedEnvelopeCover({
           />
           <span className="invitation-envelope-layer invitation-envelope-layer-front">
             <span className="invitation-envelope-wax">
-              <Image
-                src={figmaAssets["7_2_Cover2A1"]}
-                alt=""
-                fill
-                sizes="410px"
-                loading="eager"
-              />
+              <span>
+                Y<span className="invitation-envelope-ampersand">&amp;</span>A
+              </span>
             </span>
           </span>
         </span>
+        <span className="invitation-envelope-heading" aria-hidden="true">
+          A celebration of love
+          <span>Jo &amp; Venta</span>
+        </span>
         <span className="invitation-envelope-hint" aria-hidden="true">
-          {!ready
-            ? "Loading invitation…"
-            : preparing
-              ? "Preparing your invitation…"
-              : "Tap to open"}
+          Open invitation <span>↗</span>
+        </span>
+        <span className="invitation-envelope-foot" aria-hidden="true">
+          Together with our families
         </span>
       </button>
+      <p
+        className="invitation-envelope-status"
+        role="status"
+        aria-live="polite"
+      >
+        {status}
+      </p>
     </div>
   );
 }
 
-export function OpenedCoverStage({
-  onView,
-  buttonRef,
+export function InvitationHero({
   onReady,
-  disabled = false,
+  fallback = false,
 }: {
-  onView: () => void;
-  buttonRef?: Ref<HTMLButtonElement>;
   onReady?: () => void;
-  disabled?: boolean;
+  fallback?: boolean;
 }) {
   const [heroFailed, setHeroFailed] = useState(false);
-  const [fallbackFailed, setFallbackFailed] = useState(false);
+  const ready = useRef(false);
+  const showFallback = heroFailed || fallback;
+
+  function finishReady() {
+    if (ready.current) return;
+    ready.current = true;
+    onReady?.();
+  }
+
   return (
-    <div className="invitation-opened-stage">
-      <button
-        ref={buttonRef}
-        type="button"
-        className={`invitation-opened-cover${heroFailed ? " invitation-opened-cover-fallback" : ""}`}
-        aria-label="View invitation"
-        aria-describedby="invitation-opened-title"
-        onClick={onView}
-        disabled={disabled}
-      >
-        <span className="invitation-opened-media" aria-hidden="true">
+    <header
+      className="invitation-hero"
+      data-fallback={showFallback || undefined}
+      aria-labelledby="invitation-hero-title"
+    >
+      <div className="invitation-hero-copy">
+        <span className="invitation-hero-monogram" aria-hidden="true">
+          Y<span>&amp;</span>A
+        </span>
+        <div className="invitation-hero-introduction">
+          <p className="invitation-hero-kicker">The Wedding of</p>
+          <h1 id="invitation-hero-title" className="invitation-hero-title">
+            Jo{" "}
+            <span>
+              <i>&amp;</i> Venta
+            </span>
+          </h1>
+          <p className="invitation-hero-message">
+            Some moments are meant
+            <br />
+            to be shared with you.
+          </p>
+        </div>
+        <p className="invitation-hero-foot">Together with our families</p>
+      </div>
+      <div className="invitation-hero-media" aria-hidden="true">
+        {showFallback ? (
+          <div className="invitation-hero-paper">
+            <span className="invitation-hero-paper-monogram">
+              Y<i>&amp;</i>A
+            </span>
+            <span>One day. Our forever.</span>
+          </div>
+        ) : (
           <Image
-            src={heroFailed ? weddingMedia.heroFallback : weddingMedia.hero}
+            src={weddingMedia.hero}
             alt=""
             fill
-            sizes={
-              heroFailed ? "(min-width: 332px) 332px, 100vw" : OPENED_HERO_SIZES
-            }
+            sizes="(min-width: 900px) 58vw, 100vw"
             loading="eager"
-            onLoad={onReady}
+            fetchPriority="high"
+            onLoad={async (event) => {
+              const image = event.currentTarget;
+              try {
+                await image.decode();
+              } catch {
+                setHeroFailed(true);
+              }
+              finishReady();
+            }}
             onError={() => {
-              if (heroFailed) {
-                setFallbackFailed(true);
-                onReady?.();
-              } else setHeroFailed(true);
+              setHeroFailed(true);
+              finishReady();
             }}
           />
-        </span>
-        <span
-          id="invitation-opened-title"
-          className={
-            heroFailed && !fallbackFailed
-              ? "visually-hidden"
-              : "invitation-opened-title"
-          }
-        >
-          <span className="invitation-opened-kicker">The Wedding of</span>{" "}
-          <span className="invitation-opened-names">Jo &amp; Venta</span>
-        </span>
-        <span className="invitation-opened-action" aria-hidden="true">
-          Open Invitation <span>↓</span>
-        </span>
-      </button>
-    </div>
+        )}
+      </div>
+    </header>
   );
 }

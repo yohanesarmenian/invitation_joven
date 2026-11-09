@@ -64,6 +64,10 @@ Verified Figma node references:
 | Registered           | `81:42`  | 412 x 917             |
 | Message confirmation | `82:113` | later-phase reference |
 
+The owner revision of 9 November 2026 uses the photographic cover reference as
+a non-interactive hero inside the invitation content. One envelope activation
+reveals that prepared content directly.
+
 Phase 4 implements only `closed page`, `opened page`, `long page`, loading,
 unavailable, and generic unexpected-error states. `Registered` is a later
 RSVP/QR confirmation reference state. `message confirmation` is a later guest
@@ -105,7 +109,7 @@ Preferred rendering split:
   map expected unavailable responses to one generic guest-facing unavailable UI,
   and provide invitation data to the presentation tree.
 - Client-side responsibilities: local visual state only, including closed
-  envelope, envelope/open transition, opened-cover transition, optional
+  envelope, one-click opening-to-content transition, optional
   scroll/reveal behavior if approved, and reduced-motion handling.
 - Client components must not duplicate invitation retrieval unless a later
   technical review documents a concrete need.
@@ -211,40 +215,38 @@ confirmation states belong to later phases.
 
 The church Google Maps control contains an additional prototype interaction that appears unintended. Production should treat normal click-to-Google-Maps behavior as the meaningful requirement.
 
-## Phase 4 Slice 3 Opening Interaction Contract
+## Public Opening Interaction Contract — 9 November 2026
 
-Locked three-stage opening flow:
+The approved Concept A flow uses one intentional activation.
 
 ```text
-closed -> opened -> content
+closed -> opening -> content
 ```
 
-- Initial stage: `closed`.
-- `closed -> opened`: explicit user tap/click on the closed envelope.
-- `opened -> content`: a second explicit user tap/click on the opened cover.
-- The opened cover is a real distinct user-visible stage, not an invisible
-  transition frame.
-- No automatic timer, autoplay, scroll-triggered transition, or route
-  navigation advances the stage.
-- No persistence: opening state is local in-memory client UI state only. It is
-  not stored in `localStorage`, `sessionStorage`, cookies, query params, hash,
-  or the backend. Refresh/reload returns to `closed`. The URL is unchanged.
-- State transitions are forward-only in Slice 3: `closed -> opened`,
-  `opened -> content`, `content -> content`.
-
-Closed cover:
-
-- Does not show the guest name (closed-cover guest copy is not source-locked).
-- Does not invent visible CTA text; the envelope itself is the control.
-- Accessible name: `Open invitation`.
-
-Opened cover:
-
-- Visible reference title: `The Wedding of Jo & Venta` (already documented
-  opened-cover reference copy).
-- The opened cover itself is the second interactive control.
-- Accessible name: `View invitation`.
-- No additional visible CTA button is added.
+- Initial stage is `closed`. Authorized content is server-rendered and mounted
+  behind the full-screen envelope, with `inert` and `aria-hidden` throughout
+  preparation and opening.
+- Hydration, fonts and the decoded primary photo enable the native
+  `Open invitation` button. Preparation has a 3,500 ms fallback deadline.
+  Failed or timed-out photography uses a native paper/typographic fallback.
+  Below-the-fold galleries remain lazy and do not gate opening.
+- One click, Enter or Space starts the paper-fold transition. A synchronous
+  guard rejects repeated activation. The right fold's transition completion
+  advances to content, with a bounded timer fallback for missing events.
+- Reduced motion reaches content directly on the same activation. The existing
+  non-sensitive motion preference and explicit animation opt-in remain supported.
+- Content receives focus and becomes readable, scrollable and interactive once
+  opening completes. The photo hero is part of that content.
+- Opening stage remains in local component memory. Reload returns to `closed`.
+  The existing `jo-venta-motion` preference stores only `full` or `reduced`.
+- Preparation and opening add no invitation retrieval, analytics call or form
+  submission. Server retrieval, authorization and business contracts remain
+  authoritative.
+- Full-screen navy paper folds and the champagne monogram seal use native CSS.
+  Existing artwork guides their geometry. The closed surface shows couple copy
+  and keeps guest identity within the concealed authorized content.
+- Wedding monograms on the seal, hero and paper fallback use `Y & A`, the
+  initials of Yohanes & Angelina. Informal couple names may remain Jo & Venta.
 
 Placeholder authorization (Slice 3 through Slice 4A, temporary):
 

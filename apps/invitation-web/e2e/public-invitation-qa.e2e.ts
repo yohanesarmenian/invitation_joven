@@ -72,12 +72,11 @@ async function readMockRequestCount(
 
 async function advanceToContent(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
-  await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
   );
+  await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
 }
 
 test.beforeEach(async ({ request }) => {
@@ -161,69 +160,68 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
-test("opening controls are real buttons and the keyboard alone completes the flow", async ({
-  page,
-}) => {
-  await page.goto(SUCCESS_PATH);
+for (const key of ["Enter", "Space"]) {
+  test(`the opening control is a real button and ${key} alone completes the flow`, async ({
+    page,
+  }) => {
+    await page.goto(SUCCESS_PATH);
 
-  const openButton = page.getByRole("button", { name: "Open invitation" });
-  const viewButton = page.getByRole("button", { name: "View invitation" });
-  const content = page.locator(".invitation-opening-content");
+    const openButton = page.getByRole("button", { name: "Open invitation" });
+    const content = page.locator(".invitation-opening-content");
 
-  await expect(openButton).toBeVisible();
-  expect(await openButton.evaluate((element) => element.tagName)).toBe(
-    "BUTTON",
-  );
+    await expect(openButton).toBeVisible();
+    await expect(openButton).toBeEnabled();
+    expect(await openButton.evaluate((element) => element.tagName)).toBe(
+      "BUTTON",
+    );
 
-  let reachedOpenButton = false;
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    await page.keyboard.press("Tab");
+    let reachedOpenButton = false;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await page.keyboard.press("Tab");
 
-    if (
-      await openButton.evaluate((element) => element === document.activeElement)
-    ) {
-      reachedOpenButton = true;
-      break;
+      if (
+        await openButton.evaluate(
+          (element) => element === document.activeElement,
+        )
+      ) {
+        reachedOpenButton = true;
+        break;
+      }
     }
-  }
-  expect(reachedOpenButton, "Tab should reach the Open invitation button").toBe(
-    true,
-  );
+    expect(
+      reachedOpenButton,
+      "Tab should reach the Open invitation button",
+    ).toBe(true);
 
-  await page.keyboard.press("Enter");
+    await page.keyboard.press(key);
 
-  await expect(viewButton).toBeVisible();
-  expect(await viewButton.evaluate((element) => element.tagName)).toBe(
-    "BUTTON",
-  );
-  await expect
-    .poll(() =>
-      viewButton.evaluate((element) => element === document.activeElement),
-    )
-    .toBe(true);
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "content",
+    );
+    await expect(
+      page.getByRole("heading", { name: "Test Guest" }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        content.evaluate((element) => element === document.activeElement),
+      )
+      .toBe(true);
+  });
+}
 
-  await page.keyboard.press("Space");
-
-  await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
-  await expect
-    .poll(() =>
-      content.evaluate((element) => element === document.activeElement),
-    )
-    .toBe(true);
-});
-
-test("reduced motion keeps every opening stage functional", async ({
+test("reduced motion reaches focused content with one activation", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(SUCCESS_PATH);
 
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await expect(
-    page.getByRole("button", { name: "View invitation" }),
-  ).toBeVisible();
-
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
   await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
   await expect(page.getByText("Test Church")).toBeVisible();
   await expect(page.getByText("Test Ballroom")).toBeVisible();

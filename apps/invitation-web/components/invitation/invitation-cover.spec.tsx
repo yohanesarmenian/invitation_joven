@@ -2,7 +2,7 @@ import { weddingMedia } from "../../src/presentation/wedding-media";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ClosedEnvelopeCover, OpenedCoverStage } from "./invitation-cover.js";
+import { ClosedEnvelopeCover, InvitationHero } from "./invitation-cover.js";
 
 describe("invitation cover markup", () => {
   it("renders the closed envelope as a real accessible button", () => {
@@ -14,52 +14,64 @@ describe("invitation cover markup", () => {
     expect(html).toContain('type="button"');
     expect(html).toContain('aria-label="Open invitation"');
     expect(html).toContain("invitation-envelope");
-    expect(html).not.toContain('class="invitation-envelope-flap"');
-    expect(html).not.toContain('class="invitation-envelope-seal"');
+    expect(html.match(/<button\b/g)).toHaveLength(1);
+    expect(html).not.toContain("disabled");
+    expect(html).not.toContain('data-opening="true"');
   });
 
-  it("renders the local wax seal over native responsive paper folds", () => {
+  it("renders native paper folds and a champagne monogram without image artwork", () => {
     const html = renderToStaticMarkup(
       createElement(ClosedEnvelopeCover, { onOpen: () => {} }),
     );
-    const images = html.match(/<img[^>]*>/g) ?? [];
-    const assets = ["7-2-imgCover2A1.png"];
-
-    expect(images).toHaveLength(1);
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("/assets/");
     expect(html).toContain('aria-hidden="true"');
-    assets.forEach((asset, index) => {
-      const image = images[index]!.replace(
-        /(?:src|srcSet)="[^"]*"/g,
-        decodeURIComponent,
-      );
-      expect(image).toContain(`/assets/figma/${asset}`);
-      expect(image).toContain('alt=""');
-      expect(image).toContain('data-nimg="fill"');
-      expect(image).toContain('srcSet="');
-      expect(image).toContain('sizes="');
-      expect(image).not.toContain("http");
-    });
+    expect(html).toContain("invitation-envelope-layer-front");
+    expect(html).toContain("invitation-envelope-layer-right");
+    expect(html).toContain("invitation-envelope-wax");
+    expect(html).toContain("invitation-envelope-ampersand");
+    expect(html).toContain(
+      'Y<span class="invitation-envelope-ampersand">&amp;</span>A',
+    );
   });
 
-  it("renders the opened cover as a real accessible button with the reference title", () => {
-    const html = renderToStaticMarkup(
-      createElement(OpenedCoverStage, { onView: () => {} }),
-    );
+  it.each([
+    { ready: false, message: "Loading invitation…" },
+    { preparing: true, message: "Preparing your invitation…" },
+    { opening: true, message: "Opening invitation…" },
+  ])(
+    "disables the envelope and politely reports $message",
+    ({ message, ...props }) => {
+      const html = renderToStaticMarkup(
+        createElement(ClosedEnvelopeCover, { onOpen: () => {}, ...props }),
+      );
 
-    expect(html).toContain("<button");
-    expect(html).toContain('type="button"');
-    expect(html).toContain('aria-label="View invitation"');
+      expect(html).toContain('disabled=""');
+      expect(html).toContain('aria-busy="true"');
+      expect(html).toContain('role="status" aria-live="polite"');
+      expect(html).toContain(message);
+      expect(html.includes('data-opening="true"')).toBe("opening" in props);
+    },
+  );
+
+  it("renders the hero as static content with a semantic wedding title", () => {
+    const html = renderToStaticMarkup(createElement(InvitationHero));
+
+    expect(html).toContain('<header class="invitation-hero"');
+    expect(html).toContain('aria-labelledby="invitation-hero-title"');
+    expect(html).toContain('<h1 id="invitation-hero-title"');
     expect(html).toContain("The Wedding of");
-    expect(html).toContain("Jo &amp; Venta");
-    expect(html).toContain("invitation-opened-kicker");
-    expect(html).toContain("invitation-opened-names");
-    expect(html).toContain("invitation-opened-media");
+    expect(html).toContain("Jo <span><i>&amp;</i> Venta</span>");
+    expect(html).toContain(
+      'class="invitation-hero-monogram" aria-hidden="true">Y<span>&amp;</span>A',
+    );
+    expect(html).toContain("invitation-hero-media");
+    expect(html).not.toMatch(/<(?:button|form|input|select|textarea|a)\b/);
+    expect(html).not.toMatch(/(?:Open|View) invitation/i);
   });
 
   it("renders the approved local hero through responsive image optimization", () => {
-    const html = renderToStaticMarkup(
-      createElement(OpenedCoverStage, { onView: () => {} }),
-    );
+    const html = renderToStaticMarkup(createElement(InvitationHero));
 
     expect(html).toContain("<img");
     const image = (html.match(/<img[^>]*>/g) ?? [])[0]!.replace(
@@ -73,40 +85,50 @@ describe("invitation cover markup", () => {
     expect(html).not.toContain("/assets/mock/hero.svg");
     expect(html).toContain('data-nimg="fill"');
     expect(html).toContain('alt=""');
+    expect(image).toContain('sizes="(min-width: 900px) 58vw, 100vw"');
+    expect(image).toContain('loading="eager"');
+    expect(image).toContain('fetchPriority="high"');
   });
 
-  it("describes the opened cover with one visible semantic title over the clean photo", () => {
-    const html = renderToStaticMarkup(
-      createElement(OpenedCoverStage, { onView: () => {} }),
-    );
+  it("keeps the semantic title visible separately from decorative photography", () => {
+    const html = renderToStaticMarkup(createElement(InvitationHero));
 
-    expect(html).toContain('aria-describedby="invitation-opened-title"');
-    expect(html).toContain(
-      '<span id="invitation-opened-title" class="invitation-opened-title">',
-    );
     expect(html.match(/The Wedding of/g)).toHaveLength(1);
-    expect(html.match(/Jo &amp; Venta/g)).toHaveLength(1);
-    expect(html.match(/<button\b/g)).toHaveLength(1);
-    expect(html).not.toMatch(/<(?:form|input|select|textarea|a)\b/);
+    expect(html.match(/<h1\b/g)).toHaveLength(1);
     const title = html.slice(
-      html.indexOf('<span id="invitation-opened-title"'),
-      html.indexOf('<span class="invitation-opened-action"'),
+      html.indexOf('<h1 id="invitation-hero-title"'),
+      html.indexOf("</h1>"),
     );
     expect(title).not.toContain("aria-hidden");
     expect(title).not.toContain("display:none");
     expect(title).not.toContain("visibility:hidden");
   });
 
-  it("keeps opened cover media local and decorative", () => {
-    const html = renderToStaticMarkup(
-      createElement(OpenedCoverStage, { onView: () => {} }),
-    );
+  it("keeps hero media local and decorative", () => {
+    const html = renderToStaticMarkup(createElement(InvitationHero));
 
     expect(html).not.toContain("http");
     expect(html).not.toContain("//");
     expect(html).toContain('alt=""');
     expect(html).not.toContain('alt="MOCK HERO"');
     expect(html).toContain('loading="eager"');
+  });
+
+  it("omits the pending image for the parent deadline fallback", () => {
+    const html = renderToStaticMarkup(
+      createElement(InvitationHero, { fallback: true }),
+    );
+
+    expect(html).toContain('data-fallback="true"');
+    expect(html).toContain("invitation-hero-paper");
+    expect(html).toContain(
+      'class="invitation-hero-paper-monogram">Y<i>&amp;</i>A',
+    );
+    expect(html).toContain("One day. Our forever.");
+    expect(html).toContain('<h1 id="invitation-hero-title"');
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain(weddingMedia.heroFallback);
+    expect(html).not.toContain("<button");
   });
 
   it("shows no guest name on the closed cover", () => {

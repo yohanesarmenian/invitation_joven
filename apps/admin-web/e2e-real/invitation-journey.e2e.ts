@@ -17,9 +17,11 @@ async function open(page: Page, credential: string) {
   await page
     .getByRole("button", { name: "Open invitation", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "View invitation", exact: true })
-    .click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
 }
 async function accept(page: Page) {
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
@@ -424,7 +426,7 @@ test("same-name households keep distinct personal links, greetings, RSVP and gue
   }
 });
 
-test("opening waits for a delayed photo and reduced motion completes pending preparation", async ({
+test("delayed hero readiness preserves the guest motion preference", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -436,10 +438,10 @@ test("opening waits for a delayed photo and reduced motion completes pending pre
     release = resolve;
   });
   await page.route("**/_next/image?**", async (route) => {
+    const asset = new URL(route.request().url()).searchParams.get("url") ?? "";
     if (
-      new URL(route.request().url()).searchParams
-        .get("url")
-        ?.startsWith("/assets/photography/cover-")
+      asset.startsWith("/assets/photography/cover-") ||
+      asset === "/assets/hero/opened-hero.png"
     )
       await held;
     await route.continue();
@@ -448,16 +450,26 @@ test("opening waits for a delayed photo and reduced motion completes pending pre
     await page.goto(`${publicOrigin}/i/${household.publicCredential}`, {
       waitUntil: "domcontentloaded",
     });
-    await page
-      .getByRole("button", { name: "Open invitation", exact: true })
-      .click();
-    await expect(page.getByText("Preparing your invitation…")).toBeVisible();
-    await page.getByRole("button", { name: "Enable animations" }).click();
+    const openButton = page.getByRole("button", {
+      name: "Open invitation",
+      exact: true,
+    });
     await expect(
-      page.getByRole("button", { name: "View invitation" }),
-    ).toBeFocused();
+      page.getByRole("button", { name: "Enable animations" }),
+    ).toBeEnabled();
+    await expect(openButton).toBeDisabled();
+    await page.getByRole("button", { name: "Enable animations" }).click();
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "closed",
+    );
     release();
-    await page.getByRole("button", { name: "View invitation" }).click();
+    await expect(openButton).toBeEnabled();
+    await openButton.click();
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "content",
+    );
     await expect(page.locator(".invitation-opening-content")).toBeFocused();
     await page.reload();
     await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
@@ -479,22 +491,14 @@ test("disabled CSS end events and failed observers still leave readable, keyboar
   await page.goto(`${publicOrigin}/i/${household.publicCredential}`);
   await page.addStyleTag({
     content:
-      ".invitation-envelope-layer { transition: none !important; } .invitation-cover-stack, .invitation-opening-content { animation: none !important; }",
+      ".invitation-envelope-layer { transition: none !important; } .invitation-opening-content { animation: none !important; }",
   });
-  await page
-    .getByRole("button", { name: "Open invitation", exact: true })
-    .click();
-  // Cross-tab notification must not cancel the active fallback deadline.
-  await page.evaluate(() => {
-    localStorage.setItem("jo-venta-motion", "full");
-    dispatchEvent(
-      new StorageEvent("storage", { key: "jo-venta-motion", newValue: "full" }),
-    );
+  const openButton = page.getByRole("button", {
+    name: "Open invitation",
+    exact: true,
   });
-  await expect(
-    page.getByRole("button", { name: "View invitation" }),
-  ).toBeFocused();
-  // Inject at the reveal boundary, after framework hydration has completed.
+  await expect(openButton).toBeEnabled();
+  // Install before the single activation, after framework hydration has completed.
   await page.evaluate(() => {
     Object.defineProperty(window, "IntersectionObserver", {
       value: class {
@@ -505,7 +509,18 @@ test("disabled CSS end events and failed observers still leave readable, keyboar
       configurable: true,
     });
   });
-  await page.getByRole("button", { name: "View invitation" }).press("Enter");
+  await openButton.press("Enter");
+  // Cross-tab notification must not cancel the active fallback deadline.
+  await page.evaluate(() => {
+    localStorage.setItem("jo-venta-motion", "full");
+    dispatchEvent(
+      new StorageEvent("storage", { key: "jo-venta-motion", newValue: "full" }),
+    );
+  });
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
   await expect(page.locator(".invitation-opening-content")).toBeFocused();
   expect(
     await page
@@ -557,12 +572,13 @@ test("never-loading and completely failed cover images cannot trap the guest", a
       await page
         .getByRole("button", { name: "Open invitation", exact: true })
         .click();
-      await expect(
-        page.getByRole("button", { name: "View invitation" }),
-      ).toBeFocused();
+      await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+        "data-stage",
+        "content",
+      );
+      await expect(page.locator(".invitation-opening-content")).toBeFocused();
       if (mode === "failed")
-        await expect(page.locator("#invitation-opened-title")).toBeVisible();
-      await page.getByRole("button", { name: "View invitation" }).click();
+        await expect(page.locator(".invitation-hero")).toBeVisible();
       await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
     } finally {
       release();

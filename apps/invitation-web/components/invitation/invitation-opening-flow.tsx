@@ -8,7 +8,8 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { ClosedEnvelopeCover, OpenedCoverStage } from "./invitation-cover";
+import { ClosedEnvelopeCover, InvitationHero } from "./invitation-cover";
+import { InvitationContentVisible } from "./invitation-opening-context";
 import {
   invitationMotion,
   invitationMotionStyle,
@@ -37,20 +38,22 @@ function subscribeMotionPreference(onChange: () => void) {
 }
 
 export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
-  const interactive = useSyncExternalStore(
+  const hydrated = useSyncExternalStore(
     subscribeHydration,
     hydratedSnapshot,
     serverSnapshot,
   );
   const [stage, setStage] = useState<InvitationStage>(INITIAL_INVITATION_STAGE);
-  const openedButtonRef = useRef<HTMLButtonElement>(null);
+  const stageRef = useRef<InvitationStage>(INITIAL_INVITATION_STAGE);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [opening, setOpening] = useState(false);
-  const [preparing, setPreparing] = useState(false);
+  const [prepared, setPrepared] = useState(false);
+  const [heroFallback, setHeroFallback] = useState(false);
+  const preparedRef = useRef(false);
   const heroReadyRef = useRef(false);
-  const preparingRef = useRef(false);
-  const imageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [entering, setEntering] = useState(false);
+  const fontsReadyRef = useRef(false);
+  const mountedRef = useRef(false);
+  const preparationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [systemReduced, setSystemReduced] = useState(false);
   const [motionOverride, setMotionOverride] = useState<boolean | null>(null);
   const savedMotion = useSyncExternalStore(
@@ -61,114 +64,89 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
   const effectiveOverride = motionOverride ?? savedMotion;
   const reduced =
     effectiveOverride === null ? systemReduced : !effectiveOverride;
-  const openingRef = useRef(false);
-  const openingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const entryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const enteringRef = useRef(false);
 
-  const finishEntry = useCallback(() => {
-    if (!enteringRef.current) return;
-    enteringRef.current = false;
-    if (entryTimer.current !== null) clearTimeout(entryTimer.current);
-    entryTimer.current = null;
-    setEntering(false);
-    setStage("content");
+  const finishPreparation = useCallback(() => {
+    if (!mountedRef.current || preparedRef.current) return;
+    preparedRef.current = true;
+    if (preparationTimer.current !== null)
+      clearTimeout(preparationTimer.current);
+    preparationTimer.current = null;
+    setPrepared(true);
   }, []);
-
-  const finishOpening = useCallback(() => {
-    if (!openingRef.current) return;
-    openingRef.current = false;
-    if (openingTimer.current !== null) clearTimeout(openingTimer.current);
-    openingTimer.current = null;
-    preparingRef.current = false;
-    if (imageTimer.current !== null) clearTimeout(imageTimer.current);
-    imageTimer.current = null;
-    setPreparing(false);
-    setOpening(false);
-    setStage((current) =>
-      current === "closed" ? nextInvitationStage(current) : current,
-    );
-  }, []);
-
-  const beginOpening = useCallback(() => {
-    if (!openingRef.current) return;
-    preparingRef.current = false;
-    if (imageTimer.current !== null) clearTimeout(imageTimer.current);
-    imageTimer.current = null;
-    setPreparing(false);
-    setOpening(true);
-    openingTimer.current = setTimeout(
-      finishOpening,
-      invitationMotion.fold +
-        invitationMotion.stagger +
-        invitationMotion.fallbackGrace,
-    );
-  }, [finishOpening]);
 
   const coverReady = useCallback(() => {
     heroReadyRef.current = true;
-    if (preparingRef.current) beginOpening();
-  }, [beginOpening]);
+    if (fontsReadyRef.current) finishPreparation();
+  }, [finishPreparation]);
+
+  useEffect(() => {
+    let active = true;
+    mountedRef.current = true;
+    // Only the initial photo and fonts gate opening. Lower images remain lazy.
+    preparationTimer.current = setTimeout(() => {
+      if (!heroReadyRef.current) setHeroFallback(true);
+      finishPreparation();
+    }, invitationMotion.imageWait);
+    const fontsSettled = () => {
+      if (!active) return;
+      fontsReadyRef.current = true;
+      if (heroReadyRef.current) finishPreparation();
+    };
+    void Promise.resolve(document.fonts?.ready).then(
+      fontsSettled,
+      fontsSettled,
+    );
+    return () => {
+      active = false;
+      mountedRef.current = false;
+      if (preparationTimer.current !== null)
+        clearTimeout(preparationTimer.current);
+      preparationTimer.current = null;
+      if (openingTimer.current !== null) clearTimeout(openingTimer.current);
+      openingTimer.current = null;
+    };
+  }, [finishPreparation]);
+
+  const finishOpening = useCallback(() => {
+    if (!mountedRef.current || stageRef.current !== "opening") return;
+    if (openingTimer.current !== null) clearTimeout(openingTimer.current);
+    openingTimer.current = null;
+    stageRef.current = nextInvitationStage(stageRef.current);
+    setStage(stageRef.current);
+  }, []);
 
   const advance = useCallback(() => {
-    if (openingRef.current || enteringRef.current) return;
-    if (stage === "closed" && !reduced) {
-      openingRef.current = true;
-      if (heroReadyRef.current) beginOpening();
-      else {
-        preparingRef.current = true;
-        setPreparing(true);
-        // A slow or broken image must never trap guests behind the envelope.
-        imageTimer.current = setTimeout(
-          beginOpening,
-          invitationMotion.imageWait,
-        );
-      }
+    if (!hydrated || !preparedRef.current || stageRef.current !== "closed")
       return;
-    }
-    if (stage === "opened" && !reduced) {
-      enteringRef.current = true;
-      setEntering(true);
-      entryTimer.current = setTimeout(
-        finishEntry,
-        invitationMotion.entry + invitationMotion.fallbackGrace,
+    // A synchronous guard also rejects activations in the same React batch.
+    stageRef.current = reduced
+      ? "content"
+      : nextInvitationStage(stageRef.current);
+    setStage(stageRef.current);
+    if (!reduced) {
+      openingTimer.current = setTimeout(
+        finishOpening,
+        invitationMotion.fold +
+          invitationMotion.stagger +
+          invitationMotion.fallbackGrace,
       );
-      return;
     }
-    setStage((current) => nextInvitationStage(current));
-  }, [beginOpening, finishEntry, reduced, stage]);
+  }, [finishOpening, hydrated, reduced]);
 
   useEffect(() => {
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onChange = () => {
       setSystemReduced(preference.matches);
-      if (preference.matches && effectiveOverride !== true) {
-        finishOpening();
-        finishEntry();
-      }
+      if (preference.matches && effectiveOverride !== true) finishOpening();
     };
     onChange();
     preference.addEventListener("change", onChange);
-    return () => {
-      preference.removeEventListener("change", onChange);
-    };
-  }, [finishOpening, finishEntry, effectiveOverride]);
+    return () => preference.removeEventListener("change", onChange);
+  }, [finishOpening, effectiveOverride]);
 
   useEffect(() => {
-    if (reduced) {
-      finishOpening();
-      finishEntry();
-    }
-  }, [reduced, finishOpening, finishEntry]);
-
-  useEffect(
-    () => () => {
-      if (imageTimer.current !== null) clearTimeout(imageTimer.current);
-      if (openingTimer.current !== null) clearTimeout(openingTimer.current);
-      if (entryTimer.current !== null) clearTimeout(entryTimer.current);
-    },
-    [],
-  );
+    if (reduced) finishOpening();
+  }, [reduced, finishOpening]);
 
   function toggleMotion() {
     setMotionOverride(reduced);
@@ -178,21 +156,15 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
         reduced ? "full" : "reduced",
       );
     } catch {
-      /* In-memory choice remains usable when storage is unavailable. */
+      /* The non-sensitive preference remains usable in memory. */
     }
-    if (!reduced) {
-      finishOpening();
-      finishEntry();
-    }
+    if (!reduced) finishOpening();
   }
 
   useEffect(() => {
-    if (stage === "opened") {
-      openedButtonRef.current?.focus();
-    } else if (stage === "content") {
-      window.scrollTo(0, 0);
-      contentRef.current?.focus({ preventScroll: true });
-    }
+    if (stage !== "content") return;
+    window.scrollTo(0, 0);
+    contentRef.current?.focus({ preventScroll: true });
   }, [stage]);
 
   useEffect(() => {
@@ -210,7 +182,6 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
         (entries) => {
           for (const entry of entries) {
             if (!entry.isIntersecting) continue;
-            // Base content stays visible; focusable forms/pass are not reveal targets.
             entry.target.classList.add("invitation-revealed");
             observer?.unobserve(entry.target);
           }
@@ -235,6 +206,7 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
     };
   }, [stage, reduced]);
 
+  const concealed = stage !== "content";
   return (
     <div className="invitation-viewport">
       <div
@@ -248,56 +220,34 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
           className="invitation-motion-toggle"
           aria-label="Enable animations"
           aria-pressed={!reduced}
-          disabled={!interactive}
+          disabled={!hydrated}
           onClick={toggleMotion}
         >
           Animations: {reduced ? "Off" : "On"}
         </button>
-        {stage !== "content" ? (
-          <div
-            className="invitation-cover-stack"
-            data-exiting={entering || undefined}
-          >
-            <div
-              className="invitation-cover-underlay"
-              inert={stage === "closed"}
-              aria-hidden={stage === "closed" || undefined}
-            >
-              <OpenedCoverStage
-                onView={advance}
-                buttonRef={openedButtonRef}
-                onReady={coverReady}
-                disabled={!interactive || entering}
-              />
-            </div>
-            {stage === "closed" ? (
-              <ClosedEnvelopeCover
-                onOpen={advance}
-                opening={opening}
-                preparing={preparing}
-                ready={interactive}
-                onOpeningComplete={finishOpening}
-              />
-            ) : null}
-          </div>
-        ) : null}
-        {stage === "content" || entering ? (
-          <div
-            ref={contentRef}
-            tabIndex={-1}
-            className="invitation-opening-content"
-            data-entering={entering || undefined}
-            onAnimationEnd={(event) => {
-              if (
-                event.target === event.currentTarget &&
-                event.animationName === "invitation-content-enter"
-              )
-                finishEntry();
-            }}
-          >
+        <div
+          ref={contentRef}
+          tabIndex={-1}
+          className="invitation-opening-content"
+          inert={concealed}
+          aria-hidden={concealed || undefined}
+        >
+          <InvitationHero onReady={coverReady} fallback={heroFallback} />
+          <InvitationContentVisible value={!concealed}>
             {children}
+          </InvitationContentVisible>
+        </div>
+        {concealed && (
+          <div className="invitation-cover-stack">
+            <ClosedEnvelopeCover
+              onOpen={advance}
+              opening={stage === "opening"}
+              preparing={!prepared}
+              ready={hydrated && prepared}
+              onOpeningComplete={finishOpening}
+            />
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

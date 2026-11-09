@@ -1,7 +1,8 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { weddingMedia } from "../../src/presentation/wedding-media";
+import { InvitationContentVisible } from "./invitation-opening-context";
 const frames = [
   {
     ...weddingMedia.gallery[0],
@@ -25,6 +26,7 @@ const frames = [
   },
 ] as const;
 export function InvitationGallery() {
+  const contentVisible = useContext(InvitationContentVisible);
   const [selected, setSelected] = useState<number | null>(null),
     dialog = useRef<HTMLDialogElement>(null),
     close = useRef<HTMLButtonElement>(null);
@@ -63,13 +65,15 @@ export function InvitationGallery() {
             aria-label={`View pre-wedding photograph ${index + 1}`}
             onClick={() => setSelected(index)}
           >
-            <Image
-              src={item.src}
-              alt=""
-              fill
-              sizes={item.sizes}
-              style={{ objectPosition: item.position }}
-            />
+            {contentVisible && (
+              <Image
+                src={item.src}
+                alt=""
+                fill
+                sizes={item.sizes}
+                style={{ objectPosition: item.position }}
+              />
+            )}
           </button>
         ))}
       </div>
