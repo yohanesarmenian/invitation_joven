@@ -25,6 +25,69 @@ async function expectContent(page: Page) {
   ).toBeVisible();
 }
 
+for (const width of [375, 1280]) {
+  test(`wedding monograms use Yohanes and Angelina initials at ${width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(fixturePath);
+    const open = page.getByRole("button", {
+      name: "Open invitation",
+      exact: true,
+    });
+    await expect(open).toBeEnabled();
+    await expect(page.locator(".invitation-envelope-wax")).toHaveText("Y&A");
+    await expect(page.locator(".invitation-envelope-hint")).toHaveCSS(
+      "opacity",
+      "1",
+    );
+    await page.screenshot({
+      path: info.outputPath(`monogram-envelope-${width}.png`),
+    });
+    await open.click();
+    await expectContent(page);
+    await expect(page.locator(".invitation-hero-monogram")).toHaveText("Y&A");
+    await expect(page.locator(".invitation-hero-title")).toHaveText(
+      "Jo & Venta",
+    );
+    await page.locator(".invitation-hero").screenshot({
+      path: info.outputPath(`monogram-hero-${width}.png`),
+    });
+
+    await page.route("**/_next/image?**", (route) => {
+      const asset =
+        new URL(route.request().url()).searchParams.get("url") ?? "";
+      return asset.startsWith("/assets/photography/cover-")
+        ? route.abort()
+        : route.continue();
+    });
+    await page.reload();
+    await expect(open).toBeEnabled();
+    await open.click();
+    await expectContent(page);
+    await expect(page.locator(".invitation-hero")).toHaveAttribute(
+      "data-fallback",
+      "true",
+    );
+    await expect(page.locator(".invitation-hero-monogram")).toHaveText("Y&A");
+    await expect(page.locator(".invitation-hero-paper-monogram")).toHaveText(
+      "Y&A",
+    );
+    await expect(page.locator(".invitation-hero-title")).toHaveText(
+      "Jo & Venta",
+    );
+    await page.locator(".invitation-hero").screenshot({
+      path: info.outputPath(`monogram-fallback-${width}.png`),
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  });
+}
+
 test("authorized content is already mounted and inaccessible behind the prepared envelope", async ({
   page,
   request,

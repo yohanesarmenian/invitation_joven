@@ -54,7 +54,7 @@ export function ClosedEnvelopeCover({
           <span className="invitation-envelope-layer invitation-envelope-layer-front">
             <span className="invitation-envelope-wax">
               <span>
-                J<span className="invitation-envelope-ampersand">&amp;</span>V
+                Y<span className="invitation-envelope-ampersand">&amp;</span>A
               </span>
             </span>
           </span>
@@ -106,7 +106,7 @@ export function InvitationHero({
     >
       <div className="invitation-hero-copy">
         <span className="invitation-hero-monogram" aria-hidden="true">
-          J<span>&amp;</span>V
+          Y<span>&amp;</span>A
         </span>
         <div className="invitation-hero-introduction">
           <p className="invitation-hero-kicker">The Wedding of</p>
@@ -128,7 +128,7 @@ export function InvitationHero({
         {showFallback ? (
           <div className="invitation-hero-paper">
             <span className="invitation-hero-paper-monogram">
-              J<i>&amp;</i>V
+              Y<i>&amp;</i>A
             </span>
             <span>One day. Our forever.</span>
           </div>

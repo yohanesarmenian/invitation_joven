@@ -245,6 +245,8 @@ closed -> opening -> content
 - Full-screen navy paper folds and the champagne monogram seal use native CSS.
   Existing artwork guides their geometry. The closed surface shows couple copy
   and keeps guest identity within the concealed authorized content.
+- Wedding monograms on the seal, hero and paper fallback use `Y & A`, the
+  initials of Yohanes & Angelina. Informal couple names may remain Jo & Venta.
 
 Placeholder authorization (Slice 3 through Slice 4A, temporary):
 

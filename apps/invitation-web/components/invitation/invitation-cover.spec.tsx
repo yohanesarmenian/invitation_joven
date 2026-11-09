@@ -30,6 +30,9 @@ describe("invitation cover markup", () => {
     expect(html).toContain("invitation-envelope-layer-right");
     expect(html).toContain("invitation-envelope-wax");
     expect(html).toContain("invitation-envelope-ampersand");
+    expect(html).toContain(
+      'Y<span class="invitation-envelope-ampersand">&amp;</span>A',
+    );
   });
 
   it.each([
@@ -59,6 +62,9 @@ describe("invitation cover markup", () => {
     expect(html).toContain('<h1 id="invitation-hero-title"');
     expect(html).toContain("The Wedding of");
     expect(html).toContain("Jo <span><i>&amp;</i> Venta</span>");
+    expect(html).toContain(
+      'class="invitation-hero-monogram" aria-hidden="true">Y<span>&amp;</span>A',
+    );
     expect(html).toContain("invitation-hero-media");
     expect(html).not.toMatch(/<(?:button|form|input|select|textarea|a)\b/);
     expect(html).not.toMatch(/(?:Open|View) invitation/i);
@@ -115,6 +121,9 @@ describe("invitation cover markup", () => {
 
     expect(html).toContain('data-fallback="true"');
     expect(html).toContain("invitation-hero-paper");
+    expect(html).toContain(
+      'class="invitation-hero-paper-monogram">Y<i>&amp;</i>A',
+    );
     expect(html).toContain("One day. Our forever.");
     expect(html).toContain('<h1 id="invitation-hero-title"');
     expect(html).not.toContain("<img");
