@@ -68,11 +68,19 @@ async function installCamera(page: Page, svg: string) {
         image.src = url;
         await image.decode();
         const stream = canvas.captureStream(15);
-        canvas.getContext("2d")!.drawImage(image, 0, 0, 320, 320);
+        const context = canvas.getContext("2d")!;
+        let paintFrame = 0;
+        // captureStream's frame rate is a ceiling. Fresh frames require repainting.
+        function paint() {
+          context.drawImage(image, 0, 0, 320, 320);
+          paintFrame = requestAnimationFrame(paint);
+        }
+        paint();
         URL.revokeObjectURL(url);
         for (const track of stream.getTracks()) {
           const stop = track.stop.bind(track);
           track.stop = () => {
+            cancelAnimationFrame(paintFrame);
             Reflect.set(
               window,
               "journeyStoppedTracks",
@@ -86,6 +94,68 @@ async function installCamera(page: Page, svg: string) {
     });
   }, svg);
 }
+
+test("synthetic camera delivers advancing frames and releases its tracks", async ({
+  page,
+}) => {
+  await installCamera(
+    page,
+    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="320" height="320" fill="white"/><rect x="80" y="80" width="160" height="160" fill="black"/></svg>',
+  );
+  await page.goto("/login");
+  await page.evaluate(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    const probe = {
+      times: [] as number[],
+      playError: null as string | null,
+      stop: () => {
+        stream.getTracks().forEach((track) => track.stop());
+        video.srcObject = null;
+        video.remove();
+        return stream
+          .getTracks()
+          .every((track) => track.readyState === "ended");
+      },
+    };
+    function recordFrame(_now: number, metadata: VideoFrameCallbackMetadata) {
+      probe.times.push(metadata.mediaTime);
+      if (stream.active) video.requestVideoFrameCallback(recordFrame);
+    }
+    video.requestVideoFrameCallback(recordFrame);
+    video.srcObject = stream;
+    document.body.append(video);
+    Reflect.set(window, "journeyFrameProbe", probe);
+    void video.play().catch((error: Error) => {
+      probe.playError = error.name;
+    });
+  });
+  try {
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const probe = Reflect.get(window, "journeyFrameProbe");
+          return {
+            advancing:
+              probe.times.length >= 2 && probe.times[1] > probe.times[0],
+            playError: probe.playError,
+          };
+        }),
+      )
+      .toEqual({ advancing: true, playError: null });
+  } finally {
+    expect(
+      await page.evaluate(() =>
+        Reflect.get(window, "journeyFrameProbe").stop(),
+      ),
+    ).toBe(true);
+    expect(
+      await page.evaluate(() => Reflect.get(window, "journeyStoppedTracks")),
+    ).toBeGreaterThan(0);
+  }
+});
 
 test("guest RSVP and message issue a real pass; staff camera decodes, recovers a lost confirmation and rejects a duplicate", async ({
   page,
