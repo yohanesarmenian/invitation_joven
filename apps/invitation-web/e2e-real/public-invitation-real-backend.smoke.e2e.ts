@@ -66,7 +66,11 @@ async function fetchCanonicalRsvp(
 async function openInvitation(page: Page, publicCredential: string) {
   await page.goto(`/i/${publicCredential}`);
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
   await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
 }
 
@@ -174,6 +178,10 @@ test("real backend: one retrieval per server render, client stages stay local", 
   // this render, which is what bumps open_count.
   const openButton = page.getByRole("button", { name: "Open invitation" });
   await expect(openButton).toBeVisible();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "closed",
+  );
   await expect(page.getByRole("heading", { name: "Smoke Guest" })).toBeHidden();
 
   const afterRender = runFixtureCli<SmokeFixtureRead>("read");
@@ -183,14 +191,16 @@ test("real backend: one retrieval per server render, client stages stay local", 
 
   await openButton.click();
 
-  // Opened state: a client-side stage change, so no new server render.
-  const viewButton = page.getByRole("button", { name: "View invitation" });
-  await expect(viewButton).toBeVisible();
+  // The single activation starts a local transition without a new server render.
   expect(runFixtureCli<SmokeFixtureRead>("read").openCount).toBe(
     expectedOpenCount,
   );
 
-  await viewButton.click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
 
   // Content state: rendered from the single server-side retrieval.
   await expect(
@@ -1455,9 +1465,9 @@ test("real backend: the message form is labelled, associated, and keyboard opera
   // Limits are associated with the field, not decorative.
   const describedBy = await message.getAttribute("aria-describedby");
 
-  await expect(
-    page.locator(`#${describedBy!.split(" ")[0]}`),
-  ).toContainText("1000");
+  await expect(page.locator(`#${describedBy!.split(" ")[0]}`)).toContainText(
+    "1000",
+  );
 
   // The textarea accepts keyboard input.
   await message.focus();

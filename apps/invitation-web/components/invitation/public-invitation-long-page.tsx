@@ -93,7 +93,7 @@ function Decoration({
         width={source.width}
         height={source.height}
         sizes={renderedSizes}
-        loading="eager"
+        loading={asset === "corner" ? "eager" : "lazy"}
       />
     </span>
   );

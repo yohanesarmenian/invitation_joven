@@ -46,7 +46,10 @@ async function state(
 async function open(page: Page) {
   await page.goto(PATH);
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
   await expect(form(page)).toBeVisible();
 }
 async function success(page: Page) {

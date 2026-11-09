@@ -5,7 +5,10 @@ test.beforeEach(async ({ page, request }) => {
   await request.post(`${MOCK_API_ORIGIN}/__reset`);
   await page.goto(`/i/${"A".repeat(43)}`);
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
 });
 test("calendar downloads the eligible event instant without invitation or QR credentials", async ({
   page,

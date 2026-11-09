@@ -1,82 +1,144 @@
 import { MOCK_API_ORIGIN } from "./harness";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { invitationMotion } from "../src/presentation/invitation-motion";
 
-// Only the existing synthetic mock credential; no live invitation data or QR snapshots.
+// Synthetic local credential only. No live bearer URL or active pass is captured.
 test.use({ screenshot: "off", trace: "off" });
 const fixturePath = `/i/${"A".repeat(43)}`;
+
 test.beforeEach(async ({ request }) => {
-  expect((await request.post(`${MOCK_API_ORIGIN}/__reset`)).status()).toBe(204);
+  expect((await request.post(MOCK_API_ORIGIN + "/__reset")).status()).toBe(204);
 });
 
-test("opening ignores repeated activation and transfers keyboard focus without retrieving again", async ({
+async function expectContent(page: Page) {
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
+  await expect(page.locator(".invitation-opening-content")).not.toHaveAttribute(
+    "inert",
+  );
+  await expect(
+    page.getByRole("heading", { name: "Test Guest", exact: true }),
+  ).toBeVisible();
+}
+
+test("authorized content is already mounted and inaccessible behind the prepared envelope", async ({
+  page,
+  request,
+}) => {
+  let writes = 0;
+  const imageRequests: string[] = [];
+  const externalRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST") writes++;
+    const url = new URL(request.url());
+    if (url.origin !== "http://localhost:3000")
+      externalRequests.push(url.origin);
+    if (url.pathname === "/_next/image")
+      imageRequests.push(url.searchParams.get("url") ?? "");
+  });
+  await page.goto(fixturePath);
+  const content = page.locator(".invitation-opening-content");
+  await expect(content).toHaveAttribute("inert", "");
+  await expect(content).toHaveAttribute("aria-hidden", "true");
+  await expect(content.locator(".public-rsvp-form")).toBeAttached();
+  await expect(
+    page.getByRole("heading", { name: "Test Guest", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "View invitation", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Open invitation", exact: true }),
+  ).toBeEnabled();
+  await page.evaluate(() =>
+    document
+      .querySelector<HTMLInputElement>(".public-rsvp-form input")
+      ?.focus(),
+  );
+  expect(
+    await content.evaluate((node) => node.contains(document.activeElement)),
+  ).toBe(false);
+  for (let index = 0; index < 4; index++) {
+    await page.keyboard.press("Tab");
+    expect(
+      await content.evaluate((node) => node.contains(document.activeElement)),
+    ).toBe(false);
+  }
+  expect(
+    (await (await request.get(MOCK_API_ORIGIN + "/__count")).json()).count,
+  ).toBe(1);
+  expect(writes).toBe(0);
+  expect(externalRequests).toEqual([]);
+  expect(imageRequests.some((source) => /\/pic-0[123]-/.test(source))).toBe(
+    false,
+  );
+  // Frame geometry exists before opening, while image sources remain deferred.
+  await expect(page.locator(".gallery-frame")).toHaveCount(4);
+  await expect(page.locator(".gallery-frame img")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await expectContent(page);
+  await expect(page.locator(".gallery-frame img")).toHaveCount(4);
+  // Images then retain normal lazy loading below the prepared initial hero.
+  expect(
+    await page
+      .locator(".gallery-frame img")
+      .evaluateAll((images) =>
+        images.every((image) => (image as HTMLImageElement).loading === "lazy"),
+      ),
+  ).toBe(true);
+});
+
+test("one Enter activation rejects repeats and transfers focus directly to content", async ({
   page,
   request,
 }) => {
   await page.goto(fixturePath);
-  const open = page.getByRole("button", { name: "Open invitation" });
+  const open = page.getByRole("button", {
+    name: "Open invitation",
+    exact: true,
+  });
+  await expect(open).toBeEnabled();
   await open.focus();
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter");
-  const view = page.getByRole("button", { name: "View invitation" });
-  await expect(view).toBeVisible();
-  await expect(view).toBeFocused();
-  await page.keyboard.press("Space");
+  await expectContent(page);
   await expect(page.locator(".invitation-opening-content")).toBeFocused();
-  await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "View invitation", exact: true }),
+  ).toHaveCount(0);
   expect(
-    (await (await request.get(`${MOCK_API_ORIGIN}/__count`)).json()).count,
+    (await (await request.get(MOCK_API_ORIGIN + "/__count")).json()).count,
   ).toBe(1);
 });
 
-test("changing reduced motion during envelope transition immediately reaches the opened cover", async ({
+test("paper folds reveal the prepared hero while forms stay inert", async ({
   page,
-}) => {
-  await page.goto(fixturePath);
-  await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(
-    page.getByRole("button", { name: "View invitation" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "View invitation" }).click();
-  await page.locator(".couple-profile").first().scrollIntoViewIfNeeded();
-  expect(
-    await page
-      .locator(".couple-profile")
-      .first()
-      .evaluate((node) => getComputedStyle(node).animationName),
-  ).toBe("none");
-});
-
-test("paper folds reveal the cover beneath while its action stays inert until opening finishes", async ({
-  page,
-  request,
 }, info) => {
-  // Reproduce the owner's browser preference, then explicitly opt into motion.
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.setViewportSize({ width: 412, height: 917 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 412, height: 900 });
   await page.goto(fixturePath);
-  const envelope = await page
-    .locator(".invitation-envelope-button")
-    .boundingBox();
-  expect(envelope!.x).toBe(0);
-  expect(envelope!.y).toBe(0);
-  expect(envelope!.height).toBe(917);
-  expect(envelope!.width).toBe(412);
-  await page.getByRole("button", { name: "Enable animations" }).click();
-  await expect(
-    page.getByRole("button", { name: "Enable animations" }),
-  ).toHaveAttribute("aria-pressed", "true");
-  const underlay = page.locator(".invitation-cover-underlay");
-  await expect(underlay).toHaveAttribute("inert", "");
-  await expect(
-    page.getByRole("button", { name: "View invitation" }),
-  ).toHaveCount(0);
-  await underlay.locator("img").evaluate(async (node) => {
-    await (node as HTMLImageElement).decode();
+  const open = page.getByRole("button", {
+    name: "Open invitation",
+    exact: true,
   });
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await expect(open).toBeEnabled();
+  await open.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
+  const content = page.locator(".invitation-opening-content");
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "opening",
+  );
+  await expect(content).toHaveAttribute("inert", "");
+  await expect(open).toBeDisabled();
   await expect
     .poll(() =>
       page.locator(".invitation-envelope-layer-front").evaluate((node) => {
@@ -87,60 +149,358 @@ test("paper folds reveal the cover beneath while its action stays inert until op
       }),
     )
     .toBe(true);
-  await expect(underlay).toHaveAttribute("inert", "");
-  await expect(
-    page.getByRole("button", { name: "Open invitation" }),
-  ).toBeDisabled();
   await page.screenshot({
-    path: path.resolve(
-      info.config.rootDir,
-      "../../../docs/design/jo-venta/review/runtime-envelope-opening-412.png",
-    ),
+    path: info.outputPath("native-envelope-opening-412.png"),
   });
-  const view = page.getByRole("button", { name: "View invitation" });
-  await expect(view).toBeVisible();
-  await expect(view).toBeFocused();
-  await expect(underlay).not.toHaveAttribute("inert", "");
-  expect(
-    (await (await request.get(`${MOCK_API_ORIGIN}/__count`)).json()).count,
-  ).toBe(1);
-  await view.click();
-  await expect(
-    page.locator(".invitation-opening-content[data-entering=true]"),
-  ).toBeAttached();
-  await expect(page.locator(".invitation-opening-content")).toBeFocused();
-  await expect(page.locator("[data-entering=true]")).toHaveCount(0);
-  await expect(page.locator(".couple-profile").first()).toHaveClass(
-    /invitation-revealed/,
-  );
-  await page.reload();
-  await expect(
-    page.getByRole("button", { name: "Enable animations" }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expectContent(page);
+  await expect(content).toBeFocused();
 });
 
-test("clean hero image failure retains the unmodified flattened fallback and one semantic title", async ({
+test("missing transition-end events finish through the bounded completion fallback", async ({
   page,
 }) => {
+  await page.addInitScript(() =>
+    document.addEventListener(
+      "transitionend",
+      (event) => event.stopImmediatePropagation(),
+      true,
+    ),
+  );
+  await page.goto(fixturePath);
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await expectContent(page);
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
+});
+
+test("changing reduced motion while opening immediately completes the same activation", async ({
+  page,
+}) => {
+  await page.goto(fixturePath);
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expectContent(page);
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
+});
+
+test("reduced motion supports one Space activation with no opening delay", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(fixturePath);
+  const open = page.getByRole("button", {
+    name: "Open invitation",
+    exact: true,
+  });
+  await expect(open).toBeEnabled();
+  await open.focus();
+  await page.keyboard.press("Space");
+  await expectContent(page);
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "Enable animations" }),
+  ).toHaveAttribute("aria-pressed", "false");
+});
+
+test("slow hero stays blocked until decoding succeeds without waiting for galleries", async ({
+  page,
+}) => {
+  let release!: () => void;
+  let requested!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  await page.route("**/_next/image?**", async (route) => {
+    if (
+      new URL(route.request().url()).searchParams
+        .get("url")
+        ?.startsWith("/assets/photography/cover-")
+    ) {
+      requested();
+      await held;
+    }
+    await route.continue().catch(() => {});
+  });
+  try {
+    await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
+    await started;
+    const open = page.getByRole("button", {
+      name: "Open invitation",
+      exact: true,
+    });
+    await expect(open).toBeDisabled();
+    await expect(page.locator(".invitation-opening-content")).toHaveAttribute(
+      "inert",
+      "",
+    );
+    release();
+    await expect(open).toBeEnabled();
+    expect(
+      await page
+        .locator(".invitation-hero img")
+        .evaluate(
+          (image) =>
+            (image as HTMLImageElement).complete &&
+            (image as HTMLImageElement).naturalWidth > 0,
+        ),
+    ).toBe(true);
+    await open.click();
+    await expectContent(page);
+  } finally {
+    release();
+  }
+});
+
+test("failed hero uses the native paper fallback and still opens once", async ({
+  page,
+}) => {
+  await page.route("**/_next/image?**", (route) => {
+    return new URL(route.request().url()).searchParams
+      .get("url")
+      ?.startsWith("/assets/photography/cover-")
+      ? route.abort()
+      : route.continue();
+  });
+  await page.goto(fixturePath);
+  await expect(page.locator(".invitation-hero")).toHaveAttribute(
+    "data-fallback",
+    "true",
+  );
+  await expect(page.locator(".invitation-hero img")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await expectContent(page);
+});
+
+test("never-settling hero releases readiness at the deadline with a stable fallback", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.route("**/_next/image?**", async (route) => {
     if (
       new URL(route.request().url()).searchParams
         .get("url")
         ?.startsWith("/assets/photography/cover-")
     )
-      await route.abort();
-    else await route.continue();
+      await held;
+    await route.continue().catch(() => {});
   });
-  await page.goto(fixturePath);
-  await page.getByRole("button", { name: "Open invitation" }).click();
-  const cover = page.getByRole("button", { name: "View invitation" });
-  await expect(cover).toHaveClass(/invitation-opened-cover-fallback/);
-  await expect(cover.locator("img")).toHaveAttribute("src", /opened-hero/);
-  await expect(page.locator("#invitation-opened-title")).toHaveClass(
-    "visually-hidden",
+  try {
+    await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
+    const open = page.getByRole("button", {
+      name: "Open invitation",
+      exact: true,
+    });
+    await expect(open).toBeEnabled({
+      timeout: invitationMotion.imageWait + 3000,
+    });
+    await expect(page.locator(".invitation-hero")).toHaveAttribute(
+      "data-fallback",
+      "true",
+    );
+    await open.click();
+    await expectContent(page);
+    release();
+    await expect(page.locator(".invitation-hero")).toHaveAttribute(
+      "data-fallback",
+      "true",
+    );
+  } finally {
+    release();
+  }
+});
+
+test("font readiness failure is bounded and does not trap guests", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(document.fonts, "ready", {
+      get: () => new Promise(() => {}),
+      configurable: true,
+    }),
   );
-  await cover.click();
-  await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
+  await page.goto(fixturePath);
+  await expect(
+    page.getByRole("button", { name: "Open invitation", exact: true }),
+  ).toBeEnabled({ timeout: invitationMotion.imageWait + 3000 });
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await expectContent(page);
+});
+
+test("server markup is closed and authorized content stays inert before hydration", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  try {
+    const page = await context.newPage();
+    await page.goto(fixturePath);
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "closed",
+    );
+    await expect(page.locator(".invitation-opening-content")).toHaveAttribute(
+      "inert",
+      "",
+    );
+    await expect(
+      page.getByRole("button", { name: "Open invitation", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("heading", { name: "Test Guest", exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
+test("delayed JavaScript hydrates the same concealed content without a second retrieval", async ({
+  page,
+  request,
+}) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.name));
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      /hydration|hydrated|server rendered/i.test(message.text())
+    )
+      errors.push("hydration");
+  });
+  await page.route("**/_next/**", async (route) => {
+    if (route.request().resourceType() === "script") await held;
+    await route.continue().catch(() => {});
+  });
+  try {
+    await page.goto(fixturePath, { waitUntil: "commit" });
+    const content = page.locator(".invitation-opening-content");
+    const open = page.getByRole("button", {
+      name: "Open invitation",
+      exact: true,
+    });
+    await expect(content).toHaveAttribute("inert", "");
+    await expect(open).toBeDisabled();
+    await open.evaluate((button: HTMLButtonElement) => button.click());
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "closed",
+    );
+    release();
+    await expect(open).toBeEnabled();
+    await open.click();
+    await expectContent(page);
+    await expect(content).toBeFocused();
+    expect(errors).toEqual([]);
+    expect(
+      (await (await request.get(MOCK_API_ORIGIN + "/__count")).json()).count,
+    ).toBe(1);
+  } finally {
+    release();
+  }
+});
+
+for (const phase of ["preparing", "opening"] as const) {
+  test(`navigation during ${phase} cancels work without trapping the next page`, async ({
+    page,
+  }) => {
+    await page.clock.install();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.name));
+    if (phase === "preparing")
+      await page.route("**/_next/image?**", async (route) => {
+        if (
+          new URL(route.request().url()).searchParams
+            .get("url")
+            ?.startsWith("/assets/photography/cover-")
+        )
+          await held;
+        await route.continue().catch(() => {});
+      });
+    try {
+      await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
+      const open = page.getByRole("button", {
+        name: "Open invitation",
+        exact: true,
+      });
+      if (phase === "preparing") await expect(open).toBeDisabled();
+      else {
+        await expect(open).toBeEnabled();
+        await open.click();
+        await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+          "data-stage",
+          "opening",
+        );
+      }
+      await page.goto("/");
+      release();
+      await page.clock.fastForward(
+        invitationMotion.imageWait +
+          invitationMotion.fold +
+          invitationMotion.fallbackGrace,
+      );
+      await expect(page.locator(".invitation-opening-flow")).toHaveCount(0);
+      expect(
+        await page.evaluate(() => getComputedStyle(document.body).overflow),
+      ).not.toBe("hidden");
+      expect(errors).toEqual([]);
+    } finally {
+      release();
+    }
+  });
+}
+
+test("reload resets the envelope and back/forward preserves an accessible journey", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(fixturePath);
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await expectContent(page);
+  await page.reload();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "closed",
+  );
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await expectContent(page);
+  await page.goto("/");
+  await page.goBack();
+  await expect(page.locator(".invitation-opening-flow")).toBeVisible();
+  if (
+    (await page
+      .locator(".invitation-opening-flow")
+      .getAttribute("data-stage")) === "closed"
+  ) {
+    await page
+      .getByRole("button", { name: "Open invitation", exact: true })
+      .click();
+  }
+  await expectContent(page);
+  await page.goForward();
+  await expect(page).toHaveURL("/");
 });
 
 test("responsive layout fills the viewport and keeps labels clear of photos", async ({
@@ -152,7 +512,10 @@ test("responsive layout fills the viewport and keeps labels clear of photos", as
     await page.setViewportSize({ width, height: 900 });
     await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Open invitation" }).click();
-    await page.getByRole("button", { name: "View invitation" }).click();
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "content",
+    );
     await page.evaluate(() => document.fonts.ready);
     const frame = await page
       .locator(".public-invitation-surface")
@@ -224,7 +587,10 @@ test("missing reveal observer leaves invitation text, forms and gallery usable",
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(fixturePath);
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
   await expect(page.locator(".couple-profile").first()).toBeVisible();
   await expect(page.locator(".public-rsvp-form")).toBeVisible();
   await page
@@ -243,10 +609,7 @@ test("records owner-photo geometry and synthetic visual evidence through the ope
   page,
 }, info) => {
   test.setTimeout(90_000);
-  const directory = path.resolve(
-    info.config.rootDir,
-    "../../../docs/design/jo-venta/review",
-  );
+  const directory = path.resolve(info.outputPath("visual-proof"));
   await fs.mkdir(directory, { recursive: true });
   await page.emulateMedia({ reducedMotion: "reduce" });
   const evidence = [];
@@ -262,14 +625,12 @@ test("records owner-photo geometry and synthetic visual evidence through the ope
     });
     await page.evaluate(() => performance.mark("design-open-start"));
     await page.getByRole("button", { name: "Open invitation" }).click();
-    await page
-      .locator(".invitation-opened-media img")
-      .evaluate(async (node) => {
-        await (node as HTMLImageElement).decode();
-      });
-    await expect(page.locator(".invitation-opened-cover-fallback")).toHaveCount(
-      0,
-    );
+    await page.locator(".invitation-hero img").evaluate(async (node) => {
+      await (node as HTMLImageElement).decode();
+    });
+    await expect(
+      page.locator('.invitation-hero[data-fallback="true"]'),
+    ).toHaveCount(0);
     const heroReadyMs = await page.evaluate(
       () =>
         performance.now() -
@@ -278,7 +639,10 @@ test("records owner-photo geometry and synthetic visual evidence through the ope
     await page.screenshot({
       path: path.join(directory, `runtime-opened-${width}.png`),
     });
-    await page.getByRole("button", { name: "View invitation" }).click();
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "content",
+    );
     // This fixture has no saved RSVP/pass. Never capture a real or active QR.
     await expect(page.locator(".guest-checkin-pass")).toHaveCount(0);
     for (const selector of [

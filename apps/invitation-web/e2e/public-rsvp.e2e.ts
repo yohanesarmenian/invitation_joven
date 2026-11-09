@@ -42,7 +42,10 @@ async function submissions(
 async function open(page: Page) {
   await page.goto(PATH);
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
 }
 
 async function accept(page: Page) {

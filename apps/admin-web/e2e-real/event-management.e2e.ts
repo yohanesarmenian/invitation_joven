@@ -125,9 +125,10 @@ test("OWNER creates an event and edits linked details; guest date, countdown, ca
     await guest
       .getByRole("button", { name: "Open invitation", exact: true })
       .click();
-    await guest
-      .getByRole("button", { name: "View invitation", exact: true })
-      .click();
+    await expect(guest.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "content",
+    );
     await expect(
       guest.getByRole("heading", { name: "11 February 2028", exact: true }),
     ).toBeVisible();

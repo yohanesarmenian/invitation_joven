@@ -31,13 +31,19 @@ test("records a credential-free local rendering baseline", async ({
     }).observe({ type: "longtask", buffered: true });
   });
   await page.goto(`/i/${"A".repeat(43)}`);
-  await page.evaluate(() => document.fonts.ready);
-  await expect(
-    page.getByRole("button", { name: "Open invitation" }),
-  ).toBeVisible();
-  await page.waitForFunction(() =>
-    [...document.images].every((image) => image.complete),
-  );
+  const openButton = page.getByRole("button", { name: "Open invitation" });
+  await expect(openButton).toBeVisible();
+  await expect(openButton).toBeEnabled();
+  // Initial readiness covers the hero while lower-page galleries remain lazy.
+  const hero = page.locator(".invitation-hero img");
+  await expect(hero).toHaveCount(1);
+  await expect
+    .poll(() =>
+      hero.evaluate(
+        (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
   await page.evaluate(
     () =>
       new Promise<void>((resolve) =>

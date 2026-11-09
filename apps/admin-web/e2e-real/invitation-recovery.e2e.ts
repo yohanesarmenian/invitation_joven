@@ -163,9 +163,10 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
     await guest
       .getByRole("button", { name: "Open invitation", exact: true })
       .click();
-    await guest
-      .getByRole("button", { name: "View invitation", exact: true })
-      .click();
+    await expect(guest.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "content",
+    );
     await expect(guest.locator("#invitation-title")).toHaveText(names[0]!);
     await expect(guest.getByRole("form", { name: "Your RSVP" })).toBeVisible();
     await expect(
@@ -202,9 +203,10 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
     await guest
       .getByRole("button", { name: "Open invitation", exact: true })
       .click();
-    await guest
-      .getByRole("button", { name: "View invitation", exact: true })
-      .click();
+    await expect(guest.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-stage",
+      "content",
+    );
     await expect(
       guest.getByRole("radio", { name: "Joyfully Accept" }),
     ).toBeChecked();

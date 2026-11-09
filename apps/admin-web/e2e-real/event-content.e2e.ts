@@ -140,9 +140,9 @@ test("real draft/upload/preview/publish/hide survives reload and controls guest 
     await publicPage
       .getByRole("button", { name: "Open invitation", exact: true })
       .click();
-    await publicPage
-      .getByRole("button", { name: "View invitation", exact: true })
-      .click();
+    await expect(
+      publicPage.locator(".invitation-opening-flow"),
+    ).toHaveAttribute("data-stage", "content");
     await expect(
       publicPage.getByRole("region", { name: "Parking Guide", exact: true }),
     ).toContainText("Reception parking for guests");

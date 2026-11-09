@@ -7,7 +7,10 @@ test("venue content on the guest route follows publish state and exact event eli
 }, testInfo) => {
   await page.goto(guestUrl);
   await page.getByRole("button", { name: "Open invitation" }).click();
-  await page.getByRole("button", { name: "View invitation" }).click();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-stage",
+    "content",
+  );
   if (testInfo.config.metadata.venuePublished === true) {
     await expect(
       page.getByRole("region", { name: "Parking Guide", exact: true }),
