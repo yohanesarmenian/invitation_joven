@@ -9,6 +9,7 @@ import {
 } from "../src/invitations/create-invitation";
 import {
   prepareInvitation,
+  deadlineToIso,
   type CreateFields,
   type FormErrors,
 } from "../src/invitations/form-state";
@@ -53,6 +54,8 @@ export function CreateInvitationForm({
   const notice = useRef<HTMLDivElement>(null);
   const prerequisite = weddingEventIssue(events);
   const event = events[0];
+  const [deadlineDate = "", deadlineTime = ""] = fields.deadline.split("T");
+  const deadlineIso = fields.deadline ? deadlineToIso(fields.deadline) : null;
 
   // A non-secret marker survives reload/navigation while a non-idempotent
   // request may have committed. It contains no guest data, token, or URL.
@@ -81,6 +84,9 @@ export function CreateInvitationForm({
     setFields((current) => ({ ...current, [key]: value }));
     setErrors({});
     if (!recovery) setMessage("");
+  }
+  function deadline(date: string, time: string) {
+    field("deadline", date || time ? `${date}T${time}` : "");
   }
   function feedback(text: string) {
     setMessage(text);
@@ -322,8 +328,9 @@ export function CreateInvitationForm({
             <p className="create-step">01 / The guest</p>
             <h2>Who are you inviting?</h2>
             <p className="hint">
-              Enter the main guest&apos;s name. Add other named guests only when
-              they share this invitation.
+              Add one row for each named person sharing this link. The first
+              guest&apos;s name is also the invitation name unless you add a
+              household name below.
             </p>
             {error("invitees")}
             {fields.invitees.map((row, index) => (
@@ -479,7 +486,8 @@ export function CreateInvitationForm({
                   onChange={(e) => field("greetingName", e.target.value)}
                 />
                 <p className="hint">
-                  Leave blank to greet the invitation / household name.
+                  Optional salutation shown to the guest. Leave blank to use the
+                  invitation / household name.
                 </p>
               </div>
               <label className="checkbox-label">
@@ -503,24 +511,45 @@ export function CreateInvitationForm({
                     {...errorProps("children")}
                   />
                   {error("children")}
-                </div>
-                <div className="field">
-                  <label htmlFor="deadline">RSVP deadline</label>
-                  <input
-                    id="deadline"
-                    type="datetime-local"
-                    step="0.001"
-                    value={fields.deadline}
-                    onChange={(e) => field("deadline", e.target.value)}
-                    {...errorProps("deadline")}
-                    aria-describedby={`deadline-help${errors.deadline ? " deadline-error" : ""}`}
-                  />
-                  <p className="hint" id="deadline-help">
-                    Asia/Jakarta (UTC+07:00). Leave blank for no deadline.
+                  <p className="hint">
+                    Extra children beyond any named child guests above.
                   </p>
-                  {error("deadline")}
                 </div>
               </div>
+              <fieldset className="create-deadline">
+                <legend>RSVP deadline · Asia/Jakarta / WIB</legend>
+                <p className="hint" id="deadline-help">
+                  Leave both fields blank for no deadline. Otherwise choose a
+                  date and time. RSVP closes at that selected minute in WIB
+                  (UTC+07:00).
+                </p>
+                <div className="create-grid">
+                  <div className="field">
+                    <label htmlFor="deadline">Deadline date (WIB)</label>
+                    <input
+                      id="deadline"
+                      type="date"
+                      value={deadlineDate}
+                      onChange={(e) => deadline(e.target.value, deadlineTime)}
+                      {...errorProps("deadline")}
+                      aria-describedby={`deadline-help${errors.deadline ? " deadline-error" : ""}`}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="deadline-time">Deadline time (WIB)</label>
+                    <input
+                      id="deadline-time"
+                      type="time"
+                      step={60}
+                      value={deadlineTime}
+                      onChange={(e) => deadline(deadlineDate, e.target.value)}
+                      {...errorProps("deadline")}
+                      aria-describedby={`deadline-help${errors.deadline ? " deadline-error" : ""}`}
+                    />
+                  </div>
+                </div>
+                {error("deadline")}
+              </fieldset>
               <div className="field">
                 <label htmlFor="notes">Internal notes</label>
                 <textarea
@@ -566,7 +595,20 @@ export function CreateInvitationForm({
             <dl className="create-summary">
               <div>
                 <dt>Named guests</dt>
-                <dd>{fields.invitees.length}</dd>
+                <dd>
+                  {
+                    fields.invitees.filter((guest) => guest.fullName.trim())
+                      .length
+                  }
+                </dd>
+              </div>
+              <div>
+                <dt>Greeting</dt>
+                <dd>
+                  {fields.greetingName?.trim() ||
+                    withGuestDisplayName(fields).displayName ||
+                    "Invitation name"}
+                </dd>
               </div>
               <div>
                 <dt>Invitation name</dt>
@@ -587,12 +629,23 @@ export function CreateInvitationForm({
               </div>
               <div>
                 <dt>Wedding event</dt>
-                <dd>Included</dd>
+                <dd>{event!.name}</dd>
+              </div>
+              <div>
+                <dt>RSVP deadline</dt>
+                <dd>
+                  {!fields.deadline
+                    ? "No deadline"
+                    : deadlineIso
+                      ? `${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" }).format(new Date(deadlineIso))} WIB`
+                      : "Choose a valid date and time"}
+                </dd>
               </div>
             </dl>
             <p className="hint">
-              Creates one household invitation. Share its link after the server
-              confirms success.
+              Creates one invitation for the named guests and the extra
+              allowances above. A household or greeting name does not add guest
+              places. Share the link after server confirmation.
             </p>
           </section>
           <p role="status" aria-live="polite">

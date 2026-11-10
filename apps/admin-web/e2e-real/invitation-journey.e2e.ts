@@ -394,6 +394,183 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
   }
 });
 
+test("OWNER create form persists one invitation and its WIB deadline, then the mobile guest RSVP survives reload", async ({
+  page,
+  browser,
+}) => {
+  const name = `Phase4A synthetic household ${fixture.owner.id}`;
+  const guestContext = await browser.newContext({
+    viewport: { width: 375, height: 900 },
+  });
+  try {
+    await page.goto("/login");
+    await page.getByLabel("Email", { exact: true }).fill(fixture.owner.email);
+    await page.getByLabel("Password", { exact: true }).fill(fixture.password);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page).toHaveURL(new URL("/", origins.admin).href);
+    const catalogResponse = await page.request
+      .get("/api/admin/events")
+      .catch(() => null);
+    const catalog = await catalogResponse?.json().catch(() => null);
+    const events: unknown[] | null = Array.isArray(catalog?.events)
+      ? catalog.events
+      : null;
+    const eventState = {
+      catalogStatus: catalogResponse?.status() ?? null,
+      totalEvents: events?.length ?? null,
+      activeEvents:
+        events?.filter(
+          (event) =>
+            typeof event === "object" &&
+            event !== null &&
+            "isActive" in event &&
+            event.isActive === true,
+        ).length ?? null,
+      fixtureEventOnly:
+        events?.length === 1 &&
+        typeof events[0] === "object" &&
+        events[0] !== null &&
+        "id" in events[0] &&
+        events[0].id === fixture.event.id,
+    };
+    const routeResponse = await page.goto("/invitations/new");
+    try {
+      await expect(
+        page.locator("#invitee-0"),
+        JSON.stringify(eventState),
+      ).toBeVisible();
+      expect(eventState).toEqual({
+        catalogStatus: 200,
+        totalEvents: 1,
+        activeEvents: 1,
+        fixtureEventOnly: true,
+      });
+    } finally {
+      const location = new URL(page.url());
+      const path = location.pathname;
+      console.info(
+        JSON.stringify({
+          diagnostic: "OWNER_CREATE_READINESS",
+          url:
+            location.origin === origins.admin &&
+            ["/invitations/new", "/login", "/account/password", "/"].includes(
+              path,
+            )
+              ? new URL(path, origins.admin).href
+              : "OTHER_ROUTE",
+          routeStatus: routeResponse?.status() ?? null,
+          createHeading: await page
+            .getByRole("heading", { name: "Create invitation", exact: true })
+            .isVisible(),
+          eventUnavailable: await page
+            .getByRole("heading", {
+              name: "Wedding event unavailable",
+              exact: true,
+            })
+            .isVisible(),
+          readUnavailable: await page
+            .getByRole("heading", {
+              name: /^(Unable to load invitations|Invitation access unavailable)$/,
+            })
+            .isVisible(),
+          loading: await page
+            .getByText("Loading wedding event…", { exact: true })
+            .isVisible(),
+          formPresent: await page.locator("#invitee-0").isVisible(),
+          ...eventState,
+        }),
+      );
+    }
+    await page.locator("#invitee-0").fill("Synthetic Guest");
+    await page.getByText("Household name (optional)", { exact: true }).click();
+    await page.getByLabel("Invitation / household name (optional)").fill(name);
+    await page
+      .getByText("Greeting, additional guests, children and RSVP deadline", {
+        exact: true,
+      })
+      .click();
+    await page.getByLabel("Allow one plus-one guest").check();
+    await page
+      .getByLabel("Maximum additional children", { exact: true })
+      .fill("1");
+    await page
+      .getByLabel("Deadline date (WIB)", { exact: true })
+      .fill("2027-12-01");
+    await page.getByLabel("Deadline time (WIB)", { exact: true }).fill("00:30");
+    const response = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/admin/invitations",
+    );
+    await page
+      .getByRole("button", { name: "Create invitation", exact: true })
+      .evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
+    expect((await response).status()).toBe(201);
+    await expect(
+      page.getByRole("heading", { name: "Invitation created", exact: true }),
+    ).toBeVisible();
+    const invitations = await fixture.prisma.invitation.findMany({
+      where: { displayName: name },
+    });
+    expect(invitations).toHaveLength(1);
+    const invitation = invitations[0]!;
+    expect(invitation.rsvpDeadlineAt?.toISOString()).toBe(
+      "2027-11-30T17:30:00.000Z",
+    );
+    expect(
+      await fixture.prisma.rSVP.count({
+        where: { invitationId: invitation.id },
+      }),
+    ).toBe(0);
+    const url = await page.getByLabel("Public invitation link").inputValue();
+    expect(new URL(url).origin === publicOrigin).toBe(true);
+    const guest = await guestContext.newPage();
+    await open(guest, new URL(url).pathname.split("/").at(-1)!);
+    await accept(guest);
+    const saved = await fixture.prisma.rSVP.findUniqueOrThrow({
+      where: { invitationId: invitation.id },
+    });
+    expect(saved.status).toBe("ACCEPTED");
+    expect(saved.dietaryNotes).toBe("Synthetic no seafood");
+    await open(guest, new URL(url).pathname.split("/").at(-1)!);
+    await expect(guest.locator(".checkin-code")).toBeVisible();
+    expect(
+      await fixture.prisma.rSVP.findUniqueOrThrow({
+        where: { invitationId: invitation.id },
+      }),
+    ).toEqual(saved);
+    expect(
+      await guest.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  } finally {
+    await guestContext.close();
+    const ids = (
+      await fixture.prisma.invitation.findMany({
+        where: { displayName: name },
+        select: { id: true },
+      })
+    ).map((item) => item.id);
+    await fixture.prisma.checkinPass.deleteMany({
+      where: { invitationId: { in: ids } },
+    });
+    await fixture.prisma.rSVP.deleteMany({
+      where: { invitationId: { in: ids } },
+    });
+    await fixture.prisma.invitee.deleteMany({
+      where: { invitationId: { in: ids } },
+    });
+    await fixture.prisma.invitationEvent.deleteMany({
+      where: { invitationId: { in: ids } },
+    });
+    await fixture.prisma.invitation.deleteMany({ where: { id: { in: ids } } });
+  }
+});
+
 test("same-name households keep distinct personal links, greetings, RSVP and guest-issued QR passes", async ({
   page,
   browser,

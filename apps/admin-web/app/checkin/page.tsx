@@ -15,21 +15,30 @@ export default async function CheckinPage() {
   if (session.auth.user.mustChangePassword) redirect("/account/password");
 
   return (
-    <main className="admin-shell">
-      <section className="dashboard-heading">
-        <p className="eyebrow">Check-in</p>
-        <h1>Check-in</h1>
-      </section>
-      <p>{session.auth.user.email}</p>
-      {session.auth.user.role === "OWNER" && (
-        <Link href="/" prefetch={false}>
-          Back to dashboard
-        </Link>
-      )}
-      <Link href="/account/password" prefetch={false}>
-        Change password
-      </Link>
-      <LogoutButton csrfToken={session.auth.csrfToken} />
+    <main className="checkin-page">
+      <header className="checkin-header">
+        <div>
+          <p className="eyebrow">HeyJo · Venue operations</p>
+          <h1>Check-in</h1>
+          <p className="hint">
+            Welcome guests and confirm each household once.
+          </p>
+        </div>
+        <div className="checkin-account">
+          <p>{session.auth.user.email}</p>
+          <nav aria-label="Operator account">
+            {session.auth.user.role === "OWNER" && (
+              <Link href="/" prefetch={false}>
+                Back to dashboard
+              </Link>
+            )}
+            <Link href="/account/password" prefetch={false}>
+              Change password
+            </Link>
+            <LogoutButton csrfToken={session.auth.csrfToken} />
+          </nav>
+        </div>
+      </header>
       <CheckinWorkspace csrfToken={session.auth.csrfToken} />
     </main>
   );

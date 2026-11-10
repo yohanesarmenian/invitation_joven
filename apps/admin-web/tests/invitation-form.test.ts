@@ -95,6 +95,8 @@ it.each([
   "2026-02-30T12:00",
   "2026-13-01T12:00",
   "2026-01-01T24:00",
+  "2026-01-01T",
+  "T12:00",
   "invalid",
 ])("rejects impossible date %s", (date) =>
   expect(deadlineToIso(date)).toBeNull(),

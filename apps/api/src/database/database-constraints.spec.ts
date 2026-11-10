@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { describe, expect, it, afterAll } from "vitest";
+import { describe, expect, it, afterAll, afterEach } from "vitest";
 import {
   CheckinMethod,
   CheckinPassStatus,
@@ -13,9 +13,34 @@ import { getDatabaseUrl } from "./database-url.js";
 const prisma = new PrismaClient({
   adapter: new PrismaPg(getDatabaseUrl()),
 });
+const invitationIds: string[] = [];
+const eventIds: string[] = [];
+const adminUserIds: string[] = [];
+
+async function cleanupFixtures() {
+  await prisma.$transaction(async (tx) => {
+    const invitations = { invitationId: { in: invitationIds } };
+    await tx.checkinRecord.deleteMany({ where: invitations });
+    await tx.checkinPass.deleteMany({ where: invitations });
+    await tx.rSVP.deleteMany({ where: invitations });
+    await tx.invitee.deleteMany({ where: invitations });
+    await tx.invitation.deleteMany({ where: { id: { in: invitationIds } } });
+    await tx.event.deleteMany({ where: { id: { in: eventIds } } });
+    await tx.adminUser.deleteMany({ where: { id: { in: adminUserIds } } });
+  });
+  invitationIds.length = 0;
+  eventIds.length = 0;
+  adminUserIds.length = 0;
+}
+
+afterEach(cleanupFixtures);
 
 afterAll(async () => {
-  await prisma.$disconnect();
+  try {
+    await cleanupFixtures();
+  } finally {
+    await prisma.$disconnect();
+  }
 });
 
 async function createInvitationGraph() {
@@ -26,19 +51,22 @@ async function createInvitationGraph() {
       passwordHash: `argon2id-placeholder-${suffix}`,
     },
   });
+  adminUserIds.push(adminUser.id);
   const invitation = await prisma.invitation.create({
     data: {
       displayName: `Constraint Household ${suffix}`,
       publicTokenHash: `public-token-${suffix}`,
     },
   });
+  invitationIds.push(invitation.id);
   const event = await prisma.event.create({
-      data: {
-        slug: `event-${suffix}`,
-        name: "Constraint Test Event",
-        displayOrder: randomInt(1, 2_000_000_000),
-      },
+    data: {
+      slug: `event-${suffix}`,
+      name: "Constraint Test Event",
+      displayOrder: randomInt(1, 2_000_000_000),
+    },
   });
+  eventIds.push(event.id);
   const rsvp = await prisma.rSVP.create({
     data: {
       invitationId: invitation.id,
@@ -49,6 +77,34 @@ async function createInvitationGraph() {
 }
 
 describe("database constraints", () => {
+  it("cleans owned fixture rows without removing an unrelated event", async () => {
+    const suffix = randomUUID();
+    const witness = await prisma.event.create({
+      data: {
+        name: "Cleanup isolation witness",
+        slug: `witness-${suffix}`,
+        displayOrder: randomInt(1, 2_000_000_000),
+      },
+    });
+    try {
+      const owned = await createInvitationGraph();
+      await cleanupFixtures();
+      expect(await prisma.event.count({ where: { id: owned.event.id } })).toBe(
+        0,
+      );
+      expect(
+        await prisma.invitation.count({ where: { id: owned.invitation.id } }),
+      ).toBe(0);
+      expect(await prisma.rSVP.count({ where: { id: owned.rsvp.id } })).toBe(0);
+      expect(
+        await prisma.adminUser.count({ where: { id: owned.adminUser.id } }),
+      ).toBe(0);
+      expect(await prisma.event.count({ where: { id: witness.id } })).toBe(1);
+    } finally {
+      await prisma.event.deleteMany({ where: { id: witness.id } });
+    }
+  });
+
   it("rejects a second active CheckinPass for one Invitation", async () => {
     const { invitation, rsvp } = await createInvitationGraph();
 
@@ -72,7 +128,8 @@ describe("database constraints", () => {
   });
 
   it("rejects a duplicate CheckinRecord for one Invitation and Event", async () => {
-    const { adminUser, event, invitation, rsvp } = await createInvitationGraph();
+    const { adminUser, event, invitation, rsvp } =
+      await createInvitationGraph();
     const pass = await prisma.checkinPass.create({
       data: {
         invitationId: invitation.id,

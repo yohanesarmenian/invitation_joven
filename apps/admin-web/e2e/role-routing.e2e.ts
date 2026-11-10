@@ -106,7 +106,17 @@ async function expectCheckinHoldingRoute(
   await expect(page.locator("video, canvas, input[type='file']")).toHaveCount(
     0,
   );
-  await expect(page.getByRole("navigation")).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Primary navigation" }),
+  ).toHaveCount(0);
+  const account = page.getByRole("navigation", { name: "Operator account" });
+  await expect(account.getByRole("link")).toHaveCount(1);
+  await expect(
+    account.getByRole("link", { name: "Change password", exact: true }),
+  ).toHaveAttribute("href", "/account/password");
+  await expect(
+    account.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("Wedding InvitationAdmin")).toHaveCount(0);
   for (const marker of ownerOnlyMarkers)
     await expect(page.getByText(marker, { exact: false })).toHaveCount(0);
