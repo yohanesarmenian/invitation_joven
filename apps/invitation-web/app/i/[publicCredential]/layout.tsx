@@ -1,11 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  albertSans,
-  luxuriousScript,
-  parisienne,
-  spectral,
-  tiktokSans,
-} from "../../fonts";
+import { albertSans, luxuriousScript, spectral } from "../../fonts";
 
 export default function PublicInvitationLayout({
   children,
@@ -15,11 +9,10 @@ export default function PublicInvitationLayout({
   return (
     <div
       className={[
+        "public-invitation-theme",
         spectral.variable,
         luxuriousScript.variable,
-        parisienne.variable,
         albertSans.variable,
-        tiktokSans.variable,
       ].join(" ")}
     >
       {children}

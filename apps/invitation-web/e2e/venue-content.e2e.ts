@@ -23,8 +23,22 @@ test("venue content on the guest route follows publish state and exact event eli
       page.getByText("Published reception parking", { exact: true }),
     ).toBeVisible();
     expect(await page.content()).not.toContain("RESTRICTED_CEREMONY_CONTENT");
-    for (const width of [360, 390, 412]) {
+    for (const width of [320, 360, 375, 390, 412, 768, 1280]) {
       await page.setViewportSize({ width, height: 800 });
+      for (const id of ["parking-title", "rundown-title"]) {
+        const heading = page.locator(`#${id}`);
+        await expect(heading).toHaveCSS("text-align", "center");
+        const box = await heading.boundingBox();
+        expect(box).not.toBeNull();
+        expect(
+          Math.abs(box!.x + box!.width / 2 - width / 2),
+        ).toBeLessThanOrEqual(2);
+        if ([375, 1280].includes(width)) {
+          await heading.screenshot({
+            path: testInfo.outputPath(`${id}-${width}.png`),
+          });
+        }
+      }
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,

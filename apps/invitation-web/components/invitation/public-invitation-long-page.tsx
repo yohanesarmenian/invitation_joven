@@ -32,7 +32,7 @@ export type PublicInvitationLongPageModel = {
 const BRIDE_PHOTO = weddingMedia.bride;
 const GROOM_PHOTO = weddingMedia.groom;
 const COUPLE_PHOTO_SIZES =
-  "(min-width: 1040px) 210px, (min-width: 700px) 21vw, 42vw";
+  "(min-width: 1040px) 350px, (min-width: 700px) 34vw, 70vw";
 
 const decorativeAssets = {
   corner: {
@@ -47,7 +47,6 @@ const decorativeAssets = {
   },
   leaves: { file: figmaAssets.long_Leaves1, width: 486, height: 384 },
   calendar: { file: figmaAssets.long_Calendar1, width: 533, height: 469 },
-  rings: { file: figmaAssets.long_Objects1, width: 910, height: 918 },
   ornament: { file: figmaAssets.long_Objects1, width: 910, height: 918 },
   brideBloom: {
     file: figmaAssets.long_ChatGptImageSep152026112225Am4,
@@ -77,13 +76,7 @@ function Decoration({
 }) {
   const source = decorativeAssets[asset];
   const renderedSizes =
-    asset === "brideBloom"
-      ? "277px"
-      : asset === "rings"
-        ? "278px"
-        : asset === "ornament"
-          ? "178px"
-          : sizes;
+    asset === "brideBloom" ? "277px" : asset === "ornament" ? "178px" : sizes;
 
   return (
     <span className={`invitation-decoration ${className}`} aria-hidden="true">
@@ -188,7 +181,7 @@ function CoupleSection() {
       className="invitation-section couple-section"
       aria-labelledby="couple-title"
     >
-      <h2 id="couple-title" className="visually-hidden">
+      <h2 id="couple-title" className="couple-section-title">
         Bride and Groom
       </h2>
       {/* Family names and titles confirmed by the owner against Figma. */}
@@ -236,7 +229,7 @@ function CoupleProfile({
         alt=""
         fill
         sizes={COUPLE_PHOTO_SIZES}
-        loading="eager"
+        loading="lazy"
       />
     </div>
   );
@@ -350,17 +343,15 @@ function EventSection({
   return (
     <section className="event-card" aria-labelledby={titleId}>
       <div className="event-time-block">
-        <Decoration
-          asset="rings"
-          className={
-            index === 0
-              ? "decoration-rings"
-              : "decoration-rings decoration-rings-small"
-          }
-          sizes={index === 0 ? "88px" : "68px"}
-        />
+        <span className="event-number" aria-hidden="true">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <EventIcon name={event.name} />
         {timeLabel ? (
-          <time dateTime={event.startsAt ?? undefined}>{timeLabel}</time>
+          <>
+            <time dateTime={event.startsAt ?? undefined}>{timeLabel}</time>
+            <span className="event-time-zone">WIB</span>
+          </>
         ) : (
           <span aria-hidden="true" />
         )}
@@ -406,6 +397,48 @@ function EventSection({
   );
 }
 
+// The public contract has no event-kind field. Recognize explicit names only;
+// an unfamiliar name gets a neutral calendar, never an icon inferred by order.
+function EventIcon({ name }: { name: string }) {
+  const kind = /\b(reception|resepsi)\b/i.test(name)
+    ? "celebration"
+    : /\b(matrimony|ceremony|pemberkatan|akad)\b/i.test(name)
+      ? "rings"
+      : "calendar";
+  return (
+    <svg
+      className="event-icon"
+      data-event-icon={kind}
+      aria-hidden="true"
+      width="32"
+      height="32"
+      viewBox="0 0 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {kind === "rings" ? (
+        <>
+          <circle cx="12" cy="19" r="8" />
+          <circle cx="22" cy="19" r="7" />
+          <path d="m9 6 3-3 3 3-3 5Z" />
+        </>
+      ) : kind === "celebration" ? (
+        <>
+          <path d="m5 4 10 3-3 10a5 5 0 0 1-9-3Zm5 15-2 8m-4-1 8 2m15-24-10 3 3 10a5 5 0 0 0 9-3Zm-5 15 2 8m4-1-8 2M5 11l8 2m6 0 8-2M16 1v3" />
+        </>
+      ) : (
+        <>
+          <rect x="4" y="7" width="24" height="22" rx="2" />
+          <path d="M4 13h24M10 3v8m12-8v8M10 19h4m4 0h4m-12 5h4" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function DressCodeSection() {
   return (
     <section
@@ -418,7 +451,6 @@ function DressCodeSection() {
         className="decoration-dress-right"
         sizes="(min-width: 412px) 64px, 16vw"
       />
-      <p className="section-kicker">Fine Attire</p>
       <h2 id="dress-code-title">Dress Code</h2>
       <p>Formal / Modern / National / Batik</p>
       <span className="figma-dress-palette" aria-hidden="true">
@@ -467,14 +499,16 @@ function RsvpInformationSection({
         className="decoration-rsvp-left"
         sizes="(min-width: 412px) 126px, 31vw"
       />
-      <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
-      <p className="figma-rsvp-intro">
-        To help us make proper arrangements with our venue and caterers, we
-        kindly ask that you confirm your attendance.
-      </p>
-      {deadlineLabel ? (
-        <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p>
-      ) : null}
+      <div className="rsvp-section-copy">
+        <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
+        <p className="figma-rsvp-intro">
+          To help us make proper arrangements with our venue and caterers, we
+          kindly ask that you confirm your attendance.
+        </p>
+        {deadlineLabel ? (
+          <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p>
+        ) : null}
+      </div>
       {children}
       <div className="rsvp-decoration-band" aria-hidden="true">
         <Decoration
@@ -529,6 +563,14 @@ function McCandlessQuoteSection() {
       className="invitation-section quote-section"
       data-invitation-reveal
     >
+      <Image
+        className="quote-photograph"
+        src={weddingMedia.gallery[2].src}
+        alt=""
+        fill
+        sizes="100vw"
+        loading="lazy"
+      />
       <blockquote>
         <p>Happiness is only real when shared</p>
         <cite>Christopher McCandless</cite>
@@ -565,6 +607,9 @@ function ClosingSection() {
         className="decoration-closing"
         sizes="78px"
       />
+      <span className="closing-monogram" aria-hidden="true">
+        Y<span>&amp;</span>A
+      </span>
       <p className="closing-copy">See you at the Wedding!</p>
       <p>Handcrafted with love by Angelina &amp; Yohanes</p>
       <p>100% human made, no AI.</p>

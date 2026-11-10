@@ -25,6 +25,111 @@ async function expectContent(page: Page) {
   ).toBeVisible();
 }
 
+for (const width of [320, 375, 412, 768, 1280]) {
+  test(`refined stationery headings and RSVP controls remain balanced at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(fixturePath);
+    await page
+      .getByRole("button", { name: "Open invitation", exact: true })
+      .click();
+    await expectContent(page);
+    for (const selector of [
+      "#events-title",
+      "#gallery-title",
+      "#rsvp-title",
+      "#message-title",
+    ]) {
+      const title = page.locator(selector);
+      await expect(title).toHaveCSS("text-align", "center");
+      const box = await title.boundingBox();
+      expect(box).not.toBeNull();
+      expect(Math.abs(box!.x + box!.width / 2 - width / 2)).toBeLessThanOrEqual(
+        2,
+      );
+    }
+    await expect(page.locator(".invitation-header .section-kicker")).toHaveCSS(
+      "text-transform",
+      "none",
+    );
+    await expect(
+      page.locator(".wedding-date-section .section-kicker"),
+    ).toHaveCSS("text-transform", "none");
+    const form = page.getByRole("form", { name: "Your RSVP" });
+    const accept = form.getByRole("radio", { name: "Joyfully Accept" });
+    const decline = form.getByRole("radio", { name: "Regretfully Decline" });
+    await accept.check();
+    await expect(accept).toBeChecked();
+    await expect(decline).not.toBeChecked();
+    await expect(
+      form.getByRole("group", { name: "Which events will you attend?" }),
+    ).toBeVisible();
+    await expect(accept.locator("..")).toHaveCSS(
+      "background-color",
+      "rgb(239, 226, 221)",
+    );
+    await accept.focus();
+    await expect(accept).toBeFocused();
+    // Native keyboard radio behavior and conditional fields remain intact.
+    await page.keyboard.press("ArrowRight");
+    await expect(decline).toBeChecked();
+    await expect(
+      form.getByRole("group", { name: "Which events will you attend?" }),
+    ).toHaveCount(0);
+    await accept.check();
+    await expect(
+      form.getByRole("checkbox", { name: "Test Guest", exact: true }),
+    ).toBeVisible();
+    for (const choice of await form
+      .locator(".rsvp-attendance-options .rsvp-choice")
+      .all()) {
+      const box = await choice.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(64);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+  });
+}
+
+test("system motion is authoritative over legacy stored overrides and updates without a toggle", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() =>
+    localStorage.setItem("jo-venta-motion", "full"),
+  );
+  await page.goto(fixturePath);
+  const flow = page.locator(".invitation-opening-flow");
+  await expect(flow).toHaveAttribute("data-motion", "reduced");
+  await expect(
+    page.getByRole("button", { name: "Enable animations" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await expectContent(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(flow).toHaveAttribute("data-motion", "full");
+  await page.evaluate(() => {
+    localStorage.setItem("jo-venta-motion", "reduced");
+    dispatchEvent(
+      new StorageEvent("storage", {
+        key: "jo-venta-motion",
+        newValue: "reduced",
+      }),
+    );
+  });
+  await expect(flow).toHaveAttribute("data-motion", "full");
+  await expectContent(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(flow).toHaveAttribute("data-motion", "reduced");
+});
+
 for (const width of [375, 1280]) {
   test(`wedding monograms use Yohanes and Angelina initials at ${width}px`, async ({
     page,
@@ -263,9 +368,13 @@ test("reduced motion supports one Space activation with no opening delay", async
   await page.keyboard.press("Space");
   await expectContent(page);
   await expect(page.locator(".invitation-opening-content")).toBeFocused();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-motion",
+    "reduced",
+  );
   await expect(
     page.getByRole("button", { name: "Enable animations" }),
-  ).toHaveAttribute("aria-pressed", "false");
+  ).toHaveCount(0);
 });
 
 test("slow hero stays blocked until decoding succeeds without waiting for galleries", async ({
@@ -571,7 +680,7 @@ test("responsive layout fills the viewport and keeps labels clear of photos", as
 }) => {
   test.setTimeout(90_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const width of [320, 360, 390, 412, 768, 1024, 1440]) {
+  for (const width of [320, 360, 375, 390, 412, 768, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Open invitation" }).click();
@@ -596,27 +705,27 @@ test("responsive layout fills the viewport and keeps labels clear of photos", as
       const copy = await profile.locator(".couple-copy").boundingBox();
       const title = await profile.locator(".couple-role").boundingBox();
       const name = await profile.locator("h3").boundingBox();
-      // Script labels must remain in the text column, clear of photos/names.
-      expect(
-        role === "bride"
-          ? title!.x >= photo!.x + photo!.width
-          : title!.x + title!.width <= photo!.x,
-      ).toBe(true);
-      expect(title!.y + title!.height).toBeLessThanOrEqual(name!.y);
-      expect(role === "bride" ? photo!.x < copy!.x : photo!.x > copy!.x).toBe(
-        true,
+      // Concept B pairs each arched portrait with readable copy below it.
+      expect(copy!.y).toBeGreaterThanOrEqual(photo!.y + photo!.height + 18);
+      expect(title!.x).toBeGreaterThanOrEqual(copy!.x - 1);
+      expect(title!.x + title!.width).toBeLessThanOrEqual(
+        copy!.x + copy!.width + 1,
       );
-      expect(Math.abs(photo!.y - copy!.y)).toBeLessThan(photo!.height);
+      expect(title!.y + title!.height).toBeLessThanOrEqual(name!.y);
       expect(
         await profile
           .locator("h3")
-          .evaluate((node) => getComputedStyle(node).fontSize),
-      ).toBe(width <= 360 ? "12px" : width >= 700 ? "18px" : "14px");
+          .evaluate((node) => parseFloat(getComputedStyle(node).fontSize)),
+      ).toBeGreaterThanOrEqual(24);
       expect(
         await profile
-          .locator(".couple-role")
-          .evaluate((node) => getComputedStyle(node).fontSize),
-      ).toBe(width <= 360 ? "30px" : width >= 700 ? "42px" : "36px");
+          .locator(".couple-family-names")
+          .evaluate((node) => parseFloat(getComputedStyle(node).fontSize)),
+      ).toBeGreaterThanOrEqual(17);
+      await expect(profile.locator(".couple-media-slot img")).toHaveCSS(
+        "object-fit",
+        "cover",
+      );
     }
   }
   await page.setViewportSize({ width: 320, height: 900 });
@@ -639,6 +748,79 @@ test("responsive layout fills the viewport and keeps labels clear of photos", as
     );
   expect(clipped).toEqual([]);
   await expect(page.locator(".public-rsvp-form")).toBeVisible();
+});
+
+test("cinematic photographs retain both faces across the five review viewports", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // Conservative face regions in the approved, unchanged cover and Pic1 assets.
+  // Bounds are normalized source-image coordinates, before object-fit cropping.
+  const photographs = [
+    {
+      selector: ".invitation-hero",
+      faces: [
+        { left: 0.36, right: 0.49, top: 0.48, bottom: 0.59 },
+        { left: 0.56, right: 0.7, top: 0.51, bottom: 0.63 },
+      ],
+    },
+    {
+      selector: ".quote-section",
+      faces: [
+        { left: 0.34, right: 0.48, top: 0.31, bottom: 0.47 },
+        { left: 0.64, right: 0.78, top: 0.36, bottom: 0.52 },
+      ],
+    },
+  ];
+  for (const width of [320, 375, 412, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(fixturePath);
+    await page.getByRole("button", { name: "Open invitation" }).click();
+    await expectContent(page);
+    for (const photograph of photographs) {
+      const section = page.locator(photograph.selector);
+      await section.scrollIntoViewIfNeeded();
+      const image = section.locator("img").first();
+      await image.evaluate((node: HTMLImageElement) => node.decode());
+      const geometry = await image.evaluate((node: HTMLImageElement) => {
+        const box = node.getBoundingClientRect();
+        const frame = node.closest("header, section")!.getBoundingClientRect();
+        const position = getComputedStyle(node)
+          .objectPosition.split(" ")
+          .map(parseFloat);
+        const scale = Math.max(
+          box.width / node.naturalWidth,
+          box.height / node.naturalHeight,
+        );
+        return {
+          width: node.naturalWidth * scale,
+          height: node.naturalHeight * scale,
+          left:
+            box.left +
+            ((box.width - node.naturalWidth * scale) * position[0]!) / 100,
+          top:
+            box.top +
+            ((box.height - node.naturalHeight * scale) * position[1]!) / 100,
+          frameTop: frame.top,
+          frameBottom: frame.bottom,
+        };
+      });
+      for (const face of photograph.faces) {
+        expect(
+          geometry.left + face.left * geometry.width,
+        ).toBeGreaterThanOrEqual(0);
+        expect(geometry.left + face.right * geometry.width).toBeLessThanOrEqual(
+          width,
+        );
+        expect(
+          geometry.top + face.top * geometry.height,
+        ).toBeGreaterThanOrEqual(geometry.frameTop + 8);
+        expect(
+          geometry.top + face.bottom * geometry.height,
+        ).toBeLessThanOrEqual(geometry.frameBottom - 8);
+      }
+    }
+  }
 });
 
 test("missing reveal observer leaves invitation text, forms and gallery usable", async ({

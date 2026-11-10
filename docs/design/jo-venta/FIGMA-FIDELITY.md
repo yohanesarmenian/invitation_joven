@@ -1,6 +1,26 @@
 # Figma content with a full-viewport invitation
 
-## Current owner revision — 9 November 2026
+## Current interior direction — Phase 3, 9 November 2026
+
+The owner approved Concept B, Romantic Cinematic, for the public invitation interior. This replaces the earlier interior geometry, small family typography and uniform cream composition described in the historical sections below. Admin retains Concept A. The full-width public canvas and centered readable content limits remain authoritative.
+
+The interior uses warm ivory, muted rose and plum-charcoal. Phase 3C establishes shared Spectral and Albert Sans roles, with Luxurious Script reserved for the hero couple identity; see [TYPOGRAPHY-SYSTEM.md](TYPOGRAPHY-SYSTEM.md). A full-bleed photographic hero follows the native navy/champagne envelope. Hero copy occupies the upper image area, with a controlled scrim and crop keeping the faces clear. The static Y & A monograms represent Yohanes & Angelina; Jo & Venta remain informal headings.
+
+The long page alternates a personal editorial greeting, offset arched portraits, a rose wedding-date/countdown field, a ruled event schedule, a warm RSVP area, a staggered photo gallery, an existing quote over approved photography, guest messages and a restrained serif closing. Family text is at least 17 px at the default root size. Portrait copy follows each photograph instead of being compressed beside it. Event data, API order, eligibility, Asia/Jakarta date/time formatting and all approved personal/family/quote copy are retained.
+
+`romantic-invitation-theme.css` owns the active interior presentation. It replaces the Figma theme import and the accumulated public layout rules in global CSS. `editorial-envelope.css` retains native envelope presentation; hero styles move into the interior theme. The opening state machine, readiness timers, inert content and focus handling are retained. Phase 3B follows system reduced motion automatically and removes the manual toggle and saved override. Gallery frame instances and controls remain mounted with deferred lazy images. Portraits and the lower quote photograph are lazy. Form logic, credentials, API/server actions and data models retain their existing contracts.
+
+### Phase 3B refinement — 10 November 2026
+
+The greeting and Wedding Date labels use natural-case italic Spectral alongside restrained name/date typography. Events, gallery, RSVP, message and optional Parking Guide/Event Rundown headings are center-led; portraits and the schedule keep their asymmetric editorial composition. RSVP has one centered introduction above a bounded stationery-style form, distinct native-radio response choices, stronger selected/focus states and more space between question groups. Existing labels, named invitees, allowances, counts, messages, notices and submit behavior are unchanged.
+
+Small native line icons identify explicit event names: matrimony/ceremony/pemberkatan/akad uses rings; reception/resepsi uses celebration glasses. Unknown names use a neutral calendar because the public response has no event-kind field. Icon choice never depends on event order. No new event types or backend contracts are introduced.
+
+The OWNER's Phase 3B instruction supersedes the earlier manual Animations control described below. Only the system preference controls motion; old stored values are ignored and no new preference is persisted. One-click preparation, keyboard activation, fallback deadlines and focus/inert handling remain authoritative.
+
+The original Concept B review package informed the composition. Historical fixed Figma coordinates and QA counts below describe earlier implementations. Current Phase 3 evidence is reviewed at 320, 375, 412, 768 and 1280 px with safe synthetic invitations. Local browser tests do not establish production deployment or OWNER visual approval.
+
+## Phase 2 opening baseline — 9 November 2026
 
 The latest instruction supersedes the centered 412 px layout and the strict Figma gallery geometry below. Content, family names, typography and local decorations follow the owner's design. The application fills the browser width with readable inner content limits on desktop. The cream canvas has no navy outer gutters. The envelope occupies one viewport height. Its non-interactive photo hero reflows to keep copy and photography readable.
 
@@ -8,7 +28,7 @@ The approved Modern Editorial Luxury opening uses responsive native navy paper f
 
 The owner-confirmed wedding monogram is `Y & A`, representing Yohanes & Angelina. The champagne seal, hero monogram and native paper fallback use these initials. Jo & Venta remain valid informal couple names in headings and copy.
 
-Earlier live inspection showed a 522 px viewport and `prefers-reduced-motion: reduce`. The in-page Animations control follows the device by default and allows explicit opt-in. Only the non-sensitive `full`/`reduced` preference is stored under `jo-venta-motion`. The choice survives reload and remains usable in memory if storage is blocked. Opening stage is held only in component memory and reload starts closed. Missing IntersectionObserver leaves content usable. Forms and pass controls remain outside section-reveal effects. Preparation preserves the existing server retrieval and adds no analytics or mutation requests.
+Earlier live inspection showed a 522 px viewport and `prefers-reduced-motion: reduce`. The earlier in-page Animations control and saved `jo-venta-motion` override were superseded by Phase 3B above. Opening stage is held only in component memory and reload starts closed. Missing IntersectionObserver leaves content usable. Forms and pass controls remain outside section-reveal effects. Preparation preserves the existing server retrieval and adds no analytics or mutation requests.
 
 The countdown previously updated its clock each second but displayed only minutes. It now renders four numeric parts, including visibly changing seconds, computed from the next eligible event instant. Event display continues to use Asia/Jakarta.
 

@@ -137,7 +137,7 @@ export function InvitationHero({
             src={weddingMedia.hero}
             alt=""
             fill
-            sizes="(min-width: 900px) 58vw, 100vw"
+            sizes="100vw"
             loading="eager"
             fetchPriority="high"
             onLoad={async (event) => {

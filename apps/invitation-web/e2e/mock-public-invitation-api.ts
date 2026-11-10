@@ -1,6 +1,7 @@
 import { createServer, type ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { typographyFixtures } from "./typography-fixtures";
 import type {
   PublicInvitationResponse,
   PublicRsvpReadResponse,
@@ -436,9 +437,27 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    const typography = typographyFixtures.find(
+      (fixture) => fixture.credential === publicCredential,
+    );
+
     sendJson(response, 200, {
       invitation: {
         ...publicInvitationFixture.invitation,
+        ...(typography
+          ? {
+              displayName: typography.name,
+              greetingName: typography.greetingName,
+              events: publicInvitationFixture.invitation.events.map(
+                (event) => ({
+                  ...event,
+                  name: `${event.name} bersama Keluarga Besar dan Sahabat Terkasih`,
+                  venueName:
+                    "Gedung Pertemuan Keluarga dan Sahabat — Ruang Perayaan Utama",
+                }),
+              ),
+            }
+          : {}),
         ...(publicCredential === "V".repeat(43)
           ? {
               events: [

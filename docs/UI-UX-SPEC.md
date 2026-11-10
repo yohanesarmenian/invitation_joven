@@ -215,6 +215,22 @@ confirmation states belong to later phases.
 
 The church Google Maps control contains an additional prototype interaction that appears unintended. Production should treat normal click-to-Google-Maps behavior as the meaningful requirement.
 
+## Public Interior Direction — Phase 3, 9 November 2026
+
+The public invitation interior uses the owner-approved Concept B, Romantic Cinematic.
+Admin continues to use Concept A. Warm ivory, muted rose, plum-charcoal, approved
+photography and selective floral artwork establish the interior. A full-bleed
+hero leads into an editorial guest greeting, offset arched couple portraits,
+a distinct wedding-date/countdown field, a ruled event schedule, RSVP, staggered
+gallery, the existing quote, guest messages and a script-led closing.
+
+Family copy uses at least 17 px at the default root size. Existing full names,
+family information and approved quotes remain authoritative. Date/time and
+countdown data remain API-derived, with event display in Asia/Jakarta. The
+existing readable inner widths remain centered within a full-viewport canvas.
+Individual content may align asymmetrically within those widths. The native
+envelope retains the following one-activation contract.
+
 ## Public Opening Interaction Contract — 9 November 2026
 
 The approved Concept A flow uses one intentional activation.
@@ -233,12 +249,14 @@ closed -> opening -> content
 - One click, Enter or Space starts the paper-fold transition. A synchronous
   guard rejects repeated activation. The right fold's transition completion
   advances to content, with a bounded timer fallback for missing events.
-- Reduced motion reaches content directly on the same activation. The existing
-  non-sensitive motion preference and explicit animation opt-in remain supported.
+- Reduced motion reaches content directly on the same activation. Motion follows
+  `prefers-reduced-motion` automatically, including changes during preparation or
+  opening. Phase 3B removes the manual animation toggle and saved override.
 - Content receives focus and becomes readable, scrollable and interactive once
   opening completes. The photo hero is part of that content.
 - Opening stage remains in local component memory. Reload returns to `closed`.
-  The existing `jo-venta-motion` preference stores only `full` or `reduced`.
+  Legacy `jo-venta-motion` values are ignored; opening reads/writes no preference
+  in browser storage.
 - Preparation and opening add no invitation retrieval, analytics call or form
   submission. Server retrieval, authorization and business contracts remain
   authoritative.

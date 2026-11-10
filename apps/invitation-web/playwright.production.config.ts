@@ -8,6 +8,7 @@ export default defineConfig({
     "**/public-invitation-flow.e2e.ts",
     "**/public-performance.e2e.ts",
     "**/public-design.e2e.ts",
+    "**/public-typography.e2e.ts",
     "**/venue-content.e2e.ts",
   ],
   webServer: [
