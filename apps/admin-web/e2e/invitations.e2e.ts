@@ -285,8 +285,9 @@ test("create exact body, event order, duplicate names, double-submit and fresh s
     .getByLabel("Maximum additional children", { exact: true })
     .fill("2");
   await page
-    .getByLabel("RSVP deadline", { exact: true })
-    .fill("2026-12-25T23:59:59");
+    .getByLabel("Deadline date (WIB)", { exact: true })
+    .fill("2026-12-25");
+  await page.getByLabel("Deadline time (WIB)", { exact: true }).fill("23:59");
   await page.getByLabel("Internal notes").fill(" private note ");
   await page.getByLabel("Allow one plus-one guest").check();
   await page.getByRole("button", { name: "Add guest", exact: true }).click();
@@ -347,7 +348,7 @@ test("create exact body, event order, duplicate names, double-submit and fresh s
     greetingName: "Dear guests",
     allowPlusOne: true,
     maxAdditionalChildren: 2,
-    rsvpDeadlineAt: "2026-12-25T16:59:59.000Z",
+    rsvpDeadlineAt: "2026-12-25T16:59:00.000Z",
     notes: "private note",
     eventIds: [events[0]!.id],
     invitees: [

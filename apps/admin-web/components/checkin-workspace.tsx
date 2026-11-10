@@ -69,6 +69,7 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
   }, []);
   const mutationPending = useRef(false);
   const recoveryPending = useRef(false);
+  const resultRef = useRef<HTMLElement>(null);
   const [recovering, setRecovering] = useState(false);
   const locked =
     state.phase === "CONFIRMING" || state.phase === "CONFIRMATION_UNCERTAIN";
@@ -79,6 +80,9 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
       setEventLoading(false);
       if (result.kind === "ok") {
         setEvents(result.data.events);
+        setEventId(
+          result.data.events.length === 1 ? result.data.events[0]!.id : "",
+        );
         setEventError(false);
       } else if (result.kind === "error" && result.code === "UNAUTHENTICATED")
         router.replace(SESSION_ENDED_PATH);
@@ -89,6 +93,21 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
       invalidate();
     };
   }, [router, reload, invalidate]);
+
+  useEffect(() => {
+    if (
+      [
+        "VALID_PREVIEW",
+        "CONFIRMATION_UNCERTAIN",
+        "CONFIRMED",
+        "ALREADY_CONFIRMED",
+        "ERROR",
+      ].includes(state.phase)
+    ) {
+      resultRef.current?.focus({ preventScroll: true });
+      resultRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [state.phase]);
 
   function failure(result: api.Failure) {
     if (result.kind === "error") {
@@ -248,7 +267,11 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
   }
   return (
     <div className="checkin-workspace">
-      <section className="import-panel">
+      <section
+        className="import-panel checkin-event-context"
+        aria-label="Event context"
+      >
+        <p className="create-step">01 / Wedding event</p>
         <label htmlFor="checkin-event">Event</label>
         <select
           id="checkin-event"
@@ -285,13 +308,24 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
         {!eventLoading && !eventError && events.length === 0 && (
           <p>No active events are available.</p>
         )}
+        {!eventLoading && !eventError && events.length === 1 && (
+          <p className="hint">
+            Your only eligible event is selected automatically.
+          </p>
+        )}
         <p>
-          Choose the event, validate or find a household, then explicitly
-          confirm the number arriving. Validation does not record attendance.
+          Validate a QR or find a household, review the guests, then confirm.
+          Validation does not record attendance.
+        </p>
+        <p className="checkin-policy">
+          One confirmation per household and event. Partial arrivals and
+          corrections are not supported. Gather the household before confirming
+          its arriving count.
         </p>
       </section>
       <div className="checkin-inputs">
         <section className="import-panel">
+          <p className="create-step">02 / Scan a pass</p>
           <h2>QR check-in</h2>
           {!locked && state.phase !== "VALIDATING" && (
             <CheckinCamera
@@ -339,6 +373,7 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
           </form>
         </section>
         <section className="import-panel">
+          <p className="create-step">Or / Search by name</p>
           <h2>Find a household</h2>
           <form
             onSubmit={(e) => {
@@ -390,7 +425,13 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
           )}
         </section>
       </div>
-      <section className="import-panel" aria-label="Check-in result">
+      <section
+        className="import-panel checkin-result"
+        aria-label="Check-in result"
+        ref={resultRef}
+        tabIndex={-1}
+      >
+        <p className="create-step">03 / Review and confirm</p>
         <p role="status">
           {state.phase === "READY"
             ? "Ready"
@@ -400,6 +441,12 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
                 ? "Confirming attendance…"
                 : ""}
         </p>
+        {state.phase === "READY" && !items && (
+          <p className="hint">
+            A validated household and its expected attendance will appear here
+            before you confirm.
+          </p>
+        )}
         {state.phase === "ERROR" && (
           <p role="alert">
             {messages[state.code] ??
@@ -431,12 +478,13 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
                 disabled={state.phase === "CONFIRMING"}
                 onChange={(e) => setCount(e.target.value)}
                 required
+                aria-describedby="checkin-count-help"
               />
               <button disabled={state.phase === "CONFIRMING"}>
                 Confirm check-in
               </button>
             </form>
-            <p>
+            <p id="checkin-count-help">
               Confirmation records this household once for this event. Partial
               arrivals and corrections are not supported.
             </p>

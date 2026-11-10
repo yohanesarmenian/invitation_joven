@@ -444,6 +444,14 @@ label {
   gap: 28px;
   align-items: start;
 }
+.invitation-create {
+  container-type: inline-size;
+}
+@container (max-width: 650px) {
+  .create-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .create-fields {
   min-width: 0;
   display: grid;
@@ -708,6 +716,109 @@ label {
   align-items: center;
   min-height: 44px;
   padding-inline: 8px;
+}
+
+/* Venue staff have one operational canvas, independent of the OWNER sidebar. */
+.checkin-page {
+  min-height: 100dvh;
+  max-width: 1184px;
+  margin-inline: auto;
+  padding: clamp(16px, 4vw, 40px);
+  min-width: 0;
+}
+.checkin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--editorial-line);
+}
+.checkin-header h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.2;
+  margin: 4px 0 8px;
+}
+.checkin-account {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.checkin-account p {
+  margin: 0 0 8px;
+}
+.checkin-account nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.checkin-account a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.checkin-workspace,
+.checkin-workspace .import-panel,
+.checkin-inputs > * {
+  min-width: 0;
+}
+.checkin-workspace .import-panel {
+  background: var(--editorial-paper);
+  border: 1px solid var(--editorial-line);
+  padding: clamp(16px, 3vw, 24px);
+  overflow-wrap: anywhere;
+}
+.checkin-workspace h2 {
+  font-size: 1.125rem;
+  margin: 0 0 16px;
+}
+.checkin-workspace input,
+.checkin-workspace select {
+  min-width: 0;
+  max-width: 100%;
+  background: var(--editorial-paper);
+}
+.checkin-workspace button {
+  margin: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.checkin-policy {
+  border-left: 3px solid var(--editorial-gold);
+  padding-left: 12px;
+  font-size: 0.875rem;
+  margin-bottom: 0;
+}
+.checkin-result {
+  scroll-margin-block: 24px;
+}
+.checkin-result form {
+  max-width: 28rem;
+}
+.checkin-result [role="status"]:empty {
+  display: none;
+}
+.invitation-create .create-deadline {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  margin: 20px 0;
+}
+.invitation-create .create-deadline legend {
+  padding: 0;
+  font-size: 0.875rem;
+}
+.create-deadline .create-grid {
+  margin-top: 12px;
+}
+.invitation-create input[type="date"],
+.invitation-create input[type="time"] {
+  min-width: 0;
+  max-width: 100%;
 }
 
 @media (max-width: 1100px) {
