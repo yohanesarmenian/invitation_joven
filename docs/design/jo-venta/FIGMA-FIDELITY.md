@@ -12,7 +12,7 @@ The long page alternates a personal editorial greeting, offset arched portraits,
 
 ### Phase 3B refinement — 10 November 2026
 
-The greeting and Wedding Date labels use natural-case italic Spectral alongside restrained name/date typography. Events, gallery, RSVP and message headings are center-led; portraits and the schedule keep their asymmetric editorial composition. RSVP has one centered introduction above a bounded stationery-style form, distinct native-radio response choices, stronger selected/focus states and more space between question groups. Existing labels, named invitees, allowances, counts, messages, notices and submit behavior are unchanged.
+The greeting and Wedding Date labels use natural-case italic Spectral alongside restrained name/date typography. Events, gallery, RSVP, message and optional Parking Guide/Event Rundown headings are center-led; portraits and the schedule keep their asymmetric editorial composition. RSVP has one centered introduction above a bounded stationery-style form, distinct native-radio response choices, stronger selected/focus states and more space between question groups. Existing labels, named invitees, allowances, counts, messages, notices and submit behavior are unchanged.
 
 Small native line icons identify explicit event names: matrimony/ceremony/pemberkatan/akad uses rings; reception/resepsi uses celebration glasses. Unknown names use a neutral calendar because the public response has no event-kind field. Icon choice never depends on event order. No new event types or backend contracts are introduced.
 
