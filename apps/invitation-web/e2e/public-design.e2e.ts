@@ -25,6 +25,111 @@ async function expectContent(page: Page) {
   ).toBeVisible();
 }
 
+for (const width of [320, 375, 412, 768, 1280]) {
+  test(`refined stationery headings and RSVP controls remain balanced at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(fixturePath);
+    await page
+      .getByRole("button", { name: "Open invitation", exact: true })
+      .click();
+    await expectContent(page);
+    for (const selector of [
+      "#events-title",
+      "#gallery-title",
+      "#rsvp-title",
+      "#message-title",
+    ]) {
+      const title = page.locator(selector);
+      await expect(title).toHaveCSS("text-align", "center");
+      const box = await title.boundingBox();
+      expect(box).not.toBeNull();
+      expect(Math.abs(box!.x + box!.width / 2 - width / 2)).toBeLessThanOrEqual(
+        2,
+      );
+    }
+    await expect(page.locator(".invitation-header .section-kicker")).toHaveCSS(
+      "text-transform",
+      "none",
+    );
+    await expect(
+      page.locator(".wedding-date-section .section-kicker"),
+    ).toHaveCSS("text-transform", "none");
+    const form = page.getByRole("form", { name: "Your RSVP" });
+    const accept = form.getByRole("radio", { name: "Joyfully Accept" });
+    const decline = form.getByRole("radio", { name: "Regretfully Decline" });
+    await accept.check();
+    await expect(accept).toBeChecked();
+    await expect(decline).not.toBeChecked();
+    await expect(
+      form.getByRole("group", { name: "Which events will you attend?" }),
+    ).toBeVisible();
+    await expect(accept.locator("..")).toHaveCSS(
+      "background-color",
+      "rgb(239, 226, 221)",
+    );
+    await accept.focus();
+    await expect(accept).toBeFocused();
+    // Native keyboard radio behavior and conditional fields remain intact.
+    await page.keyboard.press("ArrowRight");
+    await expect(decline).toBeChecked();
+    await expect(
+      form.getByRole("group", { name: "Which events will you attend?" }),
+    ).toHaveCount(0);
+    await accept.check();
+    await expect(
+      form.getByRole("checkbox", { name: "Test Guest", exact: true }),
+    ).toBeVisible();
+    for (const choice of await form
+      .locator(".rsvp-attendance-options .rsvp-choice")
+      .all()) {
+      const box = await choice.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(64);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+  });
+}
+
+test("system motion is authoritative over legacy stored overrides and updates without a toggle", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() =>
+    localStorage.setItem("jo-venta-motion", "full"),
+  );
+  await page.goto(fixturePath);
+  const flow = page.locator(".invitation-opening-flow");
+  await expect(flow).toHaveAttribute("data-motion", "reduced");
+  await expect(
+    page.getByRole("button", { name: "Enable animations" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Open invitation", exact: true })
+    .click();
+  await expectContent(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(flow).toHaveAttribute("data-motion", "full");
+  await page.evaluate(() => {
+    localStorage.setItem("jo-venta-motion", "reduced");
+    dispatchEvent(
+      new StorageEvent("storage", {
+        key: "jo-venta-motion",
+        newValue: "reduced",
+      }),
+    );
+  });
+  await expect(flow).toHaveAttribute("data-motion", "full");
+  await expectContent(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(flow).toHaveAttribute("data-motion", "reduced");
+});
+
 for (const width of [375, 1280]) {
   test(`wedding monograms use Yohanes and Angelina initials at ${width}px`, async ({
     page,
@@ -263,9 +368,13 @@ test("reduced motion supports one Space activation with no opening delay", async
   await page.keyboard.press("Space");
   await expectContent(page);
   await expect(page.locator(".invitation-opening-content")).toBeFocused();
+  await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+    "data-motion",
+    "reduced",
+  );
   await expect(
     page.getByRole("button", { name: "Enable animations" }),
-  ).toHaveAttribute("aria-pressed", "false");
+  ).toHaveCount(0);
 });
 
 test("slow hero stays blocked until decoding succeeds without waiting for galleries", async ({

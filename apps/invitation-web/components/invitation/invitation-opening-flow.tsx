@@ -20,22 +20,9 @@ import {
   type InvitationStage,
 } from "./invitation-opening-state";
 
-const MOTION_PREFERENCE_KEY = "jo-venta-motion";
 const subscribeHydration = () => () => {};
 const hydratedSnapshot = () => true;
 const serverSnapshot = () => false;
-function readMotionPreference(): boolean | null {
-  try {
-    const value = window.localStorage.getItem(MOTION_PREFERENCE_KEY);
-    return value === "full" ? true : value === "reduced" ? false : null;
-  } catch {
-    return null;
-  }
-}
-function subscribeMotionPreference(onChange: () => void) {
-  window.addEventListener("storage", onChange);
-  return () => window.removeEventListener("storage", onChange);
-}
 
 export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
   const hydrated = useSyncExternalStore(
@@ -54,16 +41,7 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
   const mountedRef = useRef(false);
   const preparationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [systemReduced, setSystemReduced] = useState(false);
-  const [motionOverride, setMotionOverride] = useState<boolean | null>(null);
-  const savedMotion = useSyncExternalStore(
-    subscribeMotionPreference,
-    readMotionPreference,
-    () => null,
-  );
-  const effectiveOverride = motionOverride ?? savedMotion;
-  const reduced =
-    effectiveOverride === null ? systemReduced : !effectiveOverride;
+  const [reduced, setReduced] = useState(false);
 
   const finishPreparation = useCallback(() => {
     if (!mountedRef.current || preparedRef.current) return;
@@ -136,30 +114,17 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
   useEffect(() => {
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onChange = () => {
-      setSystemReduced(preference.matches);
-      if (preference.matches && effectiveOverride !== true) finishOpening();
+      setReduced(preference.matches);
+      if (preference.matches) finishOpening();
     };
     onChange();
     preference.addEventListener("change", onChange);
     return () => preference.removeEventListener("change", onChange);
-  }, [finishOpening, effectiveOverride]);
+  }, [finishOpening]);
 
   useEffect(() => {
     if (reduced) finishOpening();
   }, [reduced, finishOpening]);
-
-  function toggleMotion() {
-    setMotionOverride(reduced);
-    try {
-      window.localStorage.setItem(
-        MOTION_PREFERENCE_KEY,
-        reduced ? "full" : "reduced",
-      );
-    } catch {
-      /* The non-sensitive preference remains usable in memory. */
-    }
-    if (!reduced) finishOpening();
-  }
 
   useEffect(() => {
     if (stage !== "content") return;
@@ -215,16 +180,6 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
         data-motion={reduced ? "reduced" : "full"}
         style={invitationMotionStyle}
       >
-        <button
-          type="button"
-          className="invitation-motion-toggle"
-          aria-label="Enable animations"
-          aria-pressed={!reduced}
-          disabled={!hydrated}
-          onClick={toggleMotion}
-        >
-          Animations: {reduced ? "Off" : "On"}
-        </button>
         <div
           ref={contentRef}
           tabIndex={-1}

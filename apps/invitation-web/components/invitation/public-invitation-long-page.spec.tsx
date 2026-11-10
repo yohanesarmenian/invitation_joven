@@ -71,6 +71,35 @@ function renderInvitation(
 }
 
 describe("PublicInvitationLongPage", () => {
+  it("identifies reception and matrimony icons by name rather than API order", () => {
+    const html = renderInvitation();
+    // The fixture deliberately puts reception before matrimony.
+    expect(html.indexOf('data-event-icon="celebration"')).toBeLessThan(
+      html.indexOf('data-event-icon="rings"'),
+    );
+    expect(html).not.toContain("decoration-rings");
+  });
+
+  it("uses a neutral icon for an event without an explicit ceremony name", () => {
+    const html = renderInvitation({
+      events: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          slug: "family-gathering",
+          name: "Family Gathering",
+          startsAt: null,
+          endsAt: null,
+          venueName: null,
+          address: null,
+          googleMapsUrl: null,
+        },
+      ],
+    });
+    expect(html).toContain('data-event-icon="calendar"');
+    expect(html).not.toContain('data-event-icon="rings"');
+    expect(html).not.toContain('data-event-icon="celebration"');
+  });
+
   it("renders the locked long-page section order", () => {
     const html = renderInvitation();
     const orderedText = [
@@ -403,7 +432,6 @@ describe("PublicInvitationLongPage", () => {
       "Leaves1.png",
       "Calendar1.png",
       "Objects1.png",
-      "Objects1.png",
     ]) {
       expect(decorations.some((image) => image.includes(asset))).toBe(true);
     }
@@ -420,10 +448,7 @@ describe("PublicInvitationLongPage", () => {
     }
     expect(
       decorations.filter((image) => image.includes("Objects1.png")),
-    ).toHaveLength(4);
-    expect(
-      decorations.filter((image) => image.includes("Objects1.png")),
-    ).toHaveLength(4);
+    ).toHaveLength(2);
     expect(html).toContain('<h2 id="wedding-date-title">09 January 2027</h2>');
     expect(html).toContain(
       '<p class="closing-copy">See you at the Wedding!</p>',

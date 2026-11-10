@@ -47,7 +47,6 @@ const decorativeAssets = {
   },
   leaves: { file: figmaAssets.long_Leaves1, width: 486, height: 384 },
   calendar: { file: figmaAssets.long_Calendar1, width: 533, height: 469 },
-  rings: { file: figmaAssets.long_Objects1, width: 910, height: 918 },
   ornament: { file: figmaAssets.long_Objects1, width: 910, height: 918 },
   brideBloom: {
     file: figmaAssets.long_ChatGptImageSep152026112225Am4,
@@ -77,13 +76,7 @@ function Decoration({
 }) {
   const source = decorativeAssets[asset];
   const renderedSizes =
-    asset === "brideBloom"
-      ? "277px"
-      : asset === "rings"
-        ? "278px"
-        : asset === "ornament"
-          ? "178px"
-          : sizes;
+    asset === "brideBloom" ? "277px" : asset === "ornament" ? "178px" : sizes;
 
   return (
     <span className={`invitation-decoration ${className}`} aria-hidden="true">
@@ -353,15 +346,7 @@ function EventSection({
         <span className="event-number" aria-hidden="true">
           {String(index + 1).padStart(2, "0")}
         </span>
-        <Decoration
-          asset="rings"
-          className={
-            index === 0
-              ? "decoration-rings"
-              : "decoration-rings decoration-rings-small"
-          }
-          sizes={index === 0 ? "88px" : "68px"}
-        />
+        <EventIcon name={event.name} />
         {timeLabel ? (
           <>
             <time dateTime={event.startsAt ?? undefined}>{timeLabel}</time>
@@ -409,6 +394,48 @@ function EventSection({
         />
       ) : null}
     </section>
+  );
+}
+
+// The public contract has no event-kind field. Recognize explicit names only;
+// an unfamiliar name gets a neutral calendar, never an icon inferred by order.
+function EventIcon({ name }: { name: string }) {
+  const kind = /\b(reception|resepsi)\b/i.test(name)
+    ? "celebration"
+    : /\b(matrimony|ceremony|pemberkatan|akad)\b/i.test(name)
+      ? "rings"
+      : "calendar";
+  return (
+    <svg
+      className="event-icon"
+      data-event-icon={kind}
+      aria-hidden="true"
+      width="32"
+      height="32"
+      viewBox="0 0 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {kind === "rings" ? (
+        <>
+          <circle cx="12" cy="19" r="8" />
+          <circle cx="22" cy="19" r="7" />
+          <path d="m9 6 3-3 3 3-3 5Z" />
+        </>
+      ) : kind === "celebration" ? (
+        <>
+          <path d="m5 4 10 3-3 10a5 5 0 0 1-9-3Zm5 15-2 8m-4-1 8 2m15-24-10 3 3 10a5 5 0 0 0 9-3Zm-5 15 2 8m4-1-8 2M5 11l8 2m6 0 8-2M16 1v3" />
+        </>
+      ) : (
+        <>
+          <rect x="4" y="7" width="24" height="22" rx="2" />
+          <path d="M4 13h24M10 3v8m12-8v8M10 19h4m4 0h4m-12 5h4" />
+        </>
+      )}
+    </svg>
   );
 }
 

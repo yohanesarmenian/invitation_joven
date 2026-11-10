@@ -496,7 +496,7 @@ test("same-name households keep distinct personal links, greetings, RSVP and gue
   }
 });
 
-test("delayed hero readiness preserves the guest motion preference", async ({
+test("delayed hero readiness follows system reduced motion without bypassing preparation", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -524,11 +524,17 @@ test("delayed hero readiness preserves the guest motion preference", async ({
       name: "Open invitation",
       exact: true,
     });
-    await expect(
-      page.getByRole("button", { name: "Enable animations" }),
-    ).toBeEnabled();
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-motion",
+      "full",
+    );
     await expect(openButton).toBeDisabled();
-    await page.getByRole("button", { name: "Enable animations" }).click();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
+      "data-motion",
+      "reduced",
+    );
+    await expect(openButton).toBeDisabled();
     await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
       "data-stage",
       "closed",
@@ -580,7 +586,7 @@ test("disabled CSS end events and failed observers still leave readable, keyboar
     });
   });
   await openButton.press("Enter");
-  // Cross-tab notification must not cancel the active fallback deadline.
+  // A legacy preference must not override the system or cancel the deadline.
   await page.evaluate(() => {
     localStorage.setItem("jo-venta-motion", "full");
     dispatchEvent(

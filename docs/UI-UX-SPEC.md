@@ -249,12 +249,14 @@ closed -> opening -> content
 - One click, Enter or Space starts the paper-fold transition. A synchronous
   guard rejects repeated activation. The right fold's transition completion
   advances to content, with a bounded timer fallback for missing events.
-- Reduced motion reaches content directly on the same activation. The existing
-  non-sensitive motion preference and explicit animation opt-in remain supported.
+- Reduced motion reaches content directly on the same activation. Motion follows
+  `prefers-reduced-motion` automatically, including changes during preparation or
+  opening. Phase 3B removes the manual animation toggle and saved override.
 - Content receives focus and becomes readable, scrollable and interactive once
   opening completes. The photo hero is part of that content.
 - Opening stage remains in local component memory. Reload returns to `closed`.
-  The existing `jo-venta-motion` preference stores only `full` or `reduced`.
+  Legacy `jo-venta-motion` values are ignored; opening reads/writes no preference
+  in browser storage.
 - Preparation and opening add no invitation retrieval, analytics call or form
   submission. Server retrieval, authorization and business contracts remain
   authoritative.

@@ -25,27 +25,6 @@
   outline: none;
 }
 
-.invitation-motion-toggle {
-  position: fixed;
-  z-index: 20;
-  top: 14px;
-  right: 14px;
-  min-height: 44px;
-  padding: 8px 14px;
-  border: 1px solid #cdb7b0;
-  border-radius: 999px;
-  background: #fffaf3;
-  color: #493d42;
-  font:
-    12px/1.4 var(--font-tiktok-sans),
-    sans-serif;
-  cursor: pointer;
-}
-
-[data-stage="content"] > .invitation-motion-toggle {
-  position: absolute;
-}
-
 .invitation-opening-flow
   :is(a, button, input, textarea, [tabindex]):focus-visible {
   outline: 3px solid var(--romantic-plum);
@@ -229,15 +208,18 @@
 }
 
 .invitation-header .section-kicker {
-  margin: 0 0 16px;
+  margin: 0 0 10px;
   color: var(--romantic-plum);
+  font: italic 22px/1.5 var(--romantic-serif);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .invitation-header h1 {
-  margin: 0 0 28px;
+  margin: 0 0 24px;
   max-width: 640px;
-  font: 400 clamp(42px, 6vw, 72px)/1.15 var(--romantic-serif);
-  letter-spacing: -0.04em;
+  font: 400 clamp(32px, 4vw, 48px)/1.3 var(--romantic-serif);
+  letter-spacing: -0.02em;
 }
 
 .invitation-header > p:last-child {
@@ -348,8 +330,11 @@
 }
 
 .wedding-date-section .section-kicker {
-  margin: 0 0 24px;
+  margin: 0 0 18px;
   color: var(--romantic-plum);
+  font: italic 22px/1.5 var(--romantic-serif);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .wedding-date-day {
@@ -412,9 +397,10 @@
 }
 
 .events-section > h2 {
-  margin: 0 0 54px;
-  max-width: 400px;
-  font: 400 clamp(60px, 8vw, 88px)/1.1 var(--romantic-script);
+  margin: 0 auto 54px;
+  max-width: 640px;
+  font: 400 clamp(52px, 7vw, 76px)/1.15 var(--romantic-script);
+  text-align: center;
 }
 
 .event-list {
@@ -454,6 +440,13 @@
     11px/1.5 var(--font-tiktok-sans),
     sans-serif;
   letter-spacing: 0.15em;
+}
+
+.event-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  color: var(--romantic-plum);
 }
 
 .event-card h3 {
@@ -530,11 +523,16 @@
 .rsvp-information-section {
   isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  align-items: start;
-  gap: 28px 40px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
   max-width: 780px;
   padding-block: 90px;
+}
+
+.rsvp-section-copy {
+  max-width: 580px;
+  margin-inline: auto;
+  text-align: center;
 }
 
 .rsvp-information-section::before {
@@ -542,12 +540,17 @@
 }
 
 .rsvp-section-copy h2 {
-  margin: 0 0 26px;
-  font-size: 38px;
+  margin: 0 0 24px;
+  font-size: clamp(30px, 4vw, 42px);
+  line-height: 1.3;
 }
 
 .rsvp-section-copy p {
-  margin: 0 0 20px;
+  margin: 0;
+}
+
+.rsvp-section-copy .deadline-copy {
+  margin-top: 20px;
 }
 
 .deadline-copy {
@@ -565,10 +568,14 @@
 }
 
 .public-rsvp-form {
-  padding: 28px 24px;
+  width: 100%;
+  max-width: 660px;
+  margin-inline: auto;
+  padding: 40px;
   border: 1px solid #e3d3cb;
   border-radius: 8px;
   background: var(--romantic-paper);
+  box-shadow: 0 12px 36px rgb(73 61 66 / 4%);
 }
 
 .public-rsvp-form :is(.rsvp-fields, .rsvp-group),
@@ -581,13 +588,13 @@
 
 .public-rsvp-form .rsvp-fields {
   display: grid;
-  gap: 26px;
+  gap: 36px;
 }
 
 .public-rsvp-form .rsvp-group legend {
   width: 100%;
-  padding-bottom: 12px;
-  font: 700 19px/1.5 var(--romantic-serif);
+  padding-bottom: 16px;
+  font: 400 22px/1.4 var(--romantic-serif);
 }
 
 .public-rsvp-form .rsvp-choice {
@@ -600,6 +607,40 @@
   overflow-wrap: anywhere;
 }
 
+.rsvp-attendance-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rsvp-attendance-options .rsvp-choice {
+  align-items: flex-start;
+  min-height: 80px;
+  padding: 18px 14px;
+  border: 1px solid var(--romantic-line);
+  border-radius: 6px;
+  background: #fffdfa;
+}
+
+.rsvp-attendance-options .rsvp-choice:has(input:checked) {
+  border-color: var(--romantic-plum);
+  background: #efe2dd;
+  box-shadow: inset 0 0 0 1px var(--romantic-plum);
+}
+
+.rsvp-attendance-options .rsvp-choice:focus-within {
+  outline: 2px solid var(--romantic-plum);
+  outline-offset: 3px;
+}
+
+.public-rsvp-form .rsvp-group > p {
+  margin: 0 0 16px;
+}
+
+.public-rsvp-form .rsvp-group > p:last-child {
+  margin-bottom: 0;
+}
+
 .public-rsvp-form input:is([type="radio"], [type="checkbox"]) {
   flex-shrink: 0;
   width: 22px;
@@ -609,7 +650,7 @@
 }
 
 .rsvp-event {
-  padding-bottom: 12px;
+  padding-block: 8px;
   border-bottom: 1px solid var(--romantic-line);
 }
 
@@ -623,6 +664,10 @@
 
 .rsvp-count small {
   display: block;
+}
+
+.rsvp-count > span {
+  line-height: 1.6;
 }
 
 .public-rsvp-form :is(input[type="number"], textarea),
@@ -647,6 +692,10 @@
 .rsvp-dietary {
   display: grid;
   gap: 10px;
+}
+
+.rsvp-dietary > label {
+  font: 400 22px/1.4 var(--romantic-serif);
 }
 
 .invitation-section .rsvp-dietary-help,
@@ -806,6 +855,7 @@
   max-width: 1200px;
   margin: 0 auto 54px;
   font: 400 clamp(56px, 7vw, 88px)/1.1 var(--romantic-script);
+  text-align: center;
 }
 
 .gallery-mosaic {
@@ -964,8 +1014,9 @@
 }
 
 .guest-message-section h2 {
-  margin: 0 0 40px;
-  max-width: 540px;
+  margin: 0 auto 40px;
+  max-width: 600px;
+  text-align: center;
 }
 
 .guest-message-form fieldset {
@@ -1067,23 +1118,6 @@
   top: 12px;
   width: 100px;
   opacity: 0.3;
-}
-
-.decoration-rings {
-  position: relative;
-  width: 60px;
-  height: 40px;
-  overflow: hidden;
-  opacity: 0.6;
-}
-
-.decoration-rings img {
-  position: absolute;
-  max-width: none;
-  width: 315.54%;
-  height: 480.85%;
-  left: -16.92%;
-  top: -114.89%;
 }
 
 .decoration-event,
@@ -1321,12 +1355,22 @@
 
   .rsvp-information-section {
     grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
+    gap: 32px;
     padding-block: 70px 40px;
   }
 
   .public-rsvp-form {
-    padding: 24px 18px;
+    padding: 28px 20px;
+  }
+
+  .rsvp-attendance-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rsvp-attendance-options .rsvp-choice {
+    align-items: center;
+    min-height: 64px;
+    padding: 16px;
   }
 
   .gallery-mosaic {
