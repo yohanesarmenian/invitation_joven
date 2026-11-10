@@ -451,7 +451,6 @@ function DressCodeSection() {
         className="decoration-dress-right"
         sizes="(min-width: 412px) 64px, 16vw"
       />
-      <p className="section-kicker">Fine Attire</p>
       <h2 id="dress-code-title">Dress Code</h2>
       <p>Formal / Modern / National / Batik</p>
       <span className="figma-dress-palette" aria-hidden="true">

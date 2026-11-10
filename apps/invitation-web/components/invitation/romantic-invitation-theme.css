@@ -1,4 +1,5 @@
 /* Concept B owns the interior. Native envelope folds live in editorial-envelope.css. */
+.public-invitation-theme,
 .invitation-opening-flow {
   --romantic-paper: #fffaf3;
   --romantic-ink: #493d42;
@@ -8,12 +9,37 @@
   --romantic-line: #cdb7b0;
   --romantic-serif: var(--font-spectral), Georgia, serif;
   --romantic-script: var(--font-luxurious-script), cursive;
+  --romantic-sans: var(--font-albert-sans), Arial, sans-serif;
+  /* Shared type roles. Rem bounds preserve browser text enlargement. */
+  --type-display: 400 clamp(4.5rem, 10vw, 8rem)/1.1 var(--romantic-script);
+  --type-name: 400 clamp(2rem, 1.6rem + 2vw, 3rem)/1.3 var(--romantic-serif);
+  --type-title: 400 clamp(2rem, 1.5rem + 1.6vw, 2.75rem)/1.3
+    var(--romantic-serif);
+  --type-subheading: 400 clamp(1.5rem, 1.1rem + 0.8vw, 1.75rem)/1.4
+    var(--romantic-serif);
+  --type-label: italic 400 1.25rem/1.5 var(--romantic-serif);
+  --type-body: 400 1rem/1.8 var(--romantic-serif);
+  --type-support: 400 0.875rem/1.65 var(--romantic-sans);
+  --type-control: 400 1rem/1.6 var(--romantic-sans);
+  --type-action: 600 0.9375rem/1.5 var(--romantic-sans);
+  --type-time: 400 clamp(1.75rem, 1.4rem + 1.5vw, 2.5rem)/1.2
+    var(--romantic-serif);
+  --type-quote: italic 400 clamp(1.5rem, 1.125rem + 1.75vw, 2.5rem)/1.5
+    var(--romantic-serif);
+  --type-monogram: 400 clamp(2rem, 1.5rem + 1.5vw, 3rem)/1.2
+    var(--romantic-serif);
+  color: var(--romantic-ink);
+  background: var(--romantic-paper);
+  font: var(--type-body);
+  font-synthesis: none;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.invitation-opening-flow {
   position: relative;
   width: 100%;
   min-height: 100dvh;
-  color: var(--romantic-ink);
-  background: var(--romantic-paper);
-  font-family: var(--romantic-serif);
 }
 
 .invitation-viewport {
@@ -74,8 +100,8 @@
 
 .invitation-hero-monogram {
   align-self: flex-start;
-  font: 32px/1.2 var(--romantic-serif);
-  letter-spacing: -0.06em;
+  font: var(--type-monogram);
+  letter-spacing: -0.04em;
 }
 
 .invitation-hero-monogram > span,
@@ -92,11 +118,9 @@
 .invitation-hero-kicker,
 .invitation-hero-foot,
 .section-kicker {
-  font:
-    12px/1.6 var(--font-tiktok-sans),
-    sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
+  font: var(--type-label);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .invitation-hero-kicker {
@@ -105,8 +129,9 @@
 
 .invitation-hero-title {
   margin: 0 0 24px;
-  font: 400 clamp(88px, 10vw, 150px)/1.05 var(--romantic-script);
+  font: var(--type-display);
   letter-spacing: 0;
+  overflow-wrap: break-word;
 }
 
 .invitation-hero-title i {
@@ -116,13 +141,13 @@
 .invitation-hero-message {
   margin: 0;
   max-width: 360px;
-  font-size: 18px;
-  line-height: 1.7;
+  font: var(--type-body);
 }
 
 .invitation-hero-foot {
   margin: auto 0 0;
   padding-top: 100px;
+  font: var(--type-support);
 }
 
 .invitation-hero-paper {
@@ -136,16 +161,12 @@
   padding: 48px 24px 140px;
   color: #493d42;
   background: radial-gradient(ellipse at 10% 20%, #fffaf3, #eadbd5);
-  text-transform: uppercase;
-  font:
-    11px/1.6 var(--font-tiktok-sans),
-    sans-serif;
-  letter-spacing: 0.15em;
+  font: var(--type-support);
 }
 
 .invitation-hero-paper-monogram {
-  font: 100px/1.2 var(--romantic-serif);
-  letter-spacing: -0.08em;
+  font: var(--type-name);
+  letter-spacing: -0.04em;
 }
 
 .invitation-hero-paper-monogram > i {
@@ -188,18 +209,16 @@
 }
 
 .invitation-section :is(h1, h2, h3, p, address) {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .invitation-section h2 {
-  font: 400 clamp(32px, 4vw, 50px)/1.2 var(--romantic-serif);
-  letter-spacing: -0.035em;
+  font: var(--type-title);
+  letter-spacing: normal;
 }
 
-.invitation-section p,
-.invitation-section address {
-  font-size: 1rem;
-  line-height: 1.8;
+:where(.invitation-section) :where(p, address) {
+  font: inherit;
 }
 
 .invitation-header {
@@ -210,16 +229,13 @@
 .invitation-header .section-kicker {
   margin: 0 0 10px;
   color: var(--romantic-plum);
-  font: italic 22px/1.5 var(--romantic-serif);
-  text-transform: none;
-  letter-spacing: 0;
 }
 
 .invitation-header h1 {
   margin: 0 0 24px;
   max-width: 640px;
-  font: 400 clamp(32px, 4vw, 48px)/1.3 var(--romantic-serif);
-  letter-spacing: -0.02em;
+  font: var(--type-name);
+  letter-spacing: normal;
 }
 
 .invitation-header > p:last-child {
@@ -239,7 +255,7 @@
 .couple-section .couple-section-title {
   grid-column: 1 / -1;
   margin: 0;
-  font: 400 clamp(58px, 7vw, 90px)/1.1 var(--romantic-script);
+  font: var(--type-title);
   text-align: center;
 }
 
@@ -281,22 +297,23 @@
 .couple-copy .couple-role {
   margin: 0 0 12px;
   color: var(--romantic-plum);
-  font: 400 44px/1.15 var(--romantic-script);
+  font: var(--type-label);
 }
 
 .couple-copy h3 {
   margin: 0 0 22px;
-  font: 400 1.625rem/1.4 var(--romantic-serif);
+  font: var(--type-subheading);
 }
 
 .couple-nickname {
-  font-size: 0.8em;
+  font-size: inherit;
+  white-space: nowrap;
 }
 
 .couple-copy .couple-family-label {
   margin: 0 0 6px;
   color: var(--romantic-muted);
-  font-size: 0.9375rem;
+  font: var(--type-support);
 }
 
 .couple-copy .couple-family-names {
@@ -332,9 +349,6 @@
 .wedding-date-section .section-kicker {
   margin: 0 0 18px;
   color: var(--romantic-plum);
-  font: italic 22px/1.5 var(--romantic-serif);
-  text-transform: none;
-  letter-spacing: 0;
 }
 
 .wedding-date-day {
@@ -344,10 +358,11 @@
 
 .wedding-date-section h2 {
   margin: 0;
-  font-size: clamp(38px, 6vw, 64px);
+  font: var(--type-name);
 }
 
 .event-countdown {
+  container-type: inline-size;
   position: relative;
   isolation: isolate;
   max-width: 620px;
@@ -358,7 +373,7 @@
 
 .countdown-kicker {
   margin: 0 0 24px;
-  font-size: 15px;
+  font: var(--type-support);
 }
 
 .countdown-grid {
@@ -376,19 +391,26 @@
   display: block;
 }
 
+@container (width < 14rem) {
+  .countdown-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .countdown-part:nth-child(odd) {
+    border-left: 0;
+  }
+}
+
 .countdown-value {
-  font-size: clamp(28px, 5vw, 48px);
-  line-height: 1.2;
+  font: var(--type-time);
   font-variant-numeric: tabular-nums;
 }
 
 .countdown-label {
   margin-top: 10px;
-  font:
-    11px/1.5 var(--font-tiktok-sans),
-    sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font: var(--type-support);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .events-section {
@@ -399,7 +421,7 @@
 .events-section > h2 {
   margin: 0 auto 54px;
   max-width: 640px;
-  font: 400 clamp(52px, 7vw, 76px)/1.15 var(--romantic-script);
+  font: var(--type-title);
   text-align: center;
 }
 
@@ -426,20 +448,15 @@
 
 .event-number {
   color: var(--romantic-plum);
-  font-size: 14px;
-  letter-spacing: 0.15em;
+  font: var(--type-support);
 }
 
 .event-time-block time {
-  font-size: clamp(30px, 4vw, 42px);
-  line-height: 1;
+  font: var(--type-time);
 }
 
 .event-time-zone {
-  font:
-    11px/1.5 var(--font-tiktok-sans),
-    sans-serif;
-  letter-spacing: 0.15em;
+  font: var(--type-support);
 }
 
 .event-icon {
@@ -451,7 +468,7 @@
 
 .event-card h3 {
   margin: 0 0 18px;
-  font: 400 clamp(30px, 4vw, 42px)/1.25 var(--romantic-serif);
+  font: var(--type-subheading);
 }
 
 .event-detail-block {
@@ -486,9 +503,7 @@
   border-radius: 4px;
   background: var(--romantic-plum);
   color: #fffaf3;
-  font:
-    14px/1.5 var(--font-tiktok-sans),
-    sans-serif;
+  font: var(--type-action);
   text-decoration: none;
   text-align: center;
   cursor: pointer;
@@ -506,13 +521,13 @@
 }
 
 .dress-code-section h2 {
-  margin: 10px 0 18px;
+  margin: 0 0 24px;
 }
 
 .figma-dress-palette {
   display: block;
   width: min(307px, 100%);
-  margin: 28px auto 0;
+  margin: 32px auto 0;
 }
 
 .figma-dress-palette img {
@@ -530,6 +545,8 @@
 }
 
 .rsvp-section-copy {
+  min-width: 0;
+  width: 100%;
   max-width: 580px;
   margin-inline: auto;
   text-align: center;
@@ -541,8 +558,7 @@
 
 .rsvp-section-copy h2 {
   margin: 0 0 24px;
-  font-size: clamp(30px, 4vw, 42px);
-  line-height: 1.3;
+  font: var(--type-title);
 }
 
 .rsvp-section-copy p {
@@ -555,16 +571,14 @@
 
 .deadline-copy {
   color: var(--romantic-plum);
-  font-weight: 700;
+  font: var(--type-label);
 }
 
 .public-rsvp-form,
 .guest-message-form {
   min-width: 0;
   text-align: left;
-  font:
-    16px/1.65 var(--font-tiktok-sans),
-    sans-serif;
+  font: var(--type-control);
 }
 
 .public-rsvp-form {
@@ -593,8 +607,11 @@
 
 .public-rsvp-form .rsvp-group legend {
   width: 100%;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: break-word;
   padding-bottom: 16px;
-  font: 400 22px/1.4 var(--romantic-serif);
+  font: var(--type-subheading);
 }
 
 .public-rsvp-form .rsvp-choice {
@@ -681,7 +698,7 @@
   color: var(--romantic-ink);
   background: #fffdfa;
   font: inherit;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .public-rsvp-form textarea,
@@ -695,14 +712,13 @@
 }
 
 .rsvp-dietary > label {
-  font: 400 22px/1.4 var(--romantic-serif);
+  font: var(--type-subheading);
 }
 
 .invitation-section .rsvp-dietary-help,
 .invitation-section .guest-message-limit {
   color: var(--romantic-muted);
-  font-size: 14px;
-  line-height: 1.65;
+  font: var(--type-support);
 }
 
 .rsvp-dietary > p:last-child {
@@ -723,9 +739,7 @@
   border-radius: 4px;
   color: #fffaf3;
   background: var(--romantic-plum);
-  font:
-    15px/1.5 var(--font-tiktok-sans),
-    sans-serif;
+  font: var(--type-action);
   cursor: pointer;
 }
 
@@ -763,7 +777,7 @@
 .guest-message-confirmation h3,
 .guest-checkin-pass h3 {
   margin: 0 0 10px;
-  font: 700 22px/1.4 var(--romantic-serif);
+  font: var(--type-subheading);
 }
 
 .rsvp-notice-success {
@@ -854,7 +868,7 @@
 .gallery-section > h2 {
   max-width: 1200px;
   margin: 0 auto 54px;
-  font: 400 clamp(56px, 7vw, 88px)/1.1 var(--romantic-script);
+  font: var(--type-title);
   text-align: center;
 }
 
@@ -919,17 +933,12 @@
 
 .gallery-scripture blockquote p {
   margin: 0 0 18px;
-  font-size: clamp(26px, 4vw, 36px);
-  line-height: 1.5;
+  font: var(--type-quote);
 }
 
 .gallery-scripture cite,
 .quote-section cite {
-  font:
-    12px/1.6 var(--font-tiktok-sans),
-    sans-serif;
-  font-style: normal;
-  letter-spacing: 0.1em;
+  font: var(--type-support);
 }
 
 .gallery-dialog {
@@ -940,6 +949,7 @@
   border-radius: 6px;
   background: #fffaf3;
   color: #493d42;
+  font: var(--type-control);
 }
 
 .gallery-dialog::backdrop {
@@ -955,6 +965,7 @@
 
 .gallery-dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -999,8 +1010,7 @@
 
 .quote-section blockquote p {
   margin: 0 0 24px;
-  font-size: clamp(32px, 4.5vw, 52px);
-  line-height: 1.25;
+  font: var(--type-quote);
 }
 
 .guest-message-section {
@@ -1026,7 +1036,7 @@
 
 .guest-message-form label {
   margin-top: 12px;
-  font-weight: 600;
+  font: var(--type-action);
 }
 
 .guest-message-form label span {
@@ -1047,8 +1057,8 @@
 
 .closing-monogram {
   margin-bottom: 30px;
-  font: 52px/1.2 var(--romantic-serif);
-  letter-spacing: -0.07em;
+  font: var(--type-monogram);
+  letter-spacing: -0.04em;
 }
 
 .closing-monogram > span {
@@ -1059,14 +1069,12 @@
 .invitation-footer .closing-copy {
   max-width: 800px;
   margin: 0 0 38px;
-  font: 400 clamp(58px, 9vw, 100px)/1.2 var(--romantic-script);
+  font: var(--type-name);
 }
 
 .invitation-footer p:not(.closing-copy) {
   margin: 6px 0;
-  font:
-    12px/1.7 var(--font-tiktok-sans),
-    sans-serif;
+  font: var(--type-support);
 }
 
 /* Reuse the approved exported artwork, with section-owned footprints. */
@@ -1084,10 +1092,10 @@
 
 .decoration-top {
   position: absolute;
-  top: 20px;
+  top: 12px;
   right: 12px;
-  width: 120px;
-  opacity: 0.5;
+  width: 96px;
+  opacity: 0.4;
 }
 
 .decoration-bride-bloom {
@@ -1210,7 +1218,7 @@
 }
 
 .venue-content-card h3 {
-  font-size: 24px;
+  font: var(--type-subheading);
 }
 
 .venue-content-card ul {
@@ -1244,6 +1252,45 @@
 .rundown-list time span,
 .rundown-list time strong {
   display: block;
+}
+
+.rundown-list time span,
+.rundown-list h4 {
+  font: var(--type-support);
+}
+
+.rundown-list time strong {
+  font: var(--type-control);
+}
+
+.public-invitation-error {
+  max-width: 680px;
+  margin-inline: auto;
+  padding: 64px 24px;
+  overflow-wrap: break-word;
+}
+
+.public-invitation-error h1 {
+  font: var(--type-title);
+}
+
+.public-invitation-error p {
+  font: var(--type-body);
+}
+
+.public-invitation-error button {
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 1px solid var(--romantic-plum);
+  border-radius: 4px;
+  color: var(--romantic-paper);
+  background: var(--romantic-plum);
+  font: var(--type-action);
+}
+
+.public-invitation-error button:focus-visible {
+  outline: 3px solid var(--romantic-plum);
+  outline-offset: 4px;
 }
 
 .rundown-list h4,
@@ -1295,8 +1342,7 @@
   }
 
   .invitation-hero-title {
-    font-size: clamp(78px, 20vw, 116px);
-    line-height: 1;
+    font: var(--type-display);
   }
 
   .invitation-hero-title > span {
@@ -1305,7 +1351,6 @@
 
   .invitation-hero-message {
     margin-inline: auto;
-    font-size: 16px;
   }
 
   .invitation-hero-foot {
@@ -1337,10 +1382,6 @@
 
   .couple-copy {
     max-width: 280px;
-  }
-
-  .couple-copy h3 {
-    font-size: 1.5rem;
   }
 
   .decoration-bride-bloom {

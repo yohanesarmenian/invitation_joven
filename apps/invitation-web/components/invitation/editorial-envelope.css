@@ -158,7 +158,7 @@
   top: 50%;
   display: grid;
   place-items: center;
-  width: clamp(84px, 9vw, 116px);
+  width: clamp(5.25rem, 9vw, 7.25rem);
   height: auto;
   aspect-ratio: 1;
   transform: translate(-50%, -50%) rotate(-8deg);
@@ -174,10 +174,10 @@
     inset 0 0 0 6px rgb(255 245 217 / 65%);
   filter: none;
   font:
-    400 clamp(27px, 3.2vw, 40px)/1 var(--font-spectral),
+    400 clamp(1.6875rem, 3.2vw, 2.5rem)/1 var(--font-spectral),
     Georgia,
     serif;
-  letter-spacing: -0.08em;
+  letter-spacing: -0.04em;
   text-shadow: 0 1px #fff0d0;
 }
 
@@ -194,32 +194,26 @@
   left: 0;
   width: 100%;
   color: var(--envelope-ivory);
-  font:
-    400 10px/1.6 var(--font-tiktok-sans),
-    Arial,
-    sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
+  font: var(--type-support);
+  text-transform: none;
+  letter-spacing: normal;
   transition: opacity 160ms ease;
 }
 
 .invitation-opening-flow .invitation-envelope-heading {
-  top: 14%;
+  top: 10%;
 }
 
 .invitation-envelope-heading > span {
   display: block;
   margin-top: 18px;
-  font:
-    400 clamp(28px, 4vw, 44px)/1.2 var(--font-spectral),
-    Georgia,
-    serif;
+  font: var(--type-name);
   text-transform: none;
-  letter-spacing: -0.03em;
+  letter-spacing: normal;
 }
 
 .invitation-opening-flow .invitation-envelope-hint {
-  bottom: 13%;
+  bottom: 18%;
   left: 50%;
   width: max-content;
   max-width: calc(100% - 48px);
@@ -227,26 +221,22 @@
   transform: translateX(-50%);
   border: 1px solid rgb(220 196 154 / 65%);
   background: rgb(20 39 55 / 35%);
-  font-size: 12px;
-  text-transform: none;
-  letter-spacing: 0.04em;
+  font: var(--type-action);
 }
 
 .invitation-envelope-hint > span {
-  margin-left: 20px;
+  margin-left: 0.75em;
   color: var(--envelope-champagne);
 }
 
 .invitation-opening-flow .invitation-envelope-foot {
   bottom: 5%;
-  font-size: 9px;
-  letter-spacing: 0.16em;
 }
 
 .invitation-opening-flow .invitation-envelope-status {
   position: absolute;
   z-index: 5;
-  bottom: 13%;
+  bottom: 18%;
   left: 0;
   width: 100%;
   margin: 0;
@@ -254,10 +244,7 @@
   color: var(--envelope-ivory);
   text-align: center;
   pointer-events: none;
-  font:
-    400 13px/1.5 var(--font-tiktok-sans),
-    Arial,
-    sans-serif;
+  font: var(--type-control);
 }
 
 .invitation-opening-flow
@@ -319,11 +306,11 @@
 
   .invitation-envelope-heading > span {
     margin-top: 6px;
-    font-size: 26px;
+    font: var(--type-subheading);
   }
 
   .invitation-opening-flow .invitation-envelope-wax {
-    width: 72px;
+    width: 4.5rem;
   }
 
   .invitation-opening-flow .invitation-envelope-hint {
