@@ -408,7 +408,79 @@ test("OWNER create form persists one invitation and its WIB deadline, then the m
     await page.getByLabel("Password", { exact: true }).fill(fixture.password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(new URL("/", origins.admin).href);
-    await page.goto("/invitations/new");
+    const catalogResponse = await page.request
+      .get("/api/admin/events")
+      .catch(() => null);
+    const catalog = await catalogResponse?.json().catch(() => null);
+    const events: unknown[] | null = Array.isArray(catalog?.events)
+      ? catalog.events
+      : null;
+    const eventState = {
+      catalogStatus: catalogResponse?.status() ?? null,
+      totalEvents: events?.length ?? null,
+      activeEvents:
+        events?.filter(
+          (event) =>
+            typeof event === "object" &&
+            event !== null &&
+            "isActive" in event &&
+            event.isActive === true,
+        ).length ?? null,
+      fixtureEventOnly:
+        events?.length === 1 &&
+        typeof events[0] === "object" &&
+        events[0] !== null &&
+        "id" in events[0] &&
+        events[0].id === fixture.event.id,
+    };
+    const routeResponse = await page.goto("/invitations/new");
+    try {
+      await expect(
+        page.locator("#invitee-0"),
+        JSON.stringify(eventState),
+      ).toBeVisible();
+      expect(eventState).toEqual({
+        catalogStatus: 200,
+        totalEvents: 1,
+        activeEvents: 1,
+        fixtureEventOnly: true,
+      });
+    } finally {
+      const location = new URL(page.url());
+      const path = location.pathname;
+      console.info(
+        JSON.stringify({
+          diagnostic: "OWNER_CREATE_READINESS",
+          url:
+            location.origin === origins.admin &&
+            ["/invitations/new", "/login", "/account/password", "/"].includes(
+              path,
+            )
+              ? new URL(path, origins.admin).href
+              : "OTHER_ROUTE",
+          routeStatus: routeResponse?.status() ?? null,
+          createHeading: await page
+            .getByRole("heading", { name: "Create invitation", exact: true })
+            .isVisible(),
+          eventUnavailable: await page
+            .getByRole("heading", {
+              name: "Wedding event unavailable",
+              exact: true,
+            })
+            .isVisible(),
+          readUnavailable: await page
+            .getByRole("heading", {
+              name: /^(Unable to load invitations|Invitation access unavailable)$/,
+            })
+            .isVisible(),
+          loading: await page
+            .getByText("Loading wedding event…", { exact: true })
+            .isVisible(),
+          formPresent: await page.locator("#invitee-0").isVisible(),
+          ...eventState,
+        }),
+      );
+    }
     await page.locator("#invitee-0").fill("Synthetic Guest");
     await page.getByText("Household name (optional)", { exact: true }).click();
     await page.getByLabel("Invitation / household name (optional)").fill(name);
