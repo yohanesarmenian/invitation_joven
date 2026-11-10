@@ -431,7 +431,7 @@ export async function planDeployment({
     throw new DeploymentError(
       "Existing resource health is not verified. No automatic rollout allowed.",
     );
-  // v4.6 hides configuration_snapshot even for read:sensitive. It exposes the
+  // Reviewed v4.7.3 hides configuration_snapshot for read:sensitive. It exposes the
   // applied SHA-256 on both Application and DeploymentQueue instead. Confirm
   // that real read capability before allowing any image mutation.
   const applied = snapshot.history.find(
@@ -631,7 +631,7 @@ export async function deployProduction({
     } catch {
       updateError = true;
     }
-    // Bulk upsert is not transactional in Coolify 4.6.0. Always read back every
+    // Bulk upsert is not transactional in reviewed Coolify 4.7.3. Read back every
     // image and the protected configuration, even after a refused/lost response.
     const updated = await readSnapshot(api);
     if (
