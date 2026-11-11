@@ -487,7 +487,42 @@ export class AdminRsvpDetailDto {
   checkinPasses: AdminCheckinPassMetadataDto[];
 }
 
+export class AdminRsvpHistoryChangeDto {
+  @ApiProperty({ type: String })
+  field: string;
+  @ApiProperty({ type: String })
+  label: string;
+  @ApiProperty({ type: String })
+  before: string;
+  @ApiProperty({ type: String })
+  after: string;
+}
+
+export class AdminRsvpHistoryEntryDto {
+  @ApiProperty({ type: String, format: "uuid" })
+  id: string;
+  @ApiProperty({ type: String, format: "date-time" })
+  createdAt: string;
+  @ApiProperty({ type: String })
+  action: string;
+  @ApiProperty({ type: String })
+  actorCategory: string;
+  @ApiProperty({ type: String, nullable: true })
+  actorRole: string | null;
+  @ApiProperty({ type: String, nullable: true, format: "uuid" })
+  actorAdminUserId: string | null;
+  @ApiProperty({ type: Number })
+  revision: number;
+  @ApiProperty({ type: String, nullable: true })
+  overrideReason: string | null;
+  @ApiProperty({ type: () => [AdminRsvpHistoryChangeDto] })
+  changes: AdminRsvpHistoryChangeDto[];
+}
+
 export class AdminRsvpDetailResponseDto {
+  @ApiProperty({ type: () => [AdminRsvpHistoryEntryDto] })
+  history: AdminRsvpHistoryEntryDto[];
+
   @ApiProperty({ type: () => AdminRsvpDetailDto })
   rsvp: AdminRsvpDetailDto;
 }

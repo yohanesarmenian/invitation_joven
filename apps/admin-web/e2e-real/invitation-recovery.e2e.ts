@@ -175,10 +175,16 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
     for (const width of [320, 375, 412, 1280]) {
       await fits(guest, width);
       await guest
-        .getByRole("button", { name: "Send RSVP", exact: true })
+        .getByRole("button", {
+          name: /^(Submit RSVP|Save Changes)$/,
+          exact: true,
+        })
         .scrollIntoViewIfNeeded();
       await expect(
-        guest.getByRole("button", { name: "Send RSVP", exact: true }),
+        guest.getByRole("button", {
+          name: /^(Submit RSVP|Save Changes)$/,
+          exact: true,
+        }),
       ).toBeInViewport();
       await guest.screenshot({
         path: resolve(evidence, `isolated-public-${width}.png`),
@@ -190,7 +196,12 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
       .getByRole("checkbox", { name: fixture.event.name, exact: true })
       .check();
     await guest.getByLabel(`Guests attending ${fixture.event.name}`).fill("1");
-    await guest.getByRole("button", { name: "Send RSVP", exact: true }).click();
+    await guest
+      .getByRole("button", {
+        name: /^(Submit RSVP|Save Changes)$/,
+        exact: true,
+      })
+      .click();
     await expect(guest.locator(".checkin-code")).toBeVisible();
     const stored = await fixture.prisma.rSVP.findUniqueOrThrow({
       where: { invitationId: rows[0]!.id },

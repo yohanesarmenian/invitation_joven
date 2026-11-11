@@ -309,7 +309,8 @@ describe("admin RSVP HTTP integration", () => {
     const payload = declinedPayload(1);
 
     expect(
-      (await app.inject({ method: "PUT", payload, url: overrideUrl })).statusCode,
+      (await app.inject({ method: "PUT", payload, url: overrideUrl }))
+        .statusCode,
     ).toBe(401);
     expect(
       (
@@ -501,6 +502,16 @@ describe("admin RSVP HTTP integration", () => {
     const body = created.json();
 
     expect(created.statusCode).toBe(200);
+    expect(body.history).toMatchObject([
+      {
+        action: "OWNER_OVERRIDE",
+        actorCategory: "ADMIN",
+        actorRole: "OWNER",
+        actorAdminUserId: session.owner.id,
+        revision: 1,
+        overrideReason: "Guest replied by phone",
+      },
+    ]);
     expect(body.rsvp).toMatchObject({
       dietaryNotes: "No seafood",
       guestNote: null,
@@ -531,6 +542,21 @@ describe("admin RSVP HTTP integration", () => {
 
     expect(detail.statusCode).toBe(200);
     expect(detail.json()).toEqual(body);
+    await prisma.adminUser.update({
+      where: { id: session.owner.id },
+      data: { role: "CHECKIN_STAFF" },
+    });
+    const denied = await app.inject({
+      method: "GET",
+      headers: { cookie: session.cookie },
+      url: `/api/admin/rsvps/${body.rsvp.id}`,
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.body).not.toContain("history");
+    await prisma.adminUser.update({
+      where: { id: session.owner.id },
+      data: { role: "OWNER" },
+    });
     expect(
       (
         await app.inject({
@@ -655,7 +681,9 @@ describe("admin RSVP HTTP integration", () => {
     });
     expect(publicUpdate.statusCode).toBe(200);
     expect(publicUpdate.json().rsvp.version).toBe(2);
-    expect(publicUpdate.json().checkinPass.qrPayload).toEqual(expect.any(String));
+    expect(publicUpdate.json().checkinPass.qrPayload).toEqual(
+      expect.any(String),
+    );
 
     const afterPublic = await prisma.rSVP.findUniqueOrThrow({
       include: { checkinPasses: true },
@@ -748,10 +776,37 @@ describe("admin RSVP HTTP integration", () => {
     expect(adminAttempt.json().rsvp.version).toBe(1);
 
     for (const payload of [
-      { ...acceptedPayload({ eventId: event.id, expectedVersion: 1, inviteeId: invitee.id }), overrideReason: "" },
-      { ...acceptedPayload({ eventId: event.id, expectedVersion: 1, inviteeId: invitee.id }), overrideReason: "a".repeat(501) },
-      { ...acceptedPayload({ eventId: event.id, expectedVersion: 1, inviteeId: invitee.id }), guestNote: "not writable" },
-      { ...acceptedPayload({ eventId: randomUUID(), expectedVersion: 1, inviteeId: invitee.id }) },
+      {
+        ...acceptedPayload({
+          eventId: event.id,
+          expectedVersion: 1,
+          inviteeId: invitee.id,
+        }),
+        overrideReason: "",
+      },
+      {
+        ...acceptedPayload({
+          eventId: event.id,
+          expectedVersion: 1,
+          inviteeId: invitee.id,
+        }),
+        overrideReason: "a".repeat(501),
+      },
+      {
+        ...acceptedPayload({
+          eventId: event.id,
+          expectedVersion: 1,
+          inviteeId: invitee.id,
+        }),
+        guestNote: "not writable",
+      },
+      {
+        ...acceptedPayload({
+          eventId: randomUUID(),
+          expectedVersion: 1,
+          inviteeId: invitee.id,
+        }),
+      },
     ]) {
       const failed = await app.inject({
         headers: ownerHeaders(session),
@@ -770,7 +825,9 @@ describe("admin RSVP HTTP integration", () => {
     expect(after.submittedByAdminUserId).toBe(session.owner.id);
     expect(after.adminOverrideReason).toBe("Guest replied by phone");
     expect(after.guestNote).toBeNull();
-    expect(after.checkinPasses.filter((pass) => pass.status === "ACTIVE")).toHaveLength(1);
+    expect(
+      after.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
+    ).toHaveLength(1);
   });
 
   it("preserves canonical versioning, guestNote, and CheckinPass transitions", async () => {
@@ -828,8 +885,12 @@ describe("admin RSVP HTTP integration", () => {
     expect(declined.dietaryNotes).toBeNull();
     expect(declined.attendees).toHaveLength(0);
     expect(declined.eventSelections).toHaveLength(0);
-    expect(declined.checkinPasses.filter((pass) => pass.status === "ACTIVE")).toHaveLength(0);
-    expect(declined.checkinPasses.filter((pass) => pass.status === "REVOKED")).toHaveLength(1);
+    expect(
+      declined.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
+    ).toHaveLength(0);
+    expect(
+      declined.checkinPasses.filter((pass) => pass.status === "REVOKED"),
+    ).toHaveLength(1);
 
     const reaccepted = await app.inject({
       headers: ownerHeaders(session),
@@ -848,8 +909,12 @@ describe("admin RSVP HTTP integration", () => {
     });
     expect(final.version).toBe(3);
     expect(final.guestNote).toBe("Do not overwrite");
-    expect(final.checkinPasses.filter((pass) => pass.status === "ACTIVE")).toHaveLength(1);
-    expect(final.checkinPasses.filter((pass) => pass.status === "REVOKED")).toHaveLength(1);
+    expect(
+      final.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
+    ).toHaveLength(1);
+    expect(
+      final.checkinPasses.filter((pass) => pass.status === "REVOKED"),
+    ).toHaveLength(1);
   });
 
   it("serializes OWNER/public/eligibility/invitee races through the Invitation lock", async () => {
@@ -883,7 +948,9 @@ describe("admin RSVP HTTP integration", () => {
         url: `/api/admin/invitations/${invitation.id}/rsvp`,
       }),
     ]);
-    expect([ownerLeft.statusCode, ownerRight.statusCode].sort()).toEqual([200, 409]);
+    expect([ownerLeft.statusCode, ownerRight.statusCode].sort()).toEqual([
+      200, 409,
+    ]);
 
     const existing = await prisma.rSVP.findUniqueOrThrow({
       where: { invitationId: invitation.id },
@@ -917,8 +984,7 @@ describe("admin RSVP HTTP integration", () => {
       }),
     ]);
     expect([publicUpdate.statusCode, ownerUpdate.statusCode].sort()).toEqual([
-      200,
-      409,
+      200, 409,
     ]);
 
     const current = await prisma.rSVP.findUniqueOrThrow({
@@ -942,9 +1008,10 @@ describe("admin RSVP HTTP integration", () => {
         url: `/api/admin/invitations/${invitation.id}/rsvp`,
       }),
     ]);
-    expect([eligibilityUpdate.statusCode, ownerWithSelection.statusCode]).toEqual(
-      expect.arrayContaining([409]),
-    );
+    expect([
+      eligibilityUpdate.statusCode,
+      ownerWithSelection.statusCode,
+    ]).toEqual(expect.arrayContaining([409]));
     const selection = await prisma.rSVPEventSelection.findFirst({
       where: { eventId: event.id, rsvp: { invitationId: invitation.id } },
     });

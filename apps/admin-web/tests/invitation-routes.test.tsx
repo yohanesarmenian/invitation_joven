@@ -253,7 +253,7 @@ it("maps detail fields and excludes sensitive values", () => {
     "Inactive",
     "Add invitee",
     "Save event eligibility",
-    "accepted v2",
+    "accepted",
     "2 total, 1 hidden",
     "ACTIVE",
     "Public token version",

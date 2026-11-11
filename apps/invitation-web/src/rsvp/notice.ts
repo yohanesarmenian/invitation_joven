@@ -72,6 +72,17 @@ export function rsvpFailureNotice(failure: RsvpFailure): RsvpNotice {
         recovery: "none",
       };
     }
+    if (
+      failure.httpStatus === 422 &&
+      failure.code === "RSVP_LOCKED_AFTER_CHECKIN"
+    )
+      return {
+        tone: "closed",
+        title: "RSVP is closed",
+        message:
+          "Your household has checked in. Reception staff can assist you.",
+        recovery: "none",
+      };
     const domain =
       failure.code !== null && Object.hasOwn(domainMessages, failure.code)
         ? domainMessages[failure.code]
@@ -97,10 +108,10 @@ export function rsvpFailureNotice(failure: RsvpFailure): RsvpNotice {
   }
   return {
     tone: "error",
-    title: "Your response couldn’t be saved",
+    title: "We couldn’t confirm the save",
     message:
-      "Something went wrong while saving your RSVP. Your changes are still here. Please try again.",
-    recovery: "retry",
+      "We could not confirm whether your response was saved. Reload the latest RSVP before making another submission.",
+    recovery: "reload",
   };
 }
 

@@ -48,6 +48,14 @@ async function open(page: Page) {
   );
 }
 
+async function editSaved(page: Page) {
+  await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit RSVP", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Save Changes", exact: true }),
+  ).toBeVisible();
+}
+
 async function accept(page: Page) {
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
   await page.getByRole("checkbox", { name: "Test Guest", exact: true }).check();
@@ -322,7 +330,9 @@ for (const width of [320, 375, 412, 768, 1280]) {
       path: testInfo.outputPath(`rsvp-${width}.png`),
       animations: "disabled",
     });
-    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await page
+      .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+      .click();
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toContainText("Your acceptance has been saved.");
@@ -340,7 +350,10 @@ for (const width of [320, 375, 412, 768, 1280]) {
       ],
       dietaryNotes: "No seafood",
     });
-    await expect(dietary).toHaveValue("No seafood");
+    await expect(
+      page.getByRole("heading", { name: "Attendance Confirmed", exact: true }),
+    ).toBeVisible();
+    await expect(dietary).toHaveCount(0);
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toContainText("before the reply deadline");
@@ -350,6 +363,8 @@ for (const width of [320, 375, 412, 768, 1280]) {
     const originalModules = await page
       .locator(".guest-checkin-pass svg")
       .innerHTML();
+    await editSaved(page);
+    await expect(dietary).toHaveValue("No seafood");
     await page
       .getByRole("checkbox", { name: "Reception Test", exact: true })
       .uncheck();
@@ -357,7 +372,9 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).not.toContainText("saved");
-    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await page
+      .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+      .click();
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toContainText("Your acceptance has been saved.");
@@ -379,6 +396,8 @@ for (const width of [320, 375, 412, 768, 1280]) {
     // Re-read dedicated RSVP state on a new invitation load.
     await open(page);
     await expectPass(page, firstPass);
+    await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+    await editSaved(page);
     await expect(
       page.getByRole("radio", { name: "Joyfully Accept" }),
     ).toBeChecked();
@@ -394,7 +413,9 @@ for (const width of [320, 375, 412, 768, 1280]) {
       page.getByRole("spinbutton", { name: /Additional children/ }),
     ).toHaveValue("2");
     await page.getByRole("radio", { name: "Regretfully Decline" }).check();
-    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await page
+      .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+      .click();
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toContainText("Your response has been saved as not attending.");
@@ -410,11 +431,14 @@ for (const width of [320, 375, 412, 768, 1280]) {
     expect((await page.locator("body").innerText()).includes(firstPass)).toBe(
       false,
     );
+    await editSaved(page);
     await page.getByRole("radio", { name: "Joyfully Accept" }).check();
     await expect(page.getByText("Total attending: 0")).toBeVisible();
     await expect(dietary).toHaveValue("");
     await accept(page);
-    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await page
+      .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+      .click();
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toContainText("Your acceptance has been saved.");
@@ -442,7 +466,9 @@ test("validates required choice, people, events and counts; normalizes compositi
   request,
 }) => {
   await open(page);
-  const send = page.getByRole("button", { name: "Send RSVP" });
+  const send = page.getByRole("button", {
+    name: /^(Submit RSVP|Save Changes)$/,
+  });
   await send.click();
   await expect(
     page.locator(".rsvp-information-section").getByRole("alert"),
@@ -502,9 +528,12 @@ for (const width of [320, 375, 412, 1280]) {
       deadline: "2031-11-08T16:59:59Z",
     });
     await open(page);
+    await editSaved(page);
     const dietary = page.locator(".public-rsvp-form").getByRole("textbox");
     await expectPass(page, firstPass);
-    const send = page.getByRole("button", { name: "Send RSVP" });
+    const send = page.getByRole("button", {
+      name: /^(Submit RSVP|Save Changes)$/,
+    });
     const alert = page.locator(".rsvp-information-section").getByRole("alert");
     await dietary.fill("My unsaved changes");
     await configure(request, {
@@ -555,6 +584,7 @@ for (const width of [320, 375, 412, 1280]) {
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toBeFocused();
+    await editSaved(page);
     await expect(dietary).toHaveValue("Saved elsewhere");
     await expectPass(page, secondPass);
     expect((await page.locator("body").innerText()).includes(firstPass)).toBe(
@@ -569,6 +599,7 @@ for (const width of [320, 375, 412, 1280]) {
     ).toContainText("acceptance has been saved");
     expect((await submissions(request))[1]!.expectedVersion).toBe(23);
 
+    await editSaved(page);
     await configure(request, {
       failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PUT" },
     });
@@ -598,78 +629,75 @@ for (const width of [320, 375, 412, 1280]) {
   });
 }
 
-test("temporary server failure keeps the version and draft for an explicit retry", async ({
+test("temporary server failure suspends the QR and requires reload before an explicit new edit", async ({
   page,
   request,
-}, info) => {
-  await page.setViewportSize({ width: 320, height: 900 });
+}) => {
   await configure(request, {
     rsvp: accepted,
     failure: { status: 500, code: "INTERNAL_SERVER_ERROR", method: "PUT" },
   });
   await open(page);
+  await editSaved(page);
   await page
-    .locator(".public-rsvp-form")
-    .getByRole("textbox")
-    .fill("Keep my dietary notes");
-  await page.getByRole("button", { name: "Send RSVP" }).click();
-  const alert = page.locator(".rsvp-information-section").getByRole("alert");
-  await expect(alert).toContainText("Your changes are still here");
-  await expect(alert).toBeFocused();
+    .getByLabel("Dietary requirements (optional)")
+    .fill("Reviewed dietary notes");
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
   await expect(
-    page.locator(".public-rsvp-form").getByRole("textbox"),
-  ).toHaveValue("Keep my dietary notes");
-  await expectPass(page, firstPass);
+    page.locator(".public-rsvp-form").getByRole("alert"),
+  ).toContainText("could not confirm whether");
+  await expectPass(page, null);
+  await expect(
+    page.getByRole("button", { name: "Save Changes", exact: true }),
+  ).toBeDisabled();
   expect(await submissions(request)).toHaveLength(1);
-  await noticeScreenshot(page, info, "temporary-failure");
   await configure(request, {});
-  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await page.getByRole("button", { name: "Reload latest RSVP" }).click();
+  await expectPass(page, firstPass);
+  await editSaved(page);
+  await page
+    .getByLabel("Dietary requirements (optional)")
+    .fill("Reviewed dietary notes");
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
   await expect(
-    page.locator(".public-rsvp-form").getByRole("status"),
-  ).toContainText("acceptance has been saved");
+    page.getByRole("heading", { name: "Attendance Confirmed", exact: true }),
+  ).toBeVisible();
   expect(
     (await submissions(request)).map((body) => body.expectedVersion),
   ).toEqual([7, 7]);
 });
 
-test("a lost save response retries the original version and recovers from conflict", async ({
+test("a lost save response recovers the committed result through GET without another mutation", async ({
   page,
   request,
 }) => {
   await configure(request, { rsvp: accepted, dropResponse: true });
   await open(page);
+  await editSaved(page);
   await page
-    .locator(".public-rsvp-form")
-    .getByRole("textbox")
+    .getByLabel("Dietary requirements (optional)")
     .fill("Saved but response lost");
-  await page.getByRole("button", { name: "Send RSVP" }).click();
-  const alert = page.locator(".rsvp-information-section").getByRole("alert");
-  await expect(alert).toContainText("Something went wrong while saving");
-  await expectPass(page, firstPass);
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
   await expect(
-    page.locator(".public-rsvp-form").getByRole("textbox"),
-  ).toHaveValue("Saved but response lost");
-  expect(await submissions(request)).toHaveLength(1);
-  await configure(request, {});
-  await page.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(alert).toContainText("has been updated since you opened");
+    page.locator(".public-rsvp-form").getByRole("alert"),
+  ).toContainText("could not confirm whether");
   await expectPass(page, null);
-  expect(
-    (await submissions(request)).map((body) => body.expectedVersion),
-  ).toEqual([7, 7]);
+  await expect(
+    page.getByRole("button", { name: "Save Changes", exact: true }),
+  ).toBeDisabled();
+  await configure(request, {});
   await page.getByRole("button", { name: "Reload latest RSVP" }).click();
   await expect(
-    page.locator(".public-rsvp-form").getByRole("status"),
-  ).toContainText("latest RSVP has been loaded");
-  await expect(
-    page.locator(".public-rsvp-form").getByRole("textbox"),
-  ).toHaveValue("Saved but response lost");
+    page.getByRole("heading", { name: "Attendance Confirmed", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".public-rsvp-form")).toContainText(
+    "Saved but response lost",
+  );
+  await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
   await expectPass(page, firstPass);
-  await page.getByRole("button", { name: "Send RSVP" }).click();
-  await expect(
-    page.locator(".public-rsvp-form").getByRole("status"),
-  ).toContainText("acceptance has been saved");
-  expect((await submissions(request))[2]!.expectedVersion).toBe(8);
+  expect(
+    (await submissions(request)).map((body) => body.expectedVersion),
+  ).toEqual([7]);
 });
 
 test("initial read retry loads existing state without re-opening the invitation", async ({
@@ -700,14 +728,17 @@ test("initial read retry loads existing state without re-opening the invitation"
   await configure(request, { rsvp: { ...accepted, version: 19 } });
   await reload.click();
   await expect(
-    page.locator(".public-rsvp-form").getByRole("textbox"),
-  ).toHaveValue("No seafood");
-  await expect(
     page.locator(".public-rsvp-form").getByRole("status"),
   ).toBeFocused();
+  await editSaved(page);
+  await expect(
+    page.locator(".public-rsvp-form").getByRole("textbox"),
+  ).toHaveValue("No seafood");
   await expectPass(page, firstPass);
   await page.getByRole("radio", { name: "Regretfully Decline" }).check();
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   await expect(
     page.locator(".public-rsvp-form").getByRole("status"),
   ).toContainText("saved as not attending");
@@ -729,12 +760,15 @@ for (const [code, button, group] of [
       failure: { status: 422, code, method: "PUT" },
     });
     await open(page);
-    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await editSaved(page);
+    await page
+      .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+      .click();
     const alert = page.locator(".rsvp-information-section").getByRole("alert");
     await expect(alert).toContainText("Please review your response");
     await expect(alert).toBeFocused();
     await expect(
-      page.getByRole("button", { name: "Send RSVP" }),
+      page.getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ }),
     ).toBeDisabled();
     await noticeScreenshot(page, info, code.toLowerCase());
     await page.getByRole("button", { name: button }).click();
@@ -755,7 +789,9 @@ for (const [code, button, group] of [
       await page
         .getByRole("checkbox", { name: "Reception Test", exact: true })
         .check();
-    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await page
+      .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+      .click();
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toContainText("acceptance has been saved");
@@ -774,13 +810,18 @@ test("unavailable mutation locks the form without disclosing a reason", async ({
     failure: { status: 404, code: "INVITATION_NOT_AVAILABLE", method: "PUT" },
   });
   await open(page);
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await editSaved(page);
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   const alert = page.locator(".rsvp-information-section").getByRole("alert");
   await expect(alert).toContainText("This invitation is no longer available.");
   await expect(alert).not.toContainText(
     /archived|expired|credential|token|hash|INVITATION_NOT_AVAILABLE/,
   );
-  await expect(page.getByRole("button", { name: "Send RSVP" })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ }),
+  ).toBeDisabled();
   await expect(
     page.locator(".public-rsvp-form").getByRole("textbox"),
   ).toHaveValue("No seafood");
@@ -795,7 +836,9 @@ test("pending state disables submission and prevents duplicate requests", async 
   await configure(request, { delayMs: 1000 });
   await open(page);
   await accept(page);
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   await expect(
     page.getByRole("button", { name: "Saving…", exact: true }),
   ).toBeDisabled();
@@ -822,6 +865,7 @@ test("loads accepted state and keeps its draft on a version conflict", async ({
     failure: { status: 409, code: "RSVP_VERSION_CONFLICT", method: "PUT" },
   });
   await open(page);
+  await editSaved(page);
   await expect(
     page.getByRole("radio", { name: "Joyfully Accept" }),
   ).toBeChecked();
@@ -833,7 +877,9 @@ test("loads accepted state and keeps its draft on a version conflict", async ({
       name: "Guests attending Holy Matrimony Test",
     }),
   ).toHaveValue("2");
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   await expect(
     page.locator(".rsvp-information-section").getByRole("alert"),
   ).toContainText("has been updated since you opened");
@@ -841,7 +887,9 @@ test("loads accepted state and keeps its draft on a version conflict", async ({
     page.locator(".public-rsvp-form").getByRole("textbox"),
   ).toHaveValue("No seafood");
   expect((await submissions(request))[0]!.expectedVersion).toBe(7);
-  await expect(page.getByRole("button", { name: "Send RSVP" })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ }),
+  ).toBeDisabled();
 });
 
 test("declined initial state hides stale values and respects companion permissions", async ({
@@ -853,6 +901,7 @@ test("declined initial state hides stale values and respects companion permissio
     rules: { allowPlusOne: false, maxAdditionalChildren: 0 },
   });
   await open(page);
+  await editSaved(page);
   await expect(
     page.getByRole("radio", { name: "Regretfully Decline" }),
   ).toBeChecked();
@@ -933,6 +982,7 @@ test("conflict reload adopts a saved decline and removes the previous pass", asy
 }) => {
   await configure(request, { rsvp: accepted });
   await open(page);
+  await editSaved(page);
   await expectPass(page, firstPass);
   await page.locator(".public-rsvp-form").getByRole("textbox").fill("My draft");
   await configure(request, {
@@ -946,15 +996,17 @@ test("conflict reload adopts a saved decline and removes the previous pass", asy
       attendeeQuantityTotal: 0,
     },
   });
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   await expect(
     page.locator(".public-rsvp-form").getByRole("textbox"),
   ).toHaveValue("My draft");
   await expectPass(page, null);
   await page.getByRole("button", { name: "Reload latest RSVP" }).click();
   await expect(
-    page.getByRole("radio", { name: "Regretfully Decline" }),
-  ).toBeChecked();
+    page.getByRole("heading", { name: "Unable to Attend", exact: true }),
+  ).toBeVisible();
   await expect(
     page.locator(".public-rsvp-form").getByRole("status"),
   ).toContainText("latest RSVP has been loaded");
@@ -971,20 +1023,67 @@ test("an uncertain first acceptance never invents a pass before explicit recover
   await configure(request, { dropResponse: true });
   await open(page);
   await accept(page);
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page.getByRole("button", { name: "Submit RSVP", exact: true }).click();
   await expect(
-    page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toContainText("Something went wrong while saving");
+    page.locator(".public-rsvp-form").getByRole("alert"),
+  ).toContainText("could not confirm whether");
   await expectPass(page, null);
   await configure(request, {});
-  await page.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(
-    page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toContainText("has been updated since you opened");
-  await expectPass(page, null);
   await page.getByRole("button", { name: "Reload latest RSVP" }).click();
   await expectPass(page, firstPass);
   expect(
     (await submissions(request)).map((body) => body.expectedVersion),
-  ).toEqual([null, null]);
+  ).toEqual([null]);
 });
+
+for (const width of [320, 375, 412]) {
+  test(`saved RSVP opens read-only and Cancel performs no mutation at ${width}px`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await configure(request, { rsvp: accepted });
+    await open(page);
+    await expect(
+      page.getByRole("heading", { name: "Attendance Confirmed", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+    await editSaved(page);
+    await page
+      .getByLabel("Dietary requirements (optional)")
+      .fill("Unsaved draft");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+    await expect(page.locator(".public-rsvp-form")).toContainText("No seafood");
+    await expect(page.locator(".public-rsvp-form")).not.toContainText(
+      "Unsaved draft",
+    );
+    expect(await submissions(request)).toHaveLength(0);
+    await open(page);
+    await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  });
+}
+
+for (const reason of ["DEADLINE_PASSED", "CHECKED_IN"] as const) {
+  test(`saved confirmation respects server editing restriction ${reason}`, async ({
+    page,
+    request,
+  }) => {
+    await configure(request, { rsvp: accepted, editBlockedReason: reason });
+    await open(page);
+    await expect(
+      page.getByRole("heading", { name: "Attendance Confirmed", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Edit RSVP", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+    await expectPass(page, firstPass);
+    expect(await submissions(request)).toHaveLength(0);
+  });
+}

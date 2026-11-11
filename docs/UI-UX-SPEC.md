@@ -1,5 +1,11 @@
 # UI/UX Specification
 
+## Phase 4B — RSVP confirmation and explicit editing
+
+Saved ACCEPTED and DECLINED responses open as read-only **Attendance Confirmed** / **Unable to Attend** summaries. Accepted shows saved attendees/count, wedding events, dietary requirements and the valid check-in QR. **Edit RSVP** reloads current server state/permissions before showing a prefilled form with **Save Changes** and **Cancel**. Cancel makes no mutation. A new response uses **Submit RSVP**. Reload/reopen never automatically enters edit mode. Deadline/check-in restrictions hide Edit; each save remains server-authorized. Version numbers stay internal and are omitted from ordinary Admin/public RSVP labels.
+
+Unknown save outcomes and conflicts suspend stale QR display and require canonical reload before another explicit edit/save. Use the QR and reception-assistance wording in [RSVP-CONFIRMATION-HISTORY.md](RSVP-CONFIRMATION-HISTORY.md). The OWNER-only Admin detail timeline shows newest changes first, WIB time, actor, changed fields and override reason. Prior RSVP records have no invented history. This section supersedes older editable-by-default RSVP presentation descriptions; opening, photography and check-in architecture remain as approved.
+
 > Acuan final owner, 16 Oktober 2026: tampilan mengikuti Figma persis; REA hanya menjadi acuan animasi/interaksi. Runtime memakai figma-invitation-theme.css dan ekspor Figma terbaru. Lihat [pemetaan dan batas fidelity](design/jo-venta/FIGMA-FIDELITY.md). Keputusan prototype/susunan foto sebelumnya di bawah merupakan riwayat dan telah superseded.
 
 ## Figma template and owner photography, 16 October 2026

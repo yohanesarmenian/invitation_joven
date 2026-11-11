@@ -100,6 +100,8 @@ describe("generated API client", () => {
       status: "ACCEPTED",
     };
     const response: PublicRsvpReadResponse = {
+      canEdit: true,
+      editBlockedReason: null,
       checkinPass: {
         issuedAt: "2026-09-30T00:00:00.000Z",
         qrPayload: "B".repeat(43),
@@ -507,6 +509,7 @@ describe("generated API client", () => {
       },
     };
     const adminRsvpDetail: AdminRsvpDetailResponse = {
+      history: [],
       rsvp: {
         adminUser: {
           email: "owner@example.com",
@@ -662,9 +665,9 @@ describe("generated API client", () => {
     expect(assertApiPath("/api/admin/imports/guest/validate")).toBe(
       "/api/admin/imports/guest/validate",
     );
-    expect(
-      assertApiMethod("/api/admin/imports/guest/validate", "post"),
-    ).toBe("post");
+    expect(assertApiMethod("/api/admin/imports/guest/validate", "post")).toBe(
+      "post",
+    );
 
     const request: ValidateGuestImportRequest = {
       file: "binary-file",
@@ -698,7 +701,8 @@ describe("generated API client", () => {
               code: "POSSIBLE_DUPLICATE",
               column: "displayName",
               field: "displayName",
-              message: "Possible duplicate household by normalized display name.",
+              message:
+                "Possible duplicate household by normalized display name.",
               rowNumber: 2,
             },
           ],
@@ -714,9 +718,7 @@ describe("generated API client", () => {
     const aliasResponse: GuestImportValidateResponse = response;
 
     expect(request.file).toBe("binary-file");
-    expect(aliasResponse.rows[0]?.warnings[0]?.code).toBe(
-      "POSSIBLE_DUPLICATE",
-    );
+    expect(aliasResponse.rows[0]?.warnings[0]?.code).toBe("POSSIBLE_DUPLICATE");
     expect(aliasResponse.rows[0]?.parsed?.greetingName).toBeNull();
     expect(aliasResponse.rows[0]?.parsed?.allowPlusOne).toBe(true);
     expect(aliasResponse.rows[0]?.parsed?.maxAdditionalChildren).toBe(0);

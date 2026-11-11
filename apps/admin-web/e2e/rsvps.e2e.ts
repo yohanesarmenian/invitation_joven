@@ -39,8 +39,12 @@ test("RSVP list filters, pagination, persisted rows and navigation", async ({
   await expect(page.getByRole("table")).toContainText("OWNER");
   await expect(page.getByRole("table")).toContainText("Guest");
   await page.getByLabel("Search RSVPs", { exact: true }).fill("  Household  ");
-  await page.getByLabel("RSVP status", { exact: true }).selectOption("ACCEPTED");
-  await page.getByLabel("Event", { exact: true }).selectOption(rsvpEvents[1]!.id);
+  await page
+    .getByLabel("RSVP status", { exact: true })
+    .selectOption("ACCEPTED");
+  await page
+    .getByLabel("Event", { exact: true })
+    .selectOption(rsvpEvents[1]!.id);
   await page.getByLabel("Sort by", { exact: true }).selectOption("status");
   await page.getByLabel("Sort direction").selectOption("asc");
   await page.getByLabel("Per page").fill("2");
@@ -93,10 +97,14 @@ test("RSVP detail renders snapshots and safe pass metadata only", async ({
   await expect(
     page.getByRole("rowheader", { name: "Additional child", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("row", { name: /Reception Yes 4/ })).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: /Reception Yes 4/ }),
+  ).toBeVisible();
   await expect(page.getByRole("row", { name: /Ceremony No 0/ })).toBeVisible();
   await expect(page.getByText("Vegetarian")).toBeVisible();
-  await expect(page.getByText("owner@example.com", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("owner@example.com", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("Guest replied by phone")).toBeVisible();
   await expect(page.getByText("RSVP_DECLINED")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("qrPayload");
@@ -118,9 +126,7 @@ test("OWNER override validates, confirms, submits once, and reloads detail", asy
   await login(page);
   await page.goto("/rsvps/aaaaaaaa-aaaa-4aaa-8aaa-000000000001");
   await page.getByRole("button", { name: "Override RSVP" }).click();
-  await expect(
-    page.getByText("Current guest note is read-only"),
-  ).toBeVisible();
+  await expect(page.getByText("Current guest note is read-only")).toBeVisible();
   await page.getByRole("button", { name: "Review override" }).click();
   await expect(page.getByText("Enter an override reason.")).toBeVisible();
   await page
@@ -136,7 +142,7 @@ test("OWNER override validates, confirms, submits once, and reloads detail", asy
     .getByRole("button", { name: "Override RSVP" })
     .dblclick();
   await expect(page).toHaveURL(/rsvpOverridden=1/);
-  await expect(page.getByText("Declined v4")).toBeVisible();
+  await expect(page.getByText("Declined", { exact: true })).toBeVisible();
   await expect(page.getByText("Guest called the owner")).toBeVisible();
   expect(puts).toHaveLength(1);
   expect(JSON.parse(puts[0]!)).toMatchObject({
@@ -165,7 +171,9 @@ test("OWNER override stale conflict preserves form values and requires reload", 
   await login(page, "rsvp-conflict@example.com");
   await page.goto("/rsvps/aaaaaaaa-aaaa-4aaa-8aaa-000000000001");
   await page.getByRole("button", { name: "Override RSVP" }).click();
-  await page.getByLabel("Override reason (required)").fill("Stale operator note");
+  await page
+    .getByLabel("Override reason (required)")
+    .fill("Stale operator note");
   await page.getByRole("button", { name: "Review override" }).click();
   await page
     .getByRole("dialog", { name: "Override RSVP" })
@@ -195,14 +203,18 @@ test("OWNER override CSRF refresh and uncertain outcomes do not replay", async (
   await login(page, "rsvp-csrf@example.com");
   await page.goto("/rsvps/aaaaaaaa-aaaa-4aaa-8aaa-000000000001");
   await page.getByRole("button", { name: "Override RSVP" }).click();
-  await page.getByLabel("Override reason (required)").fill("Refresh token only");
+  await page
+    .getByLabel("Override reason (required)")
+    .fill("Refresh token only");
   await page.getByRole("button", { name: "Review override" }).click();
   await page
     .getByRole("dialog", { name: "Override RSVP" })
     .getByRole("button", { name: "Override RSVP" })
     .click();
   await expect(
-    page.getByText("Your session was refreshed. The RSVP override was not replayed."),
+    page.getByText(
+      "Your session was refreshed. The RSVP override was not replayed.",
+    ),
   ).toBeVisible();
   expect(csrfPuts).toHaveLength(1);
 

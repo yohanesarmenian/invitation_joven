@@ -64,10 +64,12 @@ export function RsvpDetail({
   csrfToken,
   invitation,
   rsvp,
+  history = [],
 }: {
   csrfToken?: string;
   invitation?: Invitation;
   rsvp: Rsvp;
+  history?: AdminRsvpDetailResponse["history"];
 }) {
   return (
     <div className="invitation-detail">
@@ -81,9 +83,7 @@ export function RsvpDetail({
             {
               label: "Status",
               value: (
-                <span className="status-label">
-                  {statusLabel(rsvp.status)} v{rsvp.version}
-                </span>
+                <span className="status-label">{statusLabel(rsvp.status)}</span>
               ),
             },
             {
@@ -235,6 +235,48 @@ export function RsvpDetail({
             },
           ]}
         />
+      </section>
+      <section className="detail-section" aria-label="RSVP Change History">
+        <h2>RSVP Change History</h2>
+        {history.length ? (
+          <ol className="rsvp-history">
+            {history.map((entry) => (
+              <li key={entry.id}>
+                <h3>
+                  {entry.action === "INITIAL_SUBMISSION"
+                    ? "Initial RSVP submission"
+                    : entry.action === "OWNER_OVERRIDE"
+                      ? "OWNER override"
+                      : "Guest updated RSVP"}
+                </h3>
+                <p>
+                  <DateValue value={entry.createdAt} empty="" /> WIB —{" "}
+                  {entry.actorCategory === "GUEST_LINK"
+                    ? "Guest-link holder"
+                    : `Authenticated Admin (${entry.actorRole ?? "Admin"})`}
+                </p>
+                <DefinitionList
+                  rows={entry.changes.map((change) => ({
+                    label: change.label,
+                    value: (
+                      <>
+                        {change.before} → {change.after}
+                      </>
+                    ),
+                  }))}
+                />
+                {entry.overrideReason ? (
+                  <p>Override reason: {entry.overrideReason}</p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p>
+            No recorded changes. History starts with changes saved after this
+            feature was introduced; earlier responses have no recorded history.
+          </p>
+        )}
       </section>
       {invitation && csrfToken ? (
         <RsvpOverrideForm

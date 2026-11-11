@@ -156,13 +156,36 @@ export function isRsvpList(value: unknown): value is AdminRsvpListResponse {
   );
 }
 
-export function isRsvpDetail(
-  value: unknown,
-): value is AdminRsvpDetailResponse {
+function isHistoryEntry(entry: unknown) {
+  return (
+    object(entry) &&
+    isUuid(entry.id) &&
+    date(entry.createdAt) &&
+    typeof entry.action === "string" &&
+    typeof entry.actorCategory === "string" &&
+    (entry.actorRole === null || typeof entry.actorRole === "string") &&
+    (entry.actorAdminUserId === null || isUuid(entry.actorAdminUserId)) &&
+    positiveCount(entry.revision) &&
+    (entry.overrideReason === null ||
+      typeof entry.overrideReason === "string") &&
+    Array.isArray(entry.changes) &&
+    entry.changes.every(
+      (change) =>
+        object(change) &&
+        [change.field, change.label, change.before, change.after].every(
+          (value) => typeof value === "string",
+        ),
+    )
+  );
+}
+
+export function isRsvpDetail(value: unknown): value is AdminRsvpDetailResponse {
   if (!object(value) || !object(value.rsvp) || hasForbiddenKey(value))
     return false;
   const rsvp = value.rsvp;
   return (
+    Array.isArray(value.history) &&
+    value.history.every(isHistoryEntry) &&
     isUuid(rsvp.id) &&
     isInvitationSummary(rsvp.invitation) &&
     isRsvpStatus(rsvp.status) &&

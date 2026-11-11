@@ -1,5 +1,11 @@
 # API Contract
 
+## Phase 4B — saved RSVP confirmation and history
+
+See [RSVP confirmation and audit contract](RSVP-CONFIRMATION-HISTORY.md). Dedicated public RSVP GET additionally returns required `canEdit: boolean` and `editBlockedReason: "DEADLINE_PASSED" | "CHECKED_IN" | null`. PUT keeps its existing response shape. The existing OWNER-only Admin RSVP detail response additionally returns `history[]` with timestamp, action, actor metadata, internal revision, reason and normalized field changes. Public APIs never return history. Generated OpenAPI/API-client types are authoritative for field shapes.
+
+Current-version genuine no-ops return canonical RSVP/pass without a revision increment or audit event. Every effective guest/OWNER mutation and audit append commit atomically; audit failure rolls back the mutation. Deadline, check-in and stale-version validation precede the no-op decision. An uncertain mutation must be reconciled by GET before another explicit save.
+
 ## OWNER event management (16 October 2026)
 
 `GET/POST /api/admin/event-management` and `PUT /api/admin/event-management/{eventId}` add an OWNER-only, no-store, versioned event editor. The existing `GET /api/admin/events` catalog contract is preserved. Full editable fields, limits, usage counts, conflict codes and locking policy are documented in [EVENT-MANAGEMENT.md](EVENT-MANAGEMENT.md). No Event delete operation exists. Event config is saved immediately; venue-material publication remains separate.
@@ -357,8 +363,9 @@ Transaction order (Phase 5 lock):
 9. Validate status, event eligibility, attendees, counts, and dietary data.
 10. Apply RSVP, selection, and attendee changes.
 11. Apply the minimal CheckinPass lifecycle invariant.
-12. Increment/set `RSVP.version`.
-13. Commit.
+12. Increment/set `RSVP.version` for an effective change (a validated no-op returns unchanged state).
+13. Append the change history in this same transaction for an effective change.
+14. Commit.
 
 Any domain error rolls the transaction back. The raw public credential is never persisted and never retained in logs.
 
@@ -368,7 +375,7 @@ Any domain error rolls the transaction back. The raw public credential is never 
 
 Authentication: public credential.
 
-Response includes current RSVP, version, event selections, attendees, and the active pass QR payload when an active pass exists.
+Response includes current RSVP, version, event selections, attendees, the active pass QR payload when an active pass exists, and required `canEdit` / `editBlockedReason`. Editing policy is computed under the invitation lock; mutation authorization is independently rechecked. No history or Admin attribution is included.
 
 Pass representation:
 

@@ -20,6 +20,12 @@ import type {
 import { InvitationNotAvailableError } from "./invitation-not-available.error.js";
 import { validatePublicCredential } from "./public-invitation.service.js";
 import {
+  readRsvpHistoryValues,
+  sameRsvpValues,
+  rsvpHistoryDiff,
+  type RsvpHistoryValues,
+} from "./rsvp-history.js";
+import {
   PublicRsvpDomainError,
   type PublicRsvpErrorCode,
 } from "./public-rsvp.errors.js";
@@ -33,8 +39,7 @@ const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 export type PublicRsvpMutationStatus =
-  | typeof RSVPStatus.ACCEPTED
-  | typeof RSVPStatus.DECLINED;
+  typeof RSVPStatus.ACCEPTED | typeof RSVPStatus.DECLINED;
 
 export type PublicRsvpAttendeeInput = {
   type: RSVPAttendeeType;
@@ -93,6 +98,8 @@ export type PublicRsvpMutationResult = {
 };
 
 export type PublicRsvpReadResult = {
+  canEdit: boolean;
+  editBlockedReason: "DEADLINE_PASSED" | "CHECKED_IN" | null;
   rsvp: PublicRsvpMutationResult["rsvp"] | null;
   checkinPass: PublicRsvpMutationResult["checkinPass"];
 };
@@ -111,8 +118,7 @@ type AdminRsvpAttribution = {
 };
 
 type RsvpAttributionPolicy =
-  | { mode: "PUBLIC" }
-  | { mode: "ADMIN"; attribution: AdminRsvpAttribution };
+  { mode: "PUBLIC" } | { mode: "ADMIN"; attribution: AdminRsvpAttribution };
 
 type RsvpLifecycleMutationResult = PublicRsvpMutationResult & {
   rsvpId: string;
@@ -137,15 +143,13 @@ type InvitationMutationState = {
   readonly hasCheckinRecord: boolean;
   readonly inviteeIds: ReadonlySet<string>;
   readonly rsvp: ExistingRsvpState;
-  readonly activePass:
-    | {
-        credentialVersion: number;
-        id: string;
-        issuedAt: Date;
-        status: CheckinPassStatus;
-        tokenHash: string;
-      }
-    | null;
+  readonly activePass: {
+    credentialVersion: number;
+    id: string;
+    issuedAt: Date;
+    status: CheckinPassStatus;
+    tokenHash: string;
+  } | null;
 };
 
 type ActiveCheckinPassForPublicResponse = {
@@ -194,7 +198,9 @@ function assertNoInviteeId(inviteeId: string | null | undefined): void {
   }
 }
 
-function normalizeDietaryNotes(value: string | null | undefined): string | null {
+function normalizeDietaryNotes(
+  value: string | null | undefined,
+): string | null {
   const normalized = value?.trim() ?? "";
 
   if (normalized.length === 0) {
@@ -479,39 +485,39 @@ async function readMutationState(
 ): Promise<InvitationMutationState> {
   const [rsvp, invitationEvents, invitees, checkinRecordCount] =
     await Promise.all([
-    tx.rSVP.findUnique({
-      where: { invitationId },
-      select: {
-        id: true,
-        status: true,
-        version: true,
-        checkinPasses: {
-          where: {
-            status: CheckinPassStatus.ACTIVE,
+      tx.rSVP.findUnique({
+        where: { invitationId },
+        select: {
+          id: true,
+          status: true,
+          version: true,
+          checkinPasses: {
+            where: {
+              status: CheckinPassStatus.ACTIVE,
+            },
+            select: {
+              credentialVersion: true,
+              id: true,
+              issuedAt: true,
+              status: true,
+              tokenHash: true,
+            },
+            take: 1,
           },
-          select: {
-            credentialVersion: true,
-            id: true,
-            issuedAt: true,
-            status: true,
-            tokenHash: true,
-          },
-          take: 1,
         },
-      },
-    }),
-    tx.invitationEvent.findMany({
-      where: { invitationId },
-      select: { eventId: true },
-    }),
-    tx.invitee.findMany({
-      where: { invitationId },
-      select: { id: true },
-    }),
-    tx.checkinRecord.count({
-      where: { invitationId },
-    }),
-  ]);
+      }),
+      tx.invitationEvent.findMany({
+        where: { invitationId },
+        select: { eventId: true },
+      }),
+      tx.invitee.findMany({
+        where: { invitationId },
+        select: { id: true },
+      }),
+      tx.checkinRecord.count({
+        where: { invitationId },
+      }),
+    ]);
 
   return {
     activePass: rsvp?.checkinPasses[0] ?? null,
@@ -544,7 +550,7 @@ async function readPublicRsvpState(
   tx: Prisma.TransactionClient,
   invitationId: string,
   credentialService: CredentialService,
-): Promise<PublicRsvpReadResult> {
+): Promise<Pick<PublicRsvpReadResult, "rsvp" | "checkinPass">> {
   const rsvp = await tx.rSVP.findUnique({
     where: { invitationId },
     select: {
@@ -650,7 +656,10 @@ export class PublicRsvpService {
     command: SubmitAdminRsvpOverrideCommand,
   ): Promise<{ rsvpId: string }> {
     const result = await this.prisma.$transaction(async (tx) => {
-      const invitation = await lockInvitationForAdminRsvp(tx, command.invitationId);
+      const invitation = await lockInvitationForAdminRsvp(
+        tx,
+        command.invitationId,
+      );
 
       return this.submitRsvpForLockedInvitation(tx, invitation, command, {
         attributionPolicy: {
@@ -676,7 +685,24 @@ export class PublicRsvpService {
     return this.prisma.$transaction(async (tx) => {
       const invitation = await lockInvitationForRsvp(tx, lookupHash);
 
-      return readPublicRsvpState(tx, invitation.id, this.credentialService);
+      const state = await readPublicRsvpState(
+        tx,
+        invitation.id,
+        this.credentialService,
+      );
+      const checkedIn = await tx.checkinRecord.count({
+        where: { invitationId: invitation.id },
+      });
+      const expired =
+        invitation.rsvpDeadlineAt !== null &&
+        this.currentTime() > invitation.rsvpDeadlineAt;
+      const editBlockedReason =
+        checkedIn > 0 ? "CHECKED_IN" : expired ? "DEADLINE_PASSED" : null;
+      return {
+        ...state,
+        canEdit: editBlockedReason === null,
+        editBlockedReason,
+      };
     });
   }
 
@@ -719,29 +745,100 @@ export class PublicRsvpService {
       throwPublicRsvpError("RSVP_LOCKED_AFTER_CHECKIN");
     }
 
-    if (command.status === RSVPStatus.DECLINED) {
-      return this.applyDeclinedMutation(
-        tx,
-        invitation.id,
-        state,
-        mutationTime,
-        policy.attributionPolicy,
-      );
-    }
-
-    if (command.status !== RSVPStatus.ACCEPTED) {
+    if (
+      command.status !== RSVPStatus.ACCEPTED &&
+      command.status !== RSVPStatus.DECLINED
+    ) {
       throwPublicRsvpError("RSVP_ATTENDEE_INVALID");
     }
 
-    const accepted = validateAcceptedInput(command, invitation, state);
-    return this.applyAcceptedMutation(
-      tx,
-      invitation.id,
-      state,
-      accepted,
-      mutationTime,
-      policy.attributionPolicy,
-    );
+    const accepted =
+      command.status === RSVPStatus.ACCEPTED
+        ? validateAcceptedInput(command, invitation, state)
+        : null;
+    const before = await readRsvpHistoryValues(tx, invitation.id);
+    const attribution =
+      policy.attributionPolicy.mode === "ADMIN"
+        ? policy.attributionPolicy.attribution
+        : null;
+    const desired: RsvpHistoryValues = {
+      status: command.status,
+      attendees:
+        accepted?.attendees.map((item) => ({ ...item, name: "" })) ?? [],
+      eventSelections:
+        accepted?.eventSelections.map((item) => ({ ...item, name: "" })) ?? [],
+      dietaryNotes: accepted?.dietaryNotes ?? null,
+      submittedByAdminUserId: attribution?.submittedByAdminUserId ?? null,
+      overrideReason: attribution?.adminOverrideReason ?? null,
+    };
+    // Version, deadline and check-in checks precede even a genuine no-op.
+    const passMatchesStatus = accepted
+      ? state.activePass !== null
+      : state.activePass === null;
+    if (before && passMatchesStatus && sameRsvpValues(before.values, desired)) {
+      const current = await readPublicRsvpState(
+        tx,
+        invitation.id,
+        this.credentialService,
+      );
+      if (!current.rsvp)
+        throw new Error("RSVP disappeared inside its locked transaction.");
+      return { ...current, rsvp: current.rsvp, rsvpId: before.id };
+    }
+    const result = accepted
+      ? await this.applyAcceptedMutation(
+          tx,
+          invitation.id,
+          state,
+          accepted,
+          mutationTime,
+          policy.attributionPolicy,
+        )
+      : await this.applyDeclinedMutation(
+          tx,
+          invitation.id,
+          state,
+          mutationTime,
+          policy.attributionPolicy,
+        );
+    const after = await readRsvpHistoryValues(tx, invitation.id);
+    if (!after) throw new Error("RSVP mutation did not persist.");
+    const actor = attribution
+      ? await tx.adminUser.findUniqueOrThrow({
+          where: { id: attribution.submittedByAdminUserId },
+          select: { role: true },
+        })
+      : null;
+    const changes = rsvpHistoryDiff(before?.values ?? null, after.values);
+    if (before && !passMatchesStatus)
+      changes.push({
+        field: "checkinPassAvailability",
+        label: "Check-in pass availability",
+        before: state.activePass ? "Active" : "Not available",
+        after: result.checkinPass ? "Active" : "Not available",
+      });
+    await tx.rsvpChangeEvent.create({
+      data: {
+        rsvpId: after.id,
+        invitationId: invitation.id,
+        revision: after.version,
+        action: attribution
+          ? "OWNER_OVERRIDE"
+          : !before ||
+              (before.values.status === RSVPStatus.PENDING &&
+                before.submittedAt === null)
+            ? "INITIAL_SUBMISSION"
+            : "GUEST_UPDATE",
+        actorCategory: attribution ? "ADMIN" : "GUEST_LINK",
+        actorRole: actor?.role ?? null,
+        actorAdminUserId: attribution?.submittedByAdminUserId ?? null,
+        previousValues: before?.values,
+        updatedValues: after.values,
+        changes,
+        overrideReason: attribution?.adminOverrideReason ?? null,
+      },
+    });
+    return result;
   }
 
   private async applyAcceptedMutation(

@@ -20,7 +20,12 @@ describe("generated public RSVP networking", () => {
   it.each(["GET", "PUT"])(
     "retains the complete canonical active pass from %s",
     async (method) => {
-      const data = { rsvp: acceptedRsvp, checkinPass: activePass };
+      const data = {
+        canEdit: true,
+        editBlockedReason: null,
+        rsvp: acceptedRsvp,
+        checkinPass: activePass,
+      };
       const options = { env, fetch: async () => Response.json(data) };
       const result =
         method === "GET"
@@ -68,11 +73,21 @@ describe("generated public RSVP networking", () => {
       );
       expect(input.method).toBe("GET");
       expect(input.cache).toBe("no-store");
-      return Response.json({ rsvp: null, checkinPass: null });
+      return Response.json({
+        canEdit: true,
+        editBlockedReason: null,
+        rsvp: null,
+        checkinPass: null,
+      });
     });
     expect(await retrievePublicRsvp(credential, { env, fetch })).toEqual({
       status: "success",
-      data: { rsvp: null, checkinPass: null },
+      data: {
+        canEdit: true,
+        editBlockedReason: null,
+        rsvp: null,
+        checkinPass: null,
+      },
     });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
@@ -175,11 +190,37 @@ describe("generated public RSVP networking", () => {
     expect(
       await submitPublicRsvp(credential, request, {
         env,
-        fetch: async () => Response.json({ rsvp: null, checkinPass: null }),
+        fetch: async () =>
+          Response.json({
+            canEdit: true,
+            editBlockedReason: null,
+            rsvp: null,
+            checkinPass: null,
+          }),
       }),
     ).toEqual({
       status: "error",
       error: { kind: "invalid-response", httpStatus: 200, code: null },
     });
   });
+  it.each([
+    {},
+    { canEdit: true, editBlockedReason: "CHECKED_IN" },
+    { canEdit: false, editBlockedReason: null },
+    { canEdit: true, editBlockedReason: "UNKNOWN" },
+  ])(
+    "rejects missing or contradictory server editing policy",
+    async (policy) => {
+      const result = await retrievePublicRsvp(credential, {
+        env,
+        fetch: async () =>
+          Response.json({
+            rsvp: acceptedRsvp,
+            checkinPass: activePass,
+            ...policy,
+          }),
+      });
+      expect(result.status).toBe("error");
+    },
+  );
 });

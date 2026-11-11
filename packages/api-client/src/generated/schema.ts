@@ -1143,6 +1143,26 @@ export interface components {
             dietaryNotes?: string | null;
             overrideReason: string;
         };
+        AdminRsvpHistoryChangeDto: {
+            field: string;
+            label: string;
+            before: string;
+            after: string;
+        };
+        AdminRsvpHistoryEntryDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            action: string;
+            actorCategory: string;
+            actorRole: string | null;
+            /** Format: uuid */
+            actorAdminUserId: string | null;
+            revision: number;
+            overrideReason: string | null;
+            changes: components["schemas"]["AdminRsvpHistoryChangeDto"][];
+        };
         AdminRsvpInvitationSummaryDto: {
             /** Format: uuid */
             id: string;
@@ -1192,6 +1212,7 @@ export interface components {
             checkinPasses: components["schemas"]["AdminCheckinPassMetadataDto"][];
         };
         AdminRsvpDetailResponseDto: {
+            history: components["schemas"]["AdminRsvpHistoryEntryDto"][];
             rsvp: components["schemas"]["AdminRsvpDetailDto"];
         };
         AdminDashboardInvitationMetricsDto: {
@@ -1356,6 +1377,9 @@ export interface components {
             qrPayload: string;
         };
         PublicRsvpReadResponseDto: {
+            canEdit: boolean;
+            /** @enum {string|null} */
+            editBlockedReason: "DEADLINE_PASSED" | "CHECKED_IN" | null;
             rsvp: components["schemas"]["PublicRsvpStateDto"] | null;
             checkinPass: components["schemas"]["PublicCheckinPassDto"] | null;
         };

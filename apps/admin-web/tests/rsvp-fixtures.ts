@@ -59,6 +59,7 @@ export const rsvpList: AdminRsvpListResponse = {
 };
 
 export const rsvpDetail: AdminRsvpDetailResponse = {
+  history: [],
   rsvp: {
     id: rsvpItem.id,
     invitation: rsvpItem.invitation,

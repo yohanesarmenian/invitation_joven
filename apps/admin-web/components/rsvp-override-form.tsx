@@ -1,11 +1,5 @@
 "use client";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type {
   AdminInvitationDetailResponse,
   AdminRsvpDetailResponse,
@@ -82,9 +76,16 @@ function selectedNamed(rsvp: Rsvp) {
 }
 
 function namedInviteeOptions(invitation: Invitation, rsvp: Rsvp) {
-  const rows = new Map<string, { id: string; label: string; inactive: boolean }>();
+  const rows = new Map<
+    string,
+    { id: string; label: string; inactive: boolean }
+  >();
   for (const invitee of invitation.invitees)
-    rows.set(invitee.id, { id: invitee.id, label: invitee.fullName, inactive: false });
+    rows.set(invitee.id, {
+      id: invitee.id,
+      label: invitee.fullName,
+      inactive: false,
+    });
   for (const attendee of rsvp.attendees) {
     if (attendee.type !== "NAMED_INVITEE" || !attendee.inviteeId) continue;
     if (!rows.has(attendee.inviteeId))
@@ -97,7 +98,10 @@ function namedInviteeOptions(invitation: Invitation, rsvp: Rsvp) {
   return [...rows.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
-function initialEvents(invitation: Invitation, rsvp: Rsvp): Record<string, EventField> {
+function initialEvents(
+  invitation: Invitation,
+  rsvp: Rsvp,
+): Record<string, EventField> {
   const current = new Map(
     rsvp.eventSelections.map((selection) => [selection.event.id, selection]),
   );
@@ -165,7 +169,8 @@ export function prepareOverridePayload(input: {
     !Number.isSafeInteger(children) ||
     children < 0
   )
-    errors.attendee = "Attendee quantities must be whole numbers zero or greater.";
+    errors.attendee =
+      "Attendee quantities must be whole numbers zero or greater.";
 
   const attendees: OverrideAdminRsvpRequest["attendees"] = [
     ...input.selectedNamedIds.map((inviteeId) => ({
@@ -220,7 +225,8 @@ export function prepareOverridePayload(input: {
 }
 
 function resultMessage(result: OverrideRsvpResult) {
-  if (result.kind === "not-found") return "The RSVP or invitation was not found.";
+  if (result.kind === "not-found")
+    return "The RSVP or invitation was not found.";
   if (result.kind === "validation")
     return "The override was not accepted. Review attendee, event, capacity, and reason values before submitting again.";
   if (result.kind === "rejected") return result.message;
@@ -285,7 +291,9 @@ export function RsvpOverrideForm({
   function toggleNamed(inviteeId: string, checked: boolean) {
     setSelectedNamedIds((current) =>
       checked
-        ? [...current, inviteeId].filter((id, index, all) => all.indexOf(id) === index)
+        ? [...current, inviteeId].filter(
+            (id, index, all) => all.indexOf(id) === index,
+          )
         : current.filter((id) => id !== inviteeId),
     );
   }
@@ -387,7 +395,7 @@ export function RsvpOverrideForm({
         <div>
           <h2>OWNER RSVP override</h2>
           <p>
-            Replace the current RSVP state using version {rsvp.version}. The
+            Replace the current RSVP state using the latest saved response. The
             guest deadline may be bypassed; all other RSVP rules remain
             authoritative.
           </p>
@@ -420,7 +428,8 @@ export function RsvpOverrideForm({
           ref={firstInvalid}
         >
           <p className="hint">
-            Current guest note is read-only: {rsvp.guestNote ?? "No guest note"}.
+            Current guest note is read-only: {rsvp.guestNote ?? "No guest note"}
+            .
           </p>
           <fieldset disabled={locked || pending}>
             <legend>Override status</legend>
@@ -446,7 +455,9 @@ export function RsvpOverrideForm({
           {status === "ACCEPTED" && (
             <>
               <fieldset
-                aria-describedby={errors.attendee ? "attendee-error" : undefined}
+                aria-describedby={
+                  errors.attendee ? "attendee-error" : undefined
+                }
                 disabled={locked || pending}
               >
                 <legend>Attendee composition</legend>
@@ -540,7 +551,9 @@ export function RsvpOverrideForm({
                         min="1"
                         step="1"
                         type="number"
-                        value={eventFields[event.id]?.expectedAttendeeCount ?? ""}
+                        value={
+                          eventFields[event.id]?.expectedAttendeeCount ?? ""
+                        }
                         onChange={(change) =>
                           updateEvent(event.id, {
                             expectedAttendeeCount: change.target.value,
@@ -626,13 +639,13 @@ export function RsvpOverrideForm({
             <div id="rsvp-override-confirm-desc">
               <p>
                 This will replace the RSVP attendance with the entered OWNER
-                state, submit expectedVersion {rsvp.version}, and store the
-                override reason with current admin attribution.
+                state, check that the saved response is still current, and store
+                the override reason with current admin attribution.
               </p>
               <p>
                 Check-in pass lifecycle may change. The guest deadline may be
                 bypassed, but eligibility, capacity, active invitation, and
-                version rules still apply.
+                concurrency safeguards still apply.
               </p>
               <p>Current status: {statusLabel(rsvp.status)}.</p>
             </div>

@@ -145,7 +145,7 @@ export function InvitationDetail({
             {
               label: "RSVP",
               value: invitation.rsvp
-                ? `${invitation.rsvp.status.toLowerCase()} v${invitation.rsvp.version}`
+                ? invitation.rsvp.status.toLowerCase()
                 : "No RSVP yet",
             },
             {

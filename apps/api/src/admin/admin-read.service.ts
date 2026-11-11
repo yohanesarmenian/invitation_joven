@@ -35,6 +35,30 @@ import {
 } from "./dto/admin-read.dto.js";
 import { PublicInvitationBaseUrlService } from "./public-invitation-base-url.service.js";
 
+function parseRsvpHistoryChanges(
+  value: Prisma.JsonValue,
+): AdminRsvpDetailResponseDto["history"][number]["changes"] {
+  if (!Array.isArray(value)) throw new Error("Invalid RSVP history.");
+  return value.map((item) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      Array.isArray(item) ||
+      typeof item.field !== "string" ||
+      typeof item.label !== "string" ||
+      typeof item.before !== "string" ||
+      typeof item.after !== "string"
+    )
+      throw new Error("Invalid RSVP history.");
+    return {
+      field: item.field,
+      label: item.label,
+      before: item.before,
+      after: item.after,
+    };
+  });
+}
+
 type QueryBag = Record<string, unknown>;
 
 type DashboardCountsRow = {
@@ -476,79 +500,102 @@ export class AdminReadService {
 
   async getRsvpDetail(rsvpId: string): Promise<AdminRsvpDetailResponseDto> {
     assertUuid(rsvpId);
-    const rsvp = await this.prisma.rSVP.findUnique({
-      where: { id: rsvpId },
-      select: {
-        adminOverrideReason: true,
-        attendees: {
-          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    const rsvp = await this.prisma.$transaction(
+      (tx) =>
+        tx.rSVP.findUnique({
+          where: { id: rsvpId },
           select: {
-            attendeeType: true,
-            displayName: true,
-            inviteeId: true,
-            quantity: true,
-          },
-        },
-        checkinPasses: {
-          orderBy: [{ issuedAt: "asc" }, { id: "asc" }],
-          select: {
-            credentialVersion: true,
-            expiresAt: true,
-            issuedAt: true,
-            revocationReason: true,
-            revokedAt: true,
-            status: true,
-          },
-        },
-        createdAt: true,
-        dietaryNotes: true,
-        eventSelections: {
-          orderBy: [
-            { event: { displayOrder: "asc" } },
-            { event: { id: "asc" } },
-          ],
-          select: {
-            attending: true,
-            event: {
+            adminOverrideReason: true,
+            changes: {
+              orderBy: { revision: "desc" },
               select: {
-                displayOrder: true,
                 id: true,
-                isActive: true,
-                name: true,
-                slug: true,
+                createdAt: true,
+                action: true,
+                actorCategory: true,
+                actorRole: true,
+                actorAdminUserId: true,
+                revision: true,
+                overrideReason: true,
+                changes: true,
               },
             },
-            expectedAttendeeCount: true,
-          },
-        },
-        guestNote: true,
-        id: true,
-        invitation: {
-          select: {
-            displayName: true,
+            attendees: {
+              orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+              select: {
+                attendeeType: true,
+                displayName: true,
+                inviteeId: true,
+                quantity: true,
+              },
+            },
+            checkinPasses: {
+              orderBy: [{ issuedAt: "asc" }, { id: "asc" }],
+              select: {
+                credentialVersion: true,
+                expiresAt: true,
+                issuedAt: true,
+                revocationReason: true,
+                revokedAt: true,
+                status: true,
+              },
+            },
+            createdAt: true,
+            dietaryNotes: true,
+            eventSelections: {
+              orderBy: [
+                { event: { displayOrder: "asc" } },
+                { event: { id: "asc" } },
+              ],
+              select: {
+                attending: true,
+                event: {
+                  select: {
+                    displayOrder: true,
+                    id: true,
+                    isActive: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+                expectedAttendeeCount: true,
+              },
+            },
+            guestNote: true,
             id: true,
+            invitation: {
+              select: {
+                displayName: true,
+                id: true,
+                status: true,
+              },
+            },
+            lastUpdatedAt: true,
             status: true,
+            submittedAt: true,
+            submittedByAdminUser: {
+              select: {
+                email: true,
+                id: true,
+              },
+            },
+            submittedByAdminUserId: true,
+            version: true,
           },
-        },
-        lastUpdatedAt: true,
-        status: true,
-        submittedAt: true,
-        submittedByAdminUser: {
-          select: {
-            email: true,
-            id: true,
-          },
-        },
-        submittedByAdminUserId: true,
-        version: true,
-      },
-    });
+        }),
+      { isolationLevel: "RepeatableRead" },
+    );
 
     if (rsvp === null) {
       notFound();
     }
 
     return {
+      history: rsvp.changes.map((entry) => ({
+        ...entry,
+        createdAt: entry.createdAt.toISOString(),
+        changes: parseRsvpHistoryChanges(entry.changes),
+      })),
       rsvp: {
         adminUser: rsvp.submittedByAdminUser ?? undefined,
         attendees: rsvp.attendees.map((attendee) => ({

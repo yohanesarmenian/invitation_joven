@@ -5106,6 +5106,81 @@
           "overrideReason"
         ]
       },
+      "AdminRsvpHistoryChangeDto": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "before": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "label",
+          "before",
+          "after"
+        ]
+      },
+      "AdminRsvpHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "action": {
+            "type": "string"
+          },
+          "actorCategory": {
+            "type": "string"
+          },
+          "actorRole": {
+            "type": "string",
+            "nullable": true
+          },
+          "actorAdminUserId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "number"
+          },
+          "overrideReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRsvpHistoryChangeDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "action",
+          "actorCategory",
+          "actorRole",
+          "actorAdminUserId",
+          "revision",
+          "overrideReason",
+          "changes"
+        ]
+      },
       "AdminRsvpInvitationSummaryDto": {
         "type": "object",
         "properties": {
@@ -5289,11 +5364,18 @@
       "AdminRsvpDetailResponseDto": {
         "type": "object",
         "properties": {
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRsvpHistoryEntryDto"
+            }
+          },
           "rsvp": {
             "$ref": "#/components/schemas/AdminRsvpDetailDto"
           }
         },
         "required": [
+          "history",
           "rsvp"
         ]
       },
@@ -5930,6 +6012,17 @@
       "PublicRsvpReadResponseDto": {
         "type": "object",
         "properties": {
+          "canEdit": {
+            "type": "boolean"
+          },
+          "editBlockedReason": {
+            "type": "string",
+            "enum": [
+              "DEADLINE_PASSED",
+              "CHECKED_IN"
+            ],
+            "nullable": true
+          },
           "rsvp": {
             "nullable": true,
             "type": "object",
@@ -5950,6 +6043,8 @@
           }
         },
         "required": [
+          "canEdit",
+          "editBlockedReason",
           "rsvp",
           "checkinPass"
         ]

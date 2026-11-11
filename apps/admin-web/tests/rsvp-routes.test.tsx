@@ -62,8 +62,8 @@ it("maps RSVP list fields and excludes pending invitation synthesis", () => {
   for (const value of [
     "Sample household",
     "Owner override household",
-    "Accepted v3",
-    "Declined v2",
+    "Accepted",
+    "Declined",
     ">4<",
     ">1<",
     "Guest",
@@ -100,7 +100,7 @@ it("maps RSVP detail snapshots, selections, notes, attribution and pass metadata
   const html = renderToStaticMarkup(<RsvpDetail rsvp={rsvpDetail.rsvp} />);
   for (const value of [
     "Sample household",
-    "Accepted v3",
+    "Accepted",
     "Snapshot Guest",
     "Snapshot Companion",
     "Additional child",
@@ -121,6 +121,48 @@ it("maps RSVP detail snapshots, selections, notes, attribution and pass metadata
   expect(html).not.toContain("Current Guest Name");
   for (const value of ["qrPayload", "tokenHash", "publicTokenHash", "csrf"])
     expect(html).not.toContain(value);
+});
+
+it("renders authorized history with WIB timestamps, escaped changes, and no visible RSVP revisions", () => {
+  const html = renderToStaticMarkup(
+    <RsvpDetail
+      rsvp={rsvpDetail.rsvp}
+      history={[
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          createdAt: "2026-11-11T03:15:00Z",
+          action: "OWNER_OVERRIDE",
+          actorCategory: "ADMIN",
+          actorRole: "OWNER",
+          actorAdminUserId: "22222222-2222-4222-8222-222222222222",
+          revision: 123,
+          overrideReason: "Reception assistance",
+          changes: [
+            {
+              field: "dietaryNotes",
+              label: "Dietary requirements",
+              before: "None",
+              after: "<script>synthetic</script>",
+            },
+          ],
+        },
+      ]}
+    />,
+  );
+  for (const value of [
+    "RSVP Change History",
+    "11 Nov 2026, 10:15",
+    "WIB",
+    "OWNER override",
+    "Authenticated Admin (OWNER)",
+    "Reception assistance",
+    "Dietary requirements",
+    "&lt;script&gt;",
+  ])
+    expect(html).toContain(value);
+  expect(html).not.toContain("<script>");
+  expect(html).not.toContain("v123");
+  expect(html).not.toContain("Accepted v3");
 });
 
 it.each([
