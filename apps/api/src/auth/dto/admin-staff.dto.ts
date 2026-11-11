@@ -8,11 +8,12 @@ import { AdminPageMetadataDto } from "../../admin/dto/admin-read.dto.js";
 import { normalizeAdminEmail } from "../admin-credentials.js";
 import { validationError } from "../auth-errors.js";
 
-const CREATE_STAFF_FIELDS = new Set(["email"]);
+const CREATE_STAFF_FIELDS = new Set(["email", "role"]);
 const UPDATE_STAFF_FIELDS = new Set(["status"]);
 
 export type CreateAdminStaffCommand = {
   email: string;
+  role?: "CHECKIN_STAFF" | "GUEST_MANAGER";
 };
 
 export type UpdateAdminStaffCommand = {
@@ -20,6 +21,11 @@ export type UpdateAdminStaffCommand = {
 };
 
 export class CreateAdminStaffRequestDto {
+  @ApiPropertyOptional({
+    enum: ["CHECKIN_STAFF", "GUEST_MANAGER"],
+    type: String,
+  })
+  role?: "CHECKIN_STAFF" | "GUEST_MANAGER";
   @ApiProperty({ maxLength: 254, type: String })
   email: string;
 }
@@ -36,7 +42,7 @@ export class AdminStaffDto {
   @ApiProperty({ type: String })
   email: string;
 
-  @ApiProperty({ enum: ["CHECKIN_STAFF"], type: String })
+  @ApiProperty({ enum: ["CHECKIN_STAFF", "GUEST_MANAGER"], type: String })
   role: AdminRole;
 
   @ApiProperty({ enum: ["ACTIVE", "DISABLED"], type: String })
@@ -96,7 +102,16 @@ export function mapCreateAdminStaffRequest(
     validationError();
   }
 
+  if (
+    body.role !== undefined &&
+    body.role !== "CHECKIN_STAFF" &&
+    body.role !== "GUEST_MANAGER"
+  )
+    validationError();
   return {
+    ...(body.role
+      ? { role: body.role as "CHECKIN_STAFF" | "GUEST_MANAGER" }
+      : {}),
     email: normalizeAdminEmail(body.email),
   };
 }

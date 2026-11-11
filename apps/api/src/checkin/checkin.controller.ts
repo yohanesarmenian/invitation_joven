@@ -50,7 +50,7 @@ import {
 } from "./dto/checkin.dto.js";
 
 @ApiTags("Admin Check-in")
-@AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF)
+@AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF, AdminRole.GUEST_MANAGER)
 @Controller("api/admin/checkin")
 export class CheckinController {
   constructor(
@@ -127,7 +127,9 @@ export class CheckinController {
     @Query() query: unknown,
   ): Promise<AdminCheckinSearchResponseDto> {
     try {
-      return await this.checkinService.search(mapSearchAdminCheckinQuery(query));
+      return await this.checkinService.search(
+        mapSearchAdminCheckinQuery(query),
+      );
     } catch (error) {
       this.rethrowCheckinError(error);
     }

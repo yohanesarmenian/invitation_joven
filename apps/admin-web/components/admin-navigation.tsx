@@ -30,6 +30,11 @@ const groups = [
     label: "Wedding day",
     items: [
       {
+        label: "Guest reception",
+        href: "/reception",
+        icon: "M3 8V3h5M16 3h5v5M7 12l3 3 7-7",
+      },
+      {
         label: "Check-in",
         href: "/checkin",
         icon: "M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5M7 12l3 3 7-7",

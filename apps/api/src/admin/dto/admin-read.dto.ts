@@ -499,6 +499,8 @@ export class AdminRsvpHistoryChangeDto {
 }
 
 export class AdminRsvpHistoryEntryDto {
+  @ApiPropertyOptional({ type: String, nullable: true })
+  verificationMethod?: string | null;
   @ApiProperty({ type: String, format: "uuid" })
   id: string;
   @ApiProperty({ type: String, format: "date-time" })

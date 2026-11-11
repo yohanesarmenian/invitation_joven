@@ -17,6 +17,17 @@ export type SubmitPublicGuestMessageResponse =
   components["schemas"]["PublicGuestMessageResponseDto"];
 export type AdminLoginRequest = components["schemas"]["AdminLoginRequestDto"];
 export type AdminAuthResponse = components["schemas"]["AdminAuthResponseDto"];
+export type ReceptionDetail = components["schemas"]["ReceptionDetailDto"];
+export type ReceptionHousehold = components["schemas"]["ReceptionHouseholdDto"];
+export type ReceptionSearch = components["schemas"]["ReceptionSearchDto"];
+export type ReceptionArrival = components["schemas"]["ReceptionArrivalDto"];
+export type ReceptionArrivalRequest =
+  components["schemas"]["ReceptionArrivalRequestDto"];
+export type ReceptionReceipt = components["schemas"]["ReceptionReceiptDto"];
+export type ReceptionStatistics =
+  components["schemas"]["ReceptionStatisticsDto"];
+export type CheckinEventsResponse =
+  components["schemas"]["AdminCheckinEventsResponseDto"];
 export type AdminChangePasswordRequest =
   components["schemas"]["AdminChangePasswordRequestDto"];
 export type AdminStaff = components["schemas"]["AdminStaffDto"];

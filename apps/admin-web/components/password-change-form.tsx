@@ -47,7 +47,11 @@ export function PasswordChangeForm({ auth }: { auth: AdminAuthResponse }) {
       setCurrentPassword("");
       setNewPassword("");
       window.location.replace(
-        auth.user.role === "CHECKIN_STAFF" ? "/checkin" : "/",
+        auth.user.role === "GUEST_MANAGER"
+          ? "/reception"
+          : auth.user.role === "OWNER"
+            ? "/"
+            : "/checkin",
       );
       return;
     }

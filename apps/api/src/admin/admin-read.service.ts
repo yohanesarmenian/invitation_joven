@@ -512,6 +512,7 @@ export class AdminReadService {
                 id: true,
                 createdAt: true,
                 action: true,
+                verificationMethod: true,
                 actorCategory: true,
                 actorRole: true,
                 actorAdminUserId: true,

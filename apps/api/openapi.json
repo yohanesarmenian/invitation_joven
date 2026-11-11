@@ -3772,6 +3772,240 @@
           "Public event content"
         ]
       }
+    },
+    "/api/admin/reception/search": {
+      "get": {
+        "operationId": "ReceptionController_search",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 1000,
+              "type": "number"
+            }
+          },
+          {
+            "name": "eventId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minLength": 2,
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionSearchDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find registered reception households; reference codes are not credentials",
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
+    "/api/admin/reception/households/{id}": {
+      "get": {
+        "operationId": "ReceptionController_detail",
+        "parameters": [
+          {
+            "name": "eventId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
+    "/api/admin/reception/validate": {
+      "post": {
+        "operationId": "ReceptionController_validate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceptionIdentifyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
+    "/api/admin/reception/arrivals": {
+      "post": {
+        "operationId": "ReceptionController_arrive",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceptionArrivalRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
+    "/api/admin/reception/operations/{operationId}": {
+      "get": {
+        "operationId": "ReceptionController_operation",
+        "parameters": [
+          {
+            "name": "eventId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "invitationId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "operationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionOperationDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
+    "/api/admin/reception/statistics": {
+      "get": {
+        "operationId": "ReceptionController_statistics",
+        "parameters": [
+          {
+            "name": "eventId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionStatisticsDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
     }
   },
   "info": {
@@ -3816,7 +4050,8 @@
             "type": "string",
             "enum": [
               "OWNER",
-              "CHECKIN_STAFF"
+              "CHECKIN_STAFF",
+              "GUEST_MANAGER"
             ]
           },
           "mustChangePassword": {
@@ -3934,7 +4169,8 @@
           "role": {
             "type": "string",
             "enum": [
-              "CHECKIN_STAFF"
+              "CHECKIN_STAFF",
+              "GUEST_MANAGER"
             ]
           },
           "status": {
@@ -4015,6 +4251,13 @@
       "CreateAdminStaffRequestDto": {
         "type": "object",
         "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "CHECKIN_STAFF",
+              "GUEST_MANAGER"
+            ]
+          },
           "email": {
             "type": "string",
             "maxLength": 254
@@ -4037,7 +4280,8 @@
           "role": {
             "type": "string",
             "enum": [
-              "CHECKIN_STAFF"
+              "CHECKIN_STAFF",
+              "GUEST_MANAGER"
             ]
           },
           "status": {
@@ -5132,6 +5376,10 @@
       "AdminRsvpHistoryEntryDto": {
         "type": "object",
         "properties": {
+          "verificationMethod": {
+            "type": "string",
+            "nullable": true
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -6216,7 +6464,8 @@
             "type": "string",
             "enum": [
               "OWNER",
-              "CHECKIN_STAFF"
+              "CHECKIN_STAFF",
+              "GUEST_MANAGER"
             ]
           }
         },
@@ -7226,6 +7475,388 @@
         },
         "required": [
           "items"
+        ]
+      },
+      "ReceptionInviteeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fullName"
+        ]
+      },
+      "ReceptionHouseholdDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "referenceCode": {
+            "type": "string"
+          },
+          "rsvpStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "rsvpVersion": {
+            "type": "number",
+            "nullable": true
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "rsvpLocked": {
+            "type": "boolean"
+          },
+          "allowedCount": {
+            "type": "number"
+          },
+          "expectedCount": {
+            "type": "number"
+          },
+          "arrivedCount": {
+            "type": "number"
+          },
+          "remainingCount": {
+            "type": "number"
+          },
+          "allowPlusOne": {
+            "type": "boolean"
+          },
+          "maxAdditionalChildren": {
+            "type": "number"
+          },
+          "invitees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceptionInviteeDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "referenceCode",
+          "rsvpStatus",
+          "rsvpVersion",
+          "eligible",
+          "rsvpLocked",
+          "allowedCount",
+          "expectedCount",
+          "arrivedCount",
+          "remainingCount",
+          "allowPlusOne",
+          "maxAdditionalChildren",
+          "invitees"
+        ]
+      },
+      "ReceptionSearchDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceptionHouseholdDto"
+            }
+          },
+          "page": {
+            "type": "number"
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "hasMore"
+        ]
+      },
+      "ReceptionArrivalDto": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attendeeCount": {
+            "type": "number"
+          },
+          "expectedAttendeeCount": {
+            "type": "number"
+          },
+          "totalAfter": {
+            "type": "number"
+          },
+          "checkedInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "QR",
+              "MANUAL"
+            ]
+          },
+          "operatorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actorRole": {
+            "type": "string"
+          },
+          "verificationMethod": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "migrated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "operationId",
+          "attendeeCount",
+          "expectedAttendeeCount",
+          "totalAfter",
+          "checkedInAt",
+          "method",
+          "operatorId",
+          "actorRole",
+          "verificationMethod",
+          "reason",
+          "migrated"
+        ]
+      },
+      "ReceptionDetailDto": {
+        "type": "object",
+        "properties": {
+          "household": {
+            "$ref": "#/components/schemas/ReceptionHouseholdDto"
+          },
+          "arrivals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceptionArrivalDto"
+            }
+          }
+        },
+        "required": [
+          "household",
+          "arrivals"
+        ]
+      },
+      "ReceptionIdentifyDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "qrPayload": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        },
+        "required": [
+          "eventId",
+          "qrPayload"
+        ]
+      },
+      "ReceptionOnSiteDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          },
+          "eventSelections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmitPublicRsvpEventSelectionDto"
+            }
+          },
+          "attendees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmitPublicRsvpAttendeeDto"
+            }
+          },
+          "dietaryNotes": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "status",
+          "eventSelections",
+          "attendees",
+          "reason"
+        ]
+      },
+      "ReceptionArrivalRequestDto": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invitationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attendeeCount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "QR",
+              "MANUAL"
+            ]
+          },
+          "qrPayload": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "verificationMethod": {
+            "type": "string",
+            "enum": [
+              "QR",
+              "PHYSICAL_INVITATION",
+              "HOUSEHOLD_DETAILS"
+            ]
+          },
+          "onSite": {
+            "$ref": "#/components/schemas/ReceptionOnSiteDto"
+          }
+        },
+        "required": [
+          "operationId",
+          "invitationId",
+          "eventId",
+          "attendeeCount",
+          "method",
+          "verificationMethod"
+        ]
+      },
+      "ReceptionReceiptDto": {
+        "type": "object",
+        "properties": {
+          "arrival": {
+            "$ref": "#/components/schemas/ReceptionArrivalDto"
+          }
+        },
+        "required": [
+          "arrival"
+        ]
+      },
+      "ReceptionOperationDto": {
+        "type": "object",
+        "properties": {
+          "arrival": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReceptionArrivalDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "arrival"
+        ]
+      },
+      "ReceptionStatisticsDto": {
+        "type": "object",
+        "properties": {
+          "registeredHouseholds": {
+            "type": "number"
+          },
+          "pendingHouseholds": {
+            "type": "number"
+          },
+          "acceptedHouseholds": {
+            "type": "number"
+          },
+          "declinedHouseholds": {
+            "type": "number"
+          },
+          "expectedGuests": {
+            "type": "number"
+          },
+          "arrivedGuests": {
+            "type": "number"
+          },
+          "partialHouseholds": {
+            "type": "number"
+          },
+          "completedHouseholds": {
+            "type": "number"
+          },
+          "qrGuests": {
+            "type": "number"
+          },
+          "manualGuests": {
+            "type": "number"
+          },
+          "onSiteConfirmations": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "registeredHouseholds",
+          "pendingHouseholds",
+          "acceptedHouseholds",
+          "declinedHouseholds",
+          "expectedGuests",
+          "arrivedGuests",
+          "partialHouseholds",
+          "completedHouseholds",
+          "qrGuests",
+          "manualGuests",
+          "onSiteConfirmations"
         ]
       }
     }

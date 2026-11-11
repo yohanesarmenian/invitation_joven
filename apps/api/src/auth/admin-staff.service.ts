@@ -53,7 +53,7 @@ export class AdminStaffService {
     const page = parseAdminPagination(query);
     const status = this.parseStatusFilter(query.status);
     const where = {
-      role: AdminRole.CHECKIN_STAFF,
+      role: { in: [AdminRole.CHECKIN_STAFF, AdminRole.GUEST_MANAGER] },
       status: status ?? undefined,
     } satisfies Prisma.AdminUserWhereInput;
     const [totalItems, staff] = await this.prisma.$transaction([
@@ -77,9 +77,8 @@ export class AdminStaffService {
     command: CreateAdminStaffCommand,
   ): Promise<{ staff: AdminStaffDto; temporaryPassword: string }> {
     const temporaryPassword = this.generateTemporaryPassword();
-    const passwordHash = await this.passwordService.hashPassword(
-      temporaryPassword,
-    );
+    const passwordHash =
+      await this.passwordService.hashPassword(temporaryPassword);
 
     try {
       const staff = await this.prisma.adminUser.create({
@@ -87,7 +86,7 @@ export class AdminStaffService {
           email: command.email,
           mustChangePassword: true,
           passwordHash,
-          role: AdminRole.CHECKIN_STAFF,
+          role: command.role ?? AdminRole.CHECKIN_STAFF,
           status: AdminUserStatus.ACTIVE,
         },
         select: this.staffSelect(),
@@ -132,9 +131,8 @@ export class AdminStaffService {
   ): Promise<{ staff: AdminStaffDto; temporaryPassword: string }> {
     const staff = await this.findStaffOrThrow(staffId);
     const temporaryPassword = this.generateTemporaryPassword();
-    const passwordHash = await this.passwordService.hashPassword(
-      temporaryPassword,
-    );
+    const passwordHash =
+      await this.passwordService.hashPassword(temporaryPassword);
     const updated = await this.prisma.adminUser.update({
       data: {
         mustChangePassword: true,
@@ -161,7 +159,10 @@ export class AdminStaffService {
       notFound();
     }
 
-    if (staff.role !== AdminRole.CHECKIN_STAFF) {
+    if (
+      staff.role !== AdminRole.CHECKIN_STAFF &&
+      staff.role !== AdminRole.GUEST_MANAGER
+    ) {
       conflict("Target is not a check-in staff account");
     }
 

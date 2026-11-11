@@ -15,7 +15,7 @@ export default async function LoginPage({
       <section className="panel login-card" aria-labelledby="login-title">
         <p className="eyebrow">Wedding Invitation Admin</p>
         <h1 id="login-title">Sign in</h1>
-        <p>Use your OWNER account to continue.</p>
+        <p>Use your individual wedding team account to continue.</p>
         <LoginForm
           sessionEnded={query.session === "ended"}
           initialNotice={

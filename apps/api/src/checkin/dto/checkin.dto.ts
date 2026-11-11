@@ -117,8 +117,11 @@ export class AdminCheckinOperatorDto {
   @ApiProperty({ format: "email", type: String })
   email: string;
 
-  @ApiProperty({ enum: ["OWNER", "CHECKIN_STAFF"], type: String })
-  role: "OWNER" | "CHECKIN_STAFF";
+  @ApiProperty({
+    enum: ["OWNER", "CHECKIN_STAFF", "GUEST_MANAGER"],
+    type: String,
+  })
+  role: "OWNER" | "CHECKIN_STAFF" | "GUEST_MANAGER";
 }
 
 export class AdminPreviousCheckinDto {
@@ -314,7 +317,9 @@ export function mapManualStatusAdminCheckinRequest(
   };
 }
 
-export function mapSearchAdminCheckinQuery(query: unknown): CheckinSearchCommand {
+export function mapSearchAdminCheckinQuery(
+  query: unknown,
+): CheckinSearchCommand {
   if (!isRecord(query)) {
     badRequest();
   }

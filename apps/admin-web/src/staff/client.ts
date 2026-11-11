@@ -18,7 +18,7 @@ export const isStaff = (v: unknown): v is AdminStaff =>
   object(v) &&
   isUuid(v.id) &&
   typeof v.email === "string" &&
-  v.role === "CHECKIN_STAFF" &&
+  (v.role === "CHECKIN_STAFF" || v.role === "GUEST_MANAGER") &&
   (v.status === "ACTIVE" || v.status === "DISABLED") &&
   typeof v.mustChangePassword === "boolean";
 export const isStaffList = (v: unknown): v is AdminStaffListResponse =>
@@ -110,10 +110,17 @@ export const listStaff = (
       }),
     isStaffList,
   );
-export const createStaff = (email: string, csrf: string) =>
+export const createStaff = (
+  email: string,
+  csrf: string,
+  role?: "GUEST_MANAGER" | "CHECKIN_STAFF",
+) =>
   run(
     () =>
-      client().POST("/api/admin/staff", { ...unsafe(csrf), body: { email } }),
+      client().POST("/api/admin/staff", {
+        ...unsafe(csrf),
+        body: { email, ...(role ? { role } : {}) },
+      }),
     isProvision,
     true,
   );

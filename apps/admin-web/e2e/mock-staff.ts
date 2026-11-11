@@ -4,7 +4,7 @@ const staff = new Map<
   {
     id: string;
     email: string;
-    role: "CHECKIN_STAFF";
+    role: "CHECKIN_STAFF" | "GUEST_MANAGER";
     status: "ACTIVE" | "DISABLED";
     mustChangePassword: boolean;
     createdAt: string;
@@ -71,7 +71,9 @@ export async function mockStaff(
     const item = {
       id,
       email: body.email,
-      role: "CHECKIN_STAFF" as const,
+      role: (body.role === "GUEST_MANAGER"
+        ? "GUEST_MANAGER"
+        : "CHECKIN_STAFF") as "GUEST_MANAGER" | "CHECKIN_STAFF",
       status: "ACTIVE" as const,
       mustChangePassword: true,
       createdAt: new Date().toISOString(),

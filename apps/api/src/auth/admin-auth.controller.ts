@@ -51,8 +51,10 @@ export class AdminAuthController {
     @Inject(AdminAuthService) private readonly authService: AdminAuthService,
     @Inject(AdminSessionService)
     private readonly sessionService: AdminSessionService,
-    @Inject(AdminOriginService) private readonly originService: AdminOriginService,
-    @Inject(AdminCookieService) private readonly cookieService: AdminCookieService,
+    @Inject(AdminOriginService)
+    private readonly originService: AdminOriginService,
+    @Inject(AdminCookieService)
+    private readonly cookieService: AdminCookieService,
   ) {}
 
   private async getAdminContext(
@@ -90,7 +92,7 @@ export class AdminAuthController {
   }
 
   @Get("me")
-  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF)
+  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF, AdminRole.GUEST_MANAGER)
   @ApiOperation({ summary: "Get current admin session" })
   @ApiOkResponse({ type: AdminAuthResponseDto })
   @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
@@ -115,7 +117,7 @@ export class AdminAuthController {
   }
 
   @Post("logout")
-  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF)
+  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF, AdminRole.GUEST_MANAGER)
   @HttpCode(204)
   @ApiOperation({ summary: "Log out current admin session" })
   @ApiNoContentResponse({ description: "Logged out." })
@@ -132,11 +134,14 @@ export class AdminAuthController {
     this.originService.assertValidAdminOrigin(headers);
     this.sessionService.assertCsrf(context, csrfToken);
     await this.sessionService.revokeCurrentSession(context.session.id);
-    reply.header("set-cookie", this.cookieService.serializeClearedSessionCookie());
+    reply.header(
+      "set-cookie",
+      this.cookieService.serializeClearedSessionCookie(),
+    );
   }
 
   @Post("change-password")
-  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF)
+  @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF, AdminRole.GUEST_MANAGER)
   @HttpCode(204)
   @ApiOperation({ summary: "Change current admin password" })
   @ApiBody({ type: AdminChangePasswordRequestDto })

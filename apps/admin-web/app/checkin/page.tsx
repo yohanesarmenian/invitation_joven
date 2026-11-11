@@ -13,6 +13,7 @@ export default async function CheckinPage() {
   if (session.kind !== "authenticated")
     return <SessionUnavailable forbidden={session.kind === "forbidden"} />;
   if (session.auth.user.mustChangePassword) redirect("/account/password");
+  if (session.auth.user.role === "GUEST_MANAGER") redirect("/reception");
 
   return (
     <main className="checkin-page">
@@ -32,6 +33,11 @@ export default async function CheckinPage() {
                 Back to dashboard
               </Link>
             )}
+            {session.auth.user.role === "OWNER" ? (
+              <Link href="/reception" prefetch={false}>
+                Open guest reception
+              </Link>
+            ) : null}
             <Link href="/account/password" prefetch={false}>
               Change password
             </Link>

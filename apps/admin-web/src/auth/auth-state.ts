@@ -24,7 +24,9 @@ export function readAuth(value: unknown): AdminAuthResponse | null {
     !record(value.session) ||
     typeof value.user.id !== "string" ||
     typeof value.user.email !== "string" ||
-    (value.user.role !== "OWNER" && value.user.role !== "CHECKIN_STAFF") ||
+    (value.user.role !== "OWNER" &&
+      value.user.role !== "CHECKIN_STAFF" &&
+      value.user.role !== "GUEST_MANAGER") ||
     typeof value.user.mustChangePassword !== "boolean" ||
     typeof value.session.expiresAt !== "string" ||
     typeof value.csrfToken !== "string"
