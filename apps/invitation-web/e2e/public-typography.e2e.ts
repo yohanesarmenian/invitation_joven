@@ -193,7 +193,10 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await page.keyboard.press("Space");
     await expect(radio).toBeChecked();
     await expect(radio).toBeFocused();
-    const submit = page.getByRole("button", { name: "Send RSVP", exact: true });
+    const submit = page.getByRole("button", {
+      name: /^(Submit RSVP|Save Changes)$/,
+      exact: true,
+    });
     await submit.focus();
     await expect(submit).toBeFocused();
     await expect(submit).toHaveCSS("outline-style", "solid");

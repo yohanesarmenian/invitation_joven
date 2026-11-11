@@ -313,6 +313,7 @@ for (const mode of ["accepted", "declined", "deadline"]) {
         ...(mode === "deadline"
           ? {
               deadline: "2020-01-01T00:00:00Z",
+              editBlockedReason: "DEADLINE_PASSED",
               failure: {
                 status: 422,
                 code: "RSVP_DEADLINE_PASSED",
@@ -324,14 +325,21 @@ for (const mode of ["accepted", "declined", "deadline"]) {
     });
     await open(page);
     const rsvp = page.locator(".public-rsvp-form");
-    if (mode !== "declined")
+    if (mode === "accepted") {
+      await rsvp
+        .getByRole("button", { name: "Edit RSVP", exact: true })
+        .click();
       await rsvp.getByRole("textbox").fill("Unsaved RSVP draft");
+    }
     if (mode === "deadline") {
-      await rsvp.getByRole("button", { name: "Send RSVP" }).click();
-      await expect(rsvp.getByRole("alert")).toContainText("RSVP is closed");
       await expect(
-        rsvp.getByRole("button", { name: "Send RSVP" }),
-      ).toBeDisabled();
+        rsvp
+          .getByRole("status")
+          .filter({ hasText: "reply deadline has passed" }),
+      ).toBeVisible();
+      await expect(
+        rsvp.getByRole("button", { name: "Edit RSVP", exact: true }),
+      ).toHaveCount(0);
     }
     const before = await rsvp.innerHTML();
     const apiBefore = await (await request.get(`${MOCK}/__rsvp-state`)).json();

@@ -632,6 +632,8 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       checkinPass: null,
+      canEdit: true,
+      editBlockedReason: null,
       rsvp: {
         attendeeQuantityTotal: 0,
         attendees: [],
@@ -662,6 +664,8 @@ describe("GET /api/public/invitations/:publicCredential", () => {
     expect(response.json()).toEqual({
       checkinPass: null,
       rsvp: null,
+      canEdit: true,
+      editBlockedReason: null,
     });
     expect(response.body).not.toContain("tokenHash");
     expect(response.body).not.toContain("credentialVersion");

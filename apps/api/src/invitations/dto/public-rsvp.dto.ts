@@ -133,6 +133,16 @@ export class PublicRsvpMutationResponseDto {
 }
 
 export class PublicRsvpReadResponseDto {
+  @ApiProperty({ type: Boolean })
+  canEdit: boolean;
+
+  @ApiProperty({
+    enum: ["DEADLINE_PASSED", "CHECKED_IN"],
+    nullable: true,
+    type: String,
+  })
+  editBlockedReason: "DEADLINE_PASSED" | "CHECKED_IN" | null;
+
   @ApiProperty({ nullable: true, type: () => PublicRsvpStateDto })
   rsvp: PublicRsvpStateDto | null;
 
@@ -152,7 +162,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function assertNoUnsupportedTopLevelFields(value: Record<string, unknown>): void {
+function assertNoUnsupportedTopLevelFields(
+  value: Record<string, unknown>,
+): void {
   if (Object.keys(value).some((key) => !TOP_LEVEL_REQUEST_FIELDS.has(key))) {
     badRequest();
   }
@@ -202,7 +214,9 @@ function parsePositiveInteger(value: unknown): number {
   badRequest();
 }
 
-function parseEventSelections(value: unknown): SubmitPublicRsvpCommand["eventSelections"] {
+function parseEventSelections(
+  value: unknown,
+): SubmitPublicRsvpCommand["eventSelections"] {
   if (!Array.isArray(value)) {
     badRequest();
   }

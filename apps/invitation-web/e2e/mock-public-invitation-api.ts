@@ -114,6 +114,7 @@ const malformedInvitationFixture = {
 // Counts public invitation retrievals only; control endpoints never increment.
 let publicInvitationRequestCount = 0;
 let rsvpState: PublicRsvpReadResponse["rsvp"] = null;
+let editBlockedReason: PublicRsvpReadResponse["editBlockedReason"] = null;
 let checkinPass: PublicRsvpReadResponse["checkinPass"] = null;
 let passSequence = 0;
 function syncPass() {
@@ -178,6 +179,7 @@ const server = createServer(async (request, response) => {
     messageCommits = 0;
     messageFixture = {};
     rsvpState = null;
+    editBlockedReason = null;
     checkinPass = null;
     passSequence = 0;
     rsvpRequests = [];
@@ -312,6 +314,7 @@ const server = createServer(async (request, response) => {
     for await (const chunk of request) json += String(chunk);
     const fixture = JSON.parse(json) as {
       rsvp?: PublicRsvpReadResponse["rsvp"];
+      editBlockedReason?: PublicRsvpReadResponse["editBlockedReason"];
       checkinPass?: PublicRsvpReadResponse["checkinPass"];
       rules?: PublicInvitationResponse["invitation"]["rules"];
       delayMs?: number;
@@ -321,6 +324,8 @@ const server = createServer(async (request, response) => {
       deadline?: string | null;
     };
     if (fixture.rsvp !== undefined) rsvpState = fixture.rsvp;
+    if (fixture.editBlockedReason !== undefined)
+      editBlockedReason = fixture.editBlockedReason;
     syncPass();
     if (fixture.checkinPass !== undefined) checkinPass = fixture.checkinPass;
     if (fixture.rules) rsvpRules = fixture.rules;
@@ -357,7 +362,12 @@ const server = createServer(async (request, response) => {
           },
         });
       } else {
-        sendJson(response, 200, { rsvp: rsvpState, checkinPass });
+        sendJson(response, 200, {
+          canEdit: editBlockedReason === null,
+          editBlockedReason,
+          rsvp: rsvpState,
+          checkinPass,
+        });
       }
       return;
     }

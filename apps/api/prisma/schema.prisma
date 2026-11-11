@@ -99,6 +99,7 @@ model AdminUser {
   lastLoginAt    DateTime?            @map("last_login_at") @db.Timestamptz(6)
   sessions       AdminSession[]
   submittedRSVPs RSVP[]               @relation("RSVPSubmittedBy")
+  rsvpChanges    RsvpChangeEvent[]
   checkinRecords CheckinRecord[]      @relation("CheckinConfirmedBy")
   importBatches  GuestImportBatch[]   @relation("ImportCommittedBy")
   importPreviews GuestImportPreview[] @relation("ImportPreviewCreatedBy")
@@ -250,9 +251,32 @@ model RSVP {
   eventSelections        RSVPEventSelection[]
   attendees              RSVPAttendee[]
   checkinPasses          CheckinPass[]
+  changes                RsvpChangeEvent[]
 
   @@index([status])
   @@map("rsvps")
+}
+
+model RsvpChangeEvent {
+  id               String     @id @default(uuid()) @db.Uuid
+  rsvpId           String     @map("rsvp_id") @db.Uuid
+  invitationId     String     @map("invitation_id") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  action           String
+  actorCategory    String     @map("actor_category")
+  actorRole        String?    @map("actor_role")
+  actorAdminUserId String?    @map("actor_admin_user_id") @db.Uuid
+  revision         Int
+  previousValues   Json?      @map("previous_values") @db.JsonB
+  updatedValues    Json       @map("updated_values") @db.JsonB
+  changes          Json       @db.JsonB
+  overrideReason   String?    @map("override_reason")
+  rsvp             RSVP       @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  actorAdminUser   AdminUser? @relation(fields: [actorAdminUserId], references: [id], onDelete: SetNull)
+
+  @@unique([rsvpId, revision])
+  @@index([invitationId, createdAt])
+  @@map("rsvp_change_events")
 }
 
 model RSVPEventSelection {

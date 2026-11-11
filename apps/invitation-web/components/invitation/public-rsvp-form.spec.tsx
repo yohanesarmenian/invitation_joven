@@ -14,7 +14,12 @@ function render(props: Partial<PublicRsvpFormProps> = {}) {
       invitation: rsvpInvitation,
       initialResult: {
         status: "success",
-        data: { rsvp: null, checkinPass: null },
+        data: {
+          canEdit: true,
+          editBlockedReason: null,
+          rsvp: null,
+          checkinPass: null,
+        },
       },
       submitAction: vi.fn(),
       reloadAction: vi.fn(),
@@ -39,11 +44,13 @@ describe("PublicRsvpForm rendering", () => {
     expect(html).toContain("Joyfully Accept");
     expect(html).toContain("Regretfully Decline");
   });
-  it("prepopulates accepted fields and the canonical pass, without guest messages", () => {
+  it("renders accepted confirmation and canonical pass without editable inputs", () => {
     const html = render({
       initialResult: {
         status: "success",
         data: {
+          canEdit: true,
+          editBlockedReason: null,
           rsvp: acceptedRsvp,
           checkinPass: activePass,
         },
@@ -51,18 +58,19 @@ describe("PublicRsvpForm rendering", () => {
     });
     for (const text of [
       "Alex Guest",
-      "Robin Guest",
-      "Of Course I will bring my Wife/Husband or plus one!",
+      "Plus-one",
       "Additional children",
       "Holy Matrimony",
       "Reception",
       "No seafood",
-      "Total attending: 4",
+      "Expected guests: 4",
     ])
       expect(html).toContain(text);
-    expect(html).toContain('maxLength="500"');
-    expect(html).toContain('max="2"');
-    expect(html).toContain('max="4"');
+    expect(html).not.toContain("<form");
+    expect(html).not.toContain("Robin Guest");
+    expect(html).not.toContain("<textarea");
+    expect(html).toContain("Edit RSVP");
+    expect(html).toContain("Attendance Confirmed");
     expect(html).toContain("Your check-in pass");
     expect(html.includes(activePass.qrPayload)).toBe(true);
     expect(html).not.toMatch(
@@ -77,25 +85,32 @@ describe("PublicRsvpForm rendering", () => {
       },
       initialResult: {
         status: "success",
-        data: { rsvp: acceptedRsvp, checkinPass: null },
+        data: {
+          canEdit: true,
+          editBlockedReason: null,
+          rsvp: null,
+          checkinPass: null,
+        },
       },
     });
-    expect(html).not.toContain(
-      "Of Course I will bring my Wife/Husband or plus one!",
-    );
+    expect(html).not.toContain("Plus-one");
     expect(html).not.toContain("Additional children");
   });
-  it("preselects decline while hiding all accepted-only controls", () => {
+  it("renders saved decline without editable controls or an active pass", () => {
     const html = render({
       initialResult: {
         status: "success",
         data: {
+          canEdit: true,
+          editBlockedReason: null,
           rsvp: { ...acceptedRsvp, status: "DECLINED" },
           checkinPass: null,
         },
       },
     });
-    expect(html.match(/checked=""/g)).toHaveLength(1);
+    expect(html).toContain("Unable to Attend");
+    expect(html).toContain("Edit RSVP");
+    expect(html).not.toContain("<form");
     expect(html).not.toContain("<textarea");
     expect(html).not.toContain("No seafood");
     expect(html).not.toContain('type="checkbox"');

@@ -3,11 +3,7 @@ import type {
   AdminRsvpDetailResponse,
   AdminRsvpListResponse,
 } from "@wedding-invitation/api-client/src/index";
-import {
-  rsvpDetail,
-  rsvpEvents,
-  rsvpItem,
-} from "../tests/rsvp-fixtures";
+import { rsvpDetail, rsvpEvents, rsvpItem } from "../tests/rsvp-fixtures";
 
 const detailState = new Map<string, AdminRsvpDetailResponse["rsvp"]>();
 const csrfRejected = new Set<string>();
@@ -59,13 +55,11 @@ export async function mockRsvps(
   session?: { email: string; csrf: string },
 ): Promise<boolean> {
   const url = new URL(request.url!, "http://localhost");
-  if (
-    !(
-      url.pathname === "/api/admin/rsvps" ||
-      /^\/api\/admin\/rsvps\/[^/]+$/.test(url.pathname) ||
-      /^\/api\/admin\/invitations\/[^/]+\/rsvp$/.test(url.pathname)
-    )
-  )
+  if (!(
+    url.pathname === "/api/admin/rsvps" ||
+    /^\/api\/admin\/rsvps\/[^/]+$/.test(url.pathname) ||
+    /^\/api\/admin\/invitations\/[^/]+\/rsvp$/.test(url.pathname)
+  ))
     return false;
 
   const fail = (status: number, code: string) => {
@@ -153,7 +147,7 @@ export async function mockRsvps(
             ),
     };
     detailState.set(stateKey(session.email, current.id), next);
-    response.end(JSON.stringify({ rsvp: next }));
+    response.end(JSON.stringify({ history: [], rsvp: next }));
     return true;
   }
   if (request.method !== "GET") {
@@ -185,7 +179,12 @@ export async function mockRsvps(
       fail(404, "NOT_FOUND");
       return true;
     }
-    response.end(JSON.stringify({ rsvp: detailFor(session.email, id ?? rsvpDetail.rsvp.id) }));
+    response.end(
+      JSON.stringify({
+        history: [],
+        rsvp: detailFor(session.email, id ?? rsvpDetail.rsvp.id),
+      }),
+    );
     return true;
   }
 

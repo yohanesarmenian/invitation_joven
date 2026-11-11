@@ -350,6 +350,306 @@ afterAll(async () => {
 });
 
 describe("PublicRsvpService", () => {
+  it("records effective changes atomically, skips current-version no-ops, and keeps stale duplicates conflicting", async () => {
+    const fixture = await createFixture();
+    const first = await service.submitPublicRsvp(acceptedCommand(fixture));
+    const firstRow = await getRsvp(fixture.invitationId);
+    expect(firstRow).not.toBeNull();
+    const noOp = await service.submitPublicRsvp(
+      acceptedCommand(fixture, {
+        expectedVersion: 1,
+        eventSelections: [
+          {
+            eventId: fixture.eventId,
+            attending: true,
+            expectedAttendeeCount: 1,
+          },
+          {
+            eventId: fixture.secondEventId,
+            attending: false,
+            expectedAttendeeCount: 0,
+          },
+        ],
+      }),
+    );
+    expect(noOp).toEqual(first);
+    expect(await getRsvp(fixture.invitationId)).toEqual(firstRow);
+    await service.submitPublicRsvp(
+      acceptedCommand(fixture, {
+        expectedVersion: 1,
+        dietaryNotes: "Vegetarian",
+      }),
+    );
+    await expectDomainError(
+      service.submitPublicRsvp(
+        acceptedCommand(fixture, { expectedVersion: 1 }),
+      ),
+      "RSVP_VERSION_CONFLICT",
+    );
+    const history = await prisma.rsvpChangeEvent.findMany({
+      where: { invitationId: fixture.invitationId },
+      orderBy: { revision: "asc" },
+    });
+    expect(history).toHaveLength(2);
+    expect(history[0]).toMatchObject({
+      action: "INITIAL_SUBMISSION",
+      actorCategory: "GUEST_LINK",
+      actorAdminUserId: null,
+      revision: 1,
+      previousValues: null,
+    });
+    expect(history[1]).toMatchObject({
+      action: "GUEST_UPDATE",
+      revision: 2,
+      previousValues: { dietaryNotes: "No seafood" },
+      updatedValues: { dietaryNotes: "Vegetarian" },
+    });
+    expect(history[1]!.changes).toContainEqual({
+      field: "dietaryNotes",
+      label: "Dietary requirements",
+      before: "No seafood",
+      after: "Vegetarian",
+    });
+    expect(history[0]!.createdAt).toBeInstanceOf(Date);
+    const serialized = JSON.stringify(history);
+    expect(serialized).not.toMatch(
+      /publicCredential|qrPayload|tokenHash|sessionToken|password/,
+    );
+    expect(serialized.includes(fixture.credential)).toBe(false);
+    expect(serialized.includes(first.checkinPass!.qrPayload)).toBe(false);
+    const publicState = await service.retrievePublicRsvp(fixture.credential);
+    expect(publicState).toMatchObject({
+      canEdit: true,
+      editBlockedReason: null,
+    });
+    expect(Object.keys(publicState).sort()).toEqual([
+      "canEdit",
+      "checkinPass",
+      "editBlockedReason",
+      "rsvp",
+    ]);
+    currentTime = new Date(FUTURE_DEADLINE.getTime() + 1);
+    expect(await service.retrievePublicRsvp(fixture.credential)).toMatchObject({
+      canEdit: false,
+      editBlockedReason: "DEADLINE_PASSED",
+    });
+  });
+
+  it("retains OWNER identity and reason in history after a later guest update", async () => {
+    const fixture = await createFixture();
+    const owner = await prisma.adminUser.create({
+      data: {
+        email: `history-${randomUUID()}@example.test`,
+        passwordHash: "synthetic-unusable-hash",
+        role: "OWNER",
+      },
+    });
+    try {
+      const command = acceptedCommand(fixture);
+      await service.submitAdminRsvpOverride({
+        ...command,
+        invitationId: fixture.invitationId,
+        submittedByAdminUserId: owner.id,
+        overrideReason: "Guest requested reception assistance",
+      });
+      await service.submitAdminRsvpOverride({
+        ...command,
+        expectedVersion: 1,
+        invitationId: fixture.invitationId,
+        submittedByAdminUserId: owner.id,
+        overrideReason: "Guest requested reception assistance",
+      });
+      expect(
+        await prisma.rsvpChangeEvent.count({
+          where: { invitationId: fixture.invitationId },
+        }),
+      ).toBe(1);
+      await service.submitPublicRsvp({
+        ...command,
+        expectedVersion: 1,
+        dietaryNotes: "Vegetarian",
+      });
+      const history = await prisma.rsvpChangeEvent.findMany({
+        where: { invitationId: fixture.invitationId },
+        orderBy: { revision: "asc" },
+      });
+      expect(history[0]).toMatchObject({
+        action: "OWNER_OVERRIDE",
+        actorCategory: "ADMIN",
+        actorRole: "OWNER",
+        actorAdminUserId: owner.id,
+        overrideReason: "Guest requested reception assistance",
+      });
+      expect(history[1]).toMatchObject({
+        action: "GUEST_UPDATE",
+        previousValues: { submittedByAdminUserId: owner.id },
+        updatedValues: { submittedByAdminUserId: null, overrideReason: null },
+      });
+    } finally {
+      await cleanupFixtures();
+      await prisma.adminUser.delete({ where: { id: owner.id } });
+    }
+  });
+
+  it("rolls back RSVP, pass creation and revocation when PostgreSQL rejects an audit insert", async () => {
+    const fixture = await createFixture();
+    const suffix = randomUUID().replaceAll("-", "");
+    const name = `p4b_reject_${suffix}`;
+    // A fixture-scoped database failure exercises the actual transaction, not a mocked Prisma method.
+    await prisma.$executeRawUnsafe(
+      `CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.invitation_id = '${fixture.invitationId}'::uuid THEN RAISE EXCEPTION 'Synthetic audit failure'; END IF; RETURN NEW; END $$`,
+    );
+    const install = () =>
+      prisma.$executeRawUnsafe(
+        `CREATE TRIGGER ${name} BEFORE INSERT ON rsvp_change_events FOR EACH ROW EXECUTE FUNCTION ${name}()`,
+      );
+    const remove = () =>
+      prisma.$executeRawUnsafe(
+        `DROP TRIGGER IF EXISTS ${name} ON rsvp_change_events`,
+      );
+    try {
+      await install();
+      await expect(
+        service.submitPublicRsvp(acceptedCommand(fixture)),
+      ).rejects.toThrow();
+      expect(
+        await prisma.rSVP.findUnique({
+          where: { invitationId: fixture.invitationId },
+        }),
+      ).toBeNull();
+      expect(await getActivePasses(fixture.invitationId)).toHaveLength(0);
+      await remove();
+      await service.submitPublicRsvp(acceptedCommand(fixture));
+      const before = await getRsvp(fixture.invitationId);
+      const passes = await getActivePasses(fixture.invitationId);
+      await install();
+      await expect(
+        service.submitPublicRsvp(
+          declinedCommand(fixture, { expectedVersion: 1 }),
+        ),
+      ).rejects.toThrow();
+      expect(await getRsvp(fixture.invitationId)).toEqual(before);
+      expect(await getActivePasses(fixture.invitationId)).toEqual(passes);
+      expect(
+        await prisma.rsvpChangeEvent.count({
+          where: { invitationId: fixture.invitationId },
+        }),
+      ).toBe(1);
+    } finally {
+      await remove();
+      await prisma.$executeRawUnsafe(`DROP FUNCTION ${name}()`);
+    }
+  });
+
+  it("reports checked-in editing as closed and rejects even a current-version no-op", async () => {
+    const fixture = await createFixture();
+    await service.submitPublicRsvp(acceptedCommand(fixture));
+    const owner = await prisma.adminUser.create({
+      data: {
+        email: `checkin-history-${randomUUID()}@example.test`,
+        passwordHash: "synthetic-unusable-hash",
+        role: "OWNER",
+      },
+    });
+    try {
+      await prisma.checkinRecord.create({
+        data: {
+          invitationId: fixture.invitationId,
+          eventId: fixture.eventId,
+          confirmedByAdminUserId: owner.id,
+          method: "MANUAL",
+          attendeeCount: 1,
+        },
+      });
+      expect(
+        await service.retrievePublicRsvp(fixture.credential),
+      ).toMatchObject({ canEdit: false, editBlockedReason: "CHECKED_IN" });
+      await expectDomainError(
+        service.submitPublicRsvp(
+          acceptedCommand(fixture, { expectedVersion: 1 }),
+        ),
+        "RSVP_LOCKED_AFTER_CHECKIN",
+      );
+      expect(
+        await prisma.rsvpChangeEvent.count({
+          where: { invitationId: fixture.invitationId },
+        }),
+      ).toBe(1);
+    } finally {
+      await cleanupFixtures();
+      await prisma.adminUser.delete({ where: { id: owner.id } });
+    }
+  });
+
+  it("blocks online identities from updating, deleting, truncating or cascading history", async () => {
+    const fixture = await createFixture();
+    await service.submitPublicRsvp(acceptedCommand(fixture));
+    const role = `p4b_audit_${randomUUID().replaceAll("-", "")}`;
+    const password = randomUUID();
+    const url = new URL(getDatabaseUrl());
+    url.username = role;
+    url.password = password;
+    await prisma.$executeRawUnsafe(
+      `CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE`,
+    );
+    const app = new PrismaClient({ adapter: new PrismaPg(url.toString()) });
+    try {
+      await prisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${role}`);
+      await prisma.$executeRawUnsafe(
+        `GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO ${role}`,
+      );
+      expect(
+        await app.rsvpChangeEvent.count({
+          where: { invitationId: fixture.invitationId },
+        }),
+      ).toBe(1);
+      await expect(
+        app.rsvpChangeEvent.updateMany({
+          where: { invitationId: fixture.invitationId },
+          data: { action: "REWRITE" },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        app.rsvpChangeEvent.deleteMany({
+          where: { invitationId: fixture.invitationId },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        app.$executeRawUnsafe("TRUNCATE rsvp_change_events"),
+      ).rejects.toThrow();
+      // Delete passes first within the transaction so no other FK is the reason the cascade fails.
+      await expect(
+        app.$transaction(async (tx) => {
+          await tx.checkinPass.deleteMany({
+            where: { invitationId: fixture.invitationId },
+          });
+          await tx.rSVP.delete({
+            where: { invitationId: fixture.invitationId },
+          });
+        }),
+      ).rejects.toThrow(/append-only/);
+      const online = new PublicRsvpService(
+        app as unknown as PrismaService,
+        credentialService,
+        () => currentTime,
+      );
+      await online.submitPublicRsvp(
+        acceptedCommand(fixture, {
+          expectedVersion: 1,
+          dietaryNotes: "Online append",
+        }),
+      );
+      expect(
+        await app.rsvpChangeEvent.count({
+          where: { invitationId: fixture.invitationId },
+        }),
+      ).toBe(2);
+    } finally {
+      await app.$disconnect();
+      await prisma.$executeRawUnsafe(`DROP OWNED BY ${role}`);
+      await prisma.$executeRawUnsafe(`DROP ROLE ${role}`);
+    }
+  });
   it("creates a first ACCEPTED RSVP with version 1 and one active pass", async () => {
     const fixture = await createFixture();
 
@@ -382,9 +682,9 @@ describe("PublicRsvpService", () => {
     expect(pass?.tokenHash).not.toBe(fixture.credential);
     expect(result.checkinPass?.qrPayload).toMatch(DERIVED_CREDENTIAL_PATTERN);
     expect(result.checkinPass?.qrPayload).toBe(deriveCheckinCredential(pass!));
-    expect(credentialService.hashCredential(result.checkinPass!.qrPayload)).toBe(
-      pass?.tokenHash,
-    );
+    expect(
+      credentialService.hashCredential(result.checkinPass!.qrPayload),
+    ).toBe(pass?.tokenHash);
     expect(JSON.stringify(result)).not.toContain("tokenHash");
   });
 
@@ -400,9 +700,9 @@ describe("PublicRsvpService", () => {
       where: { id: pass!.id },
     });
 
-    await expect(service.retrievePublicRsvp(fixture.credential)).rejects.toThrow(
-      "Check-in pass credential verification failed.",
-    );
+    await expect(
+      service.retrievePublicRsvp(fixture.credential),
+    ).rejects.toThrow("Check-in pass credential verification failed.");
     await expect(
       service.submitPublicRsvp(
         acceptedCommand(fixture, {
@@ -426,7 +726,9 @@ describe("PublicRsvpService", () => {
       status: originalRsvp.status,
       version: originalRsvp.version,
     });
-    expect(rsvp.eventSelections).toHaveLength(originalRsvp.eventSelections.length);
+    expect(rsvp.eventSelections).toHaveLength(
+      originalRsvp.eventSelections.length,
+    );
     expect(String(corruptedTokenHash)).not.toContain(fixture.credential);
   });
 
@@ -474,7 +776,9 @@ describe("PublicRsvpService", () => {
 
   it("updates an existing RSVP with exact version and preserves guestNote", async () => {
     const fixture = await createFixture();
-    const firstResult = await service.submitPublicRsvp(acceptedCommand(fixture));
+    const firstResult = await service.submitPublicRsvp(
+      acceptedCommand(fixture),
+    );
     const [firstPass] = await getActivePasses(fixture.invitationId);
     const firstRsvp = await getRsvp(fixture.invitationId);
     await prisma.rSVP.update({
@@ -493,7 +797,9 @@ describe("PublicRsvpService", () => {
 
     expect(result.rsvp.version).toBe(2);
     expect(result.rsvp.dietaryNotes).toBe("Vegetarian");
-    expect(result.checkinPass?.qrPayload).toBe(firstResult.checkinPass?.qrPayload);
+    expect(result.checkinPass?.qrPayload).toBe(
+      firstResult.checkinPass?.qrPayload,
+    );
     expect(activePass?.id).toBe(firstPass?.id);
     expect(rsvp.version).toBe(2);
     expect(rsvp.guestNote).toBe("Please keep this note.");
@@ -729,7 +1035,9 @@ describe("PublicRsvpService", () => {
 
   it("retains pass on accepted update, revokes on decline, and issues a new pass on re-accept", async () => {
     const fixture = await createFixture();
-    const firstResult = await service.submitPublicRsvp(acceptedCommand(fixture));
+    const firstResult = await service.submitPublicRsvp(
+      acceptedCommand(fixture),
+    );
     const [firstPass] = await getActivePasses(fixture.invitationId);
     const firstRsvp = await getRsvp(fixture.invitationId);
     await prisma.rSVP.update({
@@ -740,6 +1048,7 @@ describe("PublicRsvpService", () => {
     const updateResult = await service.submitPublicRsvp(
       acceptedCommand(fixture, {
         expectedVersion: 1,
+        dietaryNotes: "Updated dietary preference",
       }),
     );
     expect(updateResult.checkinPass?.qrPayload).toBe(
@@ -761,7 +1070,9 @@ describe("PublicRsvpService", () => {
     expect(rsvp.eventSelections).toHaveLength(0);
     expect(rsvp.dietaryNotes).toBeNull();
     expect(rsvp.guestNote).toBe("survives decline");
-    await expect(service.retrievePublicRsvp(fixture.credential)).resolves.toMatchObject({
+    await expect(
+      service.retrievePublicRsvp(fixture.credential),
+    ).resolves.toMatchObject({
       checkinPass: null,
       rsvp: {
         status: RSVPStatus.DECLINED,
@@ -804,7 +1115,7 @@ describe("PublicRsvpService", () => {
       }),
     );
     rsvp = await getRsvp(fixture.invitationId);
-    expect(rsvp.version).toBe(6);
+    expect(rsvp.version).toBe(5); // Repeating the current saved decline is a no-op.
     expect(await getActivePasses(fixture.invitationId)).toHaveLength(0);
   });
 
@@ -841,10 +1152,12 @@ describe("PublicRsvpService", () => {
       ),
     ]);
 
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(
-      1,
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(results.map(getRejectedDomainCode)).toContain(
+      "RSVP_VERSION_CONFLICT",
     );
-    expect(results.map(getRejectedDomainCode)).toContain("RSVP_VERSION_CONFLICT");
 
     const rsvp = await getRsvp(fixture.invitationId);
     expect(rsvp.version).toBe(1);
@@ -870,10 +1183,12 @@ describe("PublicRsvpService", () => {
       ),
     ]);
 
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(
-      1,
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(results.map(getRejectedDomainCode)).toContain(
+      "RSVP_VERSION_CONFLICT",
     );
-    expect(results.map(getRejectedDomainCode)).toContain("RSVP_VERSION_CONFLICT");
 
     const rsvp = await getRsvp(fixture.invitationId);
     expect(rsvp.version).toBe(2);

@@ -18,7 +18,7 @@ export function retrievePublicRsvp(
   publicCredential: string,
   options: RetrievePublicInvitationOptions = {},
 ): Promise<RsvpResult<PublicRsvpReadResponse>> {
-  return requestRsvp(publicCredential, undefined, options);
+  return requestRsvp(publicCredential, undefined, options, isRsvpReadResponse);
 }
 
 export async function submitPublicRsvp(
@@ -26,20 +26,26 @@ export async function submitPublicRsvp(
   body: SubmitPublicRsvpRequest,
   options: RetrievePublicInvitationOptions = {},
 ): Promise<RsvpResult<PublicRsvpMutationResponse>> {
-  const result = await requestRsvp(publicCredential, body, options);
+  const result = await requestRsvp(
+    publicCredential,
+    body,
+    options,
+    isRsvpResponse,
+  );
   if (result.status === "error") return result;
   if (result.data.rsvp === null) return invalidResponse(200);
   return {
     status: "success",
-    data: { ...result.data, rsvp: result.data.rsvp },
+    data: { checkinPass: result.data.checkinPass, rsvp: result.data.rsvp },
   };
 }
 
-async function requestRsvp(
+async function requestRsvp<T>(
   publicCredential: string,
   body: SubmitPublicRsvpRequest | undefined,
   options: RetrievePublicInvitationOptions,
-): Promise<RsvpResult<PublicRsvpReadResponse>> {
+  validate: (value: unknown) => value is T,
+): Promise<RsvpResult<T>> {
   const client = createInvitationApiClient({
     baseUrl: getInvitationApiBaseUrl(options.env),
     fetch: options.fetch,
@@ -70,8 +76,7 @@ async function requestRsvp(
         },
       };
     }
-    if (!isRsvpResponse(result.data))
-      return invalidResponse(result.response.status);
+    if (!validate(result.data)) return invalidResponse(result.response.status);
     return { status: "success", data: result.data };
   } catch {
     return {
@@ -94,7 +99,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 // Validate the generated success shape before an absent/broken response could
 // be mistaken for a new RSVP and submitted with expectedVersion: null.
-function isRsvpResponse(value: unknown): value is PublicRsvpReadResponse {
+function isRsvpReadResponse(value: unknown): value is PublicRsvpReadResponse {
+  if (!isRecord(value)) return false;
+  const validPolicy =
+    (value.canEdit === true && value.editBlockedReason === null) ||
+    (value.canEdit === false &&
+      (value.editBlockedReason === "DEADLINE_PASSED" ||
+        value.editBlockedReason === "CHECKED_IN"));
+  return validPolicy && isRsvpResponse(value);
+}
+
+function isRsvpResponse(
+  value: unknown,
+): value is Pick<PublicRsvpReadResponse, "rsvp" | "checkinPass"> {
   if (!isRecord(value)) return false;
   const { rsvp, checkinPass } = value;
   if (

@@ -83,8 +83,10 @@ describe("RSVP result notices", () => {
   ] satisfies RsvpFailure[])("safely maps unexpected failure %#", (failure) => {
     const notice = rsvpFailureNotice(failure);
     expect(notice.tone).toBe("error");
+    if (failure.httpStatus !== 400)
+      expect(notice.title).toBe("We couldn’t confirm the save");
     expect(notice.recovery).toBe(
-      failure.httpStatus === 400 ? "correct" : "retry",
+      failure.httpStatus === 400 ? "correct" : "reload",
     );
     expect(JSON.stringify(notice)).not.toContain(failure.code ?? "__unused__");
   });

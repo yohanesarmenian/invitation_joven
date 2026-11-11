@@ -71,16 +71,28 @@ async function openInvitation(page: Page, publicCredential: string) {
     "content",
   );
   await expect(page.locator(".invitation-opening-content")).toBeFocused();
-  await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
+  await expect(page.locator(".public-rsvp-form")).toBeVisible();
 }
 
+async function editSaved(page: Page) {
+  await page.getByRole("button", { name: "Edit RSVP", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Save Changes", exact: true }),
+  ).toBeVisible();
+}
 async function acceptInBrowser(page: Page) {
+  if (
+    await page.getByRole("button", { name: "Edit RSVP", exact: true }).count()
+  )
+    await editSaved(page);
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
   await page
     .getByRole("checkbox", { name: SMOKE_INVITEE, exact: true })
     .check();
   await page.getByRole("checkbox", { name: SMOKE_EVENT, exact: true }).check();
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
 }
 
 function passRegion(page: Page) {
@@ -289,11 +301,14 @@ test("real backend: an accepted RSVP renders the canonical qrPayload and keeps i
   await expectNoPrivatePassFields(page, state, afterAccept.activePassIds);
   await expectNoBrowserPersistence(page, rendered);
 
+  await editSaved(page);
   // An accepted update must retain the same pass and the same credential.
   await page
     .getByLabel(/Dietary requirements/)
     .fill("Smoke smoke-free household");
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   await expect(
     page.getByRole("status").filter({ hasText: "Thank you for your RSVP" }),
   ).toBeVisible();
@@ -329,9 +344,12 @@ test("real backend: decline removes the pass and reaccept issues a different cre
 
   const firstPassId = afterAccept.activePassIds[0]!;
 
+  await editSaved(page);
   // Decline.
   await page.getByRole("radio", { name: "Regretfully Decline" }).check();
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   await expect(
     page
       .getByRole("status")
@@ -355,13 +373,16 @@ test("real backend: decline removes the pass and reaccept issues a different cre
 
   expect(declinedCanonical.checkinPass).toBeNull();
 
+  await editSaved(page);
   // Reaccept: a new pass with a new credential; the revoked one stays revoked.
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
   await page
     .getByRole("checkbox", { name: SMOKE_INVITEE, exact: true })
     .check();
   await page.getByRole("checkbox", { name: SMOKE_EVENT, exact: true }).check();
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   await expect(
     page.getByRole("status").filter({ hasText: "Thank you for your RSVP" }),
   ).toBeVisible();
@@ -411,6 +432,7 @@ test("real backend: a stale version conflict suspends the pass until the latest 
 
   expect(passState().rsvpVersion).toBe(1);
 
+  await editSaved(page);
   // Advance the version out of band through the real API while the browser
   // still holds the version 1 it loaded. The external write itself withdraws
   // the RSVP, so the "latest" state the browser can recover to has no pass.
@@ -433,7 +455,9 @@ test("real backend: a stale version conflict suspends the pass until the latest 
   expect(passState().rsvpVersion).toBe(2);
 
   // The browser still holds version 1, so this submit is stale.
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
 
   const conflict = page.getByRole("button", { name: "Reload latest RSVP" });
 
@@ -485,14 +509,29 @@ test("real backend: a past deadline keeps the active pass and blocks further mut
 
     expect(sameSecret(reloaded, payload)).toBe(true);
 
-    await page
-      .getByLabel(/Dietary requirements/)
-      .fill("Attempted after the deadline");
-    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await expect(
+      page.getByRole("button", { name: "Edit RSVP", exact: true }),
+    ).toHaveCount(0);
+    const denied = await fetch(
+      `${REAL_API_BASE_URL}/api/public/invitations/${state.publicCredential}/rsvp`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          status: "DECLINED",
+          expectedVersion: 1,
+          attendees: [],
+          eventSelections: [],
+          dietaryNotes: null,
+        }),
+      },
+    );
+    expect(denied.status).toBe(422);
+    expect((await denied.json()).error.code).toBe("RSVP_DEADLINE_PASSED");
 
     await expect(
       page
-        .getByRole("alert")
+        .getByRole("status")
         .filter({ hasText: "The reply deadline has passed" }),
     ).toBeVisible();
 
@@ -628,6 +667,7 @@ test("real backend: the guest QR is locally rendered, square, and quiet-zoned", 
     passRegion(page).getByText("Your acceptance is saved.", { exact: false }),
   ).toBeVisible();
 
+  await editSaved(page);
   // The RSVP controls stay keyboard operable with the pass present.
   await page.getByRole("radio", { name: "Joyfully Accept" }).focus();
   await page.keyboard.press("Tab");
@@ -666,7 +706,9 @@ test("real backend: the guest pass fits every supported viewport without overflo
     await expect(region).toHaveCount(1);
     await expect(region.getByRole("img", { name: QR_NAME })).toBeVisible();
     await expect(passCode(page)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Send RSVP" })).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "Edit RSVP", exact: true }),
+    ).toBeEnabled();
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
@@ -864,7 +906,7 @@ test("real backend: the message section renders a real form and no placeholder",
 
   await openMessageForm(page, state.publicCredential);
 
-  await expect(page.locator("textarea")).toHaveCount(1);
+  await expect(guestMessageForm(page).locator("textarea")).toHaveCount(1);
   await expect(page.getByLabel(/Your name/)).toBeVisible();
   await expect(sendButton(page)).toBeEnabled();
   await expect(
@@ -897,7 +939,9 @@ test("real backend: a named multiline message is persisted and confirmed in the 
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
   ).toBeVisible();
   await expect(
-    page.getByText("Thank you for sharing your wishes with us."),
+    page.getByText(
+      "Thank you for your message. The bride and groom look forward to reading all your warm wishes after the celebration.",
+    ),
   ).toBeVisible();
 
   // No route change: the confirmation is an in-place state on the same page.
@@ -1174,7 +1218,9 @@ test("real backend: guest messages stay available after a decline and past the R
 
   await openMessageForm(page, state.publicCredential);
   await page.getByRole("radio", { name: "Regretfully Decline" }).check();
-  await page.getByRole("button", { name: "Send RSVP" }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .click();
   await expect(
     page
       .getByRole("status")
@@ -1206,13 +1252,28 @@ test("real backend: guest messages stay available after a decline and past the R
   try {
     // A fresh load past the cutoff. The RSVP controls are still closed...
     await openMessageForm(page, state.publicCredential);
-    await page
-      .getByLabel(/Dietary requirements/)
-      .fill("Attempted after the deadline");
-    await page.getByRole("button", { name: "Send RSVP" }).click();
+    await expect(
+      page.getByRole("button", { name: "Edit RSVP", exact: true }),
+    ).toHaveCount(0);
+    const denied = await fetch(
+      `${REAL_API_BASE_URL}/api/public/invitations/${state.publicCredential}/rsvp`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          status: "DECLINED",
+          expectedVersion: 1,
+          attendees: [],
+          eventSelections: [],
+          dietaryNotes: null,
+        }),
+      },
+    );
+    expect(denied.status).toBe(422);
+    expect((await denied.json()).error.code).toBe("RSVP_DEADLINE_PASSED");
     await expect(
       page
-        .getByRole("alert")
+        .getByRole("status")
         .filter({ hasText: "The reply deadline has passed" }),
     ).toBeVisible();
 
@@ -1405,7 +1466,7 @@ test("real backend: the message form and confirmation fit every supported viewpo
       page.getByRole("heading", { name: GUEST_MESSAGE_HEADING }),
     ).toBeVisible();
     await expect(page.getByLabel(/Your name/)).toBeVisible();
-    await expect(page.locator("textarea")).toBeVisible();
+    await expect(guestMessageForm(page).locator("textarea")).toBeVisible();
     await expect(sendButton(page)).toBeEnabled();
 
     expect(

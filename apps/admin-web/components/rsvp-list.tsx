@@ -84,7 +84,9 @@ export function RsvpList({
                 : "Invitations without an RSVP row stay in the invitation list and are not synthesized here."}
           </p>
           <Link
-            href={page.totalItems > 0 || filtered ? rsvpListHref(query, 1) : "/"}
+            href={
+              page.totalItems > 0 || filtered ? rsvpListHref(query, 1) : "/"
+            }
             prefetch={false}
           >
             {page.totalItems > 0 || filtered
@@ -135,7 +137,7 @@ export function RsvpList({
                     </th>
                     <td>
                       <span className="status-label">
-                        {statusLabel(item.status)} v{item.version}
+                        {statusLabel(item.status)}
                       </span>
                     </td>
                     <td>{item.attendeeCount}</td>

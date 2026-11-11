@@ -45,6 +45,9 @@ export function PublicRsvpForm({
     initialResult.status === "success" ? initialResult.data : null,
   );
   const canonical = canonicalResponse?.rsvp ?? null;
+  const responded =
+    canonical?.status === "ACCEPTED" || canonical?.status === "DECLINED";
+  const [editing, setEditing] = useState(false);
   // Keep a stale pass suspended even if a later failed reload changes the notice.
   const [passNeedsReload, setPassNeedsReload] = useState(false);
   const [draft, setDraft] = useState(() =>
@@ -64,7 +67,7 @@ export function PublicRsvpForm({
   );
   // A failed reload must not remove a conflict's submission lock.
   const [lock, setLock] = useState<
-    "conflict" | "closed" | "unavailable" | null
+    "conflict" | "closed" | "unavailable" | "uncertain" | null
   >(null);
   const inFlight = useRef(false);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -74,7 +77,10 @@ export function PublicRsvpForm({
   const eventsRef = useRef<HTMLFieldSetElement>(null);
   const total = attendeeTotal(draft);
   const pending = operation !== null;
-  const terminal = lock === "closed" || lock === "unavailable";
+  const terminal =
+    lock === "closed" ||
+    lock === "unavailable" ||
+    canonicalResponse?.canEdit === false;
   const notice: RsvpNotice | null = validation
     ? {
         tone: "error",
@@ -88,7 +94,11 @@ export function PublicRsvpForm({
         : rsvpFailureNotice(failure.error)
       : null;
   const submitBlocked =
-    pending || !loaded || lock !== null || notice?.recovery === "correct";
+    pending ||
+    terminal ||
+    !loaded ||
+    lock !== null ||
+    notice?.recovery === "correct";
   const savedNotice =
     feedback === "saved" &&
     (canonical?.status === "ACCEPTED" || canonical?.status === "DECLINED")
@@ -97,7 +107,8 @@ export function PublicRsvpForm({
 
   useEffect(() => {
     if (failure || validation) errorRef.current?.focus();
-    else if (feedback === "reloaded") statusRef.current?.focus();
+    else if (feedback === "reloaded" || feedback === "saved")
+      statusRef.current?.focus();
   }, [failure, validation, feedback]);
 
   function edit(next: RsvpDraft, compositionChanged = false) {
@@ -110,6 +121,10 @@ export function PublicRsvpForm({
 
   function recordFailure(error: RsvpFailure, source: "submit" | "reload") {
     setFailure({ error, source });
+    if (source === "submit" && rsvpFailureNotice(error).recovery === "reload") {
+      setPassNeedsReload(true);
+      setLock("uncertain");
+    }
     if (error.kind !== "api") return;
     if (
       (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT") ||
@@ -118,14 +133,18 @@ export function PublicRsvpForm({
       setPassNeedsReload(true);
     if (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT")
       setLock("conflict");
-    if (error.httpStatus === 422 && error.code === "RSVP_DEADLINE_PASSED")
+    if (
+      error.httpStatus === 422 &&
+      (error.code === "RSVP_DEADLINE_PASSED" ||
+        error.code === "RSVP_LOCKED_AFTER_CHECKIN")
+    )
       setLock("closed");
     if (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
       setLock("unavailable");
   }
 
-  async function reload() {
-    if (inFlight.current || lock === "closed") return;
+  async function reload(forEditing = false) {
+    if (inFlight.current) return;
     inFlight.current = true;
     setOperation("reload");
     setFeedback(null);
@@ -135,6 +154,7 @@ export function PublicRsvpForm({
       if (result.status === "error") recordFailure(result.error, "reload");
       else {
         setCanonical(result.data);
+        setEditing(forEditing && result.data.canEdit);
         setPassNeedsReload(false);
         setDraft(createRsvpDraft(invitation, result.data.rsvp));
         setLoaded(true);
@@ -184,7 +204,10 @@ export function PublicRsvpForm({
       if (result.status === "error") {
         recordFailure(result.error, "submit");
       } else {
-        setCanonical(result.data);
+        setCanonical((current) =>
+          current ? { ...current, ...result.data } : null,
+        );
+        setEditing(false);
         setDraft(createRsvpDraft(invitation, result.data.rsvp));
         setFeedback("saved");
       }
@@ -205,7 +228,7 @@ export function PublicRsvpForm({
       id={`${id}-error`}
       noticeRef={errorRef}
       pending={pending}
-      onReload={reload}
+      onReload={() => void reload()}
       onReview={review}
     />
   ) : null;
@@ -247,6 +270,81 @@ export function PublicRsvpForm({
     );
   }
 
+  const restriction =
+    canonicalResponse?.editBlockedReason === "CHECKED_IN"
+      ? "Your household has checked in. RSVP changes are now closed. Reception staff can assist you."
+      : canonicalResponse?.editBlockedReason === "DEADLINE_PASSED"
+        ? "The reply deadline has passed. Your saved response remains available."
+        : null;
+
+  if (responded && !editing) {
+    return (
+      <section
+        className="public-rsvp-form rsvp-confirmation"
+        aria-label="Your RSVP confirmation"
+        aria-busy={pending}
+      >
+        {errorNotice}
+        {statusNotice}
+        <h3>
+          {canonical.status === "ACCEPTED"
+            ? "Attendance Confirmed"
+            : "Unable to Attend"}
+        </h3>
+        {canonical.status === "ACCEPTED" ? (
+          <>
+            <p>Expected guests: {canonical.attendeeQuantityTotal}</p>
+            <ul>
+              {canonical.attendees.map((attendee, index) => (
+                <li key={index}>
+                  {attendee.type === "NAMED_INVITEE"
+                    ? (invitation.invitees.find(
+                        (item) => item.id === attendee.inviteeId,
+                      )?.fullName ?? "Named guest")
+                    : attendee.type === "PLUS_ONE"
+                      ? "Plus-one"
+                      : "Additional children"}{" "}
+                  × {attendee.quantity}
+                </li>
+              ))}
+            </ul>
+            <ul>
+              {canonical.eventSelections
+                .filter((item) => item.attending)
+                .map((item) => (
+                  <li key={item.eventId}>
+                    {invitation.events.find(
+                      (event) => event.id === item.eventId,
+                    )?.name ?? "Wedding event"}
+                    : {item.expectedAttendeeCount} guests
+                  </li>
+                ))}
+            </ul>
+            {canonical.dietaryNotes ? (
+              <p>Dietary requirements: {canonical.dietaryNotes}</p>
+            ) : null}
+            {!passNeedsReload ? (
+              <GuestCheckinPass pass={canonicalResponse?.checkinPass ?? null} />
+            ) : null}
+          </>
+        ) : (
+          <p>Your response has been saved as not attending.</p>
+        )}
+        {restriction ? <p role="status">{restriction}</p> : null}
+        {canonicalResponse?.canEdit && lock === null ? (
+          <button
+            type="button"
+            className="rsvp-submit"
+            disabled={pending}
+            onClick={() => void reload(true)}
+          >
+            Edit RSVP
+          </button>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <form
       className="public-rsvp-form"
@@ -258,6 +356,14 @@ export function PublicRsvpForm({
     >
       {errorNotice}
       {statusNotice}
+      {restriction ? <p role="status">{restriction}</p> : null}
+      {!responded ? (
+        <p>
+          Please confirm your attendance to receive your personal check-in QR
+          code.
+        </p>
+      ) : null}
+      <p>If your QR code cannot be read, reception staff can assist you.</p>
       {!passNeedsReload && canonical?.status === "ACCEPTED" ? (
         <GuestCheckinPass pass={canonicalResponse?.checkinPass ?? null} />
       ) : null}
@@ -530,8 +636,25 @@ export function PublicRsvpForm({
             ? "Saving…"
             : notice?.recovery === "retry"
               ? "Try again"
-              : "Send RSVP"}
+              : editing
+                ? "Save Changes"
+                : "Submit RSVP"}
         </button>
+        {editing ? (
+          <button
+            type="button"
+            className="rsvp-submit rsvp-cancel"
+            disabled={pending}
+            onClick={() => {
+              setDraft(createRsvpDraft(invitation, canonical));
+              setEditing(false);
+              setValidation(null);
+              setFeedback(null);
+            }}
+          >
+            Cancel
+          </button>
+        ) : null}
       </fieldset>
     </form>
   );

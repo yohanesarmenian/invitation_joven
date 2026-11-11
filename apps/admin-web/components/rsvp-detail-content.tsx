@@ -39,6 +39,7 @@ export async function RsvpDetailContent({
       invitation={
         invitation.kind === "ready" ? invitation.data.invitation : undefined
       }
+      history={result.data.history}
       rsvp={result.data.rsvp}
     />
   );

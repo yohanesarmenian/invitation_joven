@@ -24,8 +24,8 @@ export function GuestCheckinPass({
           with you.
         </p>
         <p className="figma-pass-instruction">
-          Please save or screenshot this QR code/code. You may present it upon
-          arrival at the venue.
+          Your check-in QR code is ready. Please present it at the reception
+          desk. If your QR code cannot be read, reception staff can assist you.
         </p>
         <QRCodeSVG
           value={pass.qrPayload}

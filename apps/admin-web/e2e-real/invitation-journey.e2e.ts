@@ -39,7 +39,9 @@ async function accept(page: Page) {
   await page
     .getByLabel("Dietary requirements (optional)")
     .fill("Synthetic no seafood");
-  await page.getByRole("button", { name: "Send RSVP", exact: true }).click();
+  await page
+    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/, exact: true })
+    .click();
   await expect(page.locator(".checkin-code")).toBeVisible();
 }
 async function staffLogin(page: Page) {
@@ -200,25 +202,38 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
     expect(accepted.eventSelections[0]?.expectedAttendeeCount).toBe(3);
     expect(accepted.dietaryNotes).toBe("Synthetic no seafood");
 
+    await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
     // Accepted edits keep the active pass; decline revokes it; reaccept issues a new pass.
     await guest
       .getByLabel("Dietary requirements (optional)")
       .fill("Updated synthetic note");
-    await guest.getByRole("button", { name: "Send RSVP", exact: true }).click();
+    await guest
+      .getByRole("button", {
+        name: /^(Submit RSVP|Save Changes)$/,
+        exact: true,
+      })
+      .click();
     await expect
       .poll(async () => (await readRsvp()).dietaryNotes)
       .toBe("Updated synthetic note");
     expect(
       (await guest.locator(".checkin-code").innerText()).trim() === firstCode,
     ).toBe(true);
+    await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
     await guest.getByRole("radio", { name: "Regretfully Decline" }).check();
-    await guest.getByRole("button", { name: "Send RSVP", exact: true }).click();
+    await guest
+      .getByRole("button", {
+        name: /^(Submit RSVP|Save Changes)$/,
+        exact: true,
+      })
+      .click();
     await expect(guest.locator(".checkin-code")).toHaveCount(0);
     expect(
       await fixture.prisma.checkinPass.count({
         where: { invitationId: household.id, status: "ACTIVE" },
       }),
     ).toBe(0);
+    await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
     await accept(guest);
     const qr = (await guest.locator(".checkin-code").innerText()).trim();
     expect(qr !== firstCode).toBe(true);
@@ -536,6 +551,10 @@ test("OWNER create form persists one invitation and its WIB deadline, then the m
     expect(saved.status).toBe("ACCEPTED");
     expect(saved.dietaryNotes).toBe("Synthetic no seafood");
     await open(guest, new URL(url).pathname.split("/").at(-1)!);
+    await expect(
+      guest.getByRole("heading", { name: "Attendance Confirmed", exact: true }),
+    ).toBeVisible();
+    await expect(guest.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
     await expect(guest.locator(".checkin-code")).toBeVisible();
     expect(
       await fixture.prisma.rSVP.findUniqueOrThrow({
@@ -547,6 +566,23 @@ test("OWNER create form persists one invitation and its WIB deadline, then the m
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+    await page.goto(`/rsvps/${saved.id}`);
+    const history = page.getByRole("region", {
+      name: "RSVP Change History",
+      exact: true,
+    });
+    await expect(
+      history.getByRole("heading", {
+        name: "Initial RSVP submission",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(history).toContainText("Guest-link holder");
+    await expect(history).toContainText("WIB");
+    await expect(history).toContainText("Synthetic no seafood");
+    await expect(guest.locator("body")).not.toContainText(
+      "RSVP Change History",
+    );
   } finally {
     await guestContext.close();
     const ids = (
