@@ -1,7 +1,7 @@
 {
   "repository": "yohanesarmenian/invitation_joven",
   "coolifyOrigin": "https://coolify.heyjo.my.id",
-  "coolifyVersion": "4.7.3",
+  "coolifyVersion": "4.7.5",
   "applicationUuid": "i1ny5d0qigqbvbybbabmzo7l",
   "serverUuid": "3uv2zzczy8tmtbedsqvunkay",
   "composeLocation": "/compose.production.yaml",
