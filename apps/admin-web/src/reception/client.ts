@@ -11,6 +11,11 @@ import {
 import { currentSession } from "../auth/browser-client";
 import { errorCode } from "../auth/auth-state";
 import { isUuid } from "../invitations/contract";
+import type {
+  WalkinRequest,
+  AttendanceActionRequest,
+  ReceptionActionReceipt,
+} from "@wedding-invitation/api-client/src/index";
 export type Result<T> =
   | { kind: "ok"; data: T }
   | { kind: "error"; code: string; csrfToken?: string }
@@ -66,6 +71,13 @@ export const isHousehold = (v: unknown): v is ReceptionDetail["household"] =>
   (v.rsvpVersion === null || Number.isSafeInteger(v.rsvpVersion)) &&
   typeof v.eligible === "boolean" &&
   typeof v.rsvpLocked === "boolean" &&
+  ["REGISTERED", "WALKIN"].includes(String(v.source)) &&
+  [
+    v.baseExpectedCount,
+    v.exceptionAllowance,
+    v.attendanceRevision,
+    v.unnamedCompanionAllowance,
+  ].every(count) &&
   [
     v.allowedCount,
     v.expectedCount,
@@ -83,7 +95,30 @@ export const isDetail = (v: unknown): v is ReceptionDetail =>
   safe(v) &&
   isHousehold(v.household) &&
   Array.isArray(v.arrivals) &&
-  v.arrivals.every(isArrival);
+  v.arrivals.every(isArrival) &&
+  Array.isArray(v.actions) &&
+  v.actions.every(
+    (a) =>
+      object(a) &&
+      isUuid(a.operationId) &&
+      ["WALKIN", "CORRECTION", "EXCEPTION"].includes(String(a.kind)) &&
+      Number.isSafeInteger(a.delta) &&
+      count(a.capacityDelta) &&
+      typeof a.reason === "string" &&
+      isUuid(a.operatorId) &&
+      typeof a.createdAt === "string",
+  ) &&
+  (v.registration === null ||
+    (object(v.registration) &&
+      isUuid(v.registration.id) &&
+      isUuid(v.registration.operationId) &&
+      typeof v.registration.leadName === "string" &&
+      typeof v.registration.affiliation === "string" &&
+      [
+        v.registration.companionCount,
+        v.registration.expectedCount,
+        v.registration.arrivingCount,
+      ].every(count)));
 const isSearch = (v: unknown): v is ReceptionSearch =>
   object(v) &&
   safe(v) &&
@@ -97,6 +132,12 @@ const isReceipt = (v: unknown): v is ReceptionReceipt =>
 const isOperation = (v: unknown): v is { arrival: ReceptionArrival | null } =>
   object(v) && safe(v) && (v.arrival === null || isArrival(v.arrival));
 const statsKeys = [
+  "walkinHouseholds",
+  "registeredExpectedGuests",
+  "walkinExpectedGuests",
+  "walkinArrivedGuests",
+  "correctionOperations",
+  "exceptionalGuests",
   "registeredHouseholds",
   "pendingHouseholds",
   "acceptedHouseholds",
@@ -117,6 +158,29 @@ const client = () =>
     cache: "no-store",
     redirect: "error",
   });
+const isActionReceipt = (v: unknown): v is ReceptionActionReceipt =>
+  object(v) &&
+  safe(v) &&
+  isUuid(v.operationId) &&
+  isUuid(v.invitationId) &&
+  isUuid(v.eventId) &&
+  isUuid(v.operatorId) &&
+  ["WALKIN", "CORRECTION", "EXCEPTION"].includes(String(v.kind)) &&
+  typeof v.displayName === "string" &&
+  typeof v.referenceCode === "string" &&
+  [v.arrivedCount, v.expectedCount, v.remainingCount, v.capacityDelta].every(
+    count,
+  ) &&
+  Number(v.arrivedCount) <= Number(v.expectedCount) &&
+  Number(v.remainingCount) ===
+    Number(v.expectedCount) - Number(v.arrivedCount) &&
+  Number.isSafeInteger(v.delta) &&
+  typeof v.confirmedAt === "string" &&
+  Number.isFinite(Date.parse(v.confirmedAt));
+const isActionStatus = (
+  v: unknown,
+): v is { receipt: ReceptionActionReceipt | null } =>
+  object(v) && safe(v) && (v.receipt === null || isActionReceipt(v.receipt));
 const unsafe = (csrf: string) => ({
   headers: { "X-CSRF-Token": csrf },
   signal: AbortSignal.timeout(20000),
@@ -147,7 +211,7 @@ async function run<T>(
           : {}),
       };
     }
-    if ([400, 403, 404, 409, 422].includes(response.status))
+    if ([400, 403, 404, 409, 422, 429].includes(response.status))
       return { kind: "error", code: errorCode(error) ?? "REJECTED" };
     return mutation
       ? { kind: "uncertain" }
@@ -213,4 +277,44 @@ export const statistics = (eventId: string) =>
         signal: AbortSignal.timeout(20000),
       }),
     isStats,
+  );
+export const registerWalkin = (body: WalkinRequest, csrf: string) =>
+  run(
+    () =>
+      client().POST("/api/admin/reception/walkins", { ...unsafe(csrf), body }),
+    isActionReceipt,
+    true,
+  );
+export const adjustAttendance = (
+  kind: "CORRECTION" | "EXCEPTION",
+  body: AttendanceActionRequest,
+  csrf: string,
+) =>
+  kind === "CORRECTION"
+    ? run(
+        () =>
+          client().POST("/api/admin/reception/corrections", {
+            ...unsafe(csrf),
+            body,
+          }),
+        isActionReceipt,
+        true,
+      )
+    : run(
+        () =>
+          client().POST("/api/admin/reception/exceptions", {
+            ...unsafe(csrf),
+            body,
+          }),
+        isActionReceipt,
+        true,
+      );
+export const actionStatus = (operationId: string) =>
+  run(
+    () =>
+      client().GET("/api/admin/reception/actions/{operationId}", {
+        params: { path: { operationId } },
+        signal: AbortSignal.timeout(20000),
+      }),
+    isActionStatus,
   );

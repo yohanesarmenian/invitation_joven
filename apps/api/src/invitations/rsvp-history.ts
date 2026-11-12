@@ -70,9 +70,11 @@ export async function readRsvpHistoryValues(
         name:
           item.invitee?.fullName ??
           item.displayName ??
-          (item.attendeeType === "PLUS_ONE"
-            ? "Plus-one"
-            : "Additional children"),
+          (item.attendeeType === "UNNAMED_COMPANION"
+            ? "Unnamed companions"
+            : item.attendeeType === "PLUS_ONE"
+              ? "Plus-one"
+              : "Additional children"),
       }))
       .sort((a, b) =>
         `${a.type}/${a.inviteeId ?? ""}`.localeCompare(

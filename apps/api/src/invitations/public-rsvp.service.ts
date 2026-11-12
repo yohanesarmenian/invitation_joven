@@ -135,6 +135,7 @@ interface LockedInvitationForRsvpRow {
   rsvpDeadlineAt: Date | null;
   allowPlusOne: boolean;
   maxAdditionalChildren: number;
+  unnamedCompanionAllowance: number;
 }
 
 type ExistingRsvpState = {
@@ -310,6 +311,7 @@ function validateAttendees(
 ): AcceptedValidation["attendees"] {
   const namedInviteeIds = new Set<string>();
   let hasPlusOne = false;
+  let companionQuantity = 0;
   let additionalChildrenQuantity = 0;
 
   return attendees.map((attendee) => {
@@ -354,6 +356,16 @@ function validateAttendees(
           type: attendee.type,
         };
 
+      case RSVPAttendeeType.UNNAMED_COMPANION:
+        assertNoInviteeId(attendee.inviteeId);
+        companionQuantity += attendee.quantity;
+        if (companionQuantity > invitation.unnamedCompanionAllowance)
+          throwPublicRsvpError("RSVP_ATTENDEE_INVALID");
+        return {
+          inviteeId: null,
+          quantity: attendee.quantity,
+          type: attendee.type,
+        };
       case RSVPAttendeeType.ADDITIONAL_CHILD:
         assertNoInviteeId(attendee.inviteeId);
         additionalChildrenQuantity += attendee.quantity;
@@ -442,7 +454,8 @@ async function lockInvitationForRsvp(
       "status"::text AS "status",
       "rsvp_deadline_at" AS "rsvpDeadlineAt",
       "allow_plus_one" AS "allowPlusOne",
-      "max_additional_children" AS "maxAdditionalChildren"
+      "max_additional_children" AS "maxAdditionalChildren",
+      "unnamed_companion_allowance" AS "unnamedCompanionAllowance"
     FROM "invitations"
     WHERE "public_token_hash" = ${lookupHash}
     FOR UPDATE
@@ -466,7 +479,8 @@ async function lockInvitationForAdminRsvp(
       "status"::text AS "status",
       "rsvp_deadline_at" AS "rsvpDeadlineAt",
       "allow_plus_one" AS "allowPlusOne",
-      "max_additional_children" AS "maxAdditionalChildren"
+      "max_additional_children" AS "maxAdditionalChildren",
+      "unnamed_companion_allowance" AS "unnamedCompanionAllowance"
     FROM "invitations"
     WHERE "id" = ${invitationId}::uuid
     FOR UPDATE
@@ -647,7 +661,12 @@ export class PublicRsvpService {
   async submitOnSiteInTransaction(
     tx: Prisma.TransactionClient,
     command: SubmitAdminRsvpOverrideCommand,
-    verificationMethod: "PHYSICAL_INVITATION" | "HOUSEHOLD_DETAILS",
+    verificationMethod:
+      | "PHYSICAL_INVITATION"
+      | "HOUSEHOLD_DETAILS"
+      | "VERBAL_IDENTIFICATION"
+      | "FAMILY_REFERENCE"
+      | "OTHER",
   ): Promise<void> {
     const invitation = await lockInvitationForAdminRsvp(
       tx,

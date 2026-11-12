@@ -11,6 +11,7 @@ export default defineConfig({
     "**/event-content.e2e.ts",
     "**/invitation-journey.e2e.ts",
     "**/reception.e2e.ts",
+    "**/walkin.e2e.ts",
   ],
   workers: 1,
   retries: 0,

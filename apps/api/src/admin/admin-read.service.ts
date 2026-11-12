@@ -273,7 +273,7 @@ export class AdminReadService {
           "e"."id"::text AS "eventId",
           "e"."slug",
           "e"."name",
-          COALESCE(SUM("s"."expected_attendee_count"), 0)::int AS "expectedAttendeeCount"
+          COALESCE(SUM("s"."expected_attendee_count" + coalesce((SELECT sum(a.capacity_delta) FROM reception_actions a WHERE a.invitation_id="i"."id" AND a.event_id="e"."id"),0)), 0)::int AS "expectedAttendeeCount"
         FROM "rsvp_event_selections" "s"
         INNER JOIN "rsvps" "r" ON "r"."id" = "s"."rsvp_id"
         INNER JOIN "invitations" "i" ON "i"."id" = "r"."invitation_id"

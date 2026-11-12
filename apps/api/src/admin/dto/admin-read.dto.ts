@@ -417,10 +417,15 @@ export class AdminRsvpEventSelectionDto {
 
 export class AdminRsvpAttendeeDto {
   @ApiProperty({
-    enum: ["NAMED_INVITEE", "PLUS_ONE", "ADDITIONAL_CHILD"],
+    enum: [
+      "NAMED_INVITEE",
+      "PLUS_ONE",
+      "ADDITIONAL_CHILD",
+      "UNNAMED_COMPANION",
+    ],
     type: String,
   })
-  type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD";
+  type: "NAMED_INVITEE" | "PLUS_ONE" | "ADDITIONAL_CHILD" | "UNNAMED_COMPANION";
 
   @ApiProperty({ format: "uuid", nullable: true, type: String })
   inviteeId: string | null;

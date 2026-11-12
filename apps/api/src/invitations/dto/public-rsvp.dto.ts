@@ -77,8 +77,11 @@ export class PublicRsvpEventSelectionDto {
 }
 
 export class PublicRsvpAttendeeDto {
-  @ApiProperty({ enum: publicRsvpAttendeeTypes, type: String })
-  type: PublicRsvpAttendeeType;
+  @ApiProperty({
+    enum: [...publicRsvpAttendeeTypes, "UNNAMED_COMPANION"],
+    type: String,
+  })
+  type: PublicRsvpAttendeeType | "UNNAMED_COMPANION";
 
   @ApiProperty({ format: "uuid", nullable: true, type: String })
   inviteeId: string | null;

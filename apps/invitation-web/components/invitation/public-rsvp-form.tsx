@@ -303,7 +303,9 @@ export function PublicRsvpForm({
                       )?.fullName ?? "Named guest")
                     : attendee.type === "PLUS_ONE"
                       ? "Plus-one"
-                      : "Additional children"}{" "}
+                      : attendee.type === "UNNAMED_COMPANION"
+                        ? "Unnamed companions"
+                        : "Additional children"}{" "}
                   × {attendee.quantity}
                 </li>
               ))}

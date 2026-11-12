@@ -57,7 +57,9 @@ function attendeeLabel(type: Rsvp["attendees"][number]["type"]) {
     ? "Named invitee"
     : type === "PLUS_ONE"
       ? "Plus-one"
-      : "Additional child";
+      : type === "UNNAMED_COMPANION"
+        ? "Unnamed companions"
+        : "Additional child";
 }
 
 export function RsvpDetail({

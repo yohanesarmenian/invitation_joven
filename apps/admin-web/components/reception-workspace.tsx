@@ -11,6 +11,7 @@ import type {
 } from "@wedding-invitation/api-client/src/index";
 import * as api from "../src/reception/client";
 import { loadEvents } from "../src/checkin/client";
+import { ReceptionAssistance } from "./reception-assistance";
 import { CheckinCamera } from "./checkin-camera";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 
@@ -89,7 +90,13 @@ export function ReceptionWorkspace({ csrfToken }: { csrfToken: string }) {
     [uncertain, setUncertain] = useState<ReceptionArrivalRequest | null>(null),
     [notFoundOperation, setNotFoundOperation] = useState(false),
     [receipt, setReceipt] = useState<ReceptionArrival | null>(null);
-  const blocked = busy || uncertain !== null;
+  const [actionOwner, setActionOwner] = useState<string | null>(null);
+  const blocked = busy || uncertain !== null || actionOwner !== null;
+  async function actionView(id: string) {
+    await read(() => api.detail(id, eventId));
+    const result = await api.statistics(eventId);
+    if (result.kind === "ok") setStatistics(result.data);
+  }
   function fail(result: Exclude<api.Result<unknown>, { kind: "ok" }>) {
     if (result.kind === "error") {
       if (result.code === "UNAUTHENTICATED") {
@@ -410,15 +417,27 @@ export function ReceptionWorkspace({ csrfToken }: { csrfToken: string }) {
         </section>
       ) : null}
       {mode === "help" ? (
-        <section className="import-panel">
-          <h2>Guest Assistance</h2>
-          <p>
-            Check the invitation card, spelling, household name or printed
-            reference with the guest. Registration for guests who are not in the
-            list is reserved for the next phase. No household will be created
-            here.
-          </p>
-        </section>
+        <ReceptionAssistance
+          key={eventId}
+          eventId={eventId}
+          csrfToken={csrf}
+          disabled={
+            busy ||
+            uncertain !== null ||
+            (actionOwner !== null && actionOwner !== "walkin")
+          }
+          onBusy={(value) => setActionOwner(value ? "walkin" : null)}
+          onRecorded={actionView}
+          onNew={() => setDetail(null)}
+          onView={async (id) => {
+            setMode("find");
+            await actionView(id);
+          }}
+          onReturn={() => {
+            setMode("find");
+            setDetail(null);
+          }}
+        />
       ) : null}
       {mode === "find" ? (
         <form
@@ -690,6 +709,30 @@ export function ReceptionWorkspace({ csrfToken }: { csrfToken: string }) {
           ) : (
             <p>Reception changes are unavailable for this household.</p>
           )}
+          <p>
+            Registration source:{" "}
+            {h.source === "WALKIN" ? "Walk-in" : "Previously registered"}
+            {h.unnamedCompanionAllowance > 0
+              ? ` · Unnamed companion allowance: ${h.unnamedCompanionAllowance}`
+              : ""}
+          </p>
+          <p>
+            Saved RSVP expected: {h.baseExpectedCount} · Exceptional allowance:{" "}
+            {h.exceptionAllowance}
+          </p>
+          {detail.registration ? (
+            <p>
+              Walk-in affiliation:{" "}
+              {detail.registration.affiliation
+                .replaceAll("_", " ")
+                .toLowerCase()}{" "}
+              · Initial expected group: {detail.registration.expectedCount} ·
+              Unnamed companions: {detail.registration.companionCount}
+              {detail.registration.duplicateOverrideReason
+                ? ` · Distinct-household verification: ${detail.registration.duplicateOverrideReason}`
+                : ""}
+            </p>
+          ) : null}
           <h3>Arrival history</h3>
           {detail.arrivals.length ? (
             <ol>
@@ -705,6 +748,44 @@ export function ReceptionWorkspace({ csrfToken }: { csrfToken: string }) {
           ) : (
             <p>No arrivals recorded.</p>
           )}
+          {detail.actions?.length ? (
+            <>
+              <h3>Registration and correction history</h3>
+              <ol>
+                {detail.actions.map((action) => (
+                  <li key={action.operationId}>
+                    {action.kind.toLowerCase()} · Attendance change{" "}
+                    {action.delta} · Extra allowance {action.capacityDelta} ·{" "}
+                    {action.reason} · {wib.format(new Date(action.createdAt))}{" "}
+                    WIB
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : null}
+          {h.rsvpLocked && h.eligible ? (
+            <ReceptionAssistance
+              key={h.id}
+              eventId={eventId}
+              csrfToken={csrf}
+              household={h}
+              disabled={
+                busy ||
+                uncertain !== null ||
+                (actionOwner !== null && actionOwner !== h.id)
+              }
+              onBusy={(value) => setActionOwner(value ? h.id : null)}
+              onRecorded={actionView}
+              onView={async (id) => {
+                setMode("find");
+                await actionView(id);
+              }}
+              onReturn={() => {
+                setDetail(null);
+                setMode("find");
+              }}
+            />
+          ) : null}
           <button
             disabled={blocked || !!confirm}
             onClick={() => void read(() => api.detail(h.id, eventId))}
@@ -724,6 +805,16 @@ export function ReceptionWorkspace({ csrfToken }: { csrfToken: string }) {
       {statistics ? (
         <section className="import-panel">
           <h2>Reception statistics</h2>
+          <p>
+            Walk-in households: {statistics.walkinHouseholds} · Registered
+            expected guests: {statistics.registeredExpectedGuests} · Walk-in
+            expected guests: {statistics.walkinExpectedGuests} · Walk-in actual
+            guests: {statistics.walkinArrivedGuests}
+          </p>
+          <p>
+            Attendance corrections: {statistics.correctionOperations} ·
+            Exceptional additional guests: {statistics.exceptionalGuests}
+          </p>
           <p>
             Expected guests: {statistics.expectedGuests} · Actual arrived:{" "}
             {statistics.arrivedGuests}

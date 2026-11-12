@@ -125,7 +125,7 @@ export class AdminCheckinOperatorDto {
 }
 
 export class AdminPreviousCheckinDto {
-  @ApiProperty({ minimum: 1, type: Number })
+  @ApiProperty({ minimum: 0, type: Number })
   attendeeCount: number;
 
   @ApiProperty({ format: "date-time", type: String })

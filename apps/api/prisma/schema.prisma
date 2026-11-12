@@ -49,6 +49,7 @@ enum RSVPAttendeeType {
   NAMED_INVITEE
   PLUS_ONE
   ADDITIONAL_CHILD
+  UNNAMED_COMPANION
 
   @@map("rsvp_attendee_type")
 }
@@ -102,6 +103,7 @@ model AdminUser {
   submittedRSVPs RSVP[]               @relation("RSVPSubmittedBy")
   rsvpChanges    RsvpChangeEvent[]
   arrivals       CheckinArrival[]
+  receptionActions ReceptionAction[]
   checkinRecords CheckinRecord[]      @relation("CheckinConfirmedBy")
   importBatches  GuestImportBatch[]   @relation("ImportCommittedBy")
   importPreviews GuestImportPreview[] @relation("ImportPreviewCreatedBy")
@@ -138,6 +140,7 @@ model Invitation {
   rsvpDeadlineAt        DateTime?         @map("rsvp_deadline_at") @db.Timestamptz(6)
   allowPlusOne          Boolean           @default(false) @map("allow_plus_one")
   maxAdditionalChildren Int               @default(0) @map("max_additional_children")
+  unnamedCompanionAllowance Int            @default(0) @map("unnamed_companion_allowance")
   firstOpenedAt         DateTime?         @map("first_opened_at") @db.Timestamptz(6)
   lastOpenedAt          DateTime?         @map("last_opened_at") @db.Timestamptz(6)
   openCount             Int               @default(0) @map("open_count")
@@ -151,6 +154,8 @@ model Invitation {
   guestMessages         GuestMessage[]
   checkinPasses         CheckinPass[]
   checkinRecords        CheckinRecord[]
+  walkinRegistration WalkinRegistration?
+  receptionActions ReceptionAction[]
 
   @@index([status])
   @@map("invitations")
@@ -191,6 +196,7 @@ model Event {
   invitationEvents    InvitationEvent[]
   rsvpEventSelections RSVPEventSelection[]
   checkinRecords      CheckinRecord[]
+  receptionActions ReceptionAction[]
 
   content             EventContent?
   contentAssets       EventContentAsset[]
@@ -436,4 +442,44 @@ model CheckinArrival {
   operator AdminUser @relation(fields: [confirmedByAdminUserId], references: [id], onDelete: Restrict)
   @@index([invitationId, eventId, checkedInAt])
   @@map("checkin_arrivals")
+}
+
+model ReceptionAction {
+  operationId String @id @map("operation_id") @db.Uuid
+  kind String
+  invitationId String @map("invitation_id") @db.Uuid
+  eventId String @map("event_id") @db.Uuid
+  operatorId String @map("operator_id") @db.Uuid
+  actorRole String @map("actor_role")
+  payloadHash String @map("payload_hash")
+  reason String
+  verificationMethod String @map("verification_method")
+  delta Int @default(0)
+  capacityDelta Int @default(0) @map("capacity_delta")
+  method CheckinMethod @default(MANUAL)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  receipt Json
+  invitation Invitation @relation(fields:[invitationId],references:[id],onDelete:Restrict)
+  event Event @relation(fields:[eventId],references:[id],onDelete:Restrict)
+  operator AdminUser @relation(fields:[operatorId],references:[id],onDelete:Restrict)
+  registration WalkinRegistration?
+  @@index([invitationId,eventId,createdAt])
+  @@index([operatorId,createdAt])
+  @@map("reception_actions")
+}
+
+model WalkinRegistration {
+  id String @id @default(uuid()) @db.Uuid
+  invitationId String @unique @map("invitation_id") @db.Uuid
+  operationId String @unique @map("operation_id") @db.Uuid
+  leadName String @map("lead_name")
+  companionCount Int @map("companion_count")
+  expectedCount Int @map("expected_count")
+  arrivingCount Int @map("arriving_count")
+  affiliation String
+  duplicateOverrideReason String? @map("duplicate_override_reason")
+  reviewedMatchIds Json @map("reviewed_match_ids")
+  invitation Invitation @relation(fields:[invitationId],references:[id],onDelete:Restrict)
+  action ReceptionAction @relation(fields:[operationId],references:[operationId],onDelete:Restrict)
+  @@map("walkin_registrations")
 }

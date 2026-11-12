@@ -166,3 +166,8 @@ export function createInvitationApiClient(
 }
 
 export type InvitationApiClient = ReturnType<typeof createInvitationApiClient>;
+export type WalkinRequest = components["schemas"]["WalkinRequestDto"];
+export type AttendanceActionRequest =
+  components["schemas"]["AttendanceActionRequestDto"];
+export type ReceptionActionReceipt =
+  components["schemas"]["ReceptionActionReceiptDto"];
