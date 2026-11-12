@@ -42,12 +42,23 @@ import {
   uuid,
 } from "./reception.dto.js";
 
+import { ReceptionActionsService } from "./reception-actions.service.js";
+import {
+  WalkinRequestDto,
+  AttendanceActionRequestDto,
+  ReceptionActionReceiptDto,
+  ReceptionActionStatusDto,
+  walkinRequest,
+  actionRequest,
+} from "./reception-actions.dto.js";
 @ApiTags("Reception")
 @AdminRoles(AdminRole.OWNER, AdminRole.GUEST_MANAGER)
 @Controller("api/admin/reception")
 export class ReceptionController {
   constructor(
     @Inject(ReceptionService) private readonly reception: ReceptionService,
+    @Inject(ReceptionActionsService)
+    private readonly actions: ReceptionActionsService,
   ) {}
   private async run<T>(action: () => Promise<T>): Promise<T> {
     try {
@@ -164,6 +175,46 @@ export class ReceptionController {
         uuid(eventId),
       ),
     );
+  }
+  @Post("walkins")
+  @ApiBody({ type: WalkinRequestDto })
+  @ApiCreatedResponse({ type: ReceptionActionReceiptDto })
+  register(@Body() body: unknown, @Req() request: RequestWithAdminContext) {
+    const user = request.admin!.user;
+    return this.run(() => this.actions.register(walkinRequest(body), user));
+  }
+  @Post("corrections")
+  @ApiBody({ type: AttendanceActionRequestDto })
+  @ApiCreatedResponse({ type: ReceptionActionReceiptDto })
+  correct(@Body() body: unknown, @Req() request: RequestWithAdminContext) {
+    return this.run(() =>
+      this.actions.adjust(
+        actionRequest(body),
+        "CORRECTION",
+        request.admin!.user,
+      ),
+    );
+  }
+  @Post("exceptions")
+  @ApiBody({ type: AttendanceActionRequestDto })
+  @ApiCreatedResponse({ type: ReceptionActionReceiptDto })
+  exception(@Body() body: unknown, @Req() request: RequestWithAdminContext) {
+    return this.run(() =>
+      this.actions.adjust(
+        actionRequest(body),
+        "EXCEPTION",
+        request.admin!.user,
+      ),
+    );
+  }
+  @Get("actions/:operationId")
+  @ApiParam({ name: "operationId", type: String, format: "uuid" })
+  @ApiOkResponse({ type: ReceptionActionStatusDto })
+  actionStatus(
+    @Param("operationId") id: string,
+    @Req() request: RequestWithAdminContext,
+  ) {
+    return this.run(() => this.actions.status(uuid(id), request.admin!.user));
   }
   @Get("statistics")
   @ApiQuery({ name: "eventId", required: true, type: String, format: "uuid" })

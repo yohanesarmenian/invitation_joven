@@ -148,9 +148,12 @@ function isRsvpResponse(
     rsvp.attendees.every(
       (attendee: unknown) =>
         isRecord(attendee) &&
-        ["NAMED_INVITEE", "PLUS_ONE", "ADDITIONAL_CHILD"].includes(
-          String(attendee.type),
-        ) &&
+        [
+          "NAMED_INVITEE",
+          "PLUS_ONE",
+          "ADDITIONAL_CHILD",
+          "UNNAMED_COMPANION",
+        ].includes(String(attendee.type)) &&
         (attendee.inviteeId === null ||
           typeof attendee.inviteeId === "string") &&
         Number.isInteger(attendee.quantity) &&

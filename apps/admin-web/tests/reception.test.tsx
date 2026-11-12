@@ -80,6 +80,11 @@ describe("Reception role and projection boundaries", () => {
       rsvpVersion: null,
       eligible: true,
       rsvpLocked: false,
+      source: "REGISTERED",
+      baseExpectedCount: 0,
+      exceptionAllowance: 0,
+      attendanceRevision: 0,
+      unnamedCompanionAllowance: 0,
       allowedCount: 2,
       expectedCount: 0,
       arrivedCount: 0,
@@ -93,6 +98,10 @@ describe("Reception role and projection boundaries", () => {
       false,
     );
     expect(isHousehold({ ...household, allowedCount: -1 })).toBe(false);
+    expect(isHousehold({ ...household, attendanceRevision: undefined })).toBe(
+      false,
+    );
+    expect(isHousehold({ ...household, source: "SELF_APPROVED" })).toBe(false);
     expect(
       isArrival({
         operationId: household.id,

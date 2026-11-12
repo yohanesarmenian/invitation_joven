@@ -1,5 +1,7 @@
 # Registered guest reception (Phase 4C)
 
+Phase 4D replaces the Guest Assistance placeholder with direct walk-in registration and adds audited corrections/bounded operational exceptions. See [WALKIN-ATTENDANCE.md](WALKIN-ATTENDANCE.md) for the current extension and reporting/migration rules; the registered-guest behavior below remains supported.
+
 HeyJo remains a single-wedding application. An OWNER provisions individual **Guest Manager** accounts in `/settings/staff`; the temporary-password and forced-password-change requirements still apply. Guest Managers sign in to `/reception`. They cannot enter the OWNER dashboard, invitation administration, staff settings, content settings, credential rotation, exports or unrestricted RSVP history. Disabling an account or resetting its password revokes its sessions.
 
 `CHECKIN_STAFF` remains supported at `/checkin`, with the existing single-confirmation behavior. OWNER can use either workspace. The new operational workflow, including incremental arrivals, is `/reception`; it does not grant OWNER permissions to reception staff.

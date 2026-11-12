@@ -5,6 +5,10 @@ import {
   mapSubmitPublicRsvpRequest,
 } from "../invitations/dto/public-rsvp.dto.js";
 
+import {
+  ReceptionAdjustmentDto,
+  ReceptionRegistrationDto,
+} from "./reception-actions.dto.js";
 export class ReceptionInviteeDto {
   @ApiProperty({ type: String, format: "uuid" }) id: string;
   @ApiProperty({ type: String }) fullName: string;
@@ -32,6 +36,12 @@ export class ReceptionHouseholdDto {
   @ApiProperty({ type: Number, nullable: true }) rsvpVersion: number | null;
   @ApiProperty({ type: Boolean }) eligible: boolean;
   @ApiProperty({ type: Boolean }) rsvpLocked: boolean;
+  @ApiProperty({ type: String, enum: ["REGISTERED", "WALKIN"] }) source:
+    "REGISTERED" | "WALKIN";
+  @ApiProperty({ type: Number }) baseExpectedCount: number;
+  @ApiProperty({ type: Number }) exceptionAllowance: number;
+  @ApiProperty({ type: Number }) attendanceRevision: number;
+  @ApiProperty({ type: Number }) unnamedCompanionAllowance: number;
   @ApiProperty({ type: Number }) allowedCount: number;
   @ApiProperty({ type: Number }) expectedCount: number;
   @ApiProperty({ type: Number }) arrivedCount: number;
@@ -42,6 +52,10 @@ export class ReceptionHouseholdDto {
   invitees: ReceptionInviteeDto[];
 }
 export class ReceptionDetailDto {
+  @ApiProperty({ type: () => ReceptionRegistrationDto, nullable: true })
+  registration: ReceptionRegistrationDto | null;
+  @ApiProperty({ type: () => [ReceptionAdjustmentDto] })
+  actions: ReceptionAdjustmentDto[];
   @ApiProperty({ type: () => ReceptionHouseholdDto })
   household: ReceptionHouseholdDto;
   @ApiProperty({ type: () => [ReceptionArrivalDto] })
@@ -62,6 +76,12 @@ export class ReceptionOperationDto {
   arrival: ReceptionArrivalDto | null;
 }
 export class ReceptionStatisticsDto {
+  @ApiProperty({ type: Number }) walkinHouseholds: number;
+  @ApiProperty({ type: Number }) registeredExpectedGuests: number;
+  @ApiProperty({ type: Number }) walkinExpectedGuests: number;
+  @ApiProperty({ type: Number }) walkinArrivedGuests: number;
+  @ApiProperty({ type: Number }) correctionOperations: number;
+  @ApiProperty({ type: Number }) exceptionalGuests: number;
   @ApiProperty({ type: Number }) registeredHouseholds: number;
   @ApiProperty({ type: Number }) pendingHouseholds: number;
   @ApiProperty({ type: Number }) acceptedHouseholds: number;
@@ -176,7 +196,10 @@ export function arrivalRequest(value: unknown): ReceptionArrivalRequestDto {
     onSite = {
       expectedVersion: parsed.expectedVersion,
       status: parsed.status,
-      attendees: parsed.attendees,
+      attendees: parsed.attendees.map((item) => ({
+        ...item,
+        type: item.type as ReceptionOnSiteDto["attendees"][number]["type"],
+      })),
       eventSelections: parsed.eventSelections,
       dietaryNotes: parsed.dietaryNotes,
       reason: reason.trim(),

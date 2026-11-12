@@ -105,7 +105,8 @@ function isAttendee(value: unknown) {
     object(value) &&
     (value.type === "NAMED_INVITEE" ||
       value.type === "PLUS_ONE" ||
-      value.type === "ADDITIONAL_CHILD") &&
+      value.type === "ADDITIONAL_CHILD" ||
+      value.type === "UNNAMED_COMPANION") &&
     (value.inviteeId === null || isUuid(value.inviteeId)) &&
     (value.displayName === null || typeof value.displayName === "string") &&
     positiveCount(value.quantity)

@@ -1,5 +1,9 @@
 # API Contract
 
+## Phase 4D — direct walk-ins and attendance corrections
+
+See [WALKIN-ATTENDANCE.md](WALKIN-ATTENDANCE.md) for the four new OWNER/GUEST_MANAGER operations, UUID recovery, duplicate review, explicit unnamed companions, signed corrections, bounded exceptional capacity and reporting units. Public and OWNER read projections understand `UNNAMED_COMPANION`; ordinary RSVP request parsers retain their existing inputs. Protected session/CSRF/Origin and OWNER administration boundaries remain in force.
+
 ## Phase 4B — saved RSVP confirmation and history
 
 See [RSVP confirmation and audit contract](RSVP-CONFIRMATION-HISTORY.md). Dedicated public RSVP GET additionally returns required `canEdit: boolean` and `editBlockedReason: "DEADLINE_PASSED" | "CHECKED_IN" | null`. PUT keeps its existing response shape. The existing OWNER-only Admin RSVP detail response additionally returns `history[]` with timestamp, action, actor metadata, internal revision, reason and normalized field changes. Public APIs never return history. Generated OpenAPI/API-client types are authoritative for field shapes.

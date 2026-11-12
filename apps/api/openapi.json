@@ -3976,6 +3976,130 @@
         ]
       }
     },
+    "/api/admin/reception/walkins": {
+      "post": {
+        "operationId": "ReceptionController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalkinRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionActionReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
+    "/api/admin/reception/corrections": {
+      "post": {
+        "operationId": "ReceptionController_correct",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceActionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionActionReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
+    "/api/admin/reception/exceptions": {
+      "post": {
+        "operationId": "ReceptionController_exception",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceActionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionActionReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
+    "/api/admin/reception/actions/{operationId}": {
+      "get": {
+        "operationId": "ReceptionController_actionStatus",
+        "parameters": [
+          {
+            "name": "operationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceptionActionStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Reception"
+        ]
+      }
+    },
     "/api/admin/reception/statistics": {
       "get": {
         "operationId": "ReceptionController_statistics",
@@ -5481,7 +5605,8 @@
             "enum": [
               "NAMED_INVITEE",
               "PLUS_ONE",
-              "ADDITIONAL_CHILD"
+              "ADDITIONAL_CHILD",
+              "UNNAMED_COMPANION"
             ]
           },
           "inviteeId": {
@@ -6166,7 +6291,8 @@
             "enum": [
               "NAMED_INVITEE",
               "PLUS_ONE",
-              "ADDITIONAL_CHILD"
+              "ADDITIONAL_CHILD",
+              "UNNAMED_COMPANION"
             ]
           },
           "inviteeId": {
@@ -6480,7 +6606,7 @@
         "properties": {
           "attendeeCount": {
             "type": "number",
-            "minimum": 1
+            "minimum": 0
           },
           "checkedInAt": {
             "type": "string",
@@ -7524,6 +7650,25 @@
           "rsvpLocked": {
             "type": "boolean"
           },
+          "source": {
+            "type": "string",
+            "enum": [
+              "REGISTERED",
+              "WALKIN"
+            ]
+          },
+          "baseExpectedCount": {
+            "type": "number"
+          },
+          "exceptionAllowance": {
+            "type": "number"
+          },
+          "attendanceRevision": {
+            "type": "number"
+          },
+          "unnamedCompanionAllowance": {
+            "type": "number"
+          },
           "allowedCount": {
             "type": "number"
           },
@@ -7557,6 +7702,11 @@
           "rsvpVersion",
           "eligible",
           "rsvpLocked",
+          "source",
+          "baseExpectedCount",
+          "exceptionAllowance",
+          "attendanceRevision",
+          "unnamedCompanionAllowance",
           "allowedCount",
           "expectedCount",
           "arrivedCount",
@@ -7586,6 +7736,93 @@
           "items",
           "page",
           "hasMore"
+        ]
+      },
+      "ReceptionRegistrationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "leadName": {
+            "type": "string"
+          },
+          "companionCount": {
+            "type": "number"
+          },
+          "expectedCount": {
+            "type": "number"
+          },
+          "arrivingCount": {
+            "type": "number"
+          },
+          "affiliation": {
+            "type": "string"
+          },
+          "duplicateOverrideReason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "operationId",
+          "leadName",
+          "companionCount",
+          "expectedCount",
+          "arrivingCount",
+          "affiliation",
+          "duplicateOverrideReason"
+        ]
+      },
+      "ReceptionAdjustmentDto": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "delta": {
+            "type": "number"
+          },
+          "capacityDelta": {
+            "type": "number"
+          },
+          "method": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "verificationMethod": {
+            "type": "string"
+          },
+          "operatorId": {
+            "type": "string"
+          },
+          "actorRole": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "kind",
+          "delta",
+          "capacityDelta",
+          "method",
+          "reason",
+          "verificationMethod",
+          "operatorId",
+          "actorRole",
+          "createdAt"
         ]
       },
       "ReceptionArrivalDto": {
@@ -7650,6 +7887,21 @@
       "ReceptionDetailDto": {
         "type": "object",
         "properties": {
+          "registration": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReceptionRegistrationDto"
+              }
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceptionAdjustmentDto"
+            }
+          },
           "household": {
             "$ref": "#/components/schemas/ReceptionHouseholdDto"
           },
@@ -7661,6 +7913,8 @@
           }
         },
         "required": [
+          "registration",
+          "actions",
           "household",
           "arrivals"
         ]
@@ -7808,9 +8062,246 @@
           "arrival"
         ]
       },
+      "WalkinRequestDto": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leadName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "arrivingCount": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "expectedCount": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "affiliation": {
+            "type": "string",
+            "enum": [
+              "BRIDE_FAMILY",
+              "GROOM_FAMILY",
+              "FRIEND",
+              "COLLEAGUE",
+              "OTHER"
+            ]
+          },
+          "verificationMethod": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_INVITATION",
+              "VERBAL_IDENTIFICATION",
+              "FAMILY_REFERENCE",
+              "OTHER"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "lookupConfirmed": {
+            "type": "boolean"
+          },
+          "reviewedMatchIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "duplicateOverrideReason": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "operationId",
+          "eventId",
+          "leadName",
+          "arrivingCount",
+          "expectedCount",
+          "affiliation",
+          "verificationMethod",
+          "reason",
+          "lookupConfirmed",
+          "reviewedMatchIds"
+        ]
+      },
+      "ReceptionActionReceiptDto": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "WALKIN",
+              "CORRECTION",
+              "EXCEPTION"
+            ]
+          },
+          "invitationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "referenceCode": {
+            "type": "string"
+          },
+          "arrivedCount": {
+            "type": "number"
+          },
+          "expectedCount": {
+            "type": "number"
+          },
+          "remainingCount": {
+            "type": "number"
+          },
+          "operatorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "confirmedAt": {
+            "type": "string"
+          },
+          "delta": {
+            "type": "number"
+          },
+          "capacityDelta": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "operationId",
+          "kind",
+          "invitationId",
+          "eventId",
+          "displayName",
+          "referenceCode",
+          "arrivedCount",
+          "expectedCount",
+          "remainingCount",
+          "operatorId",
+          "confirmedAt",
+          "delta",
+          "capacityDelta"
+        ]
+      },
+      "AttendanceActionRequestDto": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invitationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRevision": {
+            "type": "number",
+            "minimum": 1
+          },
+          "count": {
+            "type": "number",
+            "minimum": 0
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "QR",
+              "MANUAL"
+            ]
+          },
+          "verificationMethod": {
+            "type": "string",
+            "enum": [
+              "PHYSICAL_INVITATION",
+              "VERBAL_IDENTIFICATION",
+              "FAMILY_REFERENCE",
+              "OTHER"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "operationId",
+          "invitationId",
+          "eventId",
+          "expectedRevision",
+          "count",
+          "method",
+          "verificationMethod",
+          "reason"
+        ]
+      },
+      "ReceptionActionStatusDto": {
+        "type": "object",
+        "properties": {
+          "receipt": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReceptionActionReceiptDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "receipt"
+        ]
+      },
       "ReceptionStatisticsDto": {
         "type": "object",
         "properties": {
+          "walkinHouseholds": {
+            "type": "number"
+          },
+          "registeredExpectedGuests": {
+            "type": "number"
+          },
+          "walkinExpectedGuests": {
+            "type": "number"
+          },
+          "walkinArrivedGuests": {
+            "type": "number"
+          },
+          "correctionOperations": {
+            "type": "number"
+          },
+          "exceptionalGuests": {
+            "type": "number"
+          },
           "registeredHouseholds": {
             "type": "number"
           },
@@ -7846,6 +8337,12 @@
           }
         },
         "required": [
+          "walkinHouseholds",
+          "registeredExpectedGuests",
+          "walkinExpectedGuests",
+          "walkinArrivedGuests",
+          "correctionOperations",
+          "exceptionalGuests",
           "registeredHouseholds",
           "pendingHouseholds",
           "acceptedHouseholds",

@@ -70,13 +70,13 @@ export class ReportsService {
   ): Promise<ReportSummaryDto> {
     const events = await tx.$queryRaw<ReportSummaryDto["events"]>(Prisma.sql`
       WITH expected AS (
-        SELECT s.event_id, SUM(s.expected_attendee_count)::int AS people, COUNT(*)::int AS households,
-          COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM checkin_records c WHERE c.invitation_id=i.id AND c.event_id=s.event_id))::int AS missing
+        SELECT s.event_id, SUM(s.expected_attendee_count + coalesce((SELECT sum(a.capacity_delta) FROM reception_actions a WHERE a.invitation_id=i.id AND a.event_id=s.event_id),0))::int AS people, COUNT(*)::int AS households,
+          COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM checkin_records c WHERE c.invitation_id=i.id AND c.event_id=s.event_id AND c.attendee_count>0))::int AS missing
         FROM rsvp_event_selections s JOIN rsvps r ON r.id=s.rsvp_id JOIN invitations i ON i.id=r.invitation_id
         WHERE r.status='ACCEPTED' AND s.attending AND ${active(f)} GROUP BY s.event_id
       ), actual AS (
         SELECT c.event_id,SUM(c.attendee_count)::int AS people,COUNT(*)::int AS households
-        FROM checkin_records c JOIN invitations i ON i.id=c.invitation_id WHERE ${active(f)} GROUP BY c.event_id
+        FROM checkin_records c JOIN invitations i ON i.id=c.invitation_id WHERE ${active(f)} AND c.attendee_count>0 GROUP BY c.event_id
       )
       SELECT e.id,e.name,e.is_active AS "isActive",COALESCE(x.people,0)::int AS "expectedAttendeeCount",COALESCE(x.households,0)::int AS "expectedHouseholds",
         COALESCE(a.people,0)::int AS "actualAttendeeCount",COALESCE(a.households,0)::int AS "checkedInHouseholds",COALESCE(x.missing,0)::int AS "notArrivedHouseholds"
@@ -99,16 +99,16 @@ export class ReportsService {
     `;
     if (selected === "CHECKIN")
       return Prisma.sql`
-      SELECT ${shared},e.id AS "eventId",e.name AS "eventName",s.expected_attendee_count AS "expectedAttendeeCount",c.attendee_count AS "actualAttendeeCount",c.checked_in_at AS "checkedInAt",c.method::text AS method,u.email AS "operatorEmail"
+      SELECT ${shared},e.id AS "eventId",e.name AS "eventName",(s.expected_attendee_count + coalesce((SELECT sum(a.capacity_delta) FROM reception_actions a WHERE a.invitation_id=i.id AND a.event_id=e.id),0))::int AS "expectedAttendeeCount",c.attendee_count AS "actualAttendeeCount",c.checked_in_at AS "checkedInAt",c.method::text AS method,u.email AS "operatorEmail"
       FROM checkin_records c JOIN invitations i ON i.id=c.invitation_id JOIN events e ON e.id=c.event_id JOIN admin_users u ON u.id=c.confirmed_by_admin_user_id
       LEFT JOIN rsvps r ON r.invitation_id=i.id LEFT JOIN rsvp_event_selections s ON s.rsvp_id=r.id AND s.event_id=e.id
       WHERE ${active(f)} AND ${eventFilter(f)}
     `;
     return Prisma.sql`
-      SELECT ${shared},e.id AS "eventId",e.name AS "eventName",s.expected_attendee_count AS "expectedAttendeeCount",NULL::int AS "actualAttendeeCount",NULL::timestamptz AS "checkedInAt",NULL::text AS method,NULL::text AS "operatorEmail"
+      SELECT ${shared},e.id AS "eventId",e.name AS "eventName",(s.expected_attendee_count + coalesce((SELECT sum(a.capacity_delta) FROM reception_actions a WHERE a.invitation_id=i.id AND a.event_id=e.id),0))::int AS "expectedAttendeeCount",NULL::int AS "actualAttendeeCount",NULL::timestamptz AS "checkedInAt",NULL::text AS method,NULL::text AS "operatorEmail"
       FROM rsvp_event_selections s JOIN rsvps r ON r.id=s.rsvp_id JOIN invitations i ON i.id=r.invitation_id JOIN events e ON e.id=s.event_id
       WHERE ${active(f)} AND ${eventFilter(f)} AND r.status='ACCEPTED' AND s.attending
-      AND NOT EXISTS(SELECT 1 FROM checkin_records c WHERE c.invitation_id=i.id AND c.event_id=e.id)
+      AND NOT EXISTS(SELECT 1 FROM checkin_records c WHERE c.invitation_id=i.id AND c.event_id=e.id AND c.attendee_count>0)
     `;
   }
   private async readRows(

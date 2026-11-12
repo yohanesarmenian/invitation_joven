@@ -1,5 +1,9 @@
 # UI/UX Specification
 
+## Phase 4D — operational Guest Assistance
+
+Guest Assistance now performs search-first walk-in registration inside `/reception`, without OWNER approval or navigation to OWNER creation pages. Review potential matches, provide verified arriving/expected counts, affiliation and reason, confirm, then read the persisted receipt. Household detail supports explicit attendance corrections and bounded additional-guest exceptions. Uncertain responses freeze new operations until read-only recovery. See [WALKIN-ATTENDANCE.md](WALKIN-ATTENDANCE.md) for the complete flow, limits and accounting semantics.
+
 ## Phase 4B — RSVP confirmation and explicit editing
 
 Saved ACCEPTED and DECLINED responses open as read-only **Attendance Confirmed** / **Unable to Attend** summaries. Accepted shows saved attendees/count, wedding events, dietary requirements and the valid check-in QR. **Edit RSVP** reloads current server state/permissions before showing a prefilled form with **Save Changes** and **Cancel**. Cancel makes no mutation. A new response uses **Submit RSVP**. Reload/reopen never automatically enters edit mode. Deadline/check-in restrictions hide Edit; each save remains server-authorized. Version numbers stay internal and are omitted from ordinary Admin/public RSVP labels.

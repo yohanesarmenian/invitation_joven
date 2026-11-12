@@ -348,15 +348,19 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(54);
+    expect(routes).toHaveLength(58);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "GET /api/admin/reception/search",
+        "GET /api/admin/reception/actions/:operationId",
         "GET /api/admin/reception/households/:id",
         "GET /api/admin/reception/operations/:operationId",
         "GET /api/admin/reception/statistics",
         "POST /api/admin/reception/validate",
+        "POST /api/admin/reception/walkins",
         "POST /api/admin/reception/arrivals",
+        "POST /api/admin/reception/corrections",
+        "POST /api/admin/reception/exceptions",
         "POST /api/admin/invitations",
         "POST /api/admin/invitations/:invitationId/invitees",
         "DELETE /api/admin/invitees/:inviteeId",
@@ -375,7 +379,10 @@ describe("admin read HTTP integration", () => {
         "POST /api/admin/imports/guest/commit",
         "POST /api/admin/imports/guest/validate",
         "POST /api/admin/reception/arrivals",
+        "POST /api/admin/reception/corrections",
+        "POST /api/admin/reception/exceptions",
         "POST /api/admin/reception/validate",
+        "POST /api/admin/reception/walkins",
         "POST /api/admin/staff",
         "POST /api/admin/staff/:staffId/reset-password",
       ]),
@@ -396,6 +403,7 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/invitations/:invitationId/messages",
       "GET /api/admin/invitations/:invitationId/public-url",
       "GET /api/admin/messages",
+      "GET /api/admin/reception/actions/:operationId",
       "GET /api/admin/reception/households/:id",
       "GET /api/admin/reception/operations/:operationId",
       "GET /api/admin/reception/search",
@@ -428,7 +436,10 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/invitations/:invitationId/invitees",
       "POST /api/admin/invitations/:invitationId/regenerate-token",
       "POST /api/admin/reception/arrivals",
+      "POST /api/admin/reception/corrections",
+      "POST /api/admin/reception/exceptions",
       "POST /api/admin/reception/validate",
+      "POST /api/admin/reception/walkins",
       "POST /api/admin/staff",
       "POST /api/admin/staff/:staffId/reset-password",
       "PUT /api/admin/event-content/:eventId",
@@ -504,7 +515,10 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/invitations/:invitationId/invitees",
       "POST /api/admin/invitations/:invitationId/regenerate-token",
       "POST /api/admin/reception/arrivals",
+      "POST /api/admin/reception/corrections",
+      "POST /api/admin/reception/exceptions",
       "POST /api/admin/reception/validate",
+      "POST /api/admin/reception/walkins",
       "POST /api/admin/staff",
       "POST /api/admin/staff/:staffId/reset-password",
       "PUT /api/admin/event-content/:eventId",

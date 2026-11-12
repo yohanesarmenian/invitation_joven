@@ -1,4 +1,5 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
+import { extraCapacity } from "../reception/reception-accounting.js";
 import { lockEvents } from "../events/event-lock.js";
 import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "../generated/prisma/client.js";
@@ -614,7 +615,9 @@ export class CheckinService {
         id: event.id,
         name: event.name,
       },
-      expectedAttendeeCount: selection.expectedAttendeeCount,
+      expectedAttendeeCount:
+        selection.expectedAttendeeCount +
+        (await extraCapacity(tx, input.invitationId, input.eventId)),
       invitation: {
         displayName: invitation.displayName,
         id: invitation.id,

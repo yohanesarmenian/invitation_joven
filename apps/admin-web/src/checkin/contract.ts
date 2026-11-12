@@ -28,7 +28,9 @@ const operator = (v: unknown) =>
     v.role === "GUEST_MANAGER");
 const previous = (v: unknown) =>
   obj(v) &&
-  count(v.attendeeCount) &&
+  typeof v.attendeeCount === "number" &&
+  Number.isSafeInteger(v.attendeeCount) &&
+  v.attendeeCount >= 0 &&
   time(v.checkedInAt) &&
   (v.method === "QR" || v.method === "MANUAL") &&
   (v.confirmedBy == null || operator(v.confirmedBy));
