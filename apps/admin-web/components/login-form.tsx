@@ -38,9 +38,11 @@ export function LoginForm({
       window.location.replace(
         result.auth.user.mustChangePassword
           ? "/account/password"
-          : result.auth.user.role === "CHECKIN_STAFF"
-            ? "/checkin"
-            : "/",
+          : result.auth.user.role === "GUEST_MANAGER"
+            ? "/reception"
+            : result.auth.user.role !== "OWNER"
+              ? "/checkin"
+              : "/",
       );
       return;
     }

@@ -10,6 +10,7 @@ import { MessagesModule } from "./messages/messages.module.js";
 import { SecurityModule } from "./security/security.module.js";
 import { ReportsModule } from "./reports/reports.module.js";
 import { EventContentModule } from "./event-content/event-content.module.js";
+import { ReceptionModule } from "./reception/reception.module.js";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { EventContentModule } from "./event-content/event-content.module.js";
     HealthModule,
     ReportsModule,
     EventContentModule,
+    ReceptionModule,
   ],
 })
 export class AppModule {}

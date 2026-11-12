@@ -1904,3 +1904,7 @@ Supported MVP export types must be finalized before implementation. Initial like
 Response: `text/csv`.
 
 XLSX export is not required for MVP.
+
+## Phase 4C reception extension
+
+The registered-guest reception contract, role boundaries, six `/api/admin/reception/*` operations, idempotency, additive arrival migration and reporting semantics are specified in [RECEPTION-WORKFLOW.md](./RECEPTION-WORKFLOW.md). OpenAPI and the generated client are authoritative for exact request/response fields. `GUEST_MANAGER` is an operational role; OWNER administration remains restricted. Existing public invitation credentials, RSVP contracts and legacy CHECKIN_STAFF endpoints remain supported.

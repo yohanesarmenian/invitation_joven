@@ -23,7 +23,9 @@ const operator = (v: unknown) =>
   obj(v) &&
   uuid(v.id) &&
   typeof v.email === "string" &&
-  (v.role === "OWNER" || v.role === "CHECKIN_STAFF");
+  (v.role === "OWNER" ||
+    v.role === "CHECKIN_STAFF" ||
+    v.role === "GUEST_MANAGER");
 const previous = (v: unknown) =>
   obj(v) &&
   count(v.attendeeCount) &&

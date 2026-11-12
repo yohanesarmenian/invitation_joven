@@ -857,3 +857,7 @@ read-only presentation should not display raw UUIDs.
   fidelity, not basic Phase 4 structure when approved placeholders or existing
   reference copy are used.
 - Declined RSVP confirmation copy/state: production state required but exact design unresolved.
+
+## Phase 4C reception workspace
+
+`/reception` is the OWNER/GUEST_MANAGER operational workspace for this single wedding. Scan QR, Find Guest and the reserved Guest Assistance action share household detail, explicit expected-versus-arrived counts, confirmation and a recovery receipt. Pending/Declined registered guests require an explicit verified on-site RSVP before their first arrival, committed atomically. Staff must not infer that everyone has arrived from the invitation allowance. Walk-in registration is deferred to Phase 4D. See [RECEPTION-WORKFLOW.md](./RECEPTION-WORKFLOW.md) for the full workflow, route/security boundaries and lost-response procedure. Preserve the existing OWNER administration and legacy CHECKIN_STAFF workspace.

@@ -8,5 +8,6 @@ import { CheckinService } from "./checkin.service.js";
   controllers: [CheckinController],
   imports: [DatabaseModule, SecurityModule],
   providers: [CheckinService],
+  exports: [CheckinService],
 })
 export class CheckinModule {}

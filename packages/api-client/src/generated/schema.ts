@@ -795,6 +795,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/reception/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find registered reception households; reference codes are not credentials */
+        get: operations["ReceptionController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reception/households/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReceptionController_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reception/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ReceptionController_validate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reception/arrivals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ReceptionController_arrive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reception/operations/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReceptionController_operation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reception/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReceptionController_statistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -808,7 +905,7 @@ export interface components {
             id: string;
             email: string;
             /** @enum {string} */
-            role: "OWNER" | "CHECKIN_STAFF";
+            role: "OWNER" | "CHECKIN_STAFF" | "GUEST_MANAGER";
             mustChangePassword: boolean;
         };
         AdminAuthSessionDto: {
@@ -842,7 +939,7 @@ export interface components {
             id: string;
             email: string;
             /** @enum {string} */
-            role: "CHECKIN_STAFF";
+            role: "CHECKIN_STAFF" | "GUEST_MANAGER";
             /** @enum {string} */
             status: "ACTIVE" | "DISABLED";
             mustChangePassword: boolean;
@@ -862,6 +959,8 @@ export interface components {
             page: components["schemas"]["AdminPageMetadataDto"];
         };
         CreateAdminStaffRequestDto: {
+            /** @enum {string} */
+            role?: "CHECKIN_STAFF" | "GUEST_MANAGER";
             email: string;
         };
         AdminStaffDto: {
@@ -869,7 +968,7 @@ export interface components {
             id: string;
             email: string;
             /** @enum {string} */
-            role: "CHECKIN_STAFF";
+            role: "CHECKIN_STAFF" | "GUEST_MANAGER";
             /** @enum {string} */
             status: "ACTIVE" | "DISABLED";
             mustChangePassword: boolean;
@@ -1150,6 +1249,7 @@ export interface components {
             after: string;
         };
         AdminRsvpHistoryEntryDto: {
+            verificationMethod?: string | null;
             /** Format: uuid */
             id: string;
             /** Format: date-time */
@@ -1427,7 +1527,7 @@ export interface components {
             /** Format: email */
             email: string;
             /** @enum {string} */
-            role: "OWNER" | "CHECKIN_STAFF";
+            role: "OWNER" | "CHECKIN_STAFF" | "GUEST_MANAGER";
         };
         AdminPreviousCheckinDto: {
             attendeeCount: number;
@@ -1675,6 +1775,103 @@ export interface components {
         };
         PublicEventContentDto: {
             items: components["schemas"]["PublicEventContentItemDto"][];
+        };
+        ReceptionInviteeDto: {
+            /** Format: uuid */
+            id: string;
+            fullName: string;
+        };
+        ReceptionHouseholdDto: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            referenceCode: string;
+            /** @enum {string} */
+            rsvpStatus: "PENDING" | "ACCEPTED" | "DECLINED";
+            rsvpVersion: number | null;
+            eligible: boolean;
+            rsvpLocked: boolean;
+            allowedCount: number;
+            expectedCount: number;
+            arrivedCount: number;
+            remainingCount: number;
+            allowPlusOne: boolean;
+            maxAdditionalChildren: number;
+            invitees: components["schemas"]["ReceptionInviteeDto"][];
+        };
+        ReceptionSearchDto: {
+            items: components["schemas"]["ReceptionHouseholdDto"][];
+            page: number;
+            hasMore: boolean;
+        };
+        ReceptionArrivalDto: {
+            /** Format: uuid */
+            operationId: string;
+            attendeeCount: number;
+            expectedAttendeeCount: number;
+            totalAfter: number;
+            /** Format: date-time */
+            checkedInAt: string;
+            /** @enum {string} */
+            method: "QR" | "MANUAL";
+            /** Format: uuid */
+            operatorId: string;
+            actorRole: string;
+            verificationMethod: string;
+            reason: string | null;
+            migrated: boolean;
+        };
+        ReceptionDetailDto: {
+            household: components["schemas"]["ReceptionHouseholdDto"];
+            arrivals: components["schemas"]["ReceptionArrivalDto"][];
+        };
+        ReceptionIdentifyDto: {
+            /** Format: uuid */
+            eventId: string;
+            qrPayload: string;
+        };
+        ReceptionOnSiteDto: {
+            expectedVersion: number | null;
+            /** @enum {string} */
+            status: "ACCEPTED" | "DECLINED";
+            eventSelections: components["schemas"]["SubmitPublicRsvpEventSelectionDto"][];
+            attendees: components["schemas"]["SubmitPublicRsvpAttendeeDto"][];
+            dietaryNotes?: string | null;
+            reason: string;
+        };
+        ReceptionArrivalRequestDto: {
+            /** Format: uuid */
+            operationId: string;
+            /** Format: uuid */
+            invitationId: string;
+            /** Format: uuid */
+            eventId: string;
+            attendeeCount: number;
+            /** @enum {string} */
+            method: "QR" | "MANUAL";
+            qrPayload?: string;
+            /** @enum {string} */
+            verificationMethod: "QR" | "PHYSICAL_INVITATION" | "HOUSEHOLD_DETAILS";
+            onSite?: components["schemas"]["ReceptionOnSiteDto"];
+        };
+        ReceptionReceiptDto: {
+            arrival: components["schemas"]["ReceptionArrivalDto"];
+        };
+        ReceptionOperationDto: {
+            arrival: components["schemas"]["ReceptionArrivalDto"] | null;
+        };
+        ReceptionStatisticsDto: {
+            registeredHouseholds: number;
+            pendingHouseholds: number;
+            acceptedHouseholds: number;
+            declinedHouseholds: number;
+            expectedGuests: number;
+            arrivedGuests: number;
+            partialHouseholds: number;
+            completedHouseholds: number;
+            qrGuests: number;
+            manualGuests: number;
+            onSiteConfirmations: number;
         };
     };
     responses: never;
@@ -4477,6 +4674,143 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ReceptionController_search: {
+        parameters: {
+            query: {
+                page?: number;
+                eventId: string;
+                query: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceptionSearchDto"];
+                };
+            };
+        };
+    };
+    ReceptionController_detail: {
+        parameters: {
+            query: {
+                eventId: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceptionDetailDto"];
+                };
+            };
+        };
+    };
+    ReceptionController_validate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceptionIdentifyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceptionDetailDto"];
+                };
+            };
+        };
+    };
+    ReceptionController_arrive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceptionArrivalRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceptionReceiptDto"];
+                };
+            };
+        };
+    };
+    ReceptionController_operation: {
+        parameters: {
+            query: {
+                eventId: string;
+                invitationId: string;
+            };
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceptionOperationDto"];
+                };
+            };
+        };
+    };
+    ReceptionController_statistics: {
+        parameters: {
+            query: {
+                eventId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceptionStatisticsDto"];
                 };
             };
         };

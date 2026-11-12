@@ -11,6 +11,7 @@ datasource db {
 enum AdminRole {
   OWNER
   CHECKIN_STAFF
+  GUEST_MANAGER
 
   @@map("admin_role")
 }
@@ -100,6 +101,7 @@ model AdminUser {
   sessions       AdminSession[]
   submittedRSVPs RSVP[]               @relation("RSVPSubmittedBy")
   rsvpChanges    RsvpChangeEvent[]
+  arrivals       CheckinArrival[]
   checkinRecords CheckinRecord[]      @relation("CheckinConfirmedBy")
   importBatches  GuestImportBatch[]   @relation("ImportCommittedBy")
   importPreviews GuestImportPreview[] @relation("ImportPreviewCreatedBy")
@@ -127,6 +129,7 @@ model AdminSession {
 
 model Invitation {
   id                    String            @id @default(uuid()) @db.Uuid
+  referenceCode         String            @unique @default(dbgenerated("next_invitation_reference()")) @map("reference_code")
   displayName           String            @map("display_name")
   greetingName          String?           @map("greeting_name")
   publicTokenVersion    Int               @default(1) @map("public_token_version")
@@ -271,6 +274,7 @@ model RsvpChangeEvent {
   updatedValues    Json       @map("updated_values") @db.JsonB
   changes          Json       @db.JsonB
   overrideReason   String?    @map("override_reason")
+  verificationMethod String?  @map("verification_method")
   rsvp             RSVP       @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
   actorAdminUser   AdminUser? @relation(fields: [actorAdminUserId], references: [id], onDelete: SetNull)
 
@@ -357,6 +361,7 @@ model CheckinRecord {
   checkedInAt            DateTime      @default(now()) @map("checked_in_at") @db.Timestamptz(6)
   createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   note                   String?
+  arrivals               CheckinArrival[]
   invitation             Invitation    @relation(fields: [invitationId], references: [id], onDelete: Restrict)
   event                  Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
   checkinPass            CheckinPass?  @relation(fields: [checkinPassId], references: [id], onDelete: Restrict)
@@ -408,4 +413,27 @@ model GuestImportPreview {
   @@index([createdByAdminUserId])
   @@index([expiresAt])
   @@map("guest_import_previews")
+}
+
+model CheckinArrival {
+  id String @id @default(uuid()) @db.Uuid
+  operationId String @unique @map("operation_id") @db.Uuid
+  checkinRecordId String @map("checkin_record_id") @db.Uuid
+  invitationId String @map("invitation_id") @db.Uuid
+  eventId String @map("event_id") @db.Uuid
+  attendeeCount Int @map("attendee_count")
+  expectedAttendeeCount Int @map("expected_attendee_count")
+  totalAfter Int @map("total_after")
+  confirmedByAdminUserId String @map("confirmed_by_admin_user_id") @db.Uuid
+  actorRole String @map("actor_role")
+  method CheckinMethod
+  checkedInAt DateTime @default(now()) @map("checked_in_at") @db.Timestamptz(6)
+  verificationMethod String @map("verification_method")
+  reason String?
+  payloadHash String @map("payload_hash")
+  migrated Boolean @default(false)
+  checkinRecord CheckinRecord @relation(fields: [checkinRecordId], references: [id], onDelete: Cascade)
+  operator AdminUser @relation(fields: [confirmedByAdminUserId], references: [id], onDelete: Restrict)
+  @@index([invitationId, eventId, checkedInAt])
+  @@map("checkin_arrivals")
 }

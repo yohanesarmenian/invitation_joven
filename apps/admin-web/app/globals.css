@@ -1,5 +1,62 @@
 @import "tailwindcss";
 
+.reception-workspace {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.reception-workspace :is(form, fieldset, label, dl) {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.reception-workspace :is(input:not([type="checkbox"]), select, textarea) {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.65rem;
+  border: 1px solid var(--admin-slate);
+  border-radius: 0.4rem;
+  background: white;
+  color: var(--admin-navy);
+}
+.reception-workspace button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin: 0.25rem;
+}
+.reception-workspace :is(p, li, dd, strong) {
+  overflow-wrap: anywhere;
+}
+.reception-workspace input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  margin: 0.6rem;
+}
+.reception-workspace dl {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}
+.reception-workspace dt {
+  font-weight: 600;
+}
+.reception-workspace dd {
+  margin: 0;
+}
+.reception-dialog {
+  max-width: min(32rem, calc(100vw - 2rem));
+  max-height: 85dvh;
+  overflow-y: auto;
+  border: 1px solid var(--admin-slate);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background: white;
+  color: var(--admin-navy);
+}
+.reception-dialog::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+
 .checkin-workspace {
   display: grid;
   gap: 1rem;

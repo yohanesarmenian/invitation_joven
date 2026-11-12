@@ -16,6 +16,9 @@ type Action = {
 export function StaffManagement({ csrfToken }: { csrfToken: string }) {
   const router = useRouter(),
     lock = useRef(false);
+  const [staffRole, setStaffRole] = useState<"GUEST_MANAGER" | "CHECKIN_STAFF">(
+    "GUEST_MANAGER",
+  );
   const [csrf, setCsrf] = useState(csrfToken),
     [data, setData] = useState<AdminStaffListResponse | null>(null),
     [page, setPage] = useState(1),
@@ -72,7 +75,7 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
     setMessage("");
     setCredential(null);
     const result = create
-      ? await api.createStaff(email.trim().toLowerCase(), csrf)
+      ? await api.createStaff(email.trim().toLowerCase(), csrf, staffRole)
       : action?.kind === "reset"
         ? await api.resetStaff(action.id, csrf)
         : action
@@ -123,8 +126,9 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
   return (
     <div className="checkin-workspace">
       <p>
-        Individual CHECKIN_STAFF accounts can check households in. Disabling an
-        account or resetting its password revokes its sessions.
+        Individual Guest Manager accounts handle reception. Legacy CHECKIN_STAFF
+        accounts remain available. Disabling an account or resetting its
+        password revokes its sessions.
       </p>
       <div role="status">{message}</div>
       {credential && (
@@ -174,6 +178,20 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
           <button disabled={pending || uncertain || loading}>
             Create staff account
           </button>
+          <label>
+            Reception role
+            <select
+              aria-label="Reception role"
+              value={staffRole}
+              disabled={pending || uncertain}
+              onChange={(event) =>
+                setStaffRole(event.target.value as typeof staffRole)
+              }
+            >
+              <option value="GUEST_MANAGER">Guest Manager — recommended</option>
+              <option value="CHECKIN_STAFF">Check-in staff — legacy</option>
+            </select>
+          </label>
         </form>
       </section>
       <section className="import-panel">
@@ -212,6 +230,11 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
                 {data.items.map((staff) => (
                   <li key={staff.id}>
                     <h3>{staff.email}</h3>
+                    <p>
+                      {staff.role === "GUEST_MANAGER"
+                        ? "Guest Manager"
+                        : "Check-in staff (legacy)"}
+                    </p>
                     <p>
                       {staff.status} ·{" "}
                       {staff.mustChangePassword

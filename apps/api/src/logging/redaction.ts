@@ -100,6 +100,7 @@ const CREDENTIAL_PATH_PATTERNS = [
 ];
 
 const SENSITIVE_QUERY_KEYS = new Set([
+  "query",
   "authorization",
   "credential",
   "invitationToken",
@@ -111,7 +112,9 @@ const SENSITIVE_QUERY_KEYS = new Set([
   "token",
 ]);
 
-export function sanitizeRequestUrl(url: string | undefined): string | undefined {
+export function sanitizeRequestUrl(
+  url: string | undefined,
+): string | undefined {
   if (!url) {
     return url;
   }

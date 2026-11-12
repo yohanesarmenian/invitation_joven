@@ -3,6 +3,7 @@ import { getServerSession } from "../../src/auth/server-session";
 import { SESSION_ENDED_PATH } from "../../src/auth/auth-state";
 import { AdminShell } from "../../components/admin-shell";
 import { SessionUnavailable } from "../../components/session-unavailable";
+import { accountHome } from "../../src/auth/navigation";
 export default async function ProtectedLayout({
   children,
 }: {
@@ -13,7 +14,8 @@ export default async function ProtectedLayout({
   if (session.kind !== "authenticated")
     return <SessionUnavailable forbidden={session.kind === "forbidden"} />;
   if (session.auth.user.mustChangePassword) redirect("/account/password");
-  if (session.auth.user.role === "CHECKIN_STAFF") redirect("/checkin");
+  if (session.auth.user.role !== "OWNER")
+    redirect(accountHome(session.auth.user.role));
   return (
     <AdminShell
       email={session.auth.user.email}

@@ -10,6 +10,7 @@ export default defineConfig({
     "**/checkin.e2e.ts",
     "**/event-content.e2e.ts",
     "**/invitation-journey.e2e.ts",
+    "**/reception.e2e.ts",
   ],
   workers: 1,
   retries: 0,

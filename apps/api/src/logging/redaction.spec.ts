@@ -65,7 +65,11 @@ describe("logging redaction", () => {
       passwordHash: string;
       DATABASE_URL: string;
       req: {
-        headers: { authorization: string; cookie: string; "set-cookie": string };
+        headers: {
+          authorization: string;
+          cookie: string;
+          "set-cookie": string;
+        };
       };
       res: { headers: { "set-cookie": string } };
       nested: {
@@ -111,6 +115,13 @@ describe("logging redaction", () => {
   });
 
   it("sanitizes bearer credential URL paths before request logging", () => {
+    expect(
+      sanitizeRequestUrl(
+        "/api/admin/reception/search?query=Synthetic%20Household&page=1",
+      ),
+    ).toBe(
+      `/api/admin/reception/search?query=${encodeURIComponent(REDACTION_CENSOR)}&page=1`,
+    );
     expect(
       sanitizeRequestUrl(
         "/api/public/invitations/raw-invitation-credential/rsvp?token=raw-query-token&page=1",

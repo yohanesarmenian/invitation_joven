@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { lockEvents } from "../events/event-lock.js";
 import { Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "../generated/prisma/client.js";
@@ -57,7 +57,7 @@ export type CheckinSearchCommand = {
 export type CheckinOperator = {
   id: string;
   email: string;
-  role: "OWNER" | "CHECKIN_STAFF";
+  role: "OWNER" | "CHECKIN_STAFF" | "GUEST_MANAGER";
 };
 
 type CheckinTransaction = Prisma.TransactionClient;
@@ -204,6 +204,31 @@ export class CheckinService {
         startsAt: event.startsAt?.toISOString() ?? null,
       })),
     };
+  }
+
+  async identifyQrInTransaction(tx: CheckinTransaction, qrPayload: string) {
+    const hash = hashQrPayload(this.credentialService, qrPayload);
+    const pass = await this.resolveActiveCheckinPass(tx, hash);
+    this.assertPassCredentialMatches(pass, hash);
+    return { id: pass.id, invitationId: pass.invitationId };
+  }
+
+  async recordReceptionArrival(
+    tx: CheckinTransaction,
+    input: {
+      invitationId: string;
+      eventId: string;
+      attendeeCount: number;
+      checkinPassId: string | null;
+      method: CheckinMethod;
+      operator: CheckinOperator;
+      operationId: string;
+      payloadHash: string;
+      verificationMethod: string;
+      reason: string | null;
+    },
+  ) {
+    return this.confirmForLockedInvitation(tx, { ...input, incremental: true });
   }
 
   async validateQr(
@@ -451,7 +476,7 @@ export class CheckinService {
     }
   }
 
-  private async lockActiveInvitation(
+  async lockActiveInvitation(
     tx: CheckinTransaction,
     invitationId: string,
   ): Promise<LockedInvitationRow> {
@@ -607,25 +632,39 @@ export class CheckinService {
       checkinPassId: string | null;
       method: CheckinMethod;
       operator: CheckinOperator;
+      incremental?: boolean;
+      operationId?: string;
+      payloadHash?: string;
+      verificationMethod?: string;
+      reason?: string | null;
     },
   ): Promise<AdminCheckinConfirmResponseDto> {
     await lockEvents(tx, [input.eventId]);
     const eligibility = await this.readEligibility(tx, input);
 
-    if (eligibility.previousCheckin !== null) {
+    if (eligibility.previousCheckin !== null && !input.incremental) {
       throwCheckinError("CHECKIN_ALREADY_CONFIRMED");
     }
 
     if (
+      !Number.isSafeInteger(input.attendeeCount) ||
       input.attendeeCount < 1 ||
-      input.attendeeCount > eligibility.expectedAttendeeCount
+      input.attendeeCount + (eligibility.previousCheckin?.attendeeCount ?? 0) >
+        eligibility.expectedAttendeeCount
     ) {
       throwCheckinError("INVALID_ATTENDEE_COUNT");
     }
 
     try {
-      const checkinRecord = await tx.checkinRecord.create({
-        data: {
+      const checkinRecord = await tx.checkinRecord.upsert({
+        where: {
+          invitationId_eventId: {
+            invitationId: input.invitationId,
+            eventId: input.eventId,
+          },
+        },
+        update: { attendeeCount: { increment: input.attendeeCount } },
+        create: {
           attendeeCount: input.attendeeCount,
           checkinPassId: input.checkinPassId,
           confirmedByAdminUserId: input.operator.id,
@@ -641,6 +680,25 @@ export class CheckinService {
         },
       });
 
+      await tx.checkinArrival.create({
+        data: {
+          operationId: input.operationId ?? randomUUID(),
+          checkinRecordId: checkinRecord.id,
+          invitationId: input.invitationId,
+          eventId: input.eventId,
+          attendeeCount: input.attendeeCount,
+          expectedAttendeeCount: eligibility.expectedAttendeeCount,
+          totalAfter: checkinRecord.attendeeCount,
+          confirmedByAdminUserId: input.operator.id,
+          actorRole: input.operator.role,
+          method: input.method,
+          verificationMethod:
+            input.verificationMethod ??
+            (input.method === "QR" ? "QR" : "HOUSEHOLD_DETAILS"),
+          reason: input.reason ?? null,
+          payloadHash: input.payloadHash ?? "legacy-single-confirmation",
+        },
+      });
       return {
         checkinRecord: {
           attendeeCount: checkinRecord.attendeeCount,

@@ -118,7 +118,12 @@ type AdminRsvpAttribution = {
 };
 
 type RsvpAttributionPolicy =
-  { mode: "PUBLIC" } | { mode: "ADMIN"; attribution: AdminRsvpAttribution };
+  | { mode: "PUBLIC" }
+  | {
+      mode: "ADMIN";
+      attribution: AdminRsvpAttribution;
+      onSiteVerification?: string;
+    };
 
 type RsvpLifecycleMutationResult = PublicRsvpMutationResult & {
   rsvpId: string;
@@ -639,6 +644,28 @@ export class PublicRsvpService {
     private readonly currentTime: PublicRsvpClock = () => new Date(),
   ) {}
 
+  async submitOnSiteInTransaction(
+    tx: Prisma.TransactionClient,
+    command: SubmitAdminRsvpOverrideCommand,
+    verificationMethod: "PHYSICAL_INVITATION" | "HOUSEHOLD_DETAILS",
+  ): Promise<void> {
+    const invitation = await lockInvitationForAdminRsvp(
+      tx,
+      command.invitationId,
+    );
+    await this.submitRsvpForLockedInvitation(tx, invitation, command, {
+      attributionPolicy: {
+        mode: "ADMIN",
+        onSiteVerification: verificationMethod,
+        attribution: {
+          submittedByAdminUserId: command.submittedByAdminUserId,
+          adminOverrideReason: command.overrideReason,
+        },
+      },
+      enforceDeadline: false,
+    });
+  }
+
   async submitPublicRsvp(
     command: SubmitPublicRsvpCommand,
   ): Promise<PublicRsvpMutationResult> {
@@ -823,7 +850,10 @@ export class PublicRsvpService {
         invitationId: invitation.id,
         revision: after.version,
         action: attribution
-          ? "OWNER_OVERRIDE"
+          ? policy.attributionPolicy.mode === "ADMIN" &&
+            policy.attributionPolicy.onSiteVerification
+            ? "ON_SITE_RSVP"
+            : "OWNER_OVERRIDE"
           : !before ||
               (before.values.status === RSVPStatus.PENDING &&
                 before.submittedAt === null)
@@ -836,6 +866,10 @@ export class PublicRsvpService {
         updatedValues: after.values,
         changes,
         overrideReason: attribution?.adminOverrideReason ?? null,
+        verificationMethod:
+          policy.attributionPolicy.mode === "ADMIN"
+            ? (policy.attributionPolicy.onSiteVerification ?? null)
+            : null,
       },
     });
     return result;

@@ -247,7 +247,9 @@ export function RsvpDetail({
                     ? "Initial RSVP submission"
                     : entry.action === "OWNER_OVERRIDE"
                       ? "OWNER override"
-                      : "Guest updated RSVP"}
+                      : entry.action === "ON_SITE_RSVP"
+                        ? "On-site RSVP"
+                        : "Guest updated RSVP"}
                 </h3>
                 <p>
                   <DateValue value={entry.createdAt} empty="" /> WIB —{" "}
@@ -267,6 +269,14 @@ export function RsvpDetail({
                 />
                 {entry.overrideReason ? (
                   <p>Override reason: {entry.overrideReason}</p>
+                ) : null}
+                {entry.verificationMethod ? (
+                  <p>
+                    Verification:{" "}
+                    {entry.verificationMethod
+                      .replaceAll("_", " ")
+                      .toLowerCase()}
+                  </p>
                 ) : null}
               </li>
             ))}

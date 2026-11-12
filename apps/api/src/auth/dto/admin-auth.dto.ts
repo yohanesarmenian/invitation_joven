@@ -1,6 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
 import type { AdminRole } from "../../generated/prisma/client.js";
-import { normalizeAdminEmail, validateAdminPassword } from "../admin-credentials.js";
+import {
+  normalizeAdminEmail,
+  validateAdminPassword,
+} from "../admin-credentials.js";
 import { validationError } from "../auth-errors.js";
 
 const LOGIN_REQUEST_FIELDS = new Set(["email", "password"]);
@@ -34,7 +37,10 @@ export class AdminAuthUserDto {
   @ApiProperty({ type: String })
   email: string;
 
-  @ApiProperty({ enum: ["OWNER", "CHECKIN_STAFF"], type: String })
+  @ApiProperty({
+    enum: ["OWNER", "CHECKIN_STAFF", "GUEST_MANAGER"],
+    type: String,
+  })
   role: AdminRole;
 
   @ApiProperty({ type: Boolean })

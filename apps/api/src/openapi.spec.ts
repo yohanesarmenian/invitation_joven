@@ -753,7 +753,7 @@ describe("OpenAPI contract", () => {
       properties: expect.objectContaining({
         mustChangePassword: expect.objectContaining({ type: "boolean" }),
         role: expect.objectContaining({
-          enum: ["OWNER", "CHECKIN_STAFF"],
+          enum: ["OWNER", "CHECKIN_STAFF", "GUEST_MANAGER"],
         }),
       }),
       required: expect.arrayContaining(["mustChangePassword", "role"]),
@@ -777,7 +777,9 @@ describe("OpenAPI contract", () => {
       properties: expect.objectContaining({
         email: expect.objectContaining({ type: "string" }),
         mustChangePassword: expect.objectContaining({ type: "boolean" }),
-        role: expect.objectContaining({ enum: ["CHECKIN_STAFF"] }),
+        role: expect.objectContaining({
+          enum: ["CHECKIN_STAFF", "GUEST_MANAGER"],
+        }),
         status: expect.objectContaining({ enum: ["ACTIVE", "DISABLED"] }),
       }),
       required: ["id", "email", "role", "status", "mustChangePassword"],
