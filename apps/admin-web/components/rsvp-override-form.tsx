@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type {
   AdminInvitationDetailResponse,
@@ -348,6 +349,7 @@ export function RsvpOverrideForm({
     setPending(false);
     busy.current = false;
     if (result.kind === "overridden") {
+      // Receipt was confirmed by the API before navigating to its persisted detail.
       window.location.replace(`${reloadDetail(rsvp.id)}?rsvpOverridden=1`);
       return;
     }
@@ -411,8 +413,8 @@ export function RsvpOverrideForm({
       {invitation.status !== "ACTIVE" && (
         <p className="hint">Archived invitations cannot be overridden.</p>
       )}
-      <div ref={notice} tabIndex={-1} role={message ? "alert" : undefined}>
-        {message && <p className="notice">{message}</p>}
+      <div ref={notice} tabIndex={-1}>
+        {message && <ActionFeedback tone="error">{message}</ActionFeedback>}
         {reload && (
           <a className="dashboard-retry" href={reloadDetail(rsvp.id)}>
             Reload current RSVP detail

@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
@@ -280,7 +281,11 @@ export function ReceptionAssistance({
           ? "Correct attendance or receive extra guests"
           : "Guest Assistance"}
       </h2>
-      {message ? <p role="alert">{message}</p> : null}
+      {message ? (
+        <ActionFeedback tone={uncertain ? "warning" : "error"}>
+          {message}
+        </ActionFeedback>
+      ) : null}
       {busy ? <p role="status">Working…</p> : null}
       {uncertain ? (
         <section>

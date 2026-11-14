@@ -1,12 +1,6 @@
 "use client";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-} from "react";
+import { ActionFeedback } from "./action-feedback";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 import {
   archiveInvitation,
@@ -36,9 +30,10 @@ function Dialog({
 }) {
   const close = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
+    const previous =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     close.current?.focus();
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !pending) onCancel();
@@ -79,15 +74,6 @@ function Dialog({
   );
 }
 
-function setNotice(
-  setMessage: Dispatch<SetStateAction<string>>,
-  notice: React.RefObject<HTMLDivElement | null>,
-  message: string,
-) {
-  setMessage(message);
-  requestAnimationFrame(() => notice.current?.focus());
-}
-
 export function InvitationActions({
   archivedAt,
   csrfToken,
@@ -105,12 +91,23 @@ export function InvitationActions({
   const [version, setVersion] = useState(publicTokenVersion);
   const [publicUrl, setPublicUrl] = useState("");
   const [message, setMessage] = useState("");
+  const [tone, setTone] = useState<"info" | "success" | "error" | "warning">(
+    "info",
+  );
   const [pending, setPending] = useState<
     "public-url" | "archive" | "regenerate" | "recover" | null
   >(null);
   const [dialog, setDialog] = useState<"archive" | "regenerate" | null>(null);
   const notice = useRef<HTMLDivElement>(null);
   const active = status === "ACTIVE";
+  function notify(
+    message: string,
+    tone: "info" | "success" | "error" | "warning" = "error",
+  ) {
+    setMessage(message);
+    setTone(tone);
+    requestAnimationFrame(() => notice.current?.focus());
+  }
 
   async function viewPublicUrl(kind: "public-url" | "recover" = "public-url") {
     if (pending) return;
@@ -120,7 +117,7 @@ export function InvitationActions({
     if (result.kind === "loaded") {
       setPublicUrl(result.data.publicUrl);
       setVersion(result.data.publicTokenVersion);
-      setNotice(setMessage, notice, "Current public link loaded.");
+      notify("Current public link loaded.", "success");
       return;
     }
     if (result.kind === "session-ended") {
@@ -128,17 +125,10 @@ export function InvitationActions({
       return;
     }
     if (result.kind === "archived")
-      setNotice(
-        setMessage,
-        notice,
-        "Archived invitations do not have an active public link.",
-      );
-    else if (result.kind === "not-found")
-      setNotice(setMessage, notice, "Invitation was not found.");
+      notify("Archived invitations do not have an active public link.");
+    else if (result.kind === "not-found") notify("Invitation was not found.");
     else
-      setNotice(
-        setMessage,
-        notice,
+      notify(
         result.kind === "rejected"
           ? result.message
           : "Unable to load the current public link.",
@@ -149,13 +139,9 @@ export function InvitationActions({
     if (!publicUrl) return;
     try {
       await navigator.clipboard.writeText(publicUrl);
-      setNotice(setMessage, notice, "Copied public link.");
+      notify("Copied public link.", "success");
     } catch {
-      setNotice(
-        setMessage,
-        notice,
-        "Copy was not available. Select and copy the link manually.",
-      );
+      notify("Copy was not available. Select and copy the link manually.");
     }
   }
 
@@ -175,12 +161,10 @@ export function InvitationActions({
     }
     if (result.kind === "csrf") {
       setCsrf(result.csrfToken);
-      setNotice(setMessage, notice, result.message);
+      notify(result.message);
       return;
     }
-    setNotice(
-      setMessage,
-      notice,
+    notify(
       result.kind === "not-found"
         ? "Invitation was not found."
         : result.kind === "conflict"
@@ -200,7 +184,7 @@ export function InvitationActions({
     if (result.kind === "regenerated") {
       setPublicUrl(result.data.publicUrl);
       setVersion(result.data.publicTokenVersion);
-      setNotice(setMessage, notice, "New public link created.");
+      notify("New public link created.", "success");
       return;
     }
     if (result.kind === "session-ended") {
@@ -209,20 +193,16 @@ export function InvitationActions({
     }
     if (result.kind === "csrf") {
       setCsrf(result.csrfToken);
-      setNotice(setMessage, notice, result.message);
+      notify(result.message);
       return;
     }
     if (result.kind === "conflict") {
-      setNotice(
-        setMessage,
-        notice,
+      notify(
         "The public link changed elsewhere. Refresh the current public link before regenerating again.",
       );
       return;
     }
-    setNotice(
-      setMessage,
-      notice,
+    notify(
       result.kind === "not-found"
         ? "Invitation was not found."
         : result.kind === "rejected"
@@ -235,17 +215,15 @@ export function InvitationActions({
     <section className="detail-section lifecycle-section">
       <div className="section-heading">
         <h2>Lifecycle actions</h2>
-        <p>
-          Public links are sensitive. Load or rotate them only when needed.
-        </p>
+        <p>Public links are sensitive. Load or rotate them only when needed.</p>
       </div>
       {archivedAt && (
         <p className="notice" role="status">
           This invitation was archived. Public guest access is unavailable.
         </p>
       )}
-      <div ref={notice} tabIndex={-1} role={message ? "alert" : undefined}>
-        {message && <p className="notice">{message}</p>}
+      <div ref={notice} tabIndex={-1}>
+        {message && <ActionFeedback tone={tone}>{message}</ActionFeedback>}
       </div>
       <div className="lifecycle-actions">
         <button

@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -259,9 +260,12 @@ export function GuestImport({
                 : ""}
         </p>
         {state.message && (
-          <p id="import-message" className="notice" role="alert">
+          <ActionFeedback
+            id="import-message"
+            tone={state.stage === "COMMIT_UNCERTAIN" ? "warning" : "error"}
+          >
             {state.message}
-          </p>
+          </ActionFeedback>
         )}
         {expired && state.stage === "PREVIEW_READY" && (
           <p role="alert">This preview has expired. Validate the file again.</p>
@@ -288,7 +292,10 @@ export function GuestImport({
         {state.stage === "SUCCESS" && state.receipt && (
           <section className="import-panel" aria-labelledby="success-title">
             <h2 id="success-title">Import complete</h2>
-            <p role="status">The server confirmed this import.</p>
+            <ActionFeedback tone="success">
+              Invitations imported successfully. The server confirmed this
+              import.
+            </ActionFeedback>
             <dl className="import-settings">
               <div>
                 <dt>Batch ID</dt>

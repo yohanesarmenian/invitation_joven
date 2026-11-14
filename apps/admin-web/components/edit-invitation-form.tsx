@@ -6,11 +6,15 @@ import type {
 } from "@wedding-invitation/api-client/src/index";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 import {
-  deadlineToIso,
   isoToJakartaInput,
   type FormErrors,
 } from "../src/invitations/form-state";
 import { updateInvitation } from "../src/invitations/lifecycle";
+import {
+  fromWibMinute,
+  preserveUneditedMinute,
+} from "../src/forms/wib-date-time";
+import { ActionFeedback } from "./action-feedback";
 
 type Invitation = AdminInvitationDetailResponse["invitation"];
 type EditFields = {
@@ -36,10 +40,10 @@ function prepare(
   )
     errors.children = "Enter a whole number of zero or more.";
   const rsvpDeadlineAt = fields.deadline
-    ? deadlineToIso(fields.deadline)
+    ? fromWibMinute(fields.deadline)
     : null;
   if (fields.deadline && !rsvpDeadlineAt)
-    errors.deadline = "Enter a valid date and time in Asia/Jakarta.";
+    errors.deadline = "Enter a valid date, hour and minute in Asia/Jakarta.";
   return {
     errors,
     body: {
@@ -78,8 +82,10 @@ export function EditInvitationForm({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [conflict, setConflict] = useState(false);
+  const deadlineEdited = useRef(false);
 
   function field<K extends keyof EditFields>(key: K, value: EditFields[K]) {
+    if (key === "deadline") deadlineEdited.current = true;
     setFields((current) => ({ ...current, [key]: value }));
   }
   function feedback(text: string) {
@@ -90,6 +96,11 @@ export function EditInvitationForm({
     event.preventDefault();
     if (busy.current) return;
     const prepared = prepare(fields, expectedUpdatedAt.current);
+    prepared.body.rsvpDeadlineAt = preserveUneditedMinute(
+      fields.deadline,
+      invitation.rsvpDeadlineAt,
+      deadlineEdited.current,
+    );
     setErrors(prepared.errors);
     setConflict(false);
     if (Object.keys(prepared.errors).length) {
@@ -158,8 +169,8 @@ export function EditInvitationForm({
       onSubmit={submit}
       ref={form}
     >
-      <div ref={notice} tabIndex={-1} role={message ? "alert" : undefined}>
-        {message && <p className="notice">{message}</p>}
+      <div ref={notice} tabIndex={-1}>
+        {message && <ActionFeedback tone="error">{message}</ActionFeedback>}
         {conflict && (
           <a
             className="dashboard-retry"
@@ -216,7 +227,7 @@ export function EditInvitationForm({
               aria-describedby={`deadline-help${errors.deadline ? " deadline-error" : ""}`}
               aria-invalid={Boolean(errors.deadline)}
               id="deadline"
-              step="0.001"
+              step="60"
               type="datetime-local"
               value={fields.deadline}
               onChange={(event) => field("deadline", event.target.value)}
