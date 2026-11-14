@@ -5,13 +5,16 @@ import { getRsvpDetail } from "../src/rsvps/server-rsvps";
 import { getInvitationDetail } from "../src/invitations/server-invitations";
 import { RsvpReadError } from "./rsvp-list";
 import { RsvpDetail } from "./rsvp-detail";
+import { ActionFeedback } from "./action-feedback";
 
 export async function RsvpDetailContent({
   csrfToken,
   id,
+  showSaved = false,
 }: {
   csrfToken: string;
   id: string;
+  showSaved?: boolean;
 }) {
   const result = await getRsvpDetail(id);
   if (result.kind === "unauthenticated") redirect(SESSION_ENDED_PATH);
@@ -34,13 +37,23 @@ export async function RsvpDetailContent({
     );
   const invitation = await getInvitationDetail(result.data.rsvp.invitation.id);
   return (
-    <RsvpDetail
-      csrfToken={csrfToken}
-      invitation={
-        invitation.kind === "ready" ? invitation.data.invitation : undefined
-      }
-      history={result.data.history}
-      rsvp={result.data.rsvp}
-    />
+    <>
+      {showSaved &&
+      result.data.rsvp.submittedByAdmin &&
+      result.data.history.some((entry) => entry.action === "OWNER_OVERRIDE") ? (
+        <ActionFeedback tone="success">
+          RSVP updated successfully. Saved attendance and history are shown
+          below.
+        </ActionFeedback>
+      ) : null}
+      <RsvpDetail
+        csrfToken={csrfToken}
+        invitation={
+          invitation.kind === "ready" ? invitation.data.invitation : undefined
+        }
+        history={result.data.history}
+        rsvp={result.data.rsvp}
+      />
+    </>
   );
 }

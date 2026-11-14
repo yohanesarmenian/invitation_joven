@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback, type FeedbackTone } from "./action-feedback";
 import { useEffect, useRef, useState } from "react";
 import { loadPublicUrl } from "../src/invitations/lifecycle";
 import {
@@ -19,6 +20,7 @@ export function PersonalInviteMessage({
     [pending, setPending] = useState(false),
     lock = useRef(false),
     field = useRef<HTMLTextAreaElement>(null);
+  const [tone, setTone] = useState<FeedbackTone>("info");
   useEffect(() => {
     const clear = () => {
       setText("");
@@ -37,6 +39,7 @@ export function PersonalInviteMessage({
     if (lock.current) return;
     lock.current = true;
     setPending(true);
+    setTone("info");
     setNotice("");
     const result = await loadPublicUrl(invitationId);
     lock.current = false;
@@ -46,16 +49,19 @@ export function PersonalInviteMessage({
       setUrl("");
       if (result.kind === "session-ended")
         window.location.replace(SESSION_ENDED_PATH);
-      else
+      else {
+        setTone("error");
         setNotice(
           "Unable to read the current invitation link. Refresh and check the invitation status.",
         );
+      }
       return;
     }
     const current = result.data.publicUrl;
     if (!copy || current !== url) {
       setUrl(current);
       setText(personalMessage(context, current));
+      setTone(copy ? "warning" : "info");
       setNotice(
         copy
           ? "The invitation link changed. Review the rebuilt preview, then copy explicitly."
@@ -65,10 +71,12 @@ export function PersonalInviteMessage({
     }
     try {
       await navigator.clipboard.writeText(text);
+      setTone("success");
       setNotice(
         "Personal invitation message copied. Send it yourself using your preferred app.",
       );
     } catch {
+      setTone("warning");
       field.current?.focus();
       field.current?.select();
       setNotice(
@@ -111,7 +119,7 @@ export function PersonalInviteMessage({
           </button>
         </>
       )}
-      <p role="status">{notice}</p>
+      <ActionFeedback tone={tone}>{notice}</ActionFeedback>
     </section>
   );
 }

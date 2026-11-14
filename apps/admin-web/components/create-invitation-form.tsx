@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -252,8 +253,8 @@ export function CreateInvitationForm({
       aria-label="Create invitation"
       aria-busy={pending || checking}
     >
-      <div ref={notice} tabIndex={-1} role={message ? "alert" : undefined}>
-        {message && <p className="notice">{message}</p>}
+      <div ref={notice} tabIndex={-1}>
+        {message && <ActionFeedback tone="error">{message}</ActionFeedback>}
         {recovery && (
           <div className="create-recovery">
             <a

@@ -1,10 +1,12 @@
 "use client";
+import { ActionFeedback, type FeedbackTone } from "./action-feedback";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminEventsResponse } from "@wedding-invitation/api-client/src/index";
 import * as api from "../src/event-content/client";
 import { VenueInformation } from "../../invitation-web/components/invitation/venue-information";
 import { venueFromApi } from "../../invitation-web/src/content/venue-api";
+import { toWibMinute, fromWibMinute } from "../src/forms/wib-date-time";
 
 const empty: api.Body = { parking: null, rundown: null };
 type Confirm = "publish" | "hide" | { deleteId: string } | null;
@@ -19,6 +21,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     [blocked, setBlocked] = useState(false);
   const [message, setMessage] = useState("Choose an event to begin."),
     [confirm, setConfirm] = useState<Confirm>(null);
+  const [tone, setTone] = useState<FeedbackTone>("info");
   const [preview, setPreview] = useState<"draft" | "published" | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const uploadInput = useRef<HTMLInputElement>(null),
@@ -32,6 +35,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
 
   function notice(result: api.Result<unknown>) {
     if (result.kind === "uncertain") {
+      setTone("warning");
       setBlocked(true);
       setMessage(
         "The result is uncertain. Reload saved state before another action; do not repeat the mutation blindly.",
@@ -39,6 +43,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       return;
     }
     if (result.kind === "ok") return;
+    setTone("error");
     if (result.csrfToken) setCsrf(result.csrfToken);
     if (result.code === "UNAUTHENTICATED") {
       stopped.current = true;
@@ -68,7 +73,10 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     void api.events().then((result) => {
       if (!active) return;
       if (result.kind === "ok") setCatalog(result.data.events);
-      else setMessage("Unable to load events. Reload this page.");
+      else {
+        setTone("error");
+        setMessage("Unable to load events. Reload this page.");
+      }
     });
     const clear = () => {
       stopped.current = true;
@@ -135,10 +143,12 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       ) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (busy || blocked)
+        if (busy || blocked) {
+          setTone("warning");
           setMessage(
             "Finish the current action or reload saved state before leaving this editor.",
           );
+        }
       }
     };
     document.addEventListener("click", protect, true);
@@ -148,6 +158,8 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     if (lock.current || stopped.current) return;
     lock.current = true;
     setBusy(true);
+    setTone("info");
+    setMessage("Loading saved state…");
     setPreview(null);
     setConfirm(null);
     const current = ++generation.current;
@@ -158,6 +170,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
         setSnapshot(result.data);
         setBody(structuredClone(result.data.draft));
         setBlocked(false);
+        setTone("info");
         setMessage("Saved state loaded.");
         setFile(null);
         if (uploadInput.current) uploadInput.current.value = "";
@@ -173,6 +186,8 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     if (lock.current || blocked || !snapshot || stopped.current) return;
     lock.current = true;
     setBusy(true);
+    setTone("info");
+    setMessage("Updating event materials…");
     setConfirm(null);
     setPreview(null);
     const current = generation.current;
@@ -189,6 +204,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
           setFile(null);
           if (uploadInput.current) uploadInput.current.value = "";
         }
+        setTone("success");
         setMessage(
           mode === "save"
             ? "Draft saved. Published content is unchanged."
@@ -203,6 +219,8 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
   }
   function change(next: api.Body) {
     setBody(next);
+    setTone("info");
+    setMessage("Unsaved material changes.");
     setPreview(null);
     setConfirm(null);
   }
@@ -251,9 +269,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
           Reload saved state
         </button>
       ) : null}
-      <p role="status" aria-live="polite">
-        {message}
-      </p>
+      <ActionFeedback tone={tone}>{message}</ActionFeedback>
       {dirty ? (
         <p>
           Unsaved changes. Save or explicitly reload before switching events or
@@ -438,15 +454,13 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                       Start (WIB) {index + 1}
                       <input
                         type="datetime-local"
-                        step="1"
+                        step="60"
                         value={localTime(item.startsAt)}
                         onChange={(e) => {
                           const items = [...body.rundown!.items];
                           items[index] = {
                             ...item,
-                            startsAt: e.target.value
-                              ? `${e.target.value.length === 16 ? e.target.value + ":00" : e.target.value}+07:00`
-                              : "",
+                            startsAt: fromWibMinute(e.target.value) ?? "",
                           };
                           change({
                             ...body,
@@ -594,6 +608,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                   file.size > 5 * 1024 * 1024 ||
                   !/\.(png|jpe?g|webp|pdf)$/i.test(file.name)
                 ) {
+                  setTone("error");
                   setMessage("Choose a supported file up to 5 MiB.");
                   return;
                 }
@@ -722,16 +737,5 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
   );
 }
 function localTime(iso: string) {
-  if (!iso || !Number.isFinite(Date.parse(iso))) return "";
-  const parts = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date(iso));
-  return parts.replace(" ", "T");
+  return toWibMinute(iso);
 }

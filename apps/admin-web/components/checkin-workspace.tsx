@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -448,10 +449,10 @@ export function CheckinWorkspace({ csrfToken }: { csrfToken: string }) {
           </p>
         )}
         {state.phase === "ERROR" && (
-          <p role="alert">
+          <ActionFeedback tone="error">
             {messages[state.code] ??
               "The action was rejected. Read the household again before confirming."}
-          </p>
+          </ActionFeedback>
         )}
         {(state.phase === "VALID_PREVIEW" || state.phase === "CONFIRMING") && (
           <>

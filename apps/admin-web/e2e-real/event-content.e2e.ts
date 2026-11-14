@@ -26,6 +26,11 @@ async function editor(page: Page) {
       .getByRole("region", { name: "Event materials editor", exact: true })
       .getByRole("status"),
   ).toHaveText("Saved state loaded.");
+  await expect(
+    page
+      .getByRole("region", { name: "Event materials editor", exact: true })
+      .getByRole("status"),
+  ).toHaveClass(/action-feedback--info/);
 }
 test("real draft/upload/preview/publish/hide survives reload and controls guest media access", async ({
   page,
@@ -57,6 +62,11 @@ test("real draft/upload/preview/publish/hide survives reload and controls guest 
       .getByRole("region", { name: "Event materials editor", exact: true })
       .getByRole("status"),
   ).toHaveText("Draft saved. Published content is unchanged.");
+  await expect(
+    page
+      .getByRole("region", { name: "Event materials editor", exact: true })
+      .getByRole("status"),
+  ).toHaveClass(/action-feedback--success/);
   const publicContext = await browser.newContext({
     baseURL: origins.invitation,
   });
@@ -211,6 +221,11 @@ test("lost save response blocks mutation until explicit authoritative reload, wi
       .getByRole("status"),
   ).toContainText("result is uncertain");
   await expect(
+    page
+      .getByRole("region", { name: "Event materials editor", exact: true })
+      .getByRole("status"),
+  ).toHaveClass(/action-feedback--warning/);
+  await expect(
     page.getByRole("button", { name: "Save draft", exact: true }),
   ).toBeDisabled();
   await expect(
@@ -239,4 +254,78 @@ test("lost save response blocks mutation until explicit authoritative reload, wi
       })
     ).version,
   ).toBe((before?.version ?? 0) + 1);
+});
+
+test("event material feedback stays informational while pending and reports rejected inputs as errors", async ({
+  page,
+}) => {
+  await editor(page);
+  const workspace = page.getByRole("region", {
+    name: "Event materials editor",
+    exact: true,
+  });
+  await page.getByLabel("Include parking guide", { exact: true }).check();
+  await page
+    .getByLabel("Parking title", { exact: true })
+    .fill("Pending feedback review");
+  let release!: () => void, requested!: () => void;
+  const held = new Promise<void>((done) => (release = done)),
+    received = new Promise<void>((done) => (requested = done));
+  const path = `**/api/admin/event-content/${fixture.event.id}`;
+  await page.route(path, async (route) => {
+    if (route.request().method() === "PUT") {
+      requested();
+      await held;
+    }
+    await route.continue();
+  });
+  try {
+    await page.getByRole("button", { name: "Save draft", exact: true }).click();
+    await received;
+    await expect(workspace.getByRole("status")).toHaveClass(
+      /action-feedback--info/,
+    );
+    await expect(workspace.getByRole("status")).toHaveText(
+      "Updating event materials…",
+    );
+  } finally {
+    release();
+  }
+  await expect(workspace.getByRole("status")).toHaveClass(
+    /action-feedback--success/,
+  );
+  await page.unroute(path);
+  await page.getByLabel("Upload file", { exact: true }).setInputFiles({
+    name: "invalid.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Synthetic invalid file"),
+  });
+  await page
+    .getByRole("button", { name: "Upload supporting file", exact: true })
+    .click();
+  await expect(workspace.getByRole("alert")).toHaveClass(
+    /action-feedback--error/,
+  );
+  await expect(workspace.getByRole("alert")).toContainText(
+    "Choose a supported file",
+  );
+  await page.route(path, async (route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    await route.fulfill({
+      status: 400,
+      json: {
+        error: { code: "VALIDATION_ERROR", message: "Synthetic rejection" },
+      },
+    });
+  });
+  await page
+    .getByLabel("Parking title", { exact: true })
+    .fill("Preserve rejected material draft");
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  await expect(workspace.getByRole("alert")).toHaveClass(
+    /action-feedback--error/,
+  );
+  await expect(page.getByLabel("Parking title", { exact: true })).toHaveValue(
+    "Preserve rejected material draft",
+  );
 });
