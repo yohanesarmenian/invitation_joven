@@ -57,11 +57,13 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
   const [schedule, setSchedule] = useState<
     Partial<Record<ScheduleField, WibMinuteEdit>>
   >({});
+  const [scheduleRevision, setScheduleRevision] = useState(0);
   const used = saved ? Object.values(saved.usage).some((n) => n > 0) : false;
   const scheduleLocked = !!saved && saved.usage.checkins > 0;
   function loadRow(row: api.ManagedEvent | null, rows = items) {
     setFieldErrors({});
     setSchedule({});
+    setScheduleRevision((revision) => revision + 1);
     setSaved(row);
     if (row) {
       setDraft({
@@ -338,6 +340,7 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
             />
           </label>
           <WibDateTimeField
+            key={`start-${scheduleRevision}`}
             label="Start (WIB)"
             clearLabel="Clear start time"
             disabled={scheduleLocked}
@@ -347,6 +350,7 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
             error={fieldErrors.startsAt}
           />
           <WibDateTimeField
+            key={`end-${scheduleRevision}`}
             label="End (WIB)"
             clearLabel="Clear end time"
             disabled={scheduleLocked}

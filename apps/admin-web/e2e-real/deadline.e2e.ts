@@ -1,9 +1,34 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
 import { runnerOrigins } from "./origins";
 let fixture: Awaited<ReturnType<typeof createWorkflowFixture>>;
 let invitationId: string;
 const original = "2027-06-01T11:30:45.678Z";
+
+async function editBeforeHydration(
+  page: Page,
+  path: string,
+  edit: () => Promise<void>,
+) {
+  const scripts = /\/_next\/static\/[^?]+\.js(?:\?|$)/;
+  let heldScripts = 0;
+  const gate = Promise.withResolvers<void>();
+  const hold = async (route: Route) => {
+    heldScripts++;
+    await gate.promise;
+    await route.continue();
+  };
+  await page.route(scripts, hold);
+  try {
+    await page.goto(path, { waitUntil: "commit" });
+    await expect.poll(() => heldScripts).toBeGreaterThan(0);
+    await edit();
+  } finally {
+    gate.resolve();
+    await page.waitForLoadState("load");
+    await page.unroute(scripts, hold);
+  }
+}
 
 test.beforeAll(async () => {
   fixture = await createWorkflowFixture();
@@ -115,8 +140,7 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
   expect((await saved()).rsvpDeadlineAt?.toISOString()).toBe(
     "2027-06-01T17:15:00.000Z",
   );
-  await page.goto(path);
-  await expect(input).toHaveValue("2027-06-02T00:15");
+  const beforeRejection = await saved();
   await page.route(
     `**/api/admin/invitations/${invitationId}`,
     async (route) => {
@@ -129,19 +153,72 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
       });
     },
   );
-  await input.fill("2027-06-03T00:45");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await editBeforeHydration(page, path, async () => {
+    await expect(input).toHaveValue("2027-06-02T00:15");
+    await input.fill("2027-06-03T00:45");
+    await expect(input).toHaveValue("2027-06-03T00:45");
+  });
+  await expect(input).toHaveValue("2027-06-03T00:45");
+  await page
+    .getByLabel("Internal notes", { exact: true })
+    .fill("Unrelated draft edit after hydration");
+  const rejected = page.waitForResponse(
+    (response) => response.request().method() === "PATCH",
+  );
+  const beforeRejectedRequest = writes;
+  await save.click();
+  const response = await rejected;
+  expect(response.status()).toBe(400);
   await expect(
     page.getByRole("form", { name: "Edit invitation" }).getByRole("alert"),
   ).toContainText("not accepted");
   await expect(input).toHaveValue("2027-06-03T00:45");
-  expect((await saved()).rsvpDeadlineAt?.toISOString()).toBe(
-    "2027-06-01T17:15:00.000Z",
-  );
+  expect(response.request().postDataJSON()).toMatchObject({
+    rsvpDeadlineAt: "2027-06-02T17:45:00.000Z",
+  });
+  expect(writes - beforeRejectedRequest).toBe(1);
+  expect(await saved()).toEqual(beforeRejection);
   await page.unroute(`**/api/admin/invitations/${invitationId}`);
+  const beforeCorrection = writes;
+  await input.fill("2027-06-03T01:00");
+  await save.click();
+  await expect(page).toHaveURL(
+    new RegExp(`/invitations/${invitationId}\\?updated=1`),
+  );
+  expect(writes - beforeCorrection).toBe(1);
+  const corrected = await saved();
+  expect(corrected.rsvpDeadlineAt?.toISOString()).toBe(
+    "2027-06-02T18:00:00.000Z",
+  );
+  await editBeforeHydration(page, path, async () => {
+    await expect(input).toHaveValue("2027-06-03T01:00");
+    for (let i = 0; i < 6; i++) await input.press("ArrowLeft");
+    await input.press("Backspace");
+    expect(
+      await input.evaluate(
+        (element: HTMLInputElement) =>
+          element.validity.badInput && element.value === "",
+      ),
+    ).toBe(true);
+  });
+  const beforePartial = writes;
+  await save.click();
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  await expect(input).toBeFocused();
+  expect(writes).toBe(beforePartial);
+  expect(await saved()).toEqual(corrected);
   const beforeClear = writes;
   await clear.click();
+  await expect(input).toHaveValue("");
+  const clearing = page.waitForResponse(
+    (response) => response.request().method() === "PATCH",
+  );
   await save.click();
+  const cleared = await clearing;
+  expect(cleared.status()).toBe(200);
+  expect(cleared.request().postDataJSON()).toMatchObject({
+    rsvpDeadlineAt: null,
+  });
   await expect(page).toHaveURL(
     new RegExp(`/invitations/${invitationId}\\?updated=1`),
   );

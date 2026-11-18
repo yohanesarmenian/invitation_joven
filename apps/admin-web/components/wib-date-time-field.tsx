@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId, useRef } from "react";
 import {
   readWibMinuteEdit,
   toWibMinute,
@@ -32,12 +32,7 @@ export function WibDateTimeField({
   const generatedId = useId();
   const id = inputId ?? generatedId;
   const input = useRef<HTMLInputElement>(null);
-  const value = edit?.input ?? toWibMinute(original);
   const message = edit?.kind === "invalid" ? wibMinuteError : error;
-
-  useEffect(() => {
-    if (!edit && input.current) input.current.value = value;
-  }, [edit, value]);
 
   return (
     <div className="field">
@@ -54,7 +49,9 @@ export function WibDateTimeField({
         disabled={disabled}
         step="60"
         type="datetime-local"
-        value={value}
+        // The browser owns the draft, including edits made before hydration.
+        // Editors remount this field when explicitly loading saved data.
+        defaultValue={toWibMinute(original)}
         onInput={(event) => onEdit(readWibMinuteEdit(event.currentTarget))}
       />
       {help && (

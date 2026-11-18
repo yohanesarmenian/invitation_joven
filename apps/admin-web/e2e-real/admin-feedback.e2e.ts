@@ -356,6 +356,20 @@ test("Event edits distinguish invalid native dates from deliberate clears", asyn
       endsAt: new Date("2027-01-02T13:15:00.000Z"),
       venueName: "Keep this venue edit",
     });
+    await start.fill("2027-01-02T18:30");
+    await page.getByRole("button", { name: "Clear end time" }).click();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Reload saved events" }).click();
+    await expect(start).toHaveValue("2027-01-02T17:15");
+    await expect(end).toHaveValue("2027-01-02T20:15");
+    await expect(save).toBeDisabled();
+    await page.getByLabel("Event to edit").selectOption("");
+    await expect(start).toHaveValue("");
+    await expect(end).toHaveValue("");
+    await page.getByLabel("Event to edit").selectOption(event.id);
+    await expect(start).toHaveValue("2027-01-02T17:15");
+    await expect(end).toHaveValue("2027-01-02T20:15");
+    expect(writes).toBe(1);
     await page.getByRole("button", { name: "Clear start time" }).click();
     await save.click();
     await expect(
