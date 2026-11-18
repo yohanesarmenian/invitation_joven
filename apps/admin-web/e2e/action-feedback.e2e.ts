@@ -17,40 +17,36 @@ test("staff feedback distinguishes confirmed success, rejection and uncertainty"
 }) => {
   await login(page);
   await page.goto("/settings/staff");
-  await page.getByLabel("Staff email").fill("feedback-operator@example.com");
-  await page
-    .getByRole("button", { name: "Create staff account", exact: true })
-    .click();
+  const email = page.getByLabel("Staff email");
+  const create = page.getByRole("button", {
+    name: "Create staff account",
+    exact: true,
+  });
+  const feedbackOperator = "feedback-operator@example.com";
+  await email.fill(feedbackOperator);
+  await create.click();
   await expect(
     page.getByRole("status").filter({ hasText: "Staff created." }),
   ).toHaveClass(/action-feedback--success/);
   await page
     .getByRole("button", { name: "Dismiss temporary password" })
     .click();
-  await page.route("**/api/admin/staff", async (route) => {
-    if (route.request().method() !== "POST") return route.continue();
-    await route.fulfill({
-      status: 409,
-      json: { error: { code: "CONFLICT", message: "Synthetic conflict" } },
-    });
-  });
-  await page.getByLabel("Staff email").fill("conflicting-feedback@example.com");
-  await page
-    .getByRole("button", { name: "Create staff account", exact: true })
-    .click();
+  await email.fill(feedbackOperator);
+  const duplicate = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/admin/staff",
+  );
+  await create.click();
+  expect((await duplicate).status()).toBe(409);
   await expect(page.getByRole("main").getByRole("alert")).toHaveClass(
     /action-feedback--error/,
   );
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "conflicts with the account state",
   );
-  await page.unroute("**/api/admin/staff");
-  await page
-    .getByLabel("Staff email")
-    .fill("lost-response-operator@example.com");
-  await page
-    .getByRole("button", { name: "Create staff account", exact: true })
-    .click();
+  await email.fill("lost-response-feedback-operator@example.com");
+  await create.click();
   await expect(
     page.getByRole("status").filter({ hasText: "outcome is unknown" }),
   ).toHaveClass(/action-feedback--warning/);
