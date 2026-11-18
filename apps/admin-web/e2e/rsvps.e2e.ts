@@ -141,7 +141,10 @@ test("OWNER override validates, confirms, submits once, and reloads detail", asy
     .getByRole("dialog", { name: "Override RSVP" })
     .getByRole("button", { name: "Override RSVP" })
     .dblclick();
-  await expect(page).toHaveURL(/rsvpOverridden=1/);
+  const receipt = page
+    .getByRole("status")
+    .filter({ hasText: "RSVP updated successfully." });
+  await expect(receipt).toBeVisible();
   await expect(page.getByText("Declined", { exact: true })).toBeVisible();
   await expect(page.getByText("Guest called the owner")).toBeVisible();
   expect(puts).toHaveLength(1);
@@ -155,6 +158,15 @@ test("OWNER override validates, confirms, submits once, and reloads detail", asy
   });
   expect(puts[0]).not.toContain("guestNote");
   expect(puts[0]).not.toContain("adminUser");
+  await page.reload();
+  await expect(page.getByText("Guest called the owner")).toBeVisible();
+  await expect(receipt).toHaveCount(0);
+  await page.goto(
+    "/rsvps/aaaaaaaa-aaaa-4aaa-8aaa-000000000001?rsvpOverridden=1",
+  );
+  await expect(page.getByText("Guest called the owner")).toBeVisible();
+  await expect(receipt).toHaveCount(0);
+  expect(puts).toHaveLength(1);
 });
 
 test("OWNER override stale conflict preserves form values and requires reload", async ({
@@ -186,6 +198,9 @@ test("OWNER override stale conflict preserves form values and requires reload", 
   await expect(page.locator(".dashboard-retry")).toHaveText(
     "Reload current RSVP detail",
   );
+  await expect(
+    page.getByText("RSVP updated successfully.", { exact: true }),
+  ).toHaveCount(0);
   expect(puts).toHaveLength(1);
 });
 

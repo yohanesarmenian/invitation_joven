@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import { useRef, useState, type FormEvent } from "react";
 import { SESSION_ENDED, validateLogin } from "../src/auth/auth-state";
 import { signIn } from "../src/auth/browser-client";
@@ -116,11 +117,7 @@ export function LoginForm({
         )}
       </div>
       <div aria-live="polite" aria-atomic="true">
-        {message && (
-          <p className="form-error" role="alert">
-            {message}
-          </p>
-        )}
+        {message && <ActionFeedback tone="error">{message}</ActionFeedback>}
         {pending && <p role="status">Signing in…</p>}
       </div>
       <button type="submit" disabled={pending}>

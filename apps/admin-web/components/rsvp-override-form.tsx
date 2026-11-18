@@ -1,5 +1,7 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import type {
   AdminInvitationDetailResponse,
   AdminRsvpDetailResponse,
@@ -233,15 +235,42 @@ function resultMessage(result: OverrideRsvpResult) {
   return UNCERTAIN_RSVP_OVERRIDE;
 }
 
-export function RsvpOverrideForm({
-  csrfToken,
-  invitation,
-  rsvp,
-}: {
+type OverrideProps = {
   csrfToken: string;
   invitation: Invitation;
   rsvp: Rsvp;
-}) {
+};
+
+export function RsvpOverrideForm(props: OverrideProps) {
+  const [saved, setSaved] = useState(false);
+  const router = useRouter();
+  return (
+    <>
+      {saved && (
+        <ActionFeedback tone="success">
+          RSVP updated successfully.
+        </ActionFeedback>
+      )}
+      <OverrideEditor
+        key={`${props.rsvp.id}:${props.rsvp.version}`}
+        {...props}
+        onOpen={() => setSaved(false)}
+        onSaved={() => {
+          setSaved(true);
+          router.refresh();
+        }}
+      />
+    </>
+  );
+}
+
+function OverrideEditor({
+  csrfToken,
+  invitation,
+  rsvp,
+  onOpen,
+  onSaved,
+}: OverrideProps & { onOpen: () => void; onSaved: () => void }) {
   const token = useRef(csrfToken);
   const notice = useRef<HTMLDivElement>(null);
   const firstInvalid = useRef<HTMLFormElement>(null);
@@ -348,7 +377,10 @@ export function RsvpOverrideForm({
     setPending(false);
     busy.current = false;
     if (result.kind === "overridden") {
-      window.location.replace(`${reloadDetail(rsvp.id)}?rsvpOverridden=1`);
+      setConfirming(false);
+      setExpanded(false);
+      setReload(true);
+      onSaved();
       return;
     }
     setConfirming(false);
@@ -402,7 +434,10 @@ export function RsvpOverrideForm({
         </div>
         <button
           disabled={locked || pending}
-          onClick={() => setExpanded((current) => !current)}
+          onClick={() => {
+            if (!expanded) onOpen();
+            setExpanded(!expanded);
+          }}
           type="button"
         >
           {expanded ? "Close override" : "Override RSVP"}
@@ -411,8 +446,8 @@ export function RsvpOverrideForm({
       {invitation.status !== "ACTIVE" && (
         <p className="hint">Archived invitations cannot be overridden.</p>
       )}
-      <div ref={notice} tabIndex={-1} role={message ? "alert" : undefined}>
-        {message && <p className="notice">{message}</p>}
+      <div ref={notice} tabIndex={-1}>
+        {message && <ActionFeedback tone="error">{message}</ActionFeedback>}
         {reload && (
           <a className="dashboard-retry" href={reloadDetail(rsvp.id)}>
             Reload current RSVP detail

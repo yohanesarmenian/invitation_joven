@@ -1,37 +1,97 @@
 "use client";
+import { ActionFeedback, type FeedbackTone } from "./action-feedback";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminEventsResponse } from "@wedding-invitation/api-client/src/index";
 import * as api from "../src/event-content/client";
 import { VenueInformation } from "../../invitation-web/components/invitation/venue-information";
 import { venueFromApi } from "../../invitation-web/src/content/venue-api";
+import {
+  readWibMinuteAtSave,
+  wibMinuteTimestamp,
+  type WibMinuteEdit,
+} from "../src/forms/wib-date-time";
+import { WibDateTimeField } from "./wib-date-time-field";
 
-const empty: api.Body = { parking: null, rundown: null };
+type Rundown = NonNullable<api.Body["rundown"]>;
+type EditableItem = Rundown["items"][number] & { timeEdit?: WibMinuteEdit };
+type DraftItem = EditableItem & { editorKey: number };
+type Draft = Omit<api.Body, "rundown"> & {
+  rundown: (Omit<Rundown, "items"> & { items: DraftItem[] }) | null;
+};
+const empty: Draft = { parking: null, rundown: null };
 type Confirm = "publish" | "hide" | { deleteId: string } | null;
+
+function serializeDraft({
+  parking,
+  rundown,
+}: {
+  parking: api.Body["parking"];
+  rundown: { title: string; items: EditableItem[] } | null;
+}): api.Body {
+  return {
+    parking,
+    rundown: rundown && {
+      title: rundown.title,
+      items: rundown.items.map(
+        ({ startsAt, title, description, timeEdit }) => ({
+          startsAt: wibMinuteTimestamp(startsAt, timeEdit, ""),
+          title,
+          description,
+        }),
+      ),
+    },
+  };
+}
+
 export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
   const router = useRouter();
   const [catalog, setCatalog] = useState<AdminEventsResponse["events"]>([]);
   const [eventId, setEventId] = useState("");
   const [snapshot, setSnapshot] = useState<api.State | null>(null);
-  const [body, setBody] = useState<api.Body>(empty);
+  const [body, setBody] = useState<Draft>(empty);
   const [csrf, setCsrf] = useState(csrfToken);
   const [busy, setBusy] = useState(false),
     [blocked, setBlocked] = useState(false);
   const [message, setMessage] = useState("Choose an event to begin."),
     [confirm, setConfirm] = useState<Confirm>(null);
+  const [tone, setTone] = useState<FeedbackTone>("info");
   const [preview, setPreview] = useState<"draft" | "published" | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const nextActivityKey = useRef(0);
+  const rundownFields = useRef<HTMLFieldSetElement>(null);
   const uploadInput = useRef<HTMLInputElement>(null),
     dialog = useRef<HTMLDialogElement>(null),
     lock = useRef(false),
     generation = useRef(0),
     stopped = useRef(false);
+  const content = serializeDraft(body);
+  const invalidTime = body.rundown?.items.find(
+    (item) => item.timeEdit?.kind === "invalid",
+  );
   const dirty =
     snapshot !== null &&
-    JSON.stringify(body) !== JSON.stringify(snapshot.draft);
+    (Boolean(invalidTime) ||
+      JSON.stringify(content) !==
+        JSON.stringify(serializeDraft(snapshot.draft)));
+
+  function loadDraft(saved: api.Body) {
+    const draft = structuredClone(saved);
+    setBody({
+      ...draft,
+      rundown: draft.rundown && {
+        ...draft.rundown,
+        items: draft.rundown.items.map((item) => ({
+          ...item,
+          editorKey: nextActivityKey.current++,
+        })),
+      },
+    });
+  }
 
   function notice(result: api.Result<unknown>) {
     if (result.kind === "uncertain") {
+      setTone("warning");
       setBlocked(true);
       setMessage(
         "The result is uncertain. Reload saved state before another action; do not repeat the mutation blindly.",
@@ -39,6 +99,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       return;
     }
     if (result.kind === "ok") return;
+    setTone("error");
     if (result.csrfToken) setCsrf(result.csrfToken);
     if (result.code === "UNAUTHENTICATED") {
       stopped.current = true;
@@ -68,7 +129,10 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     void api.events().then((result) => {
       if (!active) return;
       if (result.kind === "ok") setCatalog(result.data.events);
-      else setMessage("Unable to load events. Reload this page.");
+      else {
+        setTone("error");
+        setMessage("Unable to load events. Reload this page.");
+      }
     });
     const clear = () => {
       stopped.current = true;
@@ -135,10 +199,12 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       ) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (busy || blocked)
+        if (busy || blocked) {
+          setTone("warning");
           setMessage(
             "Finish the current action or reload saved state before leaving this editor.",
           );
+        }
       }
     };
     document.addEventListener("click", protect, true);
@@ -148,6 +214,8 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     if (lock.current || stopped.current) return;
     lock.current = true;
     setBusy(true);
+    setTone("info");
+    setMessage("Loading saved state…");
     setPreview(null);
     setConfirm(null);
     const current = ++generation.current;
@@ -156,8 +224,9 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       if (result.kind === "ok" && result.data.eventId === target) {
         setEventId(target);
         setSnapshot(result.data);
-        setBody(structuredClone(result.data.draft));
+        loadDraft(result.data.draft);
         setBlocked(false);
+        setTone("info");
         setMessage("Saved state loaded.");
         setFile(null);
         if (uploadInput.current) uploadInput.current.value = "";
@@ -166,17 +235,51 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     lock.current = false;
     setBusy(false);
   }
+  function activityTimeInput(editorKey: number) {
+    return rundownFields.current?.querySelector<HTMLInputElement>(
+      `#rundown-start-${editorKey}`,
+    );
+  }
+  function readDraftTimes(): Draft {
+    const { rundown } = body;
+    if (!rundown) return body;
+    const items = rundown.items.map((item) => {
+      const timeEdit = readWibMinuteAtSave(
+        activityTimeInput(item.editorKey),
+        item.startsAt,
+        item.timeEdit,
+      );
+      return timeEdit === item.timeEdit ? item : { ...item, timeEdit };
+    });
+    return items.every((item, index) => item === rundown.items[index])
+      ? body
+      : { ...body, rundown: { ...rundown, items } };
+  }
   async function mutate(
-    call: () => Promise<api.Result<api.State>>,
+    call: (currentContent: api.Body) => Promise<api.Result<api.State>>,
     mode: "save" | "upload" | "other" = "other",
   ) {
     if (lock.current || blocked || !snapshot || stopped.current) return;
+    const currentDraft = readDraftTimes();
+    if (currentDraft !== body) setBody(currentDraft);
+    const invalid = currentDraft.rundown?.items.find(
+      (item) => item.timeEdit?.kind === "invalid",
+    );
+    if (invalid) {
+      setTone("error");
+      setMessage("Review the highlighted activity times before saving.");
+      setConfirm(null);
+      activityTimeInput(invalid.editorKey)?.focus();
+      return;
+    }
     lock.current = true;
     setBusy(true);
+    setTone("info");
+    setMessage("Updating event materials…");
     setConfirm(null);
     setPreview(null);
     const current = generation.current;
-    const result = await call();
+    const result = await call(serializeDraft(currentDraft));
     if (current === generation.current && !stopped.current) {
       if (
         result.kind === "ok" &&
@@ -184,11 +287,12 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
         result.data.version === snapshot.version + 1
       ) {
         setSnapshot(result.data);
-        if (mode === "save") setBody(structuredClone(result.data.draft));
+        if (mode === "save") loadDraft(result.data.draft);
         if (mode === "upload") {
           setFile(null);
           if (uploadInput.current) uploadInput.current.value = "";
         }
+        setTone("success");
         setMessage(
           mode === "save"
             ? "Draft saved. Published content is unchanged."
@@ -201,8 +305,10 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     lock.current = false;
     setBusy(false);
   }
-  function change(next: api.Body) {
+  function change(next: Draft) {
     setBody(next);
+    setTone("info");
+    setMessage("Unsaved material changes.");
     setPreview(null);
     setConfirm(null);
   }
@@ -211,7 +317,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     preview === "published"
       ? snapshot?.published
       : preview === "draft"
-        ? body
+        ? content
         : null;
   return (
     <section
@@ -251,9 +357,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
           Reload saved state
         </button>
       ) : null}
-      <p role="status" aria-live="polite">
-        {message}
-      </p>
+      <ActionFeedback tone={tone}>{message}</ActionFeedback>
       {dirty ? (
         <p>
           Unsaved changes. Save or explicitly reload before switching events or
@@ -401,7 +505,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
               </>
             ) : null}
           </fieldset>
-          <fieldset disabled={disabled}>
+          <fieldset disabled={disabled} ref={rundownFields}>
             <legend>Guest rundown</legend>
             <label>
               <input
@@ -432,29 +536,23 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                   />
                 </label>
                 {body.rundown.items.map((item, index) => (
-                  <fieldset key={index}>
+                  <fieldset key={item.editorKey}>
                     <legend>Activity {index + 1}</legend>
-                    <label>
-                      Start (WIB) {index + 1}
-                      <input
-                        type="datetime-local"
-                        step="1"
-                        value={localTime(item.startsAt)}
-                        onChange={(e) => {
-                          const items = [...body.rundown!.items];
-                          items[index] = {
-                            ...item,
-                            startsAt: e.target.value
-                              ? `${e.target.value.length === 16 ? e.target.value + ":00" : e.target.value}+07:00`
-                              : "",
-                          };
-                          change({
-                            ...body,
-                            rundown: { ...body.rundown!, items },
-                          });
-                        }}
-                      />
-                    </label>
+                    <WibDateTimeField
+                      id={`rundown-start-${item.editorKey}`}
+                      label={`Start (WIB) ${index + 1}`}
+                      clearLabel={`Clear activity ${index + 1} time`}
+                      original={item.startsAt}
+                      edit={item.timeEdit}
+                      onEdit={(timeEdit) => {
+                        const items = [...body.rundown!.items];
+                        items[index] = { ...item, timeEdit };
+                        change({
+                          ...body,
+                          rundown: { ...body.rundown!, items },
+                        });
+                      }}
+                    />
                     <label>
                       Activity title {index + 1}
                       <input
@@ -516,7 +614,12 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                         ...body.rundown!,
                         items: [
                           ...body.rundown!.items,
-                          { startsAt: "", title: "", description: "" },
+                          {
+                            startsAt: "",
+                            title: "",
+                            description: "",
+                            editorKey: nextActivityKey.current++,
+                          },
                         ],
                       },
                     })
@@ -533,8 +636,13 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
               disabled={disabled || !dirty}
               onClick={() =>
                 void mutate(
-                  () =>
-                    api.save(snapshot.eventId, snapshot.version, body, csrf),
+                  (currentContent) =>
+                    api.save(
+                      snapshot.eventId,
+                      snapshot.version,
+                      currentContent,
+                      csrf,
+                    ),
                   "save",
                 )
               }
@@ -543,7 +651,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
             </button>
             <button
               type="button"
-              disabled={disabled}
+              disabled={disabled || Boolean(invalidTime)}
               onClick={() => setPreview("draft")}
             >
               Preview draft
@@ -594,6 +702,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                   file.size > 5 * 1024 * 1024 ||
                   !/\.(png|jpe?g|webp|pdf)$/i.test(file.name)
                 ) {
+                  setTone("error");
                   setMessage("Choose a supported file up to 5 MiB.");
                   return;
                 }
@@ -720,18 +829,4 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       ) : null}
     </section>
   );
-}
-function localTime(iso: string) {
-  if (!iso || !Number.isFinite(Date.parse(iso))) return "";
-  const parts = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date(iso));
-  return parts.replace(" ", "T");
 }

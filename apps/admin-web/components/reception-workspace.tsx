@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
@@ -387,9 +388,9 @@ export function ReceptionWorkspace({ csrfToken }: { csrfToken: string }) {
         ))}
       </nav>
       {message ? (
-        <p role="alert" className="notice">
+        <ActionFeedback tone={uncertain ? "warning" : "error"}>
           {message}
-        </p>
+        </ActionFeedback>
       ) : null}
       {busy ? <p role="status">Working…</p> : null}
       {uncertain ? (

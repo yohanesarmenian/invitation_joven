@@ -1,5 +1,43 @@
 @import "tailwindcss";
 
+.action-feedback {
+  border: 1px solid var(--admin-slate);
+  border-inline-start-width: 4px;
+  border-radius: 0.5rem;
+  background: #f1f4f8;
+  color: var(--admin-navy);
+  padding: 0.85rem 1rem;
+  margin-block: 0.75rem;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.action-feedback:empty {
+  display: none;
+}
+.action-feedback--success {
+  background: #eef7f1;
+  border-color: #347354;
+  color: #18472f;
+}
+.action-feedback--error {
+  background: #fff1ef;
+  border-color: #a53330;
+  color: #812624;
+}
+.action-feedback--warning {
+  background: #fff8e9;
+  border-color: #96691e;
+  color: #654512;
+}
+.action-feedback-anchor {
+  scroll-margin-block: 1rem;
+}
+.confirm-dialog {
+  max-height: 85dvh;
+  overflow-y: auto;
+  max-width: calc(100vw - 2rem);
+}
+
 .reception-workspace {
   display: grid;
   gap: 1rem;

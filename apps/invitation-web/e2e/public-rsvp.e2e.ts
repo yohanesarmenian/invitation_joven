@@ -54,6 +54,7 @@ async function editSaved(page: Page) {
   await expect(
     page.getByRole("button", { name: "Save Changes", exact: true }),
   ).toBeVisible();
+  await expectPass(page, null);
 }
 
 async function accept(page: Page) {
@@ -364,6 +365,15 @@ for (const width of [320, 375, 412, 768, 1280]) {
       .locator(".guest-checkin-pass svg")
       .innerHTML();
     await editSaved(page);
+    await page.getByRole("form", { name: "Your RSVP" }).screenshot({
+      path: testInfo.outputPath(`rsvp-edit-${width}.png`),
+    });
+    await page.getByRole("button", { name: "Cancel", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expectPass(page, firstPass);
+    await page.getByRole("button", { name: "Edit RSVP", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expectPass(page, null);
     await expect(dietary).toHaveValue("No seafood");
     await page
       .getByRole("checkbox", { name: "Reception Test", exact: true })
@@ -530,7 +540,7 @@ for (const width of [320, 375, 412, 1280]) {
     await open(page);
     await editSaved(page);
     const dietary = page.locator(".public-rsvp-form").getByRole("textbox");
-    await expectPass(page, firstPass);
+    await expectPass(page, null);
     const send = page.getByRole("button", {
       name: /^(Submit RSVP|Save Changes)$/,
     });
@@ -586,7 +596,7 @@ for (const width of [320, 375, 412, 1280]) {
     ).toBeFocused();
     await editSaved(page);
     await expect(dietary).toHaveValue("Saved elsewhere");
-    await expectPass(page, secondPass);
+    await expectPass(page, null);
     expect((await page.locator("body").innerText()).includes(firstPass)).toBe(
       false,
     );
@@ -611,7 +621,7 @@ for (const width of [320, 375, 412, 1280]) {
     ).toBeVisible();
     await expect(send).toBeDisabled();
     await expect(dietary).toBeDisabled();
-    await expectPass(page, secondPass);
+    await expectPass(page, null);
     await expect(dietary).toHaveValue("My reviewed response");
     await expect(
       page.getByRole("button", { name: /Try again|Reload latest RSVP/ }),
@@ -625,6 +635,8 @@ for (const width of [320, 375, 412, 1280]) {
         ),
       );
     expect(await submissions(request)).toHaveLength(3);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expectPass(page, secondPass);
     await expect(page.getByText("See you at the Wedding!")).toBeAttached();
   });
 }
@@ -734,7 +746,7 @@ test("initial read retry loads existing state without re-opening the invitation"
   await expect(
     page.locator(".public-rsvp-form").getByRole("textbox"),
   ).toHaveValue("No seafood");
-  await expectPass(page, firstPass);
+  await expectPass(page, null);
   await page.getByRole("radio", { name: "Regretfully Decline" }).check();
   await page
     .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
@@ -983,7 +995,7 @@ test("conflict reload adopts a saved decline and removes the previous pass", asy
   await configure(request, { rsvp: accepted });
   await open(page);
   await editSaved(page);
-  await expectPass(page, firstPass);
+  await expectPass(page, null);
   await page.locator(".public-rsvp-form").getByRole("textbox").fill("My draft");
   await configure(request, {
     rsvp: {

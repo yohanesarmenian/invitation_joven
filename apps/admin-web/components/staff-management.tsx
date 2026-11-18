@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback, type FeedbackTone } from "./action-feedback";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
@@ -19,6 +20,7 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
   const [staffRole, setStaffRole] = useState<"GUEST_MANAGER" | "CHECKIN_STAFF">(
     "GUEST_MANAGER",
   );
+  const [tone, setTone] = useState<FeedbackTone>("info");
   const [csrf, setCsrf] = useState(csrfToken),
     [data, setData] = useState<AdminStaffListResponse | null>(null),
     [page, setPage] = useState(1),
@@ -54,6 +56,7 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
         router.replace(SESSION_ENDED_PATH);
       else {
         setData(null);
+        setTone("error");
         setMessage(
           "Unable to load staff. Check access and connection, then refresh explicitly.",
         );
@@ -72,6 +75,7 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
     if (lock.current || uncertain) return;
     lock.current = true;
     setPending(true);
+    setTone("info");
     setMessage("");
     setCredential(null);
     const result = create
@@ -89,6 +93,7 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
     setPending(false);
     if (!result) return;
     if (result.kind === "ok") {
+      setTone("success");
       if ("temporaryPassword" in result.data) setCredential(result.data);
       setEmail("");
       setAction(null);
@@ -101,11 +106,13 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
             : "Staff updated. Affected sessions have been revoked.",
       );
     } else if (result.kind === "uncertain") {
+      setTone("warning");
       setUncertain(true);
       setMessage(
         "The update outcome is unknown. It was not retried. Refresh the staff list to inspect account state. A lost temporary password cannot be recovered; after reviewing, an explicit password reset issues a new one and revokes earlier sessions.",
       );
     } else {
+      setTone("error");
       if (result.csrfToken) setCsrf(result.csrfToken);
       if (result.code === "UNAUTHENTICATED") {
         setCredential(null);
@@ -130,7 +137,7 @@ export function StaffManagement({ csrfToken }: { csrfToken: string }) {
         accounts remain available. Disabling an account or resetting its
         password revokes its sessions.
       </p>
-      <div role="status">{message}</div>
+      <ActionFeedback tone={tone}>{message}</ActionFeedback>
       {credential && (
         <section className="import-panel" aria-label="Temporary credential">
           <h2>Temporary password — shown once</h2>

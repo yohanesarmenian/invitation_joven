@@ -325,11 +325,15 @@ for (const mode of ["accepted", "declined", "deadline"]) {
     });
     await open(page);
     const rsvp = page.locator(".public-rsvp-form");
+    const pass = rsvp.locator(".guest-checkin-pass");
+    const draft = rsvp.getByRole("textbox");
     if (mode === "accepted") {
+      await expect(pass).toBeVisible();
       await rsvp
         .getByRole("button", { name: "Edit RSVP", exact: true })
         .click();
-      await rsvp.getByRole("textbox").fill("Unsaved RSVP draft");
+      await draft.fill("Unsaved RSVP draft");
+      await expect(pass).toHaveCount(0);
     }
     if (mode === "deadline") {
       await expect(
@@ -346,13 +350,24 @@ for (const mode of ["accepted", "declined", "deadline"]) {
     await message(page).fill("Always wishing you joy");
     await send(page).click();
     await success(page);
+    expect(await state(request)).toEqual({
+      commits: 1,
+      requests: [{ authorName: null, message: "Always wishing you joy" }],
+    });
     expect((await rsvp.innerHTML()) === before).toBe(true);
     expect(await (await request.get(`${MOCK}/__rsvp-state`)).json()).toEqual(
       apiBefore,
     );
-    await expect(page.locator(".guest-checkin-pass")).toHaveCount(
-      mode === "declined" ? 0 : 1,
-    );
+    if (mode === "accepted") {
+      await expect(draft).toHaveValue("Unsaved RSVP draft");
+      await expect(pass).toHaveCount(0);
+      await rsvp.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(pass).toBeVisible();
+    } else if (mode === "declined") {
+      await expect(pass).toHaveCount(0);
+    } else {
+      await expect(pass).toBeVisible();
+    }
   });
 }
 

@@ -45,6 +45,7 @@ async function EditContent({
     );
   return (
     <EditInvitationForm
+      key={result.data.invitation.id}
       csrfToken={csrfToken}
       invitation={result.data.invitation}
     />

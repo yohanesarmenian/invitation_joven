@@ -1,8 +1,17 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 import * as api from "../src/events/client";
+import {
+  wibMinuteError,
+  wibMinuteTimestamp,
+  type WibMinuteEdit,
+} from "../src/forms/wib-date-time";
+import { ActionFeedback } from "./action-feedback";
+import { WibDateTimeField } from "./wib-date-time-field";
+
+type ScheduleField = "startsAt" | "endsAt";
 const empty = (): api.EventFields => ({
   slug: "",
   name: "",
@@ -39,9 +48,22 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
   const [blocked, setBlocked] = useState(true);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("Loading saved events…");
+  const [tone, setTone] = useState<"info" | "success" | "error" | "warning">(
+    "info",
+  );
+  const submission = useRef(false);
+  const feedback = useRef<HTMLDivElement>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [schedule, setSchedule] = useState<
+    Partial<Record<ScheduleField, WibMinuteEdit>>
+  >({});
+  const [scheduleRevision, setScheduleRevision] = useState(0);
   const used = saved ? Object.values(saved.usage).some((n) => n > 0) : false;
   const scheduleLocked = !!saved && saved.usage.checkins > 0;
   function loadRow(row: api.ManagedEvent | null, rows = items) {
+    setFieldErrors({});
+    setSchedule({});
+    setScheduleRevision((revision) => revision + 1);
     setSaved(row);
     if (row) {
       setDraft({
@@ -69,6 +91,7 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
     setDirty(false);
   }
   function fail(result: Exclude<api.Result<unknown>, { kind: "ok" }>) {
+    setTone(result.kind === "uncertain" ? "warning" : "error");
     if (result.kind === "uncertain") {
       setBlocked(true);
       setMessage(
@@ -112,6 +135,7 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   async function reload() {
+    if (submission.current) return;
     if (
       dirty &&
       !window.confirm("Reload saved events and discard the draft shown here?")
@@ -127,6 +151,7 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
         result.data.items,
       );
       setBlocked(false);
+      setTone("info");
       setMessage("Saved events loaded.");
     } else fail(result);
     setBusy(false);
@@ -136,7 +161,21 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
     value: api.EventFields[K],
   ) {
     setDraft((d) => ({ ...d, [key]: value }));
+    markChanged(key);
+  }
+  function changeTime(key: ScheduleField, edit: WibMinuteEdit) {
+    setSchedule((current) => ({ ...current, [key]: edit }));
+    markChanged("startsAt", "endsAt");
+  }
+  function markChanged(...keys: (keyof api.EventFields)[]) {
     setDirty(true);
+    setTone("info");
+    setMessage("Unsaved event changes.");
+    setFieldErrors((current) => {
+      const next = { ...current };
+      for (const key of keys) delete next[key];
+      return next;
+    });
   }
   return (
     <section
@@ -149,7 +188,6 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
         status; its schedule is locked after check-in. Events cannot be deleted
         here.
       </p>
-      <p role="status">{message}</p>
       <button type="button" disabled={busy} onClick={() => void reload()}>
         Reload saved events
       </button>
@@ -165,6 +203,7 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
           )
             return;
           loadRow(items.find((r) => r.id === e.target.value) ?? null);
+          setTone("info");
           setMessage("Saved state loaded.");
         }}
       >
@@ -183,12 +222,75 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
         </p>
       ) : null}
       <form
+        aria-busy={busy}
         onSubmit={async (e) => {
           e.preventDefault();
-          if (busy || blocked) return;
+          if (busy || blocked || submission.current) return;
+          const errors: Record<string, string> = {};
+          const startsAt = wibMinuteTimestamp(
+            draft.startsAt,
+            schedule.startsAt,
+            null,
+          );
+          const endsAt = wibMinuteTimestamp(
+            draft.endsAt,
+            schedule.endsAt,
+            null,
+          );
+          if (schedule.startsAt?.kind === "invalid")
+            errors.startsAt = wibMinuteError;
+          if (schedule.endsAt?.kind === "invalid")
+            errors.endsAt = wibMinuteError;
+          if (!errors.startsAt && !errors.endsAt && endsAt) {
+            if (!startsAt)
+              errors.startsAt = "Set a start time or clear the end time.";
+            else if (Date.parse(endsAt) <= Date.parse(startsAt))
+              errors.endsAt = "End must be later than start in WIB.";
+          }
+          if (draft.googleMapsUrl) {
+            try {
+              const url = new URL(draft.googleMapsUrl);
+              if (
+                url.protocol !== "https:" ||
+                url.username ||
+                url.password ||
+                url.port ||
+                !(
+                  (["google.com", "www.google.com"].includes(url.hostname) &&
+                    /^\/maps(?:\/|$)/.test(url.pathname)) ||
+                  (url.hostname === "maps.app.goo.gl" &&
+                    url.pathname.length > 1)
+                )
+              )
+                errors.googleMapsUrl =
+                  "Enter a supported HTTPS Google Maps link.";
+            } catch {
+              errors.googleMapsUrl = "Enter a valid Google Maps link.";
+            }
+          }
+          setFieldErrors(errors);
+          if (Object.keys(errors).length) {
+            setTone("error");
+            setMessage("Review the highlighted Event fields.");
+            const form = e.currentTarget;
+            requestAnimationFrame(() =>
+              (
+                form.querySelector<HTMLElement>(
+                  '[aria-invalid="true"]:not(:disabled)',
+                ) ?? feedback.current
+              )?.focus(),
+            );
+            return;
+          }
+          submission.current = true;
           setBusy(true);
+          setTone("info");
           setMessage("Saving event…");
-          const result = await api.save(draft, csrf, saved);
+          const result = await api.save(
+            { ...draft, startsAt, endsAt },
+            csrf,
+            saved,
+          );
           if (result.kind === "ok") {
             const rows = [
               ...items.filter((r) => r.id !== result.data.id),
@@ -196,9 +298,15 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
             ].sort((a, b) => a.displayOrder - b.displayOrder);
             setItems(rows);
             loadRow(result.data, rows);
-            setMessage("Event saved.");
+            setTone("success");
+            setMessage("Event saved successfully.");
           } else fail(result);
           setBusy(false);
+          submission.current = false;
+          requestAnimationFrame(() => {
+            feedback.current?.focus();
+            feedback.current?.scrollIntoView({ block: "nearest" });
+          });
         }}
       >
         <fieldset disabled={busy || blocked}>
@@ -231,26 +339,26 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
               onChange={(e) => change("description", e.target.value || null)}
             />
           </label>
-          <label>
-            Start (WIB)
-            <input
-              type="datetime-local"
-              step="0.001"
-              disabled={scheduleLocked}
-              value={api.toWib(draft.startsAt)}
-              onChange={(e) => change("startsAt", api.fromWib(e.target.value))}
-            />
-          </label>
-          <label>
-            End (WIB)
-            <input
-              type="datetime-local"
-              step="0.001"
-              disabled={scheduleLocked}
-              value={api.toWib(draft.endsAt)}
-              onChange={(e) => change("endsAt", api.fromWib(e.target.value))}
-            />
-          </label>
+          <WibDateTimeField
+            key={`start-${scheduleRevision}`}
+            label="Start (WIB)"
+            clearLabel="Clear start time"
+            disabled={scheduleLocked}
+            original={draft.startsAt}
+            edit={schedule.startsAt}
+            onEdit={(edit) => changeTime("startsAt", edit)}
+            error={fieldErrors.startsAt}
+          />
+          <WibDateTimeField
+            key={`end-${scheduleRevision}`}
+            label="End (WIB)"
+            clearLabel="Clear end time"
+            disabled={scheduleLocked}
+            original={draft.endsAt}
+            edit={schedule.endsAt}
+            onEdit={(edit) => changeTime("endsAt", edit)}
+            error={fieldErrors.endsAt}
+          />
           <label>
             Venue name
             <input
@@ -273,9 +381,18 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
               type="url"
               maxLength={2048}
               value={draft.googleMapsUrl ?? ""}
+              aria-invalid={!!fieldErrors.googleMapsUrl}
+              aria-describedby={
+                fieldErrors.googleMapsUrl ? "event-maps-error" : undefined
+              }
               onChange={(e) => change("googleMapsUrl", e.target.value || null)}
             />
           </label>
+          {fieldErrors.googleMapsUrl ? (
+            <p id="event-maps-error" className="field-error">
+              {fieldErrors.googleMapsUrl}
+            </p>
+          ) : null}
           <label>
             Display order
             <input
@@ -298,9 +415,12 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
             Active event
           </label>
           <button type="submit" disabled={!dirty}>
-            Save event
+            {busy ? "Saving…" : "Save event"}
           </button>
         </fieldset>
+        <div ref={feedback} tabIndex={-1} className="action-feedback-anchor">
+          <ActionFeedback tone={tone}>{message}</ActionFeedback>
+        </div>
       </form>
     </section>
   );

@@ -5,12 +5,16 @@ import type {
   UpdateAdminInvitationRequest,
 } from "@wedding-invitation/api-client/src/index";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
-import {
-  deadlineToIso,
-  isoToJakartaInput,
-  type FormErrors,
-} from "../src/invitations/form-state";
+import type { FormErrors } from "../src/invitations/form-state";
 import { updateInvitation } from "../src/invitations/lifecycle";
+import {
+  readWibMinuteAtSave,
+  wibMinuteError,
+  wibMinuteTimestamp,
+  type WibMinuteEdit,
+} from "../src/forms/wib-date-time";
+import { ActionFeedback } from "./action-feedback";
+import { WibDateTimeField } from "./wib-date-time-field";
 
 type Invitation = AdminInvitationDetailResponse["invitation"];
 type EditFields = {
@@ -18,13 +22,13 @@ type EditFields = {
   greetingName: string;
   allowPlusOne: boolean;
   children: string;
-  deadline: string;
   notes: string;
 };
 
 function prepare(
   fields: EditFields,
   expectedUpdatedAt: string,
+  rsvpDeadlineAt: string | null,
 ): { body: UpdateAdminInvitationRequest; errors: FormErrors } {
   const errors: FormErrors = {};
   const nullable = (v: string) => v.trim() || null;
@@ -35,11 +39,6 @@ function prepare(
     !Number.isSafeInteger(maxAdditionalChildren)
   )
     errors.children = "Enter a whole number of zero or more.";
-  const rsvpDeadlineAt = fields.deadline
-    ? deadlineToIso(fields.deadline)
-    : null;
-  if (fields.deadline && !rsvpDeadlineAt)
-    errors.deadline = "Enter a valid date and time in Asia/Jakarta.";
   return {
     errors,
     body: {
@@ -71,13 +70,13 @@ export function EditInvitationForm({
     greetingName: invitation.greetingName ?? "",
     allowPlusOne: invitation.allowPlusOne,
     children: String(invitation.maxAdditionalChildren),
-    deadline: isoToJakartaInput(invitation.rsvpDeadlineAt),
     notes: invitation.notes ?? "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [conflict, setConflict] = useState(false);
+  const [deadlineEdit, setDeadlineEdit] = useState<WibMinuteEdit>();
 
   function field<K extends keyof EditFields>(key: K, value: EditFields[K]) {
     setFields((current) => ({ ...current, [key]: value }));
@@ -89,7 +88,19 @@ export function EditInvitationForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy.current) return;
-    const prepared = prepare(fields, expectedUpdatedAt.current);
+    const currentDeadline = readWibMinuteAtSave(
+      event.currentTarget.querySelector<HTMLInputElement>("#deadline"),
+      invitation.rsvpDeadlineAt,
+      deadlineEdit,
+    );
+    setDeadlineEdit(currentDeadline);
+    const prepared = prepare(
+      fields,
+      expectedUpdatedAt.current,
+      wibMinuteTimestamp(invitation.rsvpDeadlineAt, currentDeadline, null),
+    );
+    if (currentDeadline?.kind === "invalid")
+      prepared.errors.deadline = wibMinuteError;
     setErrors(prepared.errors);
     setConflict(false);
     if (Object.keys(prepared.errors).length) {
@@ -158,8 +169,8 @@ export function EditInvitationForm({
       onSubmit={submit}
       ref={form}
     >
-      <div ref={notice} tabIndex={-1} role={message ? "alert" : undefined}>
-        {message && <p className="notice">{message}</p>}
+      <div ref={notice} tabIndex={-1}>
+        {message && <ActionFeedback tone="error">{message}</ActionFeedback>}
         {conflict && (
           <a
             className="dashboard-retry"
@@ -210,22 +221,15 @@ export function EditInvitationForm({
             />
             {error("children")}
           </div>
-          <div className="field">
-            <label htmlFor="deadline">RSVP deadline</label>
-            <input
-              aria-describedby={`deadline-help${errors.deadline ? " deadline-error" : ""}`}
-              aria-invalid={Boolean(errors.deadline)}
-              id="deadline"
-              step="0.001"
-              type="datetime-local"
-              value={fields.deadline}
-              onChange={(event) => field("deadline", event.target.value)}
-            />
-            <p className="hint" id="deadline-help">
-              Asia/Jakarta (UTC+07:00). Leave blank for no deadline.
-            </p>
-            {error("deadline")}
-          </div>
+          <WibDateTimeField
+            id="deadline"
+            label="RSVP deadline"
+            clearLabel="Clear RSVP deadline"
+            original={invitation.rsvpDeadlineAt}
+            edit={deadlineEdit}
+            onEdit={setDeadlineEdit}
+            help="Asia/Jakarta (UTC+07:00). Use Clear RSVP deadline to remove it."
+          />
         </div>
         <label className="checkbox-label">
           <input

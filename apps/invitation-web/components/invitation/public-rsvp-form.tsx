@@ -366,9 +366,6 @@ export function PublicRsvpForm({
         </p>
       ) : null}
       <p>If your QR code cannot be read, reception staff can assist you.</p>
-      {!passNeedsReload && canonical?.status === "ACCEPTED" ? (
-        <GuestCheckinPass pass={canonicalResponse?.checkinPass ?? null} />
-      ) : null}
       <fieldset disabled={pending || terminal} className="rsvp-fields">
         <legend className="visually-hidden">Your RSVP</legend>
         <fieldset
@@ -642,22 +639,22 @@ export function PublicRsvpForm({
                 ? "Save Changes"
                 : "Submit RSVP"}
         </button>
-        {editing ? (
-          <button
-            type="button"
-            className="rsvp-submit rsvp-cancel"
-            disabled={pending}
-            onClick={() => {
-              setDraft(createRsvpDraft(invitation, canonical));
-              setEditing(false);
-              setValidation(null);
-              setFeedback(null);
-            }}
-          >
-            Cancel
-          </button>
-        ) : null}
       </fieldset>
+      {editing ? (
+        <button
+          type="button"
+          className="rsvp-submit rsvp-cancel"
+          disabled={pending}
+          onClick={() => {
+            setDraft(createRsvpDraft(invitation, canonical));
+            setEditing(false);
+            setValidation(null);
+            setFeedback(null);
+          }}
+        >
+          Cancel
+        </button>
+      ) : null}
     </form>
   );
 }

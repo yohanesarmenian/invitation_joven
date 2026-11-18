@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import { useState } from "react";
 import {
   safeInvitationUrl,
@@ -7,6 +8,7 @@ import {
 
 export function InvitationShareLink({ publicUrl }: { publicUrl: string }) {
   const [message, setMessage] = useState("");
+  const [tone, setTone] = useState<"info" | "success" | "warning">("info");
   if (!safeInvitationUrl(publicUrl))
     return (
       <p role="alert">
@@ -17,8 +19,10 @@ export function InvitationShareLink({ publicUrl }: { publicUrl: string }) {
   async function copy() {
     try {
       await navigator.clipboard.writeText(publicUrl);
+      setTone("success");
       setMessage("Invitation link copied.");
     } catch {
+      setTone("warning");
       setMessage(
         "Clipboard access is unavailable. Select and copy the invitation link below.",
       );
@@ -46,6 +50,12 @@ export function InvitationShareLink({ publicUrl }: { publicUrl: string }) {
         <a
           className="invitation-secondary"
           href={whatsappInvitationUrl(publicUrl)!}
+          onClick={() => {
+            setTone("info");
+            setMessage(
+              "WhatsApp sharing opened. Review the message before sending.",
+            );
+          }}
           target="_blank"
           rel="noopener noreferrer"
           referrerPolicy="no-referrer"
@@ -62,9 +72,7 @@ export function InvitationShareLink({ publicUrl }: { publicUrl: string }) {
           Open invitation
         </a>
       </div>
-      <p role="status" aria-live="polite">
-        {message}
-      </p>
+      <ActionFeedback tone={tone}>{message}</ActionFeedback>
     </div>
   );
 }

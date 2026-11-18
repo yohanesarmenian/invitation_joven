@@ -87,10 +87,10 @@ describe("event management client recovery", () => {
     expect((await list()).kind).toBe("ok");
     expect((await save(fields, "csrf", row)).kind).toBe("ok");
   });
-  it("converts WIB independently of host timezone without losing seconds or milliseconds", () => {
-    expect(toWib("2028-02-10T17:30:15.123Z")).toBe("2028-02-11T00:30:15.123");
-    expect(new Date(fromWib("2028-02-11T00:30:15.123")!).toISOString()).toBe(
-      "2028-02-10T17:30:15.123Z",
+  it("renders minute-only WIB while keeping canonical timestamps outside the input", () => {
+    expect(toWib("2028-02-10T17:30:15.123Z")).toBe("2028-02-11T00:30");
+    expect(new Date(fromWib("2028-02-11T00:30")!).toISOString()).toBe(
+      "2028-02-10T17:30:00.000Z",
     );
     expect(fromWib("")).toBeNull();
     expect(toWib(null)).toBe("");

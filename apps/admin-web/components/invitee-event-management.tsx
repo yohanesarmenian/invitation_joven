@@ -1,4 +1,5 @@
 "use client";
+import { ActionFeedback } from "./action-feedback";
 import {
   useMemo,
   useRef,
@@ -311,8 +312,8 @@ export function InviteeEventManagement({
 
   return (
     <>
-      <div ref={notice} tabIndex={-1} role={message ? "alert" : undefined}>
-        {message && <p className="notice">{message}</p>}
+      <div ref={notice} tabIndex={-1}>
+        {message && <ActionFeedback tone="error">{message}</ActionFeedback>}
         {reload && (
           <a className="dashboard-retry" href={reloadDetail(invitation.id)}>
             Reload latest detail

@@ -193,6 +193,10 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
       });
     const accepted = await readRsvp();
     expect(accepted.status).toBe("ACCEPTED");
+    const firstPass = await fixture.prisma.checkinPass.findFirstOrThrow({
+      where: { invitationId: household.id, status: "ACTIVE" },
+      select: { id: true },
+    });
     expect(
       accepted.attendees.reduce((sum, item) => sum + item.quantity, 0),
     ).toBe(3);
@@ -221,22 +225,55 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
     ).toBe(true);
     await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
     await guest.getByRole("radio", { name: "Regretfully Decline" }).check();
+    // Edit mode already hides the pass before the mutation is sent.
+    await expect(guest.locator(".checkin-code")).toHaveCount(0);
     await guest
       .getByRole("button", {
         name: /^(Submit RSVP|Save Changes)$/,
         exact: true,
       })
       .click();
-    await expect(guest.locator(".checkin-code")).toHaveCount(0);
+    const confirmation = guest.getByRole("region", {
+      name: "Your RSVP confirmation",
+    });
+    await expect(
+      confirmation.getByRole("heading", {
+        name: "Unable to Attend",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      guest.getByRole("form", { name: "Your RSVP", exact: true }),
+    ).toHaveCount(0);
+    await expect(confirmation.getByRole("alert")).toHaveCount(0);
+    await expect(confirmation.locator(".checkin-code")).toHaveCount(0);
+    await expect.poll(async () => (await readRsvp()).status).toBe("DECLINED");
     expect(
       await fixture.prisma.checkinPass.count({
         where: { invitationId: household.id, status: "ACTIVE" },
       }),
     ).toBe(0);
+    expect(
+      await fixture.prisma.checkinPass.findUniqueOrThrow({
+        where: { id: firstPass.id },
+        select: { status: true, revokedAt: true, revocationReason: true },
+      }),
+    ).toEqual({
+      status: "REVOKED",
+      revokedAt: expect.any(Date),
+      revocationReason: "RSVP_DECLINED",
+    });
     await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
     await accept(guest);
     const qr = (await guest.locator(".checkin-code").innerText()).trim();
     expect(qr !== firstCode).toBe(true);
+    expect((await readRsvp()).status).toBe("ACCEPTED");
+    const activePasses = await fixture.prisma.checkinPass.findMany({
+      where: { invitationId: household.id, status: "ACTIVE" },
+      select: { id: true },
+    });
+    expect(activePasses).toHaveLength(1);
+    expect(activePasses[0]?.id).not.toBe(firstPass.id);
     for (const width of [320, 360, 412, 768, 1440]) {
       await guest.setViewportSize({ width, height: 900 });
       const box = await guest
@@ -374,6 +411,7 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
       eventId: fixture.event.id,
+      checkinPassId: activePasses[0]?.id,
       attendeeCount: 2,
       method: "QR",
       confirmedByAdminUserId: fixture.staff.id,

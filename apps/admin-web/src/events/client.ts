@@ -108,13 +108,7 @@ export const save = (
     true,
   );
 
-// datetime-local has no zone. Always attach WIB explicitly; preserve seconds
-// and milliseconds when loading existing instants into this editor.
-export function toWib(value: string | null): string {
-  return value
-    ? new Date(Date.parse(value) + 7 * 3_600_000).toISOString().slice(0, 23)
-    : "";
-}
-export function fromWib(value: string): string | null {
-  return value ? `${value.length === 16 ? value + ":00" : value}+07:00` : null;
-}
+export {
+  toWibMinute as toWib,
+  fromWibMinute as fromWib,
+} from "../forms/wib-date-time";
