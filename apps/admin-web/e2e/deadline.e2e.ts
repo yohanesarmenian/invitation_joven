@@ -35,7 +35,7 @@ test("non-minute deadline is rejected inline without sending a clearing PATCH", 
     });
   });
   const deadline = page.getByLabel("RSVP deadline", { exact: true });
-  for (const value of ["2027-06-01T18:30:45", "2027-06-01T18:30:45.678"]) {
+  for (const value of ["2027-06-01T18:30:45", "2027-06-01T18:30:45.678", ""]) {
     await deadline.fill(value);
     await page
       .getByRole("button", { name: "Save changes", exact: true })
@@ -45,6 +45,67 @@ test("non-minute deadline is rejected inline without sending a clearing PATCH", 
     await expect(deadline).toHaveValue(value);
     expect(writes).toBe(0);
   }
+});
+
+test("incomplete native deadline date, hour and minute never send PATCH", async ({
+  page,
+}) => {
+  await edit(page);
+  const writes: Array<{ rsvpDeadlineAt: string | null }> = [];
+  await page.route("**/api/admin/invitations/*", async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    writes.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 400,
+      json: { error: { code: "VALIDATION_ERROR" } },
+    });
+  });
+  const deadline = page.getByLabel("RSVP deadline", { exact: true });
+  const notes = page.getByLabel("Internal notes", { exact: true });
+  const clear = page.getByRole("button", { name: "Clear RSVP deadline" });
+  for (const width of [320, 375, 412, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const control of [deadline, clear]) {
+      await expect(control).toBeVisible();
+      const box = await control.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    }
+  }
+  await notes.fill("Keep this draft during validation");
+  for (const segment of [0, 3, 4]) {
+    await deadline.fill("2027-06-01T18:30");
+    for (let i = 0; i < 6; i++) await deadline.press("ArrowLeft");
+    for (let i = 0; i < segment; i++) await deadline.press("ArrowRight");
+    await deadline.press("Backspace");
+    expect(
+      await deadline.evaluate(
+        (input: HTMLInputElement) =>
+          input.validity.badInput && input.value === "",
+      ),
+    ).toBe(true);
+    await page
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect(deadline).toHaveAttribute("aria-invalid", "true");
+    await expect(deadline).toBeFocused();
+    await expect(notes).toHaveValue("Keep this draft during validation");
+    await expect(page).toHaveURL(/\/edit$/);
+    expect(writes).toHaveLength(0);
+  }
+  await clear.press("Enter");
+  await expect(deadline).toHaveAttribute("aria-invalid", "false");
+  expect(
+    await deadline.evaluate(
+      (input: HTMLInputElement) => input.validity.badInput,
+    ),
+  ).toBe(false);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByRole("form", { name: "Edit invitation" }).getByRole("alert"),
+  ).toContainText("not accepted");
+  expect(writes).toHaveLength(1);
+  expect(writes[0]?.rsvpDeadlineAt).toBeNull();
 });
 
 test("unrelated edits preserve precision and valid minute and explicit clear payloads remain distinct", async ({
@@ -73,7 +134,9 @@ test("unrelated edits preserve precision and valid minute and explicit clear pay
     ["2027-06-01T18:30", "2027-06-01T11:30:00.000Z"],
     ["", null],
   ] as const) {
-    await deadline.fill(value);
+    if (value) await deadline.fill(value);
+    else
+      await page.getByRole("button", { name: "Clear RSVP deadline" }).click();
     const pending = page.waitForResponse(
       (response) => response.request().method() === "PATCH",
     );

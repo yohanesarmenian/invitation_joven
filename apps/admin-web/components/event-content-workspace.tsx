@@ -6,16 +6,49 @@ import type { AdminEventsResponse } from "@wedding-invitation/api-client/src/ind
 import * as api from "../src/event-content/client";
 import { VenueInformation } from "../../invitation-web/components/invitation/venue-information";
 import { venueFromApi } from "../../invitation-web/src/content/venue-api";
-import { toWibMinute, fromWibMinute } from "../src/forms/wib-date-time";
+import {
+  wibMinuteTimestamp,
+  type WibMinuteEdit,
+} from "../src/forms/wib-date-time";
+import { WibDateTimeField } from "./wib-date-time-field";
 
-const empty: api.Body = { parking: null, rundown: null };
+type Rundown = NonNullable<api.Body["rundown"]>;
+type EditableItem = Rundown["items"][number] & { timeEdit?: WibMinuteEdit };
+type DraftItem = EditableItem & { editorKey: number };
+type Draft = Omit<api.Body, "rundown"> & {
+  rundown: (Omit<Rundown, "items"> & { items: DraftItem[] }) | null;
+};
+const empty: Draft = { parking: null, rundown: null };
 type Confirm = "publish" | "hide" | { deleteId: string } | null;
+
+function serializeDraft({
+  parking,
+  rundown,
+}: {
+  parking: api.Body["parking"];
+  rundown: { title: string; items: EditableItem[] } | null;
+}): api.Body {
+  return {
+    parking,
+    rundown: rundown && {
+      title: rundown.title,
+      items: rundown.items.map(
+        ({ startsAt, title, description, timeEdit }) => ({
+          startsAt: wibMinuteTimestamp(startsAt, timeEdit, ""),
+          title,
+          description,
+        }),
+      ),
+    },
+  };
+}
+
 export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
   const router = useRouter();
   const [catalog, setCatalog] = useState<AdminEventsResponse["events"]>([]);
   const [eventId, setEventId] = useState("");
   const [snapshot, setSnapshot] = useState<api.State | null>(null);
-  const [body, setBody] = useState<api.Body>(empty);
+  const [body, setBody] = useState<Draft>(empty);
   const [csrf, setCsrf] = useState(csrfToken);
   const [busy, setBusy] = useState(false),
     [blocked, setBlocked] = useState(false);
@@ -24,14 +57,35 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
   const [tone, setTone] = useState<FeedbackTone>("info");
   const [preview, setPreview] = useState<"draft" | "published" | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const nextActivityKey = useRef(0);
   const uploadInput = useRef<HTMLInputElement>(null),
     dialog = useRef<HTMLDialogElement>(null),
     lock = useRef(false),
     generation = useRef(0),
     stopped = useRef(false);
+  const content = serializeDraft(body);
+  const invalidTime = body.rundown?.items.find(
+    (item) => item.timeEdit?.kind === "invalid",
+  );
   const dirty =
     snapshot !== null &&
-    JSON.stringify(body) !== JSON.stringify(snapshot.draft);
+    (Boolean(invalidTime) ||
+      JSON.stringify(content) !==
+        JSON.stringify(serializeDraft(snapshot.draft)));
+
+  function loadDraft(saved: api.Body) {
+    const draft = structuredClone(saved);
+    setBody({
+      ...draft,
+      rundown: draft.rundown && {
+        ...draft.rundown,
+        items: draft.rundown.items.map((item) => ({
+          ...item,
+          editorKey: nextActivityKey.current++,
+        })),
+      },
+    });
+  }
 
   function notice(result: api.Result<unknown>) {
     if (result.kind === "uncertain") {
@@ -168,7 +222,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       if (result.kind === "ok" && result.data.eventId === target) {
         setEventId(target);
         setSnapshot(result.data);
-        setBody(structuredClone(result.data.draft));
+        loadDraft(result.data.draft);
         setBlocked(false);
         setTone("info");
         setMessage("Saved state loaded.");
@@ -184,6 +238,15 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     mode: "save" | "upload" | "other" = "other",
   ) {
     if (lock.current || blocked || !snapshot || stopped.current) return;
+    if (invalidTime) {
+      setTone("error");
+      setMessage("Review the highlighted activity times before saving.");
+      setConfirm(null);
+      document
+        .getElementById(`rundown-start-${invalidTime.editorKey}`)
+        ?.focus();
+      return;
+    }
     lock.current = true;
     setBusy(true);
     setTone("info");
@@ -199,7 +262,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
         result.data.version === snapshot.version + 1
       ) {
         setSnapshot(result.data);
-        if (mode === "save") setBody(structuredClone(result.data.draft));
+        if (mode === "save") loadDraft(result.data.draft);
         if (mode === "upload") {
           setFile(null);
           if (uploadInput.current) uploadInput.current.value = "";
@@ -217,7 +280,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     lock.current = false;
     setBusy(false);
   }
-  function change(next: api.Body) {
+  function change(next: Draft) {
     setBody(next);
     setTone("info");
     setMessage("Unsaved material changes.");
@@ -229,7 +292,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     preview === "published"
       ? snapshot?.published
       : preview === "draft"
-        ? body
+        ? content
         : null;
   return (
     <section
@@ -448,27 +511,23 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                   />
                 </label>
                 {body.rundown.items.map((item, index) => (
-                  <fieldset key={index}>
+                  <fieldset key={item.editorKey}>
                     <legend>Activity {index + 1}</legend>
-                    <label>
-                      Start (WIB) {index + 1}
-                      <input
-                        type="datetime-local"
-                        step="60"
-                        value={localTime(item.startsAt)}
-                        onChange={(e) => {
-                          const items = [...body.rundown!.items];
-                          items[index] = {
-                            ...item,
-                            startsAt: fromWibMinute(e.target.value) ?? "",
-                          };
-                          change({
-                            ...body,
-                            rundown: { ...body.rundown!, items },
-                          });
-                        }}
-                      />
-                    </label>
+                    <WibDateTimeField
+                      id={`rundown-start-${item.editorKey}`}
+                      label={`Start (WIB) ${index + 1}`}
+                      clearLabel={`Clear activity ${index + 1} time`}
+                      original={item.startsAt}
+                      edit={item.timeEdit}
+                      onEdit={(timeEdit) => {
+                        const items = [...body.rundown!.items];
+                        items[index] = { ...item, timeEdit };
+                        change({
+                          ...body,
+                          rundown: { ...body.rundown!, items },
+                        });
+                      }}
+                    />
                     <label>
                       Activity title {index + 1}
                       <input
@@ -530,7 +589,12 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                         ...body.rundown!,
                         items: [
                           ...body.rundown!.items,
-                          { startsAt: "", title: "", description: "" },
+                          {
+                            startsAt: "",
+                            title: "",
+                            description: "",
+                            editorKey: nextActivityKey.current++,
+                          },
                         ],
                       },
                     })
@@ -548,7 +612,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
               onClick={() =>
                 void mutate(
                   () =>
-                    api.save(snapshot.eventId, snapshot.version, body, csrf),
+                    api.save(snapshot.eventId, snapshot.version, content, csrf),
                   "save",
                 )
               }
@@ -557,7 +621,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
             </button>
             <button
               type="button"
-              disabled={disabled}
+              disabled={disabled || Boolean(invalidTime)}
               onClick={() => setPreview("draft")}
             >
               Preview draft
@@ -735,7 +799,4 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       ) : null}
     </section>
   );
-}
-function localTime(iso: string) {
-  return toWibMinute(iso);
 }

@@ -51,6 +51,20 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
   await expect(input).toHaveAttribute("aria-invalid", "true");
   expect(writes).toBe(0);
   expect((await saved()).rsvpDeadlineAt?.toISOString()).toBe(original);
+  await input.fill("2027-06-01T18:30");
+  await input.press("ArrowLeft");
+  await input.press("Backspace");
+  expect(
+    await input.evaluate(
+      (element: HTMLInputElement) =>
+        element.validity.badInput && element.value === "",
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(input).toBeFocused();
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  expect(writes).toBe(0);
+  expect((await saved()).rsvpDeadlineAt?.toISOString()).toBe(original);
   await page.reload();
   await expect(input).toHaveValue("2027-06-01T18:30");
   await page
@@ -102,7 +116,7 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
     "2027-06-01T17:15:00.000Z",
   );
   await page.unroute(`**/api/admin/invitations/${invitationId}`);
-  await input.fill("");
+  await page.getByRole("button", { name: "Clear RSVP deadline" }).click();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page).toHaveURL(
     new RegExp(`/invitations/${invitationId}\\?updated=1`),

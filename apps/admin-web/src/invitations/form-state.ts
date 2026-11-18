@@ -2,7 +2,6 @@ import type {
   AdminEventsResponse,
   CreateAdminInvitationRequest,
 } from "@wedding-invitation/api-client/src/index";
-import { toWibMinute } from "../forms/wib-date-time";
 export type CreateFields = Omit<
   CreateAdminInvitationRequest,
   "rsvpDeadlineAt" | "maxAdditionalChildren"
@@ -22,9 +21,6 @@ export function deadlineToIso(value: string): string | null {
         ? value.padEnd(23, "0")
         : `${value}.000`;
   return roundTrip.slice(0, -1) === normalized ? date.toISOString() : null;
-}
-export function isoToJakartaInput(value: string | null): string {
-  return toWibMinute(value);
 }
 export function prepareInvitation(
   fields: CreateFields,

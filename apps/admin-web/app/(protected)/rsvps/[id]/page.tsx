@@ -5,17 +5,12 @@ import { RsvpDetailContent } from "../../../../components/rsvp-detail-content";
 
 export default async function RsvpDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ rsvpOverridden?: string }>;
 }) {
   const session = await getServerSession();
   if (session.kind !== "authenticated") return null;
-  const [{ id }, query] = await Promise.all([
-    params,
-    searchParams ?? Promise.resolve({ rsvpOverridden: undefined }),
-  ]);
+  const { id } = await params;
   return (
     <>
       <header className="dashboard-heading invitation-heading">
@@ -32,11 +27,7 @@ export default async function RsvpDetailPage({
         </Link>
       </header>
       <Suspense fallback={<p role="status">Loading RSVP detail...</p>}>
-        <RsvpDetailContent
-          csrfToken={session.auth.csrfToken}
-          id={id}
-          showSaved={query.rsvpOverridden === "1"}
-        />
+        <RsvpDetailContent csrfToken={session.auth.csrfToken} id={id} />
       </Suspense>
     </>
   );

@@ -266,8 +266,109 @@ test("six viewport navigation and scrollable correction dialog use the real pers
         where: { invitationId: household.id, kind: "CORRECTION" },
       }),
     ).toBe(0);
+    await page.goto("/events");
+    await page.getByLabel("Event to edit").selectOption(fixture.event.id);
+    for (const field of ["Start (WIB)", "End (WIB)"])
+      await expect(page.getByLabel(field, { exact: true })).toBeDisabled();
+    for (const label of ["Clear start time", "Clear end time"])
+      await expect(page.getByRole("button", { name: label })).toBeDisabled();
   } finally {
     await guestContext.close();
+  }
+});
+
+test("Event edits distinguish invalid native dates from deliberate clears", async ({
+  page,
+}) => {
+  const startTime = "2027-01-02T10:00:37.456Z";
+  const endTime = "2027-01-02T12:00:19.123Z";
+  const event = await fixture.prisma.event.create({
+    data: {
+      name: "Time integrity review",
+      slug: `time-integrity-${fixture.event.id}`,
+      displayOrder: 2000000000,
+      isActive: false,
+      startsAt: new Date(startTime),
+      endsAt: new Date(endTime),
+    },
+  });
+  try {
+    await page.goto("/login");
+    await page.getByLabel("Email", { exact: true }).fill(fixture.owner.email);
+    await page.getByLabel("Password", { exact: true }).fill(fixture.password);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page).toHaveURL(new URL("/", origins.admin).href);
+    await page.goto("/events");
+    await page.getByLabel("Event to edit").selectOption(event.id);
+    const start = page.getByLabel("Start (WIB)", { exact: true });
+    const end = page.getByLabel("End (WIB)", { exact: true });
+    const save = page.getByRole("button", { name: "Save event", exact: true });
+    const success = page.getByText("Event saved successfully.", {
+      exact: true,
+    });
+    const persisted = () =>
+      fixture.prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    let writes = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "PUT" &&
+        new URL(request.url()).pathname ===
+          `/api/admin/event-management/${event.id}`
+      )
+        writes++;
+    });
+    await page.getByLabel("Venue name").fill("Keep this venue edit");
+    await start.fill("2027-01-02T17:00:45");
+    await expect(start).toHaveAttribute("aria-invalid", "true");
+    await save.click();
+    expect(writes).toBe(0);
+    await start.fill("2027-01-02T17:15");
+    await end.fill("2027-01-02T19:00:45.678");
+    await expect(end).toHaveAttribute("aria-invalid", "true");
+    await save.click();
+    expect(writes).toBe(0);
+    await end.fill("2027-01-02T19:00");
+    await end.press("ArrowLeft");
+    await end.press("Backspace");
+    expect(
+      await end.evaluate(
+        (input: HTMLInputElement) =>
+          input.validity.badInput && input.value === "",
+      ),
+    ).toBe(true);
+    await expect(end).toHaveAttribute("aria-invalid", "true");
+    await save.click();
+    await expect(success).toHaveCount(0);
+    await expect(page.getByLabel("Venue name")).toHaveValue(
+      "Keep this venue edit",
+    );
+    expect(writes).toBe(0);
+    expect(await persisted()).toMatchObject({
+      startsAt: new Date(startTime),
+      endsAt: new Date(endTime),
+    });
+
+    await end.fill("2027-01-02T20:15");
+    await save.click();
+    await expect(success).toBeVisible();
+    expect(await persisted()).toMatchObject({
+      startsAt: new Date("2027-01-02T10:15:00.000Z"),
+      endsAt: new Date("2027-01-02T13:15:00.000Z"),
+      venueName: "Keep this venue edit",
+    });
+    await page.getByRole("button", { name: "Clear start time" }).click();
+    await save.click();
+    await expect(
+      page.getByText("Set a start time or clear the end time."),
+    ).toBeVisible();
+    expect(writes).toBe(1);
+    await page.getByRole("button", { name: "Clear end time" }).click();
+    await save.click();
+    await expect(success).toBeVisible();
+    expect(await persisted()).toMatchObject({ startsAt: null, endsAt: null });
+    expect(writes).toBe(2);
+  } finally {
+    await fixture.prisma.event.delete({ where: { id: event.id } });
   }
 });
 test("Event creation shows confirmed success and a pending save stays disabled until the real database lock is released", async ({

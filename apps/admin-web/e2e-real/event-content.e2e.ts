@@ -329,3 +329,152 @@ test("event material feedback stays informational while pending and reports reje
     "Preserve rejected material draft",
   );
 });
+
+test("Rundown date edits keep invalid input separate from empty draft times", async ({
+  page,
+}) => {
+  const firstTime = "2027-01-02T10:00:37.456Z";
+  const secondTime = "2027-01-02T12:00:19.123Z";
+  const draft = {
+    parking: null,
+    rundown: {
+      title: "Synthetic schedule",
+      items: [
+        { startsAt: firstTime, title: "First activity", description: "" },
+        { startsAt: secondTime, title: "Second activity", description: "" },
+      ],
+    },
+  };
+  const eventId = fixture.event.id;
+  await fixture.prisma.eventContent.upsert({
+    where: { eventId },
+    create: { eventId, draft },
+    update: { draft },
+  });
+  const persisted = async () =>
+    (
+      await fixture.prisma.eventContent.findUniqueOrThrow({
+        where: { eventId },
+      })
+    ).draft;
+  await editor(page);
+  const first = page.getByLabel("Start (WIB) 1", { exact: true });
+  const second = page.getByLabel("Start (WIB) 2", { exact: true });
+  const clear = page.getByRole("button", { name: "Clear activity 1 time" });
+  for (const width of [320, 375, 412, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const control of [first, clear]) {
+      await expect(control).toBeVisible();
+      const box = await control.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    }
+  }
+  const save = page.getByRole("button", { name: "Save draft", exact: true });
+  const success = page.getByText(
+    "Draft saved. Published content is unchanged.",
+    { exact: true },
+  );
+  let writes = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PUT" &&
+      new URL(request.url()).pathname === `/api/admin/event-content/${eventId}`
+    )
+      writes++;
+  });
+
+  await first.fill("2027-01-02T17:00:45");
+  await save.click();
+  await expect(first).toHaveAttribute("aria-invalid", "true");
+  await expect(first).toBeFocused();
+  await expect(success).toHaveCount(0);
+  expect(writes).toBe(0);
+  await first.fill("2027-01-02T17:00");
+  await first.press("ArrowLeft");
+  await first.press("Backspace");
+  expect(
+    await first.evaluate(
+      (input: HTMLInputElement) =>
+        input.validity.badInput && input.value === "",
+    ),
+  ).toBe(true);
+  await save.click();
+  await expect(first).toHaveAttribute("aria-invalid", "true");
+  expect(writes).toBe(0);
+  expect(await persisted()).toEqual(draft);
+
+  await page.getByRole("button", { name: "Reload saved state" }).click();
+  await page.getByRole("button", { name: "Confirm action" }).click();
+  await expect(first).toHaveValue("2027-01-02T17:00");
+  await page
+    .getByLabel("Activity title 2", { exact: true })
+    .fill("Renamed second activity");
+  await save.click();
+  await expect(success).toBeVisible();
+  expect(await persisted()).toMatchObject({
+    rundown: {
+      items: [
+        { startsAt: firstTime },
+        { startsAt: secondTime, title: "Renamed second activity" },
+      ],
+    },
+  });
+
+  await second.fill("2027-01-02T19:00:45.678");
+  await page.getByRole("button", { name: "Remove activity 1" }).click();
+  await expect(first).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByLabel("Activity title 1", { exact: true }),
+  ).toHaveValue("Renamed second activity");
+  await save.click();
+  await expect(success).toHaveCount(0);
+  expect(writes).toBe(1);
+
+  await first.fill("2027-01-02T19:15");
+  const add = page.getByRole("button", { name: "Add activity", exact: true });
+  await add.click();
+  await page
+    .getByLabel("Activity title 2", { exact: true })
+    .fill("New optional time");
+  await add.click();
+  await page
+    .getByLabel("Activity title 3", { exact: true })
+    .fill("New scheduled activity");
+  await page
+    .getByLabel("Start (WIB) 3", { exact: true })
+    .fill("2027-01-02T20:30");
+  await save.click();
+  await expect(success).toBeVisible();
+  expect(await persisted()).toMatchObject({
+    rundown: {
+      items: [
+        { startsAt: "2027-01-02T12:15:00.000Z" },
+        { startsAt: "" },
+        { startsAt: "2027-01-02T13:30:00.000Z" },
+      ],
+    },
+  });
+  await page.getByRole("button", { name: "Clear activity 1 time" }).click();
+  await save.click();
+  await expect(success).toBeVisible();
+  expect(await persisted()).toMatchObject({
+    rundown: {
+      items: [
+        { startsAt: "" },
+        { startsAt: "" },
+        { startsAt: "2027-01-02T13:30:00.000Z" },
+      ],
+    },
+  });
+  await page.getByRole("button", { name: "Publish saved draft" }).click();
+  await page.getByRole("button", { name: "Confirm action" }).click();
+  await expect(page.getByText(/Validation rejected/)).toBeVisible();
+  await page.getByRole("button", { name: "Reload saved state" }).click();
+  await expect(first).toHaveValue("");
+  await expect(second).toHaveValue("");
+  await expect(page.getByLabel("Start (WIB) 3", { exact: true })).toHaveValue(
+    "2027-01-02T20:30",
+  );
+  expect(writes).toBe(3);
+});

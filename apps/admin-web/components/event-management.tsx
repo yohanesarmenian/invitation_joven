@@ -3,7 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 import * as api from "../src/events/client";
+import {
+  wibMinuteError,
+  wibMinuteTimestamp,
+  type WibMinuteEdit,
+} from "../src/forms/wib-date-time";
 import { ActionFeedback } from "./action-feedback";
+import { WibDateTimeField } from "./wib-date-time-field";
+
+type ScheduleField = "startsAt" | "endsAt";
 const empty = (): api.EventFields => ({
   slug: "",
   name: "",
@@ -46,10 +54,14 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
   const submission = useRef(false);
   const feedback = useRef<HTMLDivElement>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [schedule, setSchedule] = useState<
+    Partial<Record<ScheduleField, WibMinuteEdit>>
+  >({});
   const used = saved ? Object.values(saved.usage).some((n) => n > 0) : false;
   const scheduleLocked = !!saved && saved.usage.checkins > 0;
   function loadRow(row: api.ManagedEvent | null, rows = items) {
     setFieldErrors({});
+    setSchedule({});
     setSaved(row);
     if (row) {
       setDraft({
@@ -147,6 +159,13 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
     value: api.EventFields[K],
   ) {
     setDraft((d) => ({ ...d, [key]: value }));
+    markChanged(key);
+  }
+  function changeTime(key: ScheduleField, edit: WibMinuteEdit) {
+    setSchedule((current) => ({ ...current, [key]: edit }));
+    markChanged(key);
+  }
+  function markChanged(key: keyof api.EventFields) {
     setDirty(true);
     setTone("info");
     setMessage("Unsaved event changes.");
@@ -202,12 +221,26 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
           e.preventDefault();
           if (busy || blocked || submission.current) return;
           const errors: Record<string, string> = {};
-          if (
-            draft.startsAt &&
-            draft.endsAt &&
-            Date.parse(draft.endsAt) <= Date.parse(draft.startsAt)
-          )
-            errors.endsAt = "End must be later than start in WIB.";
+          const startsAt = wibMinuteTimestamp(
+            draft.startsAt,
+            schedule.startsAt,
+            null,
+          );
+          const endsAt = wibMinuteTimestamp(
+            draft.endsAt,
+            schedule.endsAt,
+            null,
+          );
+          if (schedule.startsAt?.kind === "invalid")
+            errors.startsAt = wibMinuteError;
+          if (schedule.endsAt?.kind === "invalid")
+            errors.endsAt = wibMinuteError;
+          if (!errors.startsAt && !errors.endsAt && endsAt) {
+            if (!startsAt)
+              errors.startsAt = "Set a start time or clear the end time.";
+            else if (Date.parse(endsAt) <= Date.parse(startsAt))
+              errors.endsAt = "End must be later than start in WIB.";
+          }
           if (draft.googleMapsUrl) {
             try {
               const url = new URL(draft.googleMapsUrl);
@@ -233,14 +266,25 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
           if (Object.keys(errors).length) {
             setTone("error");
             setMessage("Review the highlighted Event fields.");
-            requestAnimationFrame(() => feedback.current?.focus());
+            const form = e.currentTarget;
+            requestAnimationFrame(() =>
+              (
+                form.querySelector<HTMLElement>(
+                  '[aria-invalid="true"]:not(:disabled)',
+                ) ?? feedback.current
+              )?.focus(),
+            );
             return;
           }
           submission.current = true;
           setBusy(true);
           setTone("info");
           setMessage("Saving event…");
-          const result = await api.save(draft, csrf, saved);
+          const result = await api.save(
+            { ...draft, startsAt, endsAt },
+            csrf,
+            saved,
+          );
           if (result.kind === "ok") {
             const rows = [
               ...items.filter((r) => r.id !== result.data.id),
@@ -289,35 +333,24 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
               onChange={(e) => change("description", e.target.value || null)}
             />
           </label>
-          <label>
-            Start (WIB)
-            <input
-              type="datetime-local"
-              step="60"
-              disabled={scheduleLocked}
-              value={api.toWib(draft.startsAt)}
-              onChange={(e) => change("startsAt", api.fromWib(e.target.value))}
-            />
-          </label>
-          <label>
-            End (WIB)
-            <input
-              type="datetime-local"
-              step="60"
-              disabled={scheduleLocked}
-              value={api.toWib(draft.endsAt)}
-              aria-invalid={!!fieldErrors.endsAt}
-              aria-describedby={
-                fieldErrors.endsAt ? "event-ends-error" : undefined
-              }
-              onChange={(e) => change("endsAt", api.fromWib(e.target.value))}
-            />
-          </label>
-          {fieldErrors.endsAt ? (
-            <p id="event-ends-error" className="field-error">
-              {fieldErrors.endsAt}
-            </p>
-          ) : null}
+          <WibDateTimeField
+            label="Start (WIB)"
+            clearLabel="Clear start time"
+            disabled={scheduleLocked}
+            original={draft.startsAt}
+            edit={schedule.startsAt}
+            onEdit={(edit) => changeTime("startsAt", edit)}
+            error={fieldErrors.startsAt}
+          />
+          <WibDateTimeField
+            label="End (WIB)"
+            clearLabel="Clear end time"
+            disabled={scheduleLocked}
+            original={draft.endsAt}
+            edit={schedule.endsAt}
+            onEdit={(edit) => changeTime("endsAt", edit)}
+            error={fieldErrors.endsAt}
+          />
           <label>
             Venue name
             <input

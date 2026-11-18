@@ -4,7 +4,8 @@ import { ActionFeedback } from "../components/action-feedback";
 import {
   fromWibMinute,
   toWibMinute,
-  preserveUneditedMinute,
+  readWibMinuteEdit,
+  wibMinuteTimestamp,
 } from "../src/forms/wib-date-time";
 describe("minute editing and confirmed-action feedback", () => {
   it("converts midnight and WIB minutes independently of host timezone", () => {
@@ -15,13 +16,24 @@ describe("minute editing and confirmed-action feedback", () => {
   });
   it("preserves unedited precision and distinguishes an explicit minute edit or clear", () => {
     const original = "2027-01-02T10:30:45.678Z";
-    expect(preserveUneditedMinute(toWibMinute(original), original, false)).toBe(
-      original,
-    );
-    expect(preserveUneditedMinute(toWibMinute(original), original, true)).toBe(
-      "2027-01-02T10:30:00.000Z",
-    );
-    expect(preserveUneditedMinute("", original, true)).toBeNull();
+    const edit = (value: string, valid = true) =>
+      readWibMinuteEdit({ value, validity: { badInput: !valid } });
+    expect(wibMinuteTimestamp(original, undefined, null)).toBe(original);
+    expect(
+      wibMinuteTimestamp(original, edit(toWibMinute(original)), null),
+    ).toBe("2027-01-02T10:30:00.000Z");
+    for (const invalid of [
+      edit("", false),
+      edit(""),
+      edit("2027-01-01T10:30:45.678"),
+    ]) {
+      expect(invalid.kind).toBe("invalid");
+      expect(wibMinuteTimestamp(original, invalid, null)).toBe(original);
+    }
+    expect(
+      wibMinuteTimestamp(original, { kind: "clear", input: "" }, null),
+    ).toBeNull();
+    expect(wibMinuteTimestamp("", undefined, "")).toBe("");
   });
   it("announces persisted success politely and rejected operations assertively", () => {
     expect(renderToStaticMarkup(<ActionFeedback>{""}</ActionFeedback>)).toBe(

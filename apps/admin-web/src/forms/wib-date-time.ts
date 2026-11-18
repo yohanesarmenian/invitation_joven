@@ -16,11 +16,38 @@ export function fromWibMinute(value: string): string | null {
     return null;
   return instant.toISOString();
 }
-// An unrelated edit must retain precision of the canonical timestamp.
-export function preserveUneditedMinute(
-  value: string,
-  original: string | null,
-  edited: boolean,
-): string | null {
-  return edited ? (value ? fromWibMinute(value) : null) : original;
+
+export const wibMinuteError =
+  "Enter a complete date, hour and minute in WIB, or use Clear to remove it.";
+
+export type WibMinuteEdit =
+  | { kind: "valid"; input: string; timestamp: string }
+  | { kind: "invalid"; input: string }
+  | { kind: "clear"; input: "" };
+
+export function readWibMinuteEdit({
+  value,
+  validity,
+}: {
+  value: string;
+  validity: Pick<ValidityState, "badInput">;
+}): WibMinuteEdit {
+  // A previous value with seconds can shift the native step base. Validate
+  // minute precision from the value itself so correcting that edit succeeds.
+  const timestamp = validity.badInput ? null : fromWibMinute(value);
+  // Even a native empty value may represent incomplete or sanitized input.
+  return timestamp
+    ? { kind: "valid", input: value, timestamp }
+    : { kind: "invalid", input: value };
+}
+
+// Invalid input leaves the draft timestamp intact, and callers block its submission.
+export function wibMinuteTimestamp<T extends string | null>(
+  original: T,
+  edit: WibMinuteEdit | undefined,
+  empty: T,
+): string | T {
+  if (edit?.kind === "valid") return edit.timestamp;
+  if (edit?.kind === "clear") return empty;
+  return original;
 }
