@@ -7,6 +7,7 @@ import * as api from "../src/event-content/client";
 import { VenueInformation } from "../../invitation-web/components/invitation/venue-information";
 import { venueFromApi } from "../../invitation-web/src/content/venue-api";
 import {
+  readWibMinuteAtSave,
   wibMinuteTimestamp,
   type WibMinuteEdit,
 } from "../src/forms/wib-date-time";
@@ -58,6 +59,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
   const [preview, setPreview] = useState<"draft" | "published" | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const nextActivityKey = useRef(0);
+  const rundownFields = useRef<HTMLFieldSetElement>(null);
   const uploadInput = useRef<HTMLInputElement>(null),
     dialog = useRef<HTMLDialogElement>(null),
     lock = useRef(false),
@@ -233,18 +235,41 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     lock.current = false;
     setBusy(false);
   }
+  function activityTimeInput(editorKey: number) {
+    return rundownFields.current?.querySelector<HTMLInputElement>(
+      `#rundown-start-${editorKey}`,
+    );
+  }
+  function readDraftTimes(): Draft {
+    const { rundown } = body;
+    if (!rundown) return body;
+    const items = rundown.items.map((item) => {
+      const timeEdit = readWibMinuteAtSave(
+        activityTimeInput(item.editorKey),
+        item.startsAt,
+        item.timeEdit,
+      );
+      return timeEdit === item.timeEdit ? item : { ...item, timeEdit };
+    });
+    return items.every((item, index) => item === rundown.items[index])
+      ? body
+      : { ...body, rundown: { ...rundown, items } };
+  }
   async function mutate(
-    call: () => Promise<api.Result<api.State>>,
+    call: (currentContent: api.Body) => Promise<api.Result<api.State>>,
     mode: "save" | "upload" | "other" = "other",
   ) {
     if (lock.current || blocked || !snapshot || stopped.current) return;
-    if (invalidTime) {
+    const currentDraft = readDraftTimes();
+    if (currentDraft !== body) setBody(currentDraft);
+    const invalid = currentDraft.rundown?.items.find(
+      (item) => item.timeEdit?.kind === "invalid",
+    );
+    if (invalid) {
       setTone("error");
       setMessage("Review the highlighted activity times before saving.");
       setConfirm(null);
-      document
-        .getElementById(`rundown-start-${invalidTime.editorKey}`)
-        ?.focus();
+      activityTimeInput(invalid.editorKey)?.focus();
       return;
     }
     lock.current = true;
@@ -254,7 +279,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     setConfirm(null);
     setPreview(null);
     const current = generation.current;
-    const result = await call();
+    const result = await call(serializeDraft(currentDraft));
     if (current === generation.current && !stopped.current) {
       if (
         result.kind === "ok" &&
@@ -480,7 +505,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
               </>
             ) : null}
           </fieldset>
-          <fieldset disabled={disabled}>
+          <fieldset disabled={disabled} ref={rundownFields}>
             <legend>Guest rundown</legend>
             <label>
               <input
@@ -611,8 +636,13 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
               disabled={disabled || !dirty}
               onClick={() =>
                 void mutate(
-                  () =>
-                    api.save(snapshot.eventId, snapshot.version, content, csrf),
+                  (currentContent) =>
+                    api.save(
+                      snapshot.eventId,
+                      snapshot.version,
+                      currentContent,
+                      csrf,
+                    ),
                   "save",
                 )
               }

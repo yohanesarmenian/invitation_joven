@@ -163,13 +163,17 @@ export function EventManagement({ csrfToken }: { csrfToken: string }) {
   }
   function changeTime(key: ScheduleField, edit: WibMinuteEdit) {
     setSchedule((current) => ({ ...current, [key]: edit }));
-    markChanged(key);
+    markChanged("startsAt", "endsAt");
   }
-  function markChanged(key: keyof api.EventFields) {
+  function markChanged(...keys: (keyof api.EventFields)[]) {
     setDirty(true);
     setTone("info");
     setMessage("Unsaved event changes.");
-    setFieldErrors((current) => ({ ...current, [key]: "" }));
+    setFieldErrors((current) => {
+      const next = { ...current };
+      for (const key of keys) delete next[key];
+      return next;
+    });
   }
   return (
     <section

@@ -31,6 +31,8 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
   await expect(page).toHaveURL(new URL("/", runnerOrigins().admin).href);
   const path = `/invitations/${invitationId}/edit`;
   const input = page.getByLabel("RSVP deadline", { exact: true });
+  const clear = page.getByRole("button", { name: "Clear RSVP deadline" });
+  const save = page.getByRole("button", { name: "Save changes", exact: true });
   const saved = () =>
     fixture.prisma.invitation.findUniqueOrThrow({
       where: { id: invitationId },
@@ -46,6 +48,26 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
   });
   await page.goto(path);
   await expect(input).toHaveValue("2027-06-01T18:30");
+  const beforeInvalid = await saved();
+  await clear.click();
+  await input.press("1");
+  await page
+    .getByLabel("Internal notes", { exact: true })
+    .fill("Keep local notes through native validation");
+  expect(
+    await input.evaluate(
+      (element: HTMLInputElement) =>
+        element.validity.badInput && element.value === "",
+    ),
+  ).toBe(true);
+  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await save.click();
+  await expect(page.locator("#deadline-error")).toBeVisible();
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  await expect(input).toBeFocused();
+  await expect(page).toHaveURL(new RegExp(`${path}$`));
+  expect(writes).toBe(0);
+  expect(await saved()).toEqual(beforeInvalid);
   await input.fill("2027-06-01T18:30:45");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(input).toHaveAttribute("aria-invalid", "true");
@@ -77,6 +99,7 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
   expect((await saved()).rsvpDeadlineAt?.toISOString()).toBe(original);
   await page.goto(path);
   await expect(input).toHaveValue("2027-06-01T18:30");
+  await clear.click();
   await input.fill("2027-06-02T00:15");
   const before = writes;
   await page
@@ -116,12 +139,14 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
     "2027-06-01T17:15:00.000Z",
   );
   await page.unroute(`**/api/admin/invitations/${invitationId}`);
-  await page.getByRole("button", { name: "Clear RSVP deadline" }).click();
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  const beforeClear = writes;
+  await clear.click();
+  await save.click();
   await expect(page).toHaveURL(
     new RegExp(`/invitations/${invitationId}\\?updated=1`),
   );
   expect((await saved()).rsvpDeadlineAt).toBeNull();
+  expect(writes - beforeClear).toBe(1);
   await page.goto(path);
   await expect(input).toHaveValue("");
 });

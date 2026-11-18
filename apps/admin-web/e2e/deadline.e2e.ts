@@ -149,6 +149,69 @@ test("unrelated edits preserve precision and valid minute and explicit clear pay
   }
 });
 
+test("typing into a cleared deadline blocks Save even without input or change events", async ({
+  page,
+}) => {
+  await edit(page);
+  const writes: Array<{ rsvpDeadlineAt: string | null }> = [];
+  await page.route("**/api/admin/invitations/*", async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    writes.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 400,
+      json: { error: { code: "VALIDATION_ERROR" } },
+    });
+  });
+  const deadline = page.getByLabel("RSVP deadline", { exact: true });
+  const notes = page.getByLabel("Internal notes", { exact: true });
+  const clear = page.getByRole("button", { name: "Clear RSVP deadline" });
+  const save = page.getByRole("button", { name: "Save changes", exact: true });
+  for (const segment of [0, 3, 4]) {
+    await clear.click();
+    await deadline.evaluate((input) => {
+      input.dataset.editEvents = "0";
+      const count = () => {
+        input.dataset.editEvents = String(Number(input.dataset.editEvents) + 1);
+      };
+      input.addEventListener("input", count, { once: true });
+      input.addEventListener("change", count, { once: true });
+    });
+    for (let i = 0; i < 6; i++) await deadline.press("ArrowLeft");
+    for (let i = 0; i < segment; i++) await deadline.press("ArrowRight");
+    await deadline.press("1");
+    // Blur and re-render the form through an unrelated field edit.
+    await notes.fill(`Preserve notes from segment ${segment}`);
+    expect(
+      await deadline.evaluate((input: HTMLInputElement) => ({
+        badInput: input.validity.badInput,
+        value: input.value,
+        editEvents: input.dataset.editEvents,
+      })),
+    ).toEqual({ badInput: true, value: "", editEvents: "0" });
+    await expect(deadline).toHaveAttribute("aria-invalid", "false");
+    await save.click();
+    await expect(page.locator("#deadline-error")).toBeVisible();
+    await expect(deadline).toHaveAttribute("aria-invalid", "true");
+    await expect(deadline).toBeFocused();
+    await expect(notes).toHaveValue(`Preserve notes from segment ${segment}`);
+    await expect(page).toHaveURL(/\/edit$/);
+    expect(writes).toHaveLength(0);
+  }
+  await clear.click();
+  await deadline.fill("2027-06-02T00:15:45");
+  await save.click();
+  await expect(deadline).toHaveAttribute("aria-invalid", "true");
+  expect(writes).toHaveLength(0);
+  await deadline.fill("2027-06-02T00:15");
+  const response = page.waitForResponse(
+    (res) => res.request().method() === "PATCH",
+  );
+  await save.click();
+  await response;
+  expect(writes).toHaveLength(1);
+  expect(writes[0]?.rsvpDeadlineAt).toBe("2027-06-01T17:15:00.000Z");
+});
+
 test("known API failure preserves the draft and double submission sends one PATCH", async ({
   page,
 }) => {

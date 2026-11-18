@@ -36,9 +36,7 @@ export function WibDateTimeField({
   const message = edit?.kind === "invalid" ? wibMinuteError : error;
 
   useEffect(() => {
-    // Reset incomplete native segments even when their exposed value is already empty.
-    if ((!edit || edit.kind === "clear") && input.current)
-      input.current.value = value;
+    if (!edit && input.current) input.current.value = value;
   }, [edit, value]);
 
   return (
@@ -72,7 +70,11 @@ export function WibDateTimeField({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onEdit({ kind: "clear", input: "" })}
+        onClick={() => {
+          // Reset incomplete segments even when the exposed value is already empty.
+          if (input.current) input.current.value = "";
+          onEdit({ kind: "clear", input: "" });
+        }}
       >
         {clearLabel}
       </button>

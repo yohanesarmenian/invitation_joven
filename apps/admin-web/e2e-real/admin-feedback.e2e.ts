@@ -363,6 +363,10 @@ test("Event edits distinguish invalid native dates from deliberate clears", asyn
     ).toBeVisible();
     expect(writes).toBe(1);
     await page.getByRole("button", { name: "Clear end time" }).click();
+    await expect(start).toHaveAttribute("aria-invalid", "false");
+    await expect(
+      page.getByText("Set a start time or clear the end time."),
+    ).toHaveCount(0);
     await save.click();
     await expect(success).toBeVisible();
     expect(await persisted()).toMatchObject({ startsAt: null, endsAt: null });

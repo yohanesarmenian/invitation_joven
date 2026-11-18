@@ -4,6 +4,7 @@ import { ActionFeedback } from "../components/action-feedback";
 import {
   fromWibMinute,
   toWibMinute,
+  readWibMinuteAtSave,
   readWibMinuteEdit,
   wibMinuteTimestamp,
 } from "../src/forms/wib-date-time";
@@ -13,6 +14,37 @@ describe("minute editing and confirmed-action feedback", () => {
     expect(fromWibMinute("2027-01-03T00:30")).toBe("2027-01-02T17:30:00.000Z");
     expect(fromWibMinute("2027-02-30T10:00")).toBeNull();
     expect(fromWibMinute("2027-01-02T10:00:01")).toBeNull();
+  });
+  it("reconciles Clear and unchanged timestamps against the live control", () => {
+    const original = "2027-01-02T10:30:45.678Z";
+    const clear = { kind: "clear", input: "" } as const;
+    const native = (value: string, badInput = false) => ({
+      value,
+      validity: { badInput, stepMismatch: true },
+    });
+    expect(readWibMinuteAtSave(native("", true), original, clear)).toEqual({
+      kind: "invalid",
+      input: "",
+    });
+    expect(readWibMinuteAtSave(native(""), original, clear)).toBe(clear);
+    expect(readWibMinuteAtSave(native(""), "", undefined)).toBeUndefined();
+    expect(
+      readWibMinuteAtSave(native(toWibMinute(original)), original, undefined),
+    ).toBeUndefined();
+    expect(readWibMinuteAtSave(native(""), original, undefined)?.kind).toBe(
+      "invalid",
+    );
+    expect(readWibMinuteAtSave(null, original, clear)?.kind).toBe("invalid");
+    expect(
+      readWibMinuteAtSave(native("2027-01-02T18:15:01"), original, clear)?.kind,
+    ).toBe("invalid");
+    expect(
+      readWibMinuteAtSave(native("2027-01-02T18:15"), original, clear),
+    ).toEqual({
+      kind: "valid",
+      input: "2027-01-02T18:15",
+      timestamp: "2027-01-02T11:15:00.000Z",
+    });
   });
   it("preserves unedited precision and distinguishes an explicit minute edit or clear", () => {
     const original = "2027-01-02T10:30:45.678Z";

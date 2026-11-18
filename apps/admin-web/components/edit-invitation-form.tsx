@@ -8,6 +8,7 @@ import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 import type { FormErrors } from "../src/invitations/form-state";
 import { updateInvitation } from "../src/invitations/lifecycle";
 import {
+  readWibMinuteAtSave,
   wibMinuteError,
   wibMinuteTimestamp,
   type WibMinuteEdit,
@@ -87,12 +88,18 @@ export function EditInvitationForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy.current) return;
+    const currentDeadline = readWibMinuteAtSave(
+      event.currentTarget.querySelector<HTMLInputElement>("#deadline"),
+      invitation.rsvpDeadlineAt,
+      deadlineEdit,
+    );
+    setDeadlineEdit(currentDeadline);
     const prepared = prepare(
       fields,
       expectedUpdatedAt.current,
-      wibMinuteTimestamp(invitation.rsvpDeadlineAt, deadlineEdit, null),
+      wibMinuteTimestamp(invitation.rsvpDeadlineAt, currentDeadline, null),
     );
-    if (deadlineEdit?.kind === "invalid")
+    if (currentDeadline?.kind === "invalid")
       prepared.errors.deadline = wibMinuteError;
     setErrors(prepared.errors);
     setConflict(false);

@@ -25,13 +25,15 @@ export type WibMinuteEdit =
   | { kind: "invalid"; input: string }
   | { kind: "clear"; input: "" };
 
+type NativeMinuteInput = {
+  value: string;
+  validity: Pick<ValidityState, "badInput">;
+};
+
 export function readWibMinuteEdit({
   value,
   validity,
-}: {
-  value: string;
-  validity: Pick<ValidityState, "badInput">;
-}): WibMinuteEdit {
+}: NativeMinuteInput): WibMinuteEdit {
   // A previous value with seconds can shift the native step base. Validate
   // minute precision from the value itself so correcting that edit succeeds.
   const timestamp = validity.badInput ? null : fromWibMinute(value);
@@ -39,6 +41,19 @@ export function readWibMinuteEdit({
   return timestamp
     ? { kind: "valid", input: value, timestamp }
     : { kind: "invalid", input: value };
+}
+
+export function readWibMinuteAtSave(
+  input: NativeMinuteInput | null | undefined,
+  original: string | null,
+  edit: WibMinuteEdit | undefined,
+): WibMinuteEdit | undefined {
+  const displayed = edit?.input ?? toWibMinute(original);
+  if (!input) return { kind: "invalid", input: displayed };
+  // A partially edited blank control can have badInput without firing input.
+  if (input.validity.badInput || input.value !== displayed)
+    return readWibMinuteEdit(input);
+  return edit;
 }
 
 // Invalid input leaves the draft timestamp intact, and callers block its submission.

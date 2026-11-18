@@ -352,11 +352,7 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
     update: { draft },
   });
   const persisted = async () =>
-    (
-      await fixture.prisma.eventContent.findUniqueOrThrow({
-        where: { eventId },
-      })
-    ).draft;
+    fixture.prisma.eventContent.findUniqueOrThrow({ where: { eventId } });
   await editor(page);
   const first = page.getByLabel("Start (WIB) 1", { exact: true });
   const second = page.getByLabel("Start (WIB) 2", { exact: true });
@@ -376,13 +372,38 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
     { exact: true },
   );
   let writes = 0;
+  let uploads = 0;
   page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      request.method() === "POST" &&
+      path === `/api/admin/event-content/${eventId}/assets`
+    )
+      uploads++;
     if (
       request.method() === "PUT" &&
-      new URL(request.url()).pathname === `/api/admin/event-content/${eventId}`
+      path === `/api/admin/event-content/${eventId}`
     )
       writes++;
   });
+
+  const beforeInvalid = await persisted();
+  await clear.click();
+  await first.press("1");
+  await page.getByLabel("Activity title 2", { exact: true }).focus();
+  expect(
+    await first.evaluate(
+      (input: HTMLInputElement) =>
+        input.validity.badInput && input.value === "",
+    ),
+  ).toBe(true);
+  await expect(first).toHaveAttribute("aria-invalid", "false");
+  await save.click();
+  await expect(first).toHaveAttribute("aria-invalid", "true");
+  await expect(first).toBeFocused();
+  await expect(success).toHaveCount(0);
+  expect(writes).toBe(0);
+  expect(await persisted()).toEqual(beforeInvalid);
 
   await first.fill("2027-01-02T17:00:45");
   await save.click();
@@ -402,7 +423,7 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
   await save.click();
   await expect(first).toHaveAttribute("aria-invalid", "true");
   expect(writes).toBe(0);
-  expect(await persisted()).toEqual(draft);
+  expect(await persisted()).toEqual(beforeInvalid);
 
   await page.getByRole("button", { name: "Reload saved state" }).click();
   await page.getByRole("button", { name: "Confirm action" }).click();
@@ -412,7 +433,7 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
     .fill("Renamed second activity");
   await save.click();
   await expect(success).toBeVisible();
-  expect(await persisted()).toMatchObject({
+  expect((await persisted()).draft).toMatchObject({
     rundown: {
       items: [
         { startsAt: firstTime },
@@ -422,15 +443,38 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
   });
 
   await second.fill("2027-01-02T19:00:45.678");
+  await save.click();
+  await expect(second).toHaveAttribute("aria-invalid", "true");
+  expect(writes).toBe(1);
+  await page.getByRole("button", { name: "Clear activity 2 time" }).click();
+  await second.press("1");
   await page.getByRole("button", { name: "Remove activity 1" }).click();
-  await expect(first).toHaveAttribute("aria-invalid", "true");
+  expect(
+    await first.evaluate(
+      (input: HTMLInputElement) =>
+        input.validity.badInput && input.value === "",
+    ),
+  ).toBe(true);
   await expect(
     page.getByLabel("Activity title 1", { exact: true }),
   ).toHaveValue("Renamed second activity");
+  const beforeRemovalSave = await persisted();
+  await page.getByLabel("Upload file", { exact: true }).setInputFiles({
+    name: "synthetic.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4"),
+  });
+  await page.getByRole("button", { name: "Upload supporting file" }).click();
+  await expect(first).toHaveAttribute("aria-invalid", "true");
+  await expect(first).toBeFocused();
+  expect(uploads).toBe(0);
   await save.click();
+  await expect(first).toBeFocused();
   await expect(success).toHaveCount(0);
   expect(writes).toBe(1);
+  expect(await persisted()).toEqual(beforeRemovalSave);
 
+  await page.getByRole("button", { name: "Clear activity 1 time" }).click();
   await first.fill("2027-01-02T19:15");
   const add = page.getByRole("button", { name: "Add activity", exact: true });
   await add.click();
@@ -446,7 +490,7 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
     .fill("2027-01-02T20:30");
   await save.click();
   await expect(success).toBeVisible();
-  expect(await persisted()).toMatchObject({
+  expect((await persisted()).draft).toMatchObject({
     rundown: {
       items: [
         { startsAt: "2027-01-02T12:15:00.000Z" },
@@ -458,7 +502,7 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
   await page.getByRole("button", { name: "Clear activity 1 time" }).click();
   await save.click();
   await expect(success).toBeVisible();
-  expect(await persisted()).toMatchObject({
+  expect((await persisted()).draft).toMatchObject({
     rundown: {
       items: [
         { startsAt: "" },
@@ -467,6 +511,7 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
       ],
     },
   });
+  expect((await persisted()).published).toEqual(beforeInvalid.published);
   await page.getByRole("button", { name: "Publish saved draft" }).click();
   await page.getByRole("button", { name: "Confirm action" }).click();
   await expect(page.getByText(/Validation rejected/)).toBeVisible();
