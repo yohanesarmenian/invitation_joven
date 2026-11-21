@@ -349,6 +349,9 @@ test("OWNER freezes catering counts and the mobile guest revises RSVP after the 
       guest.getByText("Kindly reply by 2 January 2026 at 00:30 WIB."),
     ).toBeVisible();
     await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
+    await guest
+      .getByRole("button", { name: "Change attendance details", exact: true })
+      .click();
     await guest.getByRole("radio", { name: "Regretfully Decline" }).check();
     await guest
       .getByRole("button", { name: "Save Changes", exact: true })
