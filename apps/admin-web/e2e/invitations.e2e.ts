@@ -165,23 +165,68 @@ test("no active events blocks creation", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-for (const [email, diagnostic] of [
-  ["single-inactive@example.com", "The wedding event is inactive"],
-  ["list-owner@example.com", "More than one wedding event"],
-] as const)
-  test(`existing wedding prerequisite blocks unsafe create: ${email}`, async ({
-    page,
-  }) => {
-    await login(page, email);
-    await page.goto("/invitations/new");
-    await expect(
-      page.getByRole("heading", { name: "Wedding event unavailable" }),
-    ).toBeVisible();
-    await expect(page.getByRole("main")).toContainText(diagnostic);
-    await expect(
-      page.getByRole("button", { name: "Create invitation", exact: true }),
-    ).toHaveCount(0);
+test("an inactive wedding session blocks creation", async ({ page }) => {
+  await login(page, "single-inactive@example.com");
+  await page.goto("/invitations/new");
+  await expect(
+    page.getByRole("heading", { name: "Wedding event unavailable" }),
+  ).toBeVisible();
+  await expect(page.getByRole("main")).toContainText(
+    "No wedding session is active.",
+  );
+  await expect(
+    page.getByRole("button", { name: "Create invitation", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("multiple active sessions require explicit selection before create", async ({
+  page,
+}) => {
+  await login(page, "session-selection-owner@example.com");
+  await page.goto("/invitations/new");
+  const sessions = page.getByRole("group", { name: "Wedding sessions" });
+  const reception = sessions.getByRole("checkbox", { name: "Reception" });
+  const ceremony = sessions.getByRole("checkbox", { name: "Ceremony" });
+  await expect(reception).not.toBeChecked();
+  await expect(ceremony).not.toBeChecked();
+  await expect(sessions.getByRole("checkbox")).toHaveCount(2);
+  await page
+    .getByLabel("Full name (required)", { exact: true })
+    .fill("Synthetic guest");
+  const create = page.getByRole("button", {
+    name: "Create invitation",
+    exact: true,
   });
+  let posts = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/admin/invitations"
+    )
+      posts++;
+  });
+  await create.click();
+  await expect(sessions).toContainText("Select at least one active event.");
+  expect(posts).toBe(0);
+
+  await reception.check();
+  await ceremony.check();
+  const response = page.waitForResponse(
+    (candidate) =>
+      candidate.request().method() === "POST" &&
+      new URL(candidate.url()).pathname === "/api/admin/invitations",
+  );
+  await create.click();
+  const created = await response;
+  expect(created.status()).toBe(201);
+  expect(created.request().postDataJSON()).toMatchObject({
+    eventIds: [events[0]!.id, events[1]!.id],
+  });
+  await expect(
+    page.getByRole("heading", { name: "Invitation created" }),
+  ).toBeVisible();
+  expect(posts).toBe(1);
+});
 
 test("unavailable session storage blocks create before any POST", async ({
   page,
