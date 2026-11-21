@@ -348,7 +348,7 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(58);
+    expect(routes).toHaveLength(65);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "GET /api/admin/reception/search",
@@ -408,9 +408,14 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/reception/operations/:operationId",
       "GET /api/admin/reception/search",
       "GET /api/admin/reception/statistics",
+      "GET /api/admin/reports/catering/live",
+      "GET /api/admin/reports/catering/snapshots",
+      "GET /api/admin/reports/catering/snapshots/:version",
+      "GET /api/admin/reports/catering/snapshots/:version/export",
       "GET /api/admin/reports/export",
       "GET /api/admin/reports/households",
       "GET /api/admin/reports/summary",
+      "GET /api/admin/rsvp-policy",
       "GET /api/admin/rsvps",
       "GET /api/admin/rsvps/:rsvpId",
       "GET /api/admin/staff",
@@ -440,12 +445,14 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/reception/exceptions",
       "POST /api/admin/reception/validate",
       "POST /api/admin/reception/walkins",
+      "POST /api/admin/reports/catering/snapshots",
       "POST /api/admin/staff",
       "POST /api/admin/staff/:staffId/reset-password",
       "PUT /api/admin/event-content/:eventId",
       "PUT /api/admin/event-management/:eventId",
       "PUT /api/admin/invitations/:invitationId/events",
       "PUT /api/admin/invitations/:invitationId/rsvp",
+      "PUT /api/admin/rsvp-policy",
     ]);
 
     for (const route of routes.filter(
@@ -519,12 +526,14 @@ describe("admin read HTTP integration", () => {
       "POST /api/admin/reception/exceptions",
       "POST /api/admin/reception/validate",
       "POST /api/admin/reception/walkins",
+      "POST /api/admin/reports/catering/snapshots",
       "POST /api/admin/staff",
       "POST /api/admin/staff/:staffId/reset-password",
       "PUT /api/admin/event-content/:eventId",
       "PUT /api/admin/event-management/:eventId",
       "PUT /api/admin/invitations/:invitationId/events",
       "PUT /api/admin/invitations/:invitationId/rsvp",
+      "PUT /api/admin/rsvp-policy",
     ]);
 
     for (const route of unsafeRoutes) {
