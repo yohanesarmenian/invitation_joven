@@ -7,8 +7,10 @@ export type GuestMessageResult =
   | { status: "success"; data: SubmitPublicGuestMessageResponse }
   | {
       status: "error";
-      kind: "validation" | "unavailable" | "server" | "uncertain";
+      kind: "validation" | "unavailable" | "uncertain";
     };
+
+export type GuestMessageReceipt = "saved" | "missing" | "unverified";
 
 export function messageCharacterCount(value: string): number {
   return [...value.trim()].length;
@@ -49,9 +51,7 @@ export function guestMessageFailureText(
       return "Your message couldn’t be sent. Please check your name and message, then try again.";
     case "unavailable":
       return "This invitation is currently unavailable. Your message couldn’t be sent. Please try again later.";
-    case "server":
-      return "Your message couldn’t be sent. Your words are still here. Please try again.";
     case "uncertain":
-      return "We couldn’t confirm whether your message was sent. Your words are still here. Sending again may send another copy.";
+      return "We couldn’t confirm the save yet. Your draft is still here. Retry this same submission to check or complete the save.";
   }
 }

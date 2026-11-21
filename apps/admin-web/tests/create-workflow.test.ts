@@ -32,16 +32,21 @@ it("uses exactly the existing active event and defaults optional fields without 
     withGuestDisplayName({ ...fields, displayName: " Household " }).displayName,
   ).toBe("Household");
 });
-it("blocks empty, multiple, inactive and invalid event configuration without choosing or changing records", () => {
+it("blocks empty, inactive and invalid event configuration", () => {
   for (const catalog of [
     [],
-    events,
     [{ ...events[0]!, isActive: false }],
     [{ ...events[0]!, name: " " }],
   ]) {
     expect(weddingEventIssue(catalog)).toBeTypeOf("string");
     expect(initialCreateFields(catalog).eventIds).toEqual([]);
   }
+});
+it("requires an explicit choice with multiple active sessions and ignores inactive sessions", () => {
+  expect(weddingEventIssue(events)).toBeNull();
+  expect(initialCreateFields(events).eventIds).toEqual([]);
+  const mixed = [events[0]!, { ...events[1]!, isActive: false }];
+  expect(initialCreateFields(mixed).eventIds).toEqual([events[0]!.id]);
 });
 it("accepts only a usable bearer route and explicitly encoded WhatsApp sharing", () => {
   expect(safeInvitationUrl(publicUrl)).toBe(true);

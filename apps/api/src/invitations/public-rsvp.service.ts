@@ -4,7 +4,9 @@ import type { Prisma } from "../generated/prisma/client.js";
 import {
   CheckinPassStatus,
   InvitationStatus,
+  InviteeCategory,
   RSVPAttendeeType,
+  RSVPPublicPartyMode,
   RSVPStatus,
 } from "../generated/prisma/client.js";
 import { conflict, notFound } from "../auth/auth-errors.js";
@@ -20,7 +22,14 @@ import type {
 import { InvitationNotAvailableError } from "./invitation-not-available.error.js";
 import { validatePublicCredential } from "./public-invitation.service.js";
 import {
+  readRsvpPolicy,
+  rsvpEditBlockedReason,
+  type RsvpEditBlockedReason,
+} from "./rsvp-policy.js";
+import {
+  readConfirmedPartyMode,
   readRsvpHistoryValues,
+  sameRsvpAttendance,
   sameRsvpValues,
   rsvpHistoryDiff,
   type RsvpHistoryValues,
@@ -60,6 +69,14 @@ export type SubmitPublicRsvpCommand = {
   eventSelections: PublicRsvpEventSelectionInput[];
   attendees: PublicRsvpAttendeeInput[];
   dietaryNotes?: string | null;
+  partyMode?: RSVPPublicPartyMode;
+};
+
+export type EditPublicRsvpDietaryCommand = {
+  kind: "dietary";
+  publicCredential: string;
+  expectedVersion: number;
+  dietaryNotes: string | null;
 };
 
 export type SubmitAdminRsvpOverrideCommand = {
@@ -78,6 +95,7 @@ export type PublicRsvpMutationResult = {
     status: RSVPStatus;
     version: number;
     dietaryNotes: string | null;
+    partyMode?: RSVPPublicPartyMode;
     attendeeQuantityTotal: number;
     eventSelections: Array<{
       eventId: string;
@@ -99,7 +117,7 @@ export type PublicRsvpMutationResult = {
 
 export type PublicRsvpReadResult = {
   canEdit: boolean;
-  editBlockedReason: "DEADLINE_PASSED" | "CHECKED_IN" | null;
+  editBlockedReason: RsvpEditBlockedReason;
   rsvp: PublicRsvpMutationResult["rsvp"] | null;
   checkinPass: PublicRsvpMutationResult["checkinPass"];
 };
@@ -110,6 +128,7 @@ type RsvpLifecycleCommand = {
   eventSelections: PublicRsvpEventSelectionInput[];
   attendees: PublicRsvpAttendeeInput[];
   dietaryNotes?: string | null;
+  partyMode?: RSVPPublicPartyMode;
 };
 
 type AdminRsvpAttribution = {
@@ -147,7 +166,7 @@ type ExistingRsvpState = {
 type InvitationMutationState = {
   readonly eligibleEventIds: ReadonlySet<string>;
   readonly hasCheckinRecord: boolean;
-  readonly inviteeIds: ReadonlySet<string>;
+  readonly inviteeCategories: ReadonlyMap<string, InviteeCategory>;
   readonly rsvp: ExistingRsvpState;
   readonly activePass: {
     credentialVersion: number;
@@ -170,6 +189,7 @@ type AcceptedValidation = {
   dietaryNotes: string | null;
   attendeeQuantityTotal: number;
   eventSelections: PublicRsvpEventSelectionInput[];
+  partyMode?: RSVPPublicPartyMode;
   attendees: Array<{
     type: RSVPAttendeeType;
     inviteeId: string | null;
@@ -304,6 +324,50 @@ function validateAcceptedInput(
   };
 }
 
+function validatePublicParty(
+  accepted: AcceptedValidation,
+  state: InvitationMutationState,
+  mode?: RSVPPublicPartyMode,
+): AcceptedValidation {
+  const party = accepted.attendees;
+  const named = party.filter(
+    ({ type }) => type === RSVPAttendeeType.NAMED_INVITEE,
+  );
+  const adults = named.filter(
+    ({ inviteeId }) =>
+      state.inviteeCategories.get(inviteeId!) === InviteeCategory.ADULT,
+  ).length;
+  const companion = party.some(
+    ({ type }) => type === RSVPAttendeeType.PLUS_ONE,
+  );
+  const hasUnnamed = party.some(
+    ({ type }) => type === RSVPAttendeeType.UNNAMED_COMPANION,
+  );
+  const validModes = {
+    ALONE: party.length === 1 && named.length === 1,
+    FAMILY: adults >= 1 && adults + Number(companion) <= 2,
+    PLUS_ONE:
+      adults === 1 && named.length === 1 && companion && party.length === 2,
+  };
+  if (
+    hasUnnamed ||
+    party.filter(({ type }) => type === RSVPAttendeeType.ADDITIONAL_CHILD)
+      .length > 1 ||
+    (mode ? !validModes[mode] : !Object.values(validModes).some(Boolean))
+  ) {
+    throwPublicRsvpError("RSVP_PARTY_INVALID");
+  }
+  if (
+    accepted.eventSelections.some(
+      ({ attending, expectedAttendeeCount }) =>
+        attending && expectedAttendeeCount !== accepted.attendeeQuantityTotal,
+    )
+  ) {
+    throwPublicRsvpError("RSVP_SESSION_COUNTS_MISMATCH");
+  }
+  return { ...accepted, ...(mode ? { partyMode: mode } : {}) };
+}
+
 function validateAttendees(
   attendees: readonly PublicRsvpAttendeeInput[],
   invitation: LockedInvitationForRsvpRow,
@@ -322,7 +386,7 @@ function validateAttendees(
         if (
           !isUuid(attendee.inviteeId) ||
           attendee.quantity !== 1 ||
-          !state.inviteeIds.has(attendee.inviteeId) ||
+          !state.inviteeCategories.has(attendee.inviteeId) ||
           namedInviteeIds.has(attendee.inviteeId)
         ) {
           throwPublicRsvpError("RSVP_ATTENDEE_INVALID");
@@ -531,7 +595,7 @@ async function readMutationState(
       }),
       tx.invitee.findMany({
         where: { invitationId },
-        select: { id: true },
+        select: { id: true, category: true },
       }),
       tx.checkinRecord.count({
         where: { invitationId },
@@ -544,7 +608,9 @@ async function readMutationState(
       invitationEvents.map((invitationEvent) => invitationEvent.eventId),
     ),
     hasCheckinRecord: checkinRecordCount > 0,
-    inviteeIds: new Set(invitees.map((invitee) => invitee.id)),
+    inviteeCategories: new Map(
+      invitees.map(({ id, category }) => [id, category]),
+    ),
     rsvp:
       rsvp === null
         ? null
@@ -598,6 +664,8 @@ async function readPublicRsvpState(
         take: 1,
       },
       dietaryNotes: true,
+      id: true,
+      publicPartyMode: true,
       eventSelections: {
         orderBy: [{ createdAt: "asc" }, { eventId: "asc" }],
         select: {
@@ -619,6 +687,15 @@ async function readPublicRsvpState(
   }
 
   const activePass = rsvp.checkinPasses[0] ?? null;
+  const partyMode =
+    rsvp.status === RSVPStatus.ACCEPTED
+      ? await readConfirmedPartyMode(
+          tx,
+          rsvp.id,
+          rsvp.version,
+          rsvp.publicPartyMode,
+        )
+      : undefined;
 
   return {
     checkinPass:
@@ -636,6 +713,7 @@ async function readPublicRsvpState(
         type: attendee.attendeeType,
       })),
       dietaryNotes: rsvp.dietaryNotes,
+      ...(partyMode ? { partyMode } : {}),
       eventSelections: rsvp.eventSelections.map((selection) => ({
         attending: selection.attending,
         eventId: selection.eventId,
@@ -698,6 +776,18 @@ export class PublicRsvpService {
     return toPublicMutationResult(result);
   }
 
+  async editPublicRsvpDietary(
+    command: EditPublicRsvpDietaryCommand,
+  ): Promise<PublicRsvpMutationResult> {
+    const credential = validatePublicCredential(command.publicCredential);
+    const lookupHash = this.credentialService.hashCredential(credential);
+    return toPublicMutationResult(
+      await this.prisma.$transaction((tx) =>
+        this.submitPublicRsvpInTransaction(tx, lookupHash, command),
+      ),
+    );
+  }
+
   async submitAdminRsvpOverride(
     command: SubmitAdminRsvpOverrideCommand,
   ): Promise<{ rsvpId: string }> {
@@ -739,11 +829,14 @@ export class PublicRsvpService {
       const checkedIn = await tx.checkinRecord.count({
         where: { invitationId: invitation.id },
       });
-      const expired =
-        invitation.rsvpDeadlineAt !== null &&
-        this.currentTime() > invitation.rsvpDeadlineAt;
-      const editBlockedReason =
-        checkedIn > 0 ? "CHECKED_IN" : expired ? "DEADLINE_PASSED" : null;
+      const settings = await readRsvpPolicy(tx, true);
+      const editBlockedReason = rsvpEditBlockedReason(
+        this.currentTime(),
+        invitation.rsvpDeadlineAt,
+        settings,
+        state.rsvp?.status,
+        checkedIn > 0,
+      );
       return {
         ...state,
         canEdit: editBlockedReason === null,
@@ -755,7 +848,7 @@ export class PublicRsvpService {
   private async submitPublicRsvpInTransaction(
     tx: Prisma.TransactionClient,
     lookupHash: CredentialLookupHash,
-    command: SubmitPublicRsvpCommand,
+    command: SubmitPublicRsvpCommand | EditPublicRsvpDietaryCommand,
   ): Promise<RsvpLifecycleMutationResult> {
     const invitation = await lockInvitationForRsvp(tx, lookupHash);
 
@@ -768,59 +861,120 @@ export class PublicRsvpService {
   private async submitRsvpForLockedInvitation(
     tx: Prisma.TransactionClient,
     invitation: LockedInvitationForRsvpRow,
-    command: RsvpLifecycleCommand,
+    command: RsvpLifecycleCommand | EditPublicRsvpDietaryCommand,
     policy: {
       attributionPolicy: RsvpAttributionPolicy;
       enforceDeadline: boolean;
     },
   ): Promise<RsvpLifecycleMutationResult> {
-    const mutationTime = this.currentTime();
-
-    if (
-      policy.enforceDeadline &&
-      invitation.rsvpDeadlineAt !== null &&
-      mutationTime.getTime() > invitation.rsvpDeadlineAt.getTime()
-    ) {
-      throwPublicRsvpError("RSVP_DEADLINE_PASSED");
-    }
-
     const state = await readMutationState(tx, invitation.id);
+    const settings = policy.enforceDeadline
+      ? await readRsvpPolicy(tx, true)
+      : null;
+    const mutationTime = this.currentTime();
+    const blocked =
+      settings &&
+      rsvpEditBlockedReason(
+        mutationTime,
+        invitation.rsvpDeadlineAt,
+        settings,
+        state.rsvp?.status,
+        state.hasCheckinRecord,
+      );
+    if (blocked === "DEADLINE_PASSED")
+      throwPublicRsvpError("RSVP_DEADLINE_PASSED");
+    if (blocked === "CHECKED_IN")
+      throwPublicRsvpError("RSVP_LOCKED_AFTER_CHECKIN");
     validateExpectedVersion(command.expectedVersion, state.rsvp);
 
     if (state.hasCheckinRecord) {
       throwPublicRsvpError("RSVP_LOCKED_AFTER_CHECKIN");
     }
 
+    const before = await readRsvpHistoryValues(tx, invitation.id);
     if (
-      command.status !== RSVPStatus.ACCEPTED &&
-      command.status !== RSVPStatus.DECLINED
+      before?.values.partyMode &&
+      (before.values.status !== RSVPStatus.ACCEPTED ||
+        !(await readConfirmedPartyMode(
+          tx,
+          before.id,
+          before.version,
+          before.values.partyMode,
+        )))
+    )
+      delete before.values.partyMode;
+    const dietaryOnly = "kind" in command;
+    const status = dietaryOnly ? RSVPStatus.ACCEPTED : command.status;
+    const isPublic = policy.attributionPolicy.mode === "PUBLIC";
+    if (dietaryOnly) {
+      if (!before || before.values.status !== RSVPStatus.ACCEPTED)
+        throwPublicRsvpError("RSVP_PARTY_INVALID");
+    } else if (
+      status === RSVPStatus.DECLINED &&
+      isPublic &&
+      (command.attendees.length ||
+        command.eventSelections.length ||
+        command.dietaryNotes != null ||
+        command.partyMode)
+    ) {
+      throwPublicRsvpError("RSVP_PARTY_INVALID");
+    } else if (
+      status !== RSVPStatus.ACCEPTED &&
+      status !== RSVPStatus.DECLINED
     ) {
       throwPublicRsvpError("RSVP_ATTENDEE_INVALID");
     }
-
-    const accepted =
-      command.status === RSVPStatus.ACCEPTED
+    if (
+      !dietaryOnly &&
+      isPublic &&
+      status === RSVPStatus.ACCEPTED &&
+      (state.eligibleEventIds.size < 1 || state.eligibleEventIds.size > 2)
+    ) {
+      throwPublicRsvpError("RSVP_SESSION_CONFIGURATION_UNSUPPORTED");
+    }
+    let accepted =
+      !dietaryOnly && status === RSVPStatus.ACCEPTED
         ? validateAcceptedInput(command, invitation, state)
         : null;
-    const before = await readRsvpHistoryValues(tx, invitation.id);
+    if (accepted && isPublic && !dietaryOnly) {
+      accepted = validatePublicParty(accepted, state, command.partyMode);
+    }
     const attribution =
       policy.attributionPolicy.mode === "ADMIN"
         ? policy.attributionPolicy.attribution
         : null;
-    const desired: RsvpHistoryValues = {
-      status: command.status,
-      attendees:
-        accepted?.attendees.map((item) => ({ ...item, name: "" })) ?? [],
-      eventSelections:
-        accepted?.eventSelections.map((item) => ({ ...item, name: "" })) ?? [],
-      dietaryNotes: accepted?.dietaryNotes ?? null,
-      submittedByAdminUserId: attribution?.submittedByAdminUserId ?? null,
-      overrideReason: attribution?.adminOverrideReason ?? null,
-    };
+    const desired: RsvpHistoryValues = dietaryOnly
+      ? {
+          ...before!.values,
+          dietaryNotes: normalizeDietaryNotes(command.dietaryNotes),
+        }
+      : {
+          status,
+          ...(accepted?.partyMode ? { partyMode: accepted.partyMode } : {}),
+          attendees:
+            accepted?.attendees.map((item) => ({ ...item, name: "" })) ?? [],
+          eventSelections:
+            accepted?.eventSelections.map((item) => ({ ...item, name: "" })) ??
+            [],
+          dietaryNotes: accepted?.dietaryNotes ?? null,
+          submittedByAdminUserId: attribution?.submittedByAdminUserId ?? null,
+          overrideReason: attribution?.adminOverrideReason ?? null,
+        };
+    // Older callers and Admin do not supply a guest's mode. Preserve it on
+    // unchanged attendance, and clear it when those callers replace attendance.
+    if (
+      accepted &&
+      !accepted.partyMode &&
+      before?.values.partyMode &&
+      sameRsvpAttendance(before.values, desired)
+    ) {
+      desired.partyMode = before.values.partyMode;
+      accepted.partyMode = before.values.partyMode;
+    }
     // Version, deadline and check-in checks precede even a genuine no-op.
-    const passMatchesStatus = accepted
-      ? state.activePass !== null
-      : state.activePass === null;
+    const passMatchesStatus =
+      dietaryOnly ||
+      (accepted ? state.activePass !== null : state.activePass === null);
     if (before && passMatchesStatus && sameRsvpValues(before.values, desired)) {
       const current = await readPublicRsvpState(
         tx,
@@ -831,24 +985,38 @@ export class PublicRsvpService {
         throw new Error("RSVP disappeared inside its locked transaction.");
       return { ...current, rsvp: current.rsvp, rsvpId: before.id };
     }
-    const result = accepted
-      ? await this.applyAcceptedMutation(
-          tx,
-          invitation.id,
-          state,
-          accepted,
-          mutationTime,
-          policy.attributionPolicy,
-        )
-      : await this.applyDeclinedMutation(
-          tx,
-          invitation.id,
-          state,
-          mutationTime,
-          policy.attributionPolicy,
-        );
+    if (dietaryOnly) {
+      await tx.rSVP.update({
+        where: { id: before!.id },
+        data: {
+          dietaryNotes: desired.dietaryNotes,
+          lastUpdatedAt: mutationTime,
+          version: { increment: 1 },
+        },
+      });
+    }
+    const result = dietaryOnly
+      ? null
+      : accepted
+        ? await this.applyAcceptedMutation(
+            tx,
+            invitation.id,
+            state,
+            accepted,
+            mutationTime,
+            policy.attributionPolicy,
+          )
+        : await this.applyDeclinedMutation(
+            tx,
+            invitation.id,
+            state,
+            mutationTime,
+            policy.attributionPolicy,
+          );
     const after = await readRsvpHistoryValues(tx, invitation.id);
     if (!after) throw new Error("RSVP mutation did not persist.");
+    // A dietary revision must not endorse a raw mode left by a legacy writer.
+    if (dietaryOnly && !desired.partyMode) delete after.values.partyMode;
     const actor = attribution
       ? await tx.adminUser.findUniqueOrThrow({
           where: { id: attribution.submittedByAdminUserId },
@@ -861,7 +1029,7 @@ export class PublicRsvpService {
         field: "checkinPassAvailability",
         label: "Check-in pass availability",
         before: state.activePass ? "Active" : "Not available",
-        after: result.checkinPass ? "Active" : "Not available",
+        after: result?.checkinPass ? "Active" : "Not available",
       });
     await tx.rsvpChangeEvent.create({
       data: {
@@ -891,7 +1059,15 @@ export class PublicRsvpService {
             : null,
       },
     });
-    return result;
+    if (result) return result;
+    const current = await readPublicRsvpState(
+      tx,
+      invitation.id,
+      this.credentialService,
+    );
+    if (!current.rsvp)
+      throw new Error("RSVP disappeared inside its locked transaction.");
+    return { ...current, rsvp: current.rsvp, rsvpId: after.id };
   }
 
   private async applyAcceptedMutation(
@@ -905,6 +1081,7 @@ export class PublicRsvpService {
     const rsvp = await this.createOrUpdateRsvp(tx, {
       attributionPolicy,
       dietaryNotes: accepted.dietaryNotes,
+      publicPartyMode: accepted.partyMode ?? null,
       invitationId,
       mutationTime,
       state,
@@ -948,6 +1125,7 @@ export class PublicRsvpService {
         attendeeQuantityTotal: accepted.attendeeQuantityTotal,
         attendees: accepted.attendees,
         dietaryNotes: accepted.dietaryNotes,
+        ...(accepted.partyMode ? { partyMode: accepted.partyMode } : {}),
         eventSelections: accepted.eventSelections,
         status: RSVPStatus.ACCEPTED,
         version: rsvp.version,
@@ -1006,6 +1184,7 @@ export class PublicRsvpService {
     tx: Prisma.TransactionClient,
     input: {
       dietaryNotes: string | null;
+      publicPartyMode?: RSVPPublicPartyMode | null;
       invitationId: string;
       mutationTime: Date;
       state: InvitationMutationState;
@@ -1031,6 +1210,7 @@ export class PublicRsvpService {
         data: {
           ...adminAttributionData,
           dietaryNotes: input.dietaryNotes,
+          publicPartyMode: input.publicPartyMode ?? null,
           invitationId: input.invitationId,
           lastUpdatedAt: input.mutationTime,
           status: input.status,
@@ -1048,6 +1228,7 @@ export class PublicRsvpService {
       data: {
         ...adminAttributionData,
         dietaryNotes: input.dietaryNotes,
+        publicPartyMode: input.publicPartyMode ?? null,
         lastUpdatedAt: input.mutationTime,
         status: input.status,
         version: input.state.rsvp.version + 1,

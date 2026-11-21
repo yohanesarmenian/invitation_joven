@@ -3,23 +3,27 @@ import type { CreateFields } from "./form-state";
 
 export const CREATE_PENDING_KEY = "invitation-create-pending";
 
+export function activeWeddingSessions(events: AdminEventsResponse["events"]) {
+  return events.filter((event) => event.isActive);
+}
+
 export function weddingEventIssue(
   events: AdminEventsResponse["events"],
 ): string | null {
   if (!events.length)
     return "The wedding event is missing. Ask the operator to check the existing wedding configuration. No invitation has been created.";
-  if (events.length !== 1)
-    return "More than one wedding event was returned. Ask the operator to identify the existing wedding event before creating invitations. No event has been changed.";
-  if (!events[0]!.isActive)
-    return "The wedding event is inactive. Ask the operator to review the existing event before creating invitations. No event has been changed.";
-  if (!events[0]!.name.trim() || !events[0]!.slug.trim())
-    return "The wedding event has an invalid name or identifier. Ask the operator to review its configuration.";
+  const active = activeWeddingSessions(events);
+  if (!active.length)
+    return "No wedding session is active. Open Events to review the wedding sessions before creating invitations.";
+  if (active.some((event) => !event.name.trim() || !event.slug.trim()))
+    return "An active wedding session has an invalid name or identifier. Open Events to review its configuration.";
   return null;
 }
 
 export function initialCreateFields(
   events: AdminEventsResponse["events"],
 ): CreateFields {
+  const active = activeWeddingSessions(events);
   return {
     displayName: "",
     greetingName: "",
@@ -27,7 +31,8 @@ export function initialCreateFields(
     children: "0",
     deadline: "",
     notes: "",
-    eventIds: weddingEventIssue(events) ? [] : [events[0]!.id],
+    eventIds:
+      active.length === 1 && !weddingEventIssue(events) ? [active[0]!.id] : [],
     invitees: [{ fullName: "", category: "ADULT", label: "" }],
   };
 }

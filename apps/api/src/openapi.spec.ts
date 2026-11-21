@@ -110,6 +110,21 @@ describe("OpenAPI contract", () => {
       document.paths["/api/public/invitations/{publicCredential}/rsvp"];
     const getRsvpOperation = publicRsvpPath?.get;
     const putRsvpOperation = publicRsvpPath?.put;
+    expect(publicRsvpPath?.patch).toMatchObject({
+      requestBody: {
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/EditPublicRsvpDietaryRequestDto",
+            },
+          },
+        },
+      },
+      responses: expect.objectContaining({
+        "200": expect.any(Object),
+        "409": expect.any(Object),
+      }),
+    });
     const publicGuestMessagePath =
       document.paths["/api/public/invitations/{publicCredential}/messages"];
     const postMessageOperation = publicGuestMessagePath?.post;
@@ -490,6 +505,31 @@ describe("OpenAPI contract", () => {
     expect(publicGuestMessagePath?.put).toBeUndefined();
     expect(publicGuestMessagePath?.patch).toBeUndefined();
     expect(publicGuestMessagePath?.delete).toBeUndefined();
+    expect(
+      document.paths[
+        "/api/public/invitations/{publicCredential}/messages/receipt"
+      ]?.get,
+    ).toMatchObject({
+      parameters: expect.arrayContaining([
+        expect.objectContaining({
+          in: "header",
+          name: "x-message-submission-id",
+          required: true,
+          schema: expect.objectContaining({ format: "uuid" }),
+        }),
+      ]),
+      responses: {
+        "200": {
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/PublicGuestMessageResponseDto",
+              },
+            },
+          },
+        },
+      },
+    });
     expect(schemas).toHaveProperty("PublicInvitationResponseDto");
     expect(schemas).toHaveProperty("SubmitPublicRsvpRequestDto");
     expect(schemas).toHaveProperty("PublicRsvpMutationResponseDto");
@@ -565,6 +605,9 @@ describe("OpenAPI contract", () => {
     expect(schemas.SubmitPublicRsvpRequestDto).toMatchObject({
       properties: expect.objectContaining({
         expectedVersion: expect.objectContaining({ nullable: true }),
+        partyMode: expect.objectContaining({
+          enum: ["ALONE", "FAMILY", "PLUS_ONE"],
+        }),
         status: expect.objectContaining({
           enum: ["ACCEPTED", "DECLINED"],
         }),
@@ -574,6 +617,9 @@ describe("OpenAPI contract", () => {
       properties: expect.objectContaining({
         attendees: expect.objectContaining({ type: "array" }),
         dietaryNotes: expect.objectContaining({ nullable: true }),
+        partyMode: expect.objectContaining({
+          enum: ["ALONE", "FAMILY", "PLUS_ONE"],
+        }),
         eventSelections: expect.objectContaining({ type: "array" }),
         status: expect.objectContaining({
           enum: ["PENDING", "ACCEPTED", "DECLINED"],
@@ -680,6 +726,10 @@ describe("OpenAPI contract", () => {
         }),
         message: expect.objectContaining({
           maxLength: 1000,
+          type: "string",
+        }),
+        submissionId: expect.objectContaining({
+          format: "uuid",
           type: "string",
         }),
       },

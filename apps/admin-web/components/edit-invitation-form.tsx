@@ -228,7 +228,7 @@ export function EditInvitationForm({
             original={invitation.rsvpDeadlineAt}
             edit={deadlineEdit}
             onEdit={setDeadlineEdit}
-            help="Asia/Jakarta (UTC+07:00). Use Clear RSVP deadline to remove it."
+            help="Asia/Jakarta (UTC+07:00). Clear the explicit deadline to use the wedding default in Reports."
           />
         </div>
         <label className="checkbox-label">

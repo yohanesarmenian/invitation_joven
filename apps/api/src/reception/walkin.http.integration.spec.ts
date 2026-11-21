@@ -7,6 +7,7 @@ import {
 } from "@nestjs/platform-fastify";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { CateringService } from "../reports/catering.service.js";
 import { AppModule } from "../app.module.js";
 import { configureApp } from "../app.setup.js";
 import { AdminSessionTokenService } from "../auth/session-token.service.js";
@@ -177,6 +178,18 @@ describe("real PostgreSQL direct walkin and adjustment accounting", () => {
       remainingCount: 1,
     });
     expect(current.household.invitees).toHaveLength(1);
+    const catering = await app.get(CateringService).live({
+      eventId: f.event.id,
+      includeArchived: false,
+    });
+    expect(catering.totals).toMatchObject({
+      households: 1,
+      namedInvitees: 1,
+      accepted: 1,
+      events: [
+        { expected: 3, actual: 2, walkinActual: 2, partialHouseholds: 1 },
+      ],
+    });
     const credential = app.get(CredentialService).deriveCredential({
       namespace: "invitation",
       stableId: receipt.invitationId,

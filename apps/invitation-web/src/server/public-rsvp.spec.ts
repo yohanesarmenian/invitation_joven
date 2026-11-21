@@ -17,6 +17,25 @@ const request: SubmitPublicRsvpRequest = {
 };
 
 describe("generated public RSVP networking", () => {
+  it("sends a versioned dietary-only PATCH and keeps the canonical party", async () => {
+    const body = { expectedVersion: 7, dietaryNotes: "Updated notes" };
+    const rsvp = {
+      ...acceptedRsvp,
+      dietaryNotes: body.dietaryNotes,
+      version: 8,
+    };
+    const fetch = vi.fn(async (input: Request) => {
+      expect(input.method).toBe("PATCH");
+      expect(input.cache).toBe("no-store");
+      expect(await input.json()).toEqual(body);
+      return Response.json({ rsvp, checkinPass: activePass });
+    });
+    expect(await submitPublicRsvp(credential, body, { env, fetch })).toEqual({
+      status: "success",
+      data: { rsvp, checkinPass: activePass },
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
   it.each(["GET", "PUT"])(
     "retains the complete canonical active pass from %s",
     async (method) => {

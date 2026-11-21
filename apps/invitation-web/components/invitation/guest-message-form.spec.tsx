@@ -84,9 +84,9 @@ describe("GuestMessageForm and its validation", () => {
     expect(messageCharacterCount("💐")).toBe(1);
     expect(messageCharacterCount("e\u0301")).toBe(2);
   });
-  it("explains uncertainty and the consequence of explicit resubmission", () => {
+  it("explains uncertainty and directs guests to retry the same submission", () => {
     expect(guestMessageFailureText("uncertain")).toContain(
-      "Sending again may send another copy",
+      "Retry this same submission",
     );
     expect(guestMessageFailureText("unavailable")).not.toMatch(
       /archived|credential|unknown/,

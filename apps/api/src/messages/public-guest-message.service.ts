@@ -11,6 +11,7 @@ export type SubmitPublicGuestMessageCommand = {
   publicCredential: string;
   authorName: string | null;
   message: string;
+  submissionId?: string;
 };
 
 export type PublicGuestMessageResult = {
@@ -38,15 +39,23 @@ async function createGuestMessageForActiveInvitation(
     FROM "invitations"
     WHERE "public_token_hash" = ${input.lookupHash}
       AND "status" = 'ACTIVE'
+    ON CONFLICT ("id") DO NOTHING
     RETURNING "created_at" AS "createdAt"
   `;
-  const message = rows[0];
+  if (rows[0]) return rows[0];
 
-  if (!message) {
-    throw new InvitationNotAvailableError();
-  }
-
-  return message;
+  // A separate statement can see the winning row after a concurrent insert.
+  const [existing] = await tx.$queryRaw<CreatedGuestMessageRow[]>`
+    SELECT m."created_at" AS "createdAt"
+    FROM "guest_messages" m
+    JOIN "invitations" i ON i."id" = m."invitation_id"
+    WHERE i."public_token_hash" = ${input.lookupHash} AND i."status" = 'ACTIVE'
+      AND m."id" = ${input.id}::uuid
+      AND m."author_name" IS NOT DISTINCT FROM ${input.authorName}::text
+      AND m."message" = ${input.message}
+  `;
+  if (!existing) throw new InvitationNotAvailableError();
+  return existing;
 }
 
 @Injectable()
@@ -66,7 +75,7 @@ export class PublicGuestMessageService {
     const message = await this.prisma.$transaction((tx) =>
       createGuestMessageForActiveInvitation(tx, {
         authorName: command.authorName,
-        id: randomUUID(),
+        id: command.submissionId ?? randomUUID(),
         lookupHash,
         message: command.message,
       }),
@@ -77,5 +86,22 @@ export class PublicGuestMessageService {
         createdAt: message.createdAt.toISOString(),
       },
     };
+  }
+
+  async readReceipt(
+    publicCredential: string,
+    submissionId: string,
+  ): Promise<PublicGuestMessageResult> {
+    const credential = validatePublicCredential(publicCredential);
+    const lookupHash = this.credentialService.hashCredential(credential);
+    const [row] = await this.prisma.$queryRaw<CreatedGuestMessageRow[]>`
+      SELECT m."created_at" AS "createdAt"
+      FROM "guest_messages" m
+      JOIN "invitations" i ON i."id" = m."invitation_id"
+      WHERE i."public_token_hash" = ${lookupHash} AND i."status" = 'ACTIVE'
+        AND m."id" = ${submissionId}::uuid
+    `;
+    if (!row) throw new InvitationNotAvailableError();
+    return { message: { createdAt: row.createdAt.toISOString() } };
   }
 }

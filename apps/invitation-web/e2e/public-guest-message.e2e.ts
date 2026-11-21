@@ -54,10 +54,10 @@ async function open(page: Page) {
 }
 async function success(page: Page) {
   await expect(
-    section(page).getByRole("heading", { name: "Message Sent!" }),
+    section(page).getByRole("heading", { name: "Thank you for your message" }),
   ).toBeFocused();
   await expect(section(page).getByRole("status")).toContainText(
-    "Message Sent!",
+    "Your message was saved",
   );
   await expect(form(page)).toHaveCount(0);
   await expect(
@@ -111,12 +111,18 @@ test.afterEach(async ({ page }) => {
   expect(new URL(page.url()).hash).toBe("");
   expect(
     await page.evaluate(() => ({
-      local: localStorage.length,
+      receiptOnly:
+        localStorage.length <= 1 &&
+        Object.entries(localStorage).every(
+          ([key, value]) =>
+            /^guest-message:[0-9a-f]{64}$/.test(key) &&
+            /^[0-9a-f-]{36}$/.test(value),
+        ),
       session: sessionStorage.length,
       cookies: document.cookie,
       overflow: document.documentElement.scrollWidth > innerWidth,
     })),
-  ).toEqual({ local: 0, session: 0, cookies: "", overflow: false });
+  ).toEqual({ receiptOnly: true, session: 0, cookies: "", overflow: false });
 });
 
 for (const width of [320, 375, 412, 768, 1280]) {
@@ -159,7 +165,11 @@ for (const width of [320, 375, 412, 768, 1280]) {
     });
     await success(page);
     expect((await state(request)).requests).toEqual([
-      { authorName: "Jo", message: "Congratulations!\n\nGod bless you both!" },
+      {
+        authorName: "Jo",
+        message: "Congratulations!\n\nGod bless you both!",
+        submissionId: expect.any(String),
+      },
     ]);
     await layout(page, info, `message-sent-${width}`);
     const back = section(page).getByRole("button", {
@@ -170,11 +180,18 @@ for (const width of [320, 375, 412, 768, 1280]) {
       await back.evaluate((element) => getComputedStyle(element).outlineStyle),
     ).toBe("solid");
     await page.keyboard.press("Enter");
+    await expect(page.locator("#invitation-hero-title")).toBeFocused();
+    await expect(form(page)).toHaveCount(0);
+    await section(page)
+      .getByRole("button", { name: "Write another message" })
+      .click();
     await expect(author(page)).toBeFocused();
     await expect(author(page)).toHaveValue("");
     await expect(message(page)).toHaveValue("");
     await expect(
-      section(page).getByRole("heading", { name: "Message Sent!" }),
+      section(page).getByRole("heading", {
+        name: "Thank you for your message",
+      }),
     ).toHaveCount(0);
     await configure(request, {});
     await send(page).click();
@@ -186,6 +203,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     expect((await state(request)).requests[1]).toEqual({
       authorName: null,
       message: "Wishing you every happiness 💐",
+      submissionId: expect.any(String),
     });
     expect((await state(request)).commits).toBe(2);
     await expect(section(page)).not.toContainText("Congratulations!");
@@ -234,7 +252,6 @@ test("Unicode boundaries block invalid submissions and allow exact normalized li
 for (const [status, code, text] of [
   [400, "VALIDATION_ERROR", "Please check your name and message"],
   [404, "INVITATION_NOT_AVAILABLE", "This invitation is currently unavailable"],
-  [503, "UNEXPECTED", "Your words are still here"],
 ] as const) {
   test(`known ${status} failure preserves the draft until explicit retry`, async ({
     page,
@@ -250,7 +267,9 @@ for (const [status, code, text] of [
     await expect(author(page)).toHaveValue("Test Author");
     await expect(message(page)).toHaveValue("Keep these wishes");
     await expect(
-      section(page).getByRole("heading", { name: "Message Sent!" }),
+      section(page).getByRole("heading", {
+        name: "Thank you for your message",
+      }),
     ).toHaveCount(0);
     // Allow a bounded observation interval to detect unintended automatic retry.
     await page.waitForTimeout(300);
@@ -265,7 +284,7 @@ for (const [status, code, text] of [
 }
 
 for (const mode of ["dropResponse", "malformed"]) {
-  test(`${mode} preserves an uncertain draft and warns before explicit resubmission`, async ({
+  test(`${mode} preserves an uncertain draft and retries the same submission explicitly`, async ({
     page,
     request,
   }) => {
@@ -274,21 +293,25 @@ for (const mode of ["dropResponse", "malformed"]) {
     await message(page).fill("An uncertain wish");
     await send(page).click();
     await expect(section(page).getByRole("alert")).toContainText(
-      "Sending again may send another copy",
+      "We couldn’t confirm the save yet",
     );
     await expect(message(page)).toHaveValue("An uncertain wish");
     await expect(
-      section(page).getByRole("heading", { name: "Message Sent!" }),
+      section(page).getByRole("heading", {
+        name: "Thank you for your message",
+      }),
     ).toHaveCount(0);
     await page.waitForTimeout(300);
     expect((await state(request)).requests).toHaveLength(1);
     expect((await state(request)).commits).toBe(1);
     await configure(request, {});
     await section(page)
-      .getByRole("button", { name: "Send Message Again" })
+      .getByRole("button", { name: "Retry same message" })
       .click();
     await success(page);
-    expect((await state(request)).commits).toBe(2);
+    const after = await state(request);
+    expect(after.commits).toBe(1);
+    expect(after.requests[0]).toEqual(after.requests[1]);
   });
 }
 
@@ -339,7 +362,7 @@ for (const mode of ["accepted", "declined", "deadline"]) {
       await expect(
         rsvp
           .getByRole("status")
-          .filter({ hasText: "reply deadline has passed" }),
+          .filter({ hasText: "The RSVP edit window has closed" }),
       ).toBeVisible();
       await expect(
         rsvp.getByRole("button", { name: "Edit RSVP", exact: true }),
@@ -352,7 +375,13 @@ for (const mode of ["accepted", "declined", "deadline"]) {
     await success(page);
     expect(await state(request)).toEqual({
       commits: 1,
-      requests: [{ authorName: null, message: "Always wishing you joy" }],
+      requests: [
+        {
+          authorName: null,
+          message: "Always wishing you joy",
+          submissionId: expect.any(String),
+        },
+      ],
     });
     expect((await rsvp.innerHTML()) === before).toBe(true);
     expect(await (await request.get(`${MOCK}/__rsvp-state`)).json()).toEqual(
@@ -391,6 +420,7 @@ test("script-like and Markdown content stays plain text and is never echoed publ
   expect((await state(request)).requests[0]).toEqual({
     authorName: "<b>Anonymous</b>",
     message: plain,
+    submissionId: expect.any(String),
   });
   expect(dialogs).toBe(0);
   await expect(section(page)).not.toContainText(plain);

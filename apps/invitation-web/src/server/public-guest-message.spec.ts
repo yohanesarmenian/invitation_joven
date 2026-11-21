@@ -76,8 +76,8 @@ describe("public guest message generated client wrapper", () => {
   it.each([
     [400, "VALIDATION_ERROR", "validation"],
     [404, "INVITATION_NOT_AVAILABLE", "unavailable"],
-    [500, "INTERNAL_SERVER_ERROR", "server"],
-    [400, "unknown", "server"],
+    [500, "INTERNAL_SERVER_ERROR", "uncertain"],
+    [400, "unknown", "uncertain"],
   ] as const)(
     "maps %s safely to a bounded failure kind",
     async (status, code, kind) => {

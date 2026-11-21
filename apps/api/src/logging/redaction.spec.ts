@@ -36,6 +36,7 @@ describe("logging redaction", () => {
           authorization: "Bearer public-secret",
           cookie: "admin_session=secret",
           "set-cookie": "admin_session=secret; HttpOnly",
+          "x-message-submission-id": "synthetic-receipt-id",
         },
       },
       res: {
@@ -54,6 +55,7 @@ describe("logging redaction", () => {
         checkinToken: "checkin-secret",
         checkinTokenHash: "checkin-hash-secret",
         credentialSecret: "hmac-secret",
+        submissionId: "synthetic-receipt-body",
       },
     });
 
@@ -69,6 +71,7 @@ describe("logging redaction", () => {
           authorization: string;
           cookie: string;
           "set-cookie": string;
+          "x-message-submission-id": string;
         };
       };
       res: { headers: { "set-cookie": string } };
@@ -83,6 +86,7 @@ describe("logging redaction", () => {
         checkinToken: string;
         checkinTokenHash: string;
         credentialSecret: string;
+        submissionId: string;
       };
     };
 
@@ -92,6 +96,9 @@ describe("logging redaction", () => {
     expect(parsed.req.headers.authorization).toBe(REDACTION_CENSOR);
     expect(parsed.req.headers.cookie).toBe(REDACTION_CENSOR);
     expect(parsed.req.headers["set-cookie"]).toBe(REDACTION_CENSOR);
+    expect(parsed.req.headers["x-message-submission-id"]).toBe(
+      REDACTION_CENSOR,
+    );
     expect(parsed.res.headers["set-cookie"]).toBe(REDACTION_CENSOR);
     expect(parsed.nested.qrPayload).toBe(REDACTION_CENSOR);
     expect(parsed.nested.sessionToken).toBe(REDACTION_CENSOR);
@@ -103,6 +110,7 @@ describe("logging redaction", () => {
     expect(parsed.nested.checkinToken).toBe(REDACTION_CENSOR);
     expect(parsed.nested.checkinTokenHash).toBe(REDACTION_CENSOR);
     expect(parsed.nested.credentialSecret).toBe(REDACTION_CENSOR);
+    expect(parsed.nested.submissionId).toBe(REDACTION_CENSOR);
     expect(line).not.toContain("plain-password");
     expect(line).not.toContain("argon2-secret");
     expect(line).not.toContain("public-secret");

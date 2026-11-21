@@ -4,7 +4,10 @@ import {
   createInvitationApiClient,
   type SubmitPublicGuestMessageRequest,
 } from "../../../../packages/api-client/src/index";
-import type { GuestMessageResult } from "../messages/state";
+import type {
+  GuestMessageReceipt,
+  GuestMessageResult,
+} from "../messages/state";
 import {
   getInvitationApiBaseUrl,
   type RetrievePublicInvitationOptions,
@@ -40,7 +43,7 @@ export async function submitPublicGuestMessage(
             : result.response.status === 404 &&
                 code === "INVITATION_NOT_AVAILABLE"
               ? "unavailable"
-              : "server",
+              : "uncertain",
       };
     }
     const data: unknown = result.data;
@@ -48,7 +51,7 @@ export async function submitPublicGuestMessage(
       result.response.status !== 201 ||
       !isRecord(data) ||
       !isRecord(data.message) ||
-      typeof data.message.createdAt !== "string"
+      !isReceipt(data.message)
     )
       return { status: "error", kind: "uncertain" };
     // Whitelist the public result; never forward unexpected echoes or metadata.
@@ -60,6 +63,41 @@ export async function submitPublicGuestMessage(
     // A lost or unreadable response may follow a committed append. Never retry here.
     return { status: "error", kind: "uncertain" };
   }
+}
+
+export async function readPublicGuestMessageReceipt(
+  publicCredential: string,
+  submissionId: string,
+): Promise<GuestMessageReceipt> {
+  try {
+    const client = createInvitationApiClient({
+      baseUrl: getInvitationApiBaseUrl(),
+    });
+    const result = await client.GET(
+      "/api/public/invitations/{publicCredential}/messages/receipt",
+      {
+        params: {
+          path: { publicCredential },
+          header: { "x-message-submission-id": submissionId },
+        },
+        cache: "no-store",
+      },
+    );
+    if (result.response.status === 404) return "missing";
+    return result.response.status === 200 && isReceipt(result.data?.message)
+      ? "saved"
+      : "unverified";
+  } catch {
+    return "unverified";
+  }
+}
+
+function isReceipt(value: unknown): value is { createdAt: string } {
+  return (
+    isRecord(value) &&
+    typeof value.createdAt === "string" &&
+    Number.isFinite(Date.parse(value.createdAt))
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -7,6 +7,7 @@ import {
   Inject,
   NotFoundException,
   Param,
+  Patch,
   Put,
   UnprocessableEntityException,
 } from "@nestjs/common";
@@ -24,6 +25,8 @@ import {
 import { ApiErrorEnvelopeDto } from "../common/api-error.dto.js";
 import { PublicInvitationResponseDto } from "./dto/public-invitation.dto.js";
 import {
+  EditPublicRsvpDietaryRequestDto,
+  mapEditPublicRsvpDietaryRequest,
   mapSubmitPublicRsvpRequest,
   PublicRsvpMutationResponseDto,
   PublicRsvpReadResponseDto,
@@ -129,6 +132,28 @@ export class PublicInvitationController {
     try {
       return await this.publicRsvpService.submitPublicRsvp(
         mapSubmitPublicRsvpRequest(publicCredential, body),
+      );
+    } catch (error) {
+      this.rethrowPublicRsvpError(error);
+    }
+  }
+
+  @Patch(":publicCredential/rsvp")
+  @ApiOperation({ summary: "Edit dietary notes on the saved accepted RSVP" })
+  @ApiParam(PUBLIC_CREDENTIAL_PARAM)
+  @ApiBody({ type: EditPublicRsvpDietaryRequestDto })
+  @ApiOkResponse({ type: PublicRsvpMutationResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  @ApiConflictResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnprocessableEntityResponse({ type: ApiErrorEnvelopeDto })
+  async editPublicRsvpDietary(
+    @Param("publicCredential") publicCredential: string,
+    @Body() body: unknown,
+  ): Promise<PublicRsvpMutationResponseDto> {
+    try {
+      return await this.publicRsvpService.editPublicRsvpDietary(
+        mapEditPublicRsvpDietaryRequest(publicCredential, body),
       );
     } catch (error) {
       this.rethrowPublicRsvpError(error);

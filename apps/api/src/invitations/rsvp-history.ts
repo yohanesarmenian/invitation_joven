@@ -1,5 +1,14 @@
 import { isDeepStrictEqual } from "node:util";
-import type { Prisma } from "../generated/prisma/client.js";
+import type {
+  Prisma,
+  RSVPPublicPartyMode,
+} from "../generated/prisma/client.js";
+
+const PARTY_LABELS = {
+  ALONE: "On my own",
+  FAMILY: "Family",
+  PLUS_ONE: "Plus-one",
+};
 
 export type RsvpHistoryValues = {
   status: string;
@@ -16,6 +25,7 @@ export type RsvpHistoryValues = {
     expectedAttendeeCount: number;
   }[];
   dietaryNotes: string | null;
+  partyMode?: RSVPPublicPartyMode;
   submittedByAdminUserId: string | null;
   overrideReason: string | null;
 };
@@ -25,6 +35,28 @@ export type RsvpHistoryChange = {
   before: string;
   after: string;
 };
+
+export async function readConfirmedPartyMode(
+  tx: Prisma.TransactionClient,
+  rsvpId: string,
+  revision: number,
+  mode: RSVPPublicPartyMode | null | undefined,
+): Promise<RSVPPublicPartyMode | undefined> {
+  if (!mode) return undefined;
+  // Legacy writers record the new revision without a mode and leave the column alone.
+  const change = await tx.rsvpChangeEvent.findUnique({
+    where: { rsvpId_revision: { rsvpId, revision } },
+    select: { updatedValues: true },
+  });
+  const values = change?.updatedValues;
+  return values &&
+    typeof values === "object" &&
+    !Array.isArray(values) &&
+    values.status === "ACCEPTED" &&
+    values.partyMode === mode
+    ? mode
+    : undefined;
+}
 
 export async function readRsvpHistoryValues(
   tx: Prisma.TransactionClient,
@@ -38,6 +70,7 @@ export async function readRsvpHistoryValues(
       status: true,
       submittedAt: true,
       dietaryNotes: true,
+      publicPartyMode: true,
       submittedByAdminUserId: true,
       adminOverrideReason: true,
       attendees: {
@@ -90,6 +123,7 @@ export async function readRsvpHistoryValues(
       }))
       .sort((a, b) => a.eventId.localeCompare(b.eventId)),
     dietaryNotes: row.dietaryNotes,
+    ...(row.publicPartyMode ? { partyMode: row.publicPartyMode } : {}),
     submittedByAdminUserId: row.submittedByAdminUserId,
     overrideReason: row.adminOverrideReason,
   };
@@ -101,22 +135,16 @@ export async function readRsvpHistoryValues(
   };
 }
 
-// Names are audit labels. Identity, quantities and selections determine a no-op.
-export function sameRsvpValues(
-  before: RsvpHistoryValues,
-  after: RsvpHistoryValues,
-) {
-  const attendees = (values: RsvpHistoryValues) => {
-    const quantities = new Map<string, number>();
-    for (const item of values.attendees) {
-      const key = `${item.type}/${item.inviteeId?.toLowerCase() ?? ""}`;
-      quantities.set(key, (quantities.get(key) ?? 0) + item.quantity);
-    }
-    return [...quantities].sort(([a], [b]) => a.localeCompare(b));
-  };
-  const comparable = (values: RsvpHistoryValues) => ({
-    ...values,
-    attendees: attendees(values),
+// Names are display labels. Match attendance by identity, quantity and session.
+function comparableAttendance(values: RsvpHistoryValues) {
+  const quantities = new Map<string, number>();
+  for (const item of values.attendees) {
+    const key = `${item.type}/${item.inviteeId?.toLowerCase() ?? ""}`;
+    quantities.set(key, (quantities.get(key) ?? 0) + item.quantity);
+  }
+  return {
+    status: values.status,
+    attendees: [...quantities].sort(([a], [b]) => a.localeCompare(b)),
     eventSelections: values.eventSelections
       .filter((selection) => selection.attending)
       .map(({ eventId, attending, expectedAttendeeCount }) => ({
@@ -125,8 +153,30 @@ export function sameRsvpValues(
         expectedAttendeeCount,
       }))
       .sort((a, b) => a.eventId.localeCompare(b.eventId)),
-  });
-  return isDeepStrictEqual(comparable(before), comparable(after));
+  };
+}
+
+export function sameRsvpAttendance(
+  before: RsvpHistoryValues,
+  after: RsvpHistoryValues,
+) {
+  return isDeepStrictEqual(
+    comparableAttendance(before),
+    comparableAttendance(after),
+  );
+}
+
+export function sameRsvpValues(
+  before: RsvpHistoryValues,
+  after: RsvpHistoryValues,
+) {
+  return (
+    sameRsvpAttendance(before, after) &&
+    before.dietaryNotes === after.dietaryNotes &&
+    before.partyMode === after.partyMode &&
+    before.submittedByAdminUserId === after.submittedByAdminUserId &&
+    before.overrideReason === after.overrideReason
+  );
 }
 
 export function rsvpHistoryDiff(
@@ -153,6 +203,9 @@ export function rsvpHistoryDiff(
         )
         .join(", ") || "None",
     dietaryNotes: values?.dietaryNotes || "None",
+    partyMode: values?.partyMode
+      ? PARTY_LABELS[values.partyMode]
+      : "Not recorded",
     attribution: values?.submittedByAdminUserId
       ? "Authenticated Admin"
       : "Guest-link holder",
@@ -164,6 +217,7 @@ export function rsvpHistoryDiff(
     expectedAttendance: "Guest count",
     events: "Wedding events and counts",
     dietaryNotes: "Dietary requirements",
+    partyMode: "Party choice",
     attribution: "Submitted by",
     overrideReason: "Override reason",
   };

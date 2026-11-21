@@ -224,11 +224,12 @@ Request:
 {
   "expectedVersion": 1,
   "status": "ACCEPTED",
+  "partyMode": "FAMILY",
   "eventSelections": [
     {
       "eventId": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
       "attending": true,
-      "expectedAttendeeCount": 2
+      "expectedAttendeeCount": 4
     }
   ],
   "attendees": [
@@ -257,6 +258,7 @@ Request fields:
   - An integer means update. It must equal the current persisted `RSVP.version`. Mismatch returns `409 RSVP_VERSION_CONFLICT`.
   - Do not send a placeholder `expectedVersion: 1` for a household that has never RSVP'd, and do not eagerly create an empty/`PENDING` RSVP row solely to manufacture a version.
 - `status`: `ACCEPTED` or `DECLINED` for public submission.
+- `partyMode`: `ALONE`, `FAMILY`, or `PLUS_ONE` for accepted responses from the conditional RSVP form. The API returns it only when the current accepted revision confirms the saved choice. Answers written by an older API can retain attendees and session quantities without exposing a mode. Omitting the field on a new acceptance still requires a valid party composition and matching session counts. Decline omits this field.
 - `eventSelections[]`: `{ eventId, attending, expectedAttendeeCount }`.
 - `attendees[]`: `{ type, inviteeId?, quantity }`.
 - `dietaryNotes`: optional household-level text. Trimmed; maximum 500 characters after trimming; empty after trimming normalizes to `null`.
@@ -278,12 +280,13 @@ Response:
   "rsvp": {
     "status": "ACCEPTED",
     "version": 2,
+    "partyMode": "FAMILY",
     "attendeeQuantityTotal": 4,
     "eventSelections": [
       {
         "eventId": "7d98761a-b7fc-4a2e-8df4-69b6f22d85b4",
         "attending": true,
-        "expectedAttendeeCount": 2
+        "expectedAttendeeCount": 4
       }
     ]
   },
@@ -303,15 +306,17 @@ Validation:
 - Selected events must be eligible through `InvitationEvent`. Requested events absent from `InvitationEvent` remain invalid.
 - If event `attending = false`, `expectedAttendeeCount = 0`.
 - If event `attending = true`, `expectedAttendeeCount >= 1`.
-- If event `attending = true`, `expectedAttendeeCount <= total RSVPAttendee quantity`.
+- Public acceptance requires the invitation to have one or two eligible sessions. The transaction validates this catalog by its configured Event IDs. Zero or more than two eligible sessions returns `422 RSVP_SESSION_CONFIGURATION_UNSUPPORTED`. Saved-answer reads, valid declines, and permitted dietary-only updates remain available. Each selected session must have `expectedAttendeeCount` equal to the total RSVP attendee quantity.
 - If status is `ACCEPTED`, at least one eligible event must be selected with `attending = true`. Accepted with zero attending events returns `422 EVENT_NOT_SELECTED`.
 - If status is `DECLINED`, there must be zero attending event selections, zero RSVP attendee rows, `dietaryNotes = null`, and zero active CheckinPass.
 - `NAMED_INVITEE` requires `inviteeId`, `quantity = 1`, and Invitee must belong to the Invitation.
 - Same named Invitee may appear only once.
 - `PLUS_ONE` requires null invitee, `quantity = 1`, and `allowPlusOne = true`.
 - At most one `PLUS_ONE` row per RSVP.
+- `ALONE` accepts one named invitee only. `FAMILY` accepts at least one named adult, with up to two adults including any permitted additional partner, plus eligible named children and permitted additional children. `PLUS_ONE` accepts one named adult and one permitted additional companion. Each named adult or child retains their own invitee ID.
 - `ADDITIONAL_CHILD` requires null invitee and quantity at least 1.
 - Total `ADDITIONAL_CHILD` quantity must not exceed `maxAdditionalChildren`.
+- The public form sends at most one additional-child row. Contradictory branch values return `422 RSVP_PARTY_INVALID`. A selected session count below the party size returns `422 RSVP_SESSION_COUNTS_MISMATCH`.
 - `dietaryNotes` is trimmed; maximum 500 characters after trimming; empty after trimming normalizes to `null`. For `DECLINED`, `dietaryNotes` must become `null`.
 - Both create and update are rejected after the cutoff instant with `422 RSVP_DEADLINE_PASSED`.
 
@@ -337,6 +342,10 @@ Public QR consequence of each transition (Phase 6 lock):
 | `DECLINED` -> `DECLINED`           | none                  | `null` — no QR                             |
 
 A `qrPayload` belonging to a revoked pass must never be redisplayed.
+
+#### Edit dietary notes on a saved RSVP
+
+`PATCH /api/public/invitations/{publicCredential}/rsvp` accepts only the current integer `expectedVersion` and nullable `dietaryNotes`. It requires an existing accepted RSVP, the active invitation credential, and the same edit policy and check-in checks as PUT. It returns the same canonical mutation response and records effective dietary changes in history. The attendee rows, saved counts, mode, and check-in pass remain intact. This is the supported public edit for historical unequal counts and unsupported compositions before a guest deliberately replaces their attendance through PUT.
 
 Errors:
 
@@ -426,7 +435,7 @@ The same representation applies to the `PUT` accepted response:
 
 Authentication: public credential.
 
-Phase 7 guest-message contract is locked in Slice 7B0 and is **create-only**. There is no public message read, update, or delete operation, and no public message wall.
+Guests can append messages and verify individual save receipts. Public clients cannot read message content, list messages, update messages, or delete them.
 
 Request:
 
@@ -437,7 +446,7 @@ Request:
 }
 ```
 
-`authorName` may be omitted entirely.
+`authorName` may be omitted. An optional `submissionId` is a client-generated, lowercase UUID v4 for one logical submission. Clients that omit it retain the append behavior.
 
 Response: `201 Created`.
 
@@ -451,7 +460,7 @@ Response: `201 Created`.
 
 The public response deliberately returns **only** `createdAt`.
 
-- `GuestMessage.id` is **internal** and is never returned publicly. The public client has no functional need for it, and an internal UUID is not exposed merely because it exists.
+- The response never returns `GuestMessage.id`. When the client supplies a submission UUID, the API uses that UUID as the existing row's key to ensure safe replay.
 - The response never contains `invitationId`, `isHidden`, `Invitation.id`, `publicTokenHash`, `credentialVersion`, or admin metadata.
 - The response does not echo `message` or `authorName`.
 
@@ -477,11 +486,15 @@ Errors:
 
 Retry and duplicate semantics:
 
-- Messages are create-only append operations. Every explicit successful submission creates a new `GuestMessage` row, and multiple messages from the same invitation are allowed.
-- There is no idempotency key, no unique message-per-invitation rule, no optimistic version, no update-on-duplicate behavior, and no automatic retry.
-- The frontend disables submit while a submission is pending and must not automatically retry the `POST` when the network outcome is uncertain.
-- A guest may explicitly submit again. An explicit second submission is a new message and may create a duplicate if the earlier uncertain request actually committed. This is an accepted MVP behavior.
-- See `OPEN-QUESTIONS.md` for the locked Phase 7 decision record.
+- Each deliberate new message uses a fresh submission UUID. Multiple messages from the same invitation are allowed.
+- Replaying the same UUID and normalized payload against the same active invitation returns the original receipt, including after concurrent writes. A UUID matched to another payload or invitation gets the same generic 404 and leaves the stored row unchanged.
+- The frontend disables submit while pending. For an uncertain result, it keeps the current draft and allows an explicit retry of that exact request. No automatic POST retry occurs.
+
+### Verify one guest message receipt
+
+`GET /api/public/invitations/{publicCredential}/messages/receipt`
+
+Authentication requires the active invitation credential and its corresponding submission UUID in the `X-Message-Submission-Id` header. An invalid UUID returns `400 VALIDATION_ERROR`. A missing receipt or an unavailable invitation returns the generic `404 INVITATION_NOT_AVAILABLE`. A match returns `200 OK`, `Cache-Control: no-store`, and the same `message.createdAt` projection as POST. It confirms persistence. Message body, author, and moderation state are excluded.
 
 Logging:
 
