@@ -64,7 +64,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await expect(accept).toBeChecked();
     await expect(decline).not.toBeChecked();
     await expect(
-      form.getByRole("group", { name: "Which events will you attend?" }),
+      form.getByRole("group", { name: "Which sessions will you attend?" }),
     ).toBeVisible();
     await expect(accept.locator("..")).toHaveCSS(
       "background-color",
@@ -76,12 +76,18 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await page.keyboard.press("ArrowRight");
     await expect(decline).toBeChecked();
     await expect(
-      form.getByRole("group", { name: "Which events will you attend?" }),
+      form.getByRole("group", { name: "Which sessions will you attend?" }),
     ).toHaveCount(0);
     await accept.check();
+    await form
+      .getByRole("radio", { name: "Holy Matrimony Test", exact: true })
+      .check();
+    await form
+      .getByRole("radio", { name: "I’ll attend on my own", exact: true })
+      .check();
     await expect(
-      form.getByRole("checkbox", { name: "Test Guest", exact: true }),
-    ).toBeVisible();
+      form.getByRole("region", { name: "Review attendance" }),
+    ).toContainText("Test Guest");
     for (const choice of await form
       .locator(".rsvp-attendance-options .rsvp-choice")
       .all()) {

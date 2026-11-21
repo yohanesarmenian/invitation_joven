@@ -30,8 +30,6 @@ const REAL_API_BASE_URL = "http://127.0.0.1:4000";
 
 const PASS_REGION = "Your check-in pass";
 const QR_NAME = "Household check-in pass QR code";
-const SMOKE_INVITEE = "5C Smoke Invitee";
-const SMOKE_EVENT = "5C Smoke Ceremony";
 
 /**
  * Compares two secret values without ever placing them in an assertion
@@ -87,9 +85,8 @@ async function acceptInBrowser(page: Page) {
     await editSaved(page);
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
   await page
-    .getByRole("checkbox", { name: SMOKE_INVITEE, exact: true })
+    .getByRole("radio", { name: "I’ll attend on my own", exact: true })
     .check();
-  await page.getByRole("checkbox", { name: SMOKE_EVENT, exact: true }).check();
   await page
     .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
     .click();
@@ -377,9 +374,8 @@ test("real backend: decline removes the pass and reaccept issues a different cre
   // Reaccept: a new pass with a new credential; the revoked one stays revoked.
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
   await page
-    .getByRole("checkbox", { name: SMOKE_INVITEE, exact: true })
+    .getByRole("radio", { name: "I’ll attend on my own", exact: true })
     .check();
-  await page.getByRole("checkbox", { name: SMOKE_EVENT, exact: true }).check();
   await page
     .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
     .click();
@@ -817,7 +813,7 @@ test("real backend: the guest credential stays out of URLs, requests, and the co
 // ---------------------------------------------------------------------------
 
 const GUEST_MESSAGE_HEADING = "Leave a Message for the Bride & Groom";
-const GUEST_MESSAGE_SUCCESS = "Message Sent!";
+const GUEST_MESSAGE_SUCCESS = "Thank you for your message";
 const GUEST_MESSAGE_FORM = "Guest message";
 
 const AUTHOR_WITH_PADDING = "  Smoke Author  ";
@@ -985,7 +981,7 @@ test("real backend: an anonymous message is accepted and stored without an autho
   expect(after.messages[0]!.authorNamePresent).toBe(false);
 });
 
-test("real backend: Back to Invitation restores an empty usable form and a second submission appends", async ({
+test("real backend: Back to Invitation keeps the saved receipt and a deliberate second submission appends", async ({
   page,
 }) => {
   const state = readSmokeState();
@@ -1001,11 +997,12 @@ test("real backend: Back to Invitation restores an empty usable form and a secon
 
   await page.getByRole("button", { name: "Back to Invitation" }).click();
 
-  // The confirmation closes and a blank, usable form returns.
-  await expect(guestMessageForm(page)).toBeVisible();
+  await expect(page.locator("#invitation-hero-title")).toBeFocused();
+  await expect(guestMessageForm(page)).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
-  ).toHaveCount(0);
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Write another message" }).click();
   await expect(page.getByLabel(/Your name/)).toHaveValue("");
   await expect(page.getByLabel(/Your message/)).toHaveValue("");
   await expect(sendButton(page)).toBeEnabled();
@@ -1113,8 +1110,7 @@ test("real backend: a pending submission is not duplicated by repeated clicks", 
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
   ).toBeVisible();
 
-  // Client-side pending protection only: one request, one row. This is not
-  // backend deduplication, and a deliberate later retry still appends.
+  // One pending activation reaches the server.
   expect(requests).toBe(1);
   expect(messageState().messageCount).toBe(1);
 });
@@ -1193,7 +1189,7 @@ test("real backend: a response lost after a committed write never claims success
   await sendButton(page).click();
 
   await expect(
-    page.getByText("We couldn’t confirm whether your message was sent."),
+    page.getByText("We couldn’t confirm the save yet.", { exact: false }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
@@ -1203,9 +1199,13 @@ test("real backend: a response lost after a committed write never claims success
   await expect(page.getByLabel(/Your message/)).toHaveValue(MESSAGE_NORMALIZED);
   expect(requests).toBe(1);
 
-  // The write did commit server-side — which is exactly why no automatic retry
-  // is allowed here, and why the copy warns that sending again may produce a
-  // second copy.
+  // The write committed. Recover with the same submission ID.
+  expect(messageState().messageCount).toBe(1);
+  await page.unroute("**/*");
+  await page.getByRole("button", { name: "Retry same message" }).click();
+  await expect(
+    page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
+  ).toBeVisible();
   expect(messageState().messageCount).toBe(1);
 });
 
@@ -1555,12 +1555,12 @@ test("real backend: the message form is labelled, associated, and keyboard opera
   await expect(success).toBeVisible();
   await expect(success).toBeFocused();
 
-  // Back to Invitation is keyboard reachable and returns focus into the form.
+  // Back to Invitation is keyboard reachable and returns focus to the hero.
   await page.getByRole("button", { name: "Back to Invitation" }).focus();
   await page.keyboard.press("Enter");
 
-  await expect(guestMessageForm(page)).toBeVisible();
-  await expect(page.getByLabel(/Your name/)).toBeFocused();
+  await expect(guestMessageForm(page)).toHaveCount(0);
+  await expect(page.locator("#invitation-hero-title")).toBeFocused();
 
   resetMessages();
 });

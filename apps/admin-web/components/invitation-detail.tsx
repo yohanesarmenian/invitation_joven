@@ -119,7 +119,7 @@ export function InvitationDetail({
               value: (
                 <DateValue
                   value={invitation.rsvpDeadlineAt}
-                  empty="No deadline"
+                  empty="Wedding default (see Reports)"
                 />
               ),
             },

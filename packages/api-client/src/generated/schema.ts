@@ -463,7 +463,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Edit dietary notes on the saved accepted RSVP */
+        patch: operations["PublicInvitationController_editPublicRsvpDietary"];
         trace?: never;
     };
     "/api/admin/checkin/events": {
@@ -619,6 +620,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/invitations/{publicCredential}/messages/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Verify one guest message receipt */
+        get: operations["PublicGuestMessageController_readReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -675,6 +693,86 @@ export interface paths {
             cookie?: never;
         };
         get: operations["ReportsController_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/rsvp-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RsvpPolicyController_read"];
+        put: operations["RsvpPolicyController_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/catering/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CateringController_live"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/catering/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CateringController_list"];
+        put?: never;
+        post: operations["CateringController_freeze"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/catering/snapshots/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CateringController_compare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/reports/catering/snapshots/{version}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CateringController_export"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1528,6 +1626,8 @@ export interface components {
             status: "PENDING" | "ACCEPTED" | "DECLINED";
             version: number;
             dietaryNotes: string | null;
+            /** @enum {string} */
+            partyMode?: "ALONE" | "FAMILY" | "PLUS_ONE";
             attendeeQuantityTotal: number;
             eventSelections: components["schemas"]["PublicRsvpEventSelectionDto"][];
             attendees: components["schemas"]["PublicRsvpAttendeeDto"][];
@@ -1554,10 +1654,16 @@ export interface components {
             eventSelections: components["schemas"]["SubmitPublicRsvpEventSelectionDto"][];
             attendees: components["schemas"]["SubmitPublicRsvpAttendeeDto"][];
             dietaryNotes?: string | null;
+            /** @enum {string} */
+            partyMode?: "ALONE" | "FAMILY" | "PLUS_ONE";
         };
         PublicRsvpMutationResponseDto: {
             rsvp: components["schemas"]["PublicRsvpStateDto"];
             checkinPass: components["schemas"]["PublicCheckinPassDto"] | null;
+        };
+        EditPublicRsvpDietaryRequestDto: {
+            expectedVersion: number;
+            dietaryNotes: string | null;
         };
         AdminCheckinEventDto: {
             /** Format: uuid */
@@ -1725,6 +1831,8 @@ export interface components {
         SubmitPublicGuestMessageRequestDto: {
             authorName?: string | null;
             message: string;
+            /** Format: uuid */
+            submissionId?: string;
         };
         PublicGuestMessageDto: {
             /** Format: date-time */
@@ -1777,6 +1885,98 @@ export interface components {
             generatedAt: string;
             items: components["schemas"]["ReportRowDto"][];
             page: components["schemas"]["AdminPageMetadataDto"];
+        };
+        RsvpDeadlineExceptionDto: {
+            id: string;
+            displayName: string;
+            /** Format: date-time */
+            rsvpDeadlineAt: string;
+        };
+        RsvpPolicyDto: {
+            /** Format: date-time */
+            initialDeadlineAt: string | null;
+            allowLateEdits: boolean;
+            /** Format: date-time */
+            finalEditDeadlineAt: string | null;
+            version: number;
+            activeExceptionCount: number;
+            activeExceptions: components["schemas"]["RsvpDeadlineExceptionDto"][];
+        };
+        UpdateRsvpPolicyDto: {
+            /** Format: date-time */
+            initialDeadlineAt: string | null;
+            allowLateEdits: boolean;
+            /** Format: date-time */
+            finalEditDeadlineAt: string | null;
+            expectedVersion: number;
+        };
+        CateringEventTotalsDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            expected: number;
+            rsvpExpected: number;
+            capacityAdjustment: number;
+            actual: number;
+            partialHouseholds: number;
+            walkinActual: number;
+        };
+        CateringTotalsDto: {
+            households: number;
+            namedInvitees: number;
+            accepted: number;
+            declined: number;
+            pending: number;
+            events: components["schemas"]["CateringEventTotalsDto"][];
+        };
+        CateringLiveDto: {
+            /** Format: uuid */
+            eventId: string | null;
+            includeArchived: boolean;
+            /** Format: date-time */
+            generatedAt: string;
+            totals: components["schemas"]["CateringTotalsDto"];
+        };
+        CateringSnapshotDto: {
+            /** Format: uuid */
+            eventId: string | null;
+            includeArchived: boolean;
+            version: number;
+            schemaVersion: number;
+            /** Format: date-time */
+            capturedAt: string;
+            /** Format: uuid */
+            capturedById: string;
+        };
+        FreezeCateringDto: {
+            /** Format: uuid */
+            eventId: string | null;
+            includeArchived: boolean;
+            /** Format: uuid */
+            operationId: string;
+            /** @description Latest snapshot version seen, or zero. */
+            expectedVersion: number;
+        };
+        CateringChangeDto: {
+            /** Format: uuid */
+            invitationId: string;
+            /** Format: uuid */
+            eventId: string;
+            previousStatus: string | null;
+            currentStatus: string | null;
+            frozenExpected: number;
+            currentExpected: number;
+            netChange: number;
+            changes: string[];
+            evidence: string[];
+        };
+        CateringComparisonDto: {
+            snapshot: components["schemas"]["CateringSnapshotDto"];
+            /** Format: date-time */
+            generatedAt: string;
+            frozen: components["schemas"]["CateringTotalsDto"];
+            live: components["schemas"]["CateringTotalsDto"];
+            changes: components["schemas"]["CateringChangeDto"][];
         };
         EventParkingDto: {
             title: string;
@@ -1931,6 +2131,8 @@ export interface components {
             eventSelections: components["schemas"]["SubmitPublicRsvpEventSelectionDto"][];
             attendees: components["schemas"]["SubmitPublicRsvpAttendeeDto"][];
             dietaryNotes?: string | null;
+            /** @enum {string} */
+            partyMode?: "ALONE" | "FAMILY" | "PLUS_ONE";
             reason: string;
         };
         ReceptionArrivalRequestDto: {
@@ -3646,6 +3848,63 @@ export interface operations {
             };
         };
     };
+    PublicInvitationController_editPublicRsvpDietary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicCredential: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditPublicRsvpDietaryRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicRsvpMutationResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
     CheckinController_listEvents: {
         parameters: {
             query?: never;
@@ -4151,6 +4410,45 @@ export interface operations {
             };
         };
     };
+    PublicGuestMessageController_readReceipt: {
+        parameters: {
+            query?: never;
+            header: {
+                "x-message-submission-id": string;
+            };
+            path: {
+                publicCredential: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicGuestMessageResponseDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
     HealthController_getHealth: {
         parameters: {
             query?: never;
@@ -4314,6 +4612,156 @@ export interface operations {
                 };
                 content: {
                     "text/csv": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    RsvpPolicyController_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RsvpPolicyDto"];
+                };
+            };
+        };
+    };
+    RsvpPolicyController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRsvpPolicyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RsvpPolicyDto"];
+                };
+            };
+        };
+    };
+    CateringController_live: {
+        parameters: {
+            query?: {
+                archived?: "include" | "exclude";
+                eventId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CateringLiveDto"];
+                };
+            };
+        };
+    };
+    CateringController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CateringSnapshotDto"][];
+                };
+            };
+        };
+    };
+    CateringController_freeze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreezeCateringDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CateringSnapshotDto"];
+                };
+            };
+        };
+    };
+    CateringController_compare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CateringComparisonDto"];
+                };
+            };
+        };
+    };
+    CateringController_export: {
+        parameters: {
+            query: {
+                kind: "summary" | "households" | "changes";
+            };
+            header?: never;
+            path: {
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
         };

@@ -7,6 +7,7 @@ import type {
   SubmitPublicRsvpRequest,
 } from "../../../../packages/api-client/src/index";
 import type { RsvpFailure, RsvpResult } from "../../src/rsvp/result";
+import type { EditRsvpDietary } from "../../src/server/public-rsvp";
 import {
   rsvpFailureNotice,
   rsvpLoadFailureNotice,
@@ -17,10 +18,17 @@ import { RsvpResultNotice } from "./rsvp-result-notice";
 import { GuestCheckinPass } from "./guest-checkin-pass";
 import {
   attendeeTotal,
+  attendeeOptions,
+  changePartyMode,
   createRsvpDraft,
-  normalizeEventCounts,
+  partyIssue,
+  restoreSavedDraft,
+  sameAttendance,
+  selectedSession,
+  sessionOptions,
   toRsvpRequest,
   validateRsvpDraft,
+  type PartyMode,
   type RsvpDraft,
   type RsvpInvitation,
 } from "./public-rsvp-state";
@@ -29,7 +37,7 @@ export type PublicRsvpFormProps = {
   invitation: RsvpInvitation;
   initialResult: RsvpResult<PublicRsvpReadResponse>;
   submitAction: (
-    request: SubmitPublicRsvpRequest,
+    request: SubmitPublicRsvpRequest | EditRsvpDietary,
   ) => Promise<RsvpResult<PublicRsvpMutationResponse>>;
   reloadAction: () => Promise<RsvpResult<PublicRsvpReadResponse>>;
 };
@@ -48,11 +56,11 @@ export function PublicRsvpForm({
   const responded =
     canonical?.status === "ACCEPTED" || canonical?.status === "DECLINED";
   const [editing, setEditing] = useState(false);
+  const [preserveAttendance, setPreserveAttendance] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   // Keep a stale pass suspended even if a later failed reload changes the notice.
   const [passNeedsReload, setPassNeedsReload] = useState(false);
-  const [draft, setDraft] = useState(() =>
-    createRsvpDraft(invitation, canonical),
-  );
+  const [draft, setDraft] = useState(() => createRsvpDraft(canonical));
   const [loaded, setLoaded] = useState(initialResult.status === "success");
   const [operation, setOperation] = useState<"submit" | "reload" | null>(null);
   const [feedback, setFeedback] = useState<"saved" | "reloaded" | null>(null);
@@ -76,6 +84,12 @@ export function PublicRsvpForm({
   const attendeesRef = useRef<HTMLFieldSetElement>(null);
   const eventsRef = useRef<HTMLFieldSetElement>(null);
   const total = attendeeTotal(draft);
+  const sessions = sessionOptions(invitation.events);
+  const session = selectedSession(draft, invitation);
+  const accepted = draft.status === "ACCEPTED";
+  const sessionReady = accepted && session !== undefined;
+  const partyReady = sessionReady && !partyIssue(draft, invitation);
+  const savedDraft = canonical && restoreSavedDraft(invitation, canonical);
   const pending = operation !== null;
   const terminal =
     lock === "closed" ||
@@ -111,9 +125,9 @@ export function PublicRsvpForm({
       statusRef.current?.focus();
   }, [failure, validation, feedback]);
 
-  function edit(next: RsvpDraft, compositionChanged = false) {
+  function edit(next: RsvpDraft) {
     if (inFlight.current || terminal) return;
-    setDraft(compositionChanged ? normalizeEventCounts(next) : next);
+    setDraft(next);
     setValidation(null);
     if (lock === null) setFailure(null);
     setFeedback(null);
@@ -134,9 +148,8 @@ export function PublicRsvpForm({
     if (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT")
       setLock("conflict");
     if (
-      error.httpStatus === 422 &&
-      (error.code === "RSVP_DEADLINE_PASSED" ||
-        error.code === "RSVP_LOCKED_AFTER_CHECKIN")
+      (error.httpStatus === 422 && error.code === "RSVP_DEADLINE_PASSED") ||
+      (error.httpStatus === 409 && error.code === "RSVP_LOCKED_AFTER_CHECKIN")
     )
       setLock("closed");
     if (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
@@ -155,8 +168,14 @@ export function PublicRsvpForm({
       else {
         setCanonical(result.data);
         setEditing(forEditing && result.data.canEdit);
+        const saved = result.data.rsvp;
+        const restored = saved && restoreSavedDraft(invitation, saved);
+        setPreserveAttendance(
+          Boolean(forEditing && saved?.status === "ACCEPTED" && !restored),
+        );
+        setReplacing(false);
         setPassNeedsReload(false);
-        setDraft(createRsvpDraft(invitation, result.data.rsvp));
+        setDraft(restored ?? createRsvpDraft(saved));
         setLoaded(true);
         setLock(null);
         setFailure(null);
@@ -187,7 +206,14 @@ export function PublicRsvpForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (inFlight.current || submitBlocked) return;
-    const invalid = validateRsvpDraft(draft, invitation);
+    const dietaryOnly =
+      canonical?.status === "ACCEPTED" &&
+      (preserveAttendance || sameAttendance(draft, savedDraft));
+    const invalid = dietaryOnly
+      ? draft.dietaryNotes.trim().length > 500
+        ? "Please limit dietary notes to 500 characters."
+        : null
+      : validateRsvpDraft(draft, invitation);
     if (invalid) {
       setValidation(invalid);
       return;
@@ -199,7 +225,12 @@ export function PublicRsvpForm({
     setFailure(null);
     try {
       const result = await submitAction(
-        toRsvpRequest(draft, canonical?.version ?? null),
+        dietaryOnly
+          ? {
+              expectedVersion: canonical.version,
+              dietaryNotes: draft.dietaryNotes.trim() || null,
+            }
+          : toRsvpRequest(draft, canonical?.version ?? null),
       );
       if (result.status === "error") {
         recordFailure(result.error, "submit");
@@ -208,7 +239,9 @@ export function PublicRsvpForm({
           current ? { ...current, ...result.data } : null,
         );
         setEditing(false);
-        setDraft(createRsvpDraft(invitation, result.data.rsvp));
+        setPreserveAttendance(false);
+        setReplacing(false);
+        setDraft(createRsvpDraft(result.data.rsvp));
         setFeedback("saved");
       }
     } catch {
@@ -274,7 +307,9 @@ export function PublicRsvpForm({
     canonicalResponse?.editBlockedReason === "CHECKED_IN"
       ? "Your household has checked in. RSVP changes are now closed. Reception staff can assist you."
       : canonicalResponse?.editBlockedReason === "DEADLINE_PASSED"
-        ? "The reply deadline has passed. Your saved response remains available."
+        ? responded
+          ? "The RSVP edit window has closed. Your saved response remains available."
+          : "The reply deadline has passed. Contact the couple if you need help."
         : null;
 
   if (responded && !editing) {
@@ -293,38 +328,7 @@ export function PublicRsvpForm({
         </h3>
         {canonical.status === "ACCEPTED" ? (
           <>
-            <p>Expected guests: {canonical.attendeeQuantityTotal}</p>
-            <ul>
-              {canonical.attendees.map((attendee, index) => (
-                <li key={index}>
-                  {attendee.type === "NAMED_INVITEE"
-                    ? (invitation.invitees.find(
-                        (item) => item.id === attendee.inviteeId,
-                      )?.fullName ?? "Named guest")
-                    : attendee.type === "PLUS_ONE"
-                      ? "Plus-one"
-                      : attendee.type === "UNNAMED_COMPANION"
-                        ? "Unnamed companions"
-                        : "Additional children"}{" "}
-                  × {attendee.quantity}
-                </li>
-              ))}
-            </ul>
-            <ul>
-              {canonical.eventSelections
-                .filter((item) => item.attending)
-                .map((item) => (
-                  <li key={item.eventId}>
-                    {invitation.events.find(
-                      (event) => event.id === item.eventId,
-                    )?.name ?? "Wedding event"}
-                    : {item.expectedAttendeeCount} guests
-                  </li>
-                ))}
-            </ul>
-            {canonical.dietaryNotes ? (
-              <p>Dietary requirements: {canonical.dietaryNotes}</p>
-            ) : null}
+            <SavedAttendance invitation={invitation} rsvp={canonical} />
             {!passNeedsReload ? (
               <GuestCheckinPass pass={canonicalResponse?.checkinPass ?? null} />
             ) : null}
@@ -347,6 +351,55 @@ export function PublicRsvpForm({
     );
   }
 
+  const namedOptions = attendeeOptions(invitation, draft.partyMode);
+  const namedChildren = invitation.invitees.filter(
+    ({ category }) => category === "CHILD",
+  );
+  const childrenAllowed =
+    namedChildren.length > 0 || invitation.rules.maxAdditionalChildren > 0;
+  const hasAdult = invitation.invitees.some(
+    ({ category }) => category === "ADULT",
+  );
+  const partyChoices: [PartyMode, string][] = [
+    ["ALONE", "I’ll attend on my own"],
+  ];
+  if (hasAdult) partyChoices.push(["FAMILY", "I’ll attend with family"]);
+  if (hasAdult && invitation.rules.allowPlusOne)
+    partyChoices.push(["PLUS_ONE", "I’ll bring a plus one"]);
+
+  const dietaryField = (
+    <div className="rsvp-dietary">
+      <label htmlFor={`${id}-dietary`}>
+        Dietary Restrictions &amp; Preferences <span>(optional)</span>
+      </label>
+      <textarea
+        id={`${id}-dietary`}
+        aria-label="Dietary requirements (optional)"
+        rows={4}
+        maxLength={500}
+        value={draft.dietaryNotes}
+        aria-describedby={`${id}-dietary-limit`}
+        onChange={(event) =>
+          edit({ ...draft, dietaryNotes: event.target.value })
+        }
+      />
+      <p id={`${id}-dietary-limit`}>
+        {draft.dietaryNotes.length} / 500 characters
+      </p>
+    </div>
+  );
+  const submitButton = (
+    <button className="rsvp-submit" type="submit" disabled={submitBlocked}>
+      {operation === "submit"
+        ? "Saving…"
+        : notice?.recovery === "retry"
+          ? "Try again"
+          : editing
+            ? "Save Changes"
+            : "Submit RSVP"}
+    </button>
+  );
+
   return (
     <form
       className="public-rsvp-form"
@@ -366,287 +419,320 @@ export function PublicRsvpForm({
         </p>
       ) : null}
       <p>If your QR code cannot be read, reception staff can assist you.</p>
-      <fieldset disabled={pending || terminal} className="rsvp-fields">
-        <legend className="visually-hidden">Your RSVP</legend>
-        <fieldset
-          className="rsvp-group"
-          ref={attendanceRef}
-          tabIndex={-1}
-          aria-describedby={notice ? `${id}-error` : undefined}
-          aria-label="Will you join us?"
-        >
-          <legend>Attendance Confirmation</legend>
-          <div className="rsvp-attendance-options">
-            {(
-              [
-                ["ACCEPTED", "Joyfully Accept"],
-                ["DECLINED", "Regretfully Decline"],
-              ] as const
-            ).map(([status, label]) => (
-              <label className="rsvp-choice" key={status}>
-                <input
-                  type="radio"
-                  name={`${id}-attendance`}
-                  checked={draft.status === status}
-                  onChange={() => edit({ ...draft, status })}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        {draft.status !== "DECLINED" ? (
-          <>
+      {preserveAttendance && canonical ? (
+        <>
+          <SavedAttendance invitation={invitation} rsvp={canonical} />
+          <p>
+            Your saved attendance differs from the new form. You can update
+            dietary notes and keep all attendance details.
+          </p>
+          <fieldset disabled={pending || terminal} className="rsvp-fields">
+            <legend className="visually-hidden">
+              Edit dietary information
+            </legend>
+            {dietaryField}
+            <button
+              type="button"
+              className="rsvp-submit rsvp-cancel"
+              onClick={() => {
+                edit(createRsvpDraft(canonical));
+                setPreserveAttendance(false);
+                setReplacing(true);
+                requestAnimationFrame(() => attendanceRef.current?.focus());
+              }}
+            >
+              Change attendance details
+            </button>
+            {submitButton}
+          </fieldset>
+        </>
+      ) : (
+        <fieldset disabled={pending || terminal} className="rsvp-fields">
+          <legend className="visually-hidden">Your RSVP</legend>
+          {replacing && (
+            <p role="note">
+              Review the replacement before saving. The same party will attend
+              every selected session.
+            </p>
+          )}
+          <fieldset
+            className="rsvp-group"
+            ref={attendanceRef}
+            tabIndex={-1}
+            aria-label="Will you join us?"
+          >
+            <legend>Attendance Confirmation</legend>
+            <div className="rsvp-attendance-options">
+              {(
+                [
+                  ["ACCEPTED", "Joyfully Accept"],
+                  ["DECLINED", "Regretfully Decline"],
+                ] as const
+              ).map(([status, label]) => (
+                <label className="rsvp-choice" key={status}>
+                  <input
+                    type="radio"
+                    name={`${id}-attendance`}
+                    checked={draft.status === status}
+                    onChange={() =>
+                      edit(
+                        status === "DECLINED"
+                          ? { ...createRsvpDraft(null), status }
+                          : {
+                              ...draft,
+                              status,
+                              sessionIds:
+                                sessions.length === 1
+                                  ? sessions[0]!.ids
+                                  : draft.sessionIds,
+                            },
+                      )
+                    }
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {accepted && (
             <fieldset
               className="rsvp-group"
               ref={eventsRef}
-              aria-label="Which events will you attend?"
               tabIndex={-1}
-              aria-describedby={`${id}-events-help${notice?.section === "events" ? ` ${id}-error` : ""}`}
+              aria-describedby={
+                notice?.section === "events" ? `${id}-error` : undefined
+              }
             >
-              <legend>Events Attending</legend>
-              <p id={`${id}-events-help`}>
-                Choose at least one event, then tell us how many of your guests
-                will attend each.
-              </p>
-              {invitation.events.length > 1 ? (
-                <label className="rsvp-choice rsvp-both-events">
-                  <input
-                    type="checkbox"
-                    checked={draft.eventSelections.every(
-                      (event) => event.attending,
-                    )}
-                    onChange={(change) =>
-                      edit(
-                        normalizeEventCounts({
-                          ...draft,
-                          eventSelections: draft.eventSelections.map(
-                            (event) => ({
-                              ...event,
-                              attending: change.target.checked,
-                            }),
-                          ),
-                        }),
-                      )
-                    }
-                  />
-                  <span>Attend all invited events</span>
-                </label>
-              ) : null}
-              {invitation.events.map((event, index) => {
-                const selection = draft.eventSelections[index];
-                if (!selection) return null;
-                return (
-                  <div className="rsvp-event" key={event.id}>
-                    <label className="rsvp-choice">
-                      <input
-                        type="checkbox"
-                        checked={selection.attending}
-                        onChange={(change) =>
-                          edit(
-                            normalizeEventCounts({
-                              ...draft,
-                              eventSelections: draft.eventSelections.map(
-                                (item, i) =>
-                                  i === index
-                                    ? {
-                                        ...item,
-                                        attending: change.target.checked,
-                                      }
-                                    : item,
-                              ),
-                            }),
-                          )
-                        }
-                      />
-                      <span>{event.name}</span>
-                    </label>
-                    {selection.attending ? (
-                      <label className="rsvp-count">
-                        <span>
-                          Guests attending{" "}
-                          <span className="visually-hidden">{event.name}</span>
-                        </span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          max={Number.isFinite(total) ? total : 0}
-                          step={1}
-                          disabled={!Number.isFinite(total) || total < 1}
-                          value={
-                            Number.isNaN(selection.expectedAttendeeCount)
-                              ? ""
-                              : selection.expectedAttendeeCount
-                          }
-                          onChange={(change) =>
-                            edit({
-                              ...draft,
-                              eventSelections: draft.eventSelections.map(
-                                (item, i) =>
-                                  i === index
-                                    ? {
-                                        ...item,
-                                        expectedAttendeeCount:
-                                          change.target.valueAsNumber,
-                                      }
-                                    : item,
-                              ),
-                            })
-                          }
-                        />
-                      </label>
-                    ) : null}
-                  </div>
-                );
-              })}
+              <legend>Which sessions will you attend?</legend>
+              {sessions.length === 0 ? (
+                <p role="status">
+                  The wedding sessions for this invitation need to be checked.
+                  Contact the couple for help.
+                </p>
+              ) : sessions.length === 1 ? (
+                <p>
+                  <strong>{sessions[0]!.label}</strong> is selected for this
+                  invitation.
+                </p>
+              ) : (
+                sessions.map((option) => (
+                  <label key={option.ids.join(",")} className="rsvp-choice">
+                    <input
+                      type="radio"
+                      name={`${id}-sessions`}
+                      checked={session?.ids.join(",") === option.ids.join(",")}
+                      onChange={() =>
+                        edit({ ...draft, sessionIds: option.ids })
+                      }
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))
+              )}
             </fieldset>
+          )}
+          {sessionReady && (
             <fieldset
               className="rsvp-group"
               ref={attendeesRef}
-              aria-label="Who will be joining us?"
               tabIndex={-1}
-              aria-describedby={`${id}-total${notice?.section === "attendees" ? ` ${id}-error` : ""}`}
+              aria-describedby={
+                notice?.section === "attendees" ? `${id}-error` : undefined
+              }
             >
-              <legend>Bring someone special?</legend>
-              {invitation.invitees.map((invitee) => (
-                <label className="rsvp-choice" key={invitee.id}>
+              <legend>Who will attend with you?</legend>
+              {partyChoices.map(([mode, label]) => (
+                <label className="rsvp-choice" key={mode}>
                   <input
-                    type="checkbox"
-                    checked={draft.namedInviteeIds.includes(invitee.id)}
-                    onChange={(event) =>
-                      edit(
-                        {
-                          ...draft,
-                          namedInviteeIds: event.target.checked
-                            ? [...draft.namedInviteeIds, invitee.id]
-                            : draft.namedInviteeIds.filter(
-                                (value) => value !== invitee.id,
-                              ),
-                        },
-                        true,
-                      )
+                    type="radio"
+                    name={`${id}-party`}
+                    checked={draft.partyMode === mode}
+                    onChange={() =>
+                      edit(changePartyMode(draft, invitation, mode))
                     }
                   />
-                  <span>{invitee.fullName}</span>
+                  <span>{label}</span>
                 </label>
               ))}
-              {invitation.rules.allowPlusOne ? (
-                <div className="rsvp-companion">
-                  <label className="rsvp-choice">
-                    <input
-                      type="checkbox"
-                      aria-describedby={`${id}-companion-help`}
-                      checked={draft.plusOne}
-                      onChange={(event) =>
-                        edit({ ...draft, plusOne: event.target.checked }, true)
-                      }
-                    />
-                    <span>
-                      Of Course I will bring my Wife/Husband or plus one!
-                    </span>
-                  </label>
-                  <p id={`${id}-companion-help`} className="rsvp-dietary-help">
-                    One additional guest only. If your spouse is already listed,
-                    select their name above.
-                  </p>
-                </div>
-              ) : null}
-              {invitation.rules.maxAdditionalChildren > 0 ? (
+              {draft.partyMode && (
+                <fieldset className="rsvp-group">
+                  <legend>
+                    {draft.partyMode === "FAMILY"
+                      ? "Invited adults attending"
+                      : "Select the invited attendee"}
+                  </legend>
+                  {namedOptions.length === 1 ? (
+                    <p>{namedOptions[0]!.fullName}</p>
+                  ) : (
+                    namedOptions.map(({ id: inviteeId, fullName }) => (
+                      <label className="rsvp-choice" key={inviteeId}>
+                        <input
+                          type={
+                            draft.partyMode === "FAMILY" ? "checkbox" : "radio"
+                          }
+                          name={`${id}-named`}
+                          checked={draft.namedInviteeIds.includes(inviteeId)}
+                          onChange={(event) =>
+                            edit({
+                              ...draft,
+                              namedInviteeIds:
+                                draft.partyMode === "FAMILY"
+                                  ? toggleId(
+                                      draft.namedInviteeIds,
+                                      inviteeId,
+                                      event.target.checked,
+                                    )
+                                  : [inviteeId],
+                            })
+                          }
+                        />
+                        <span>{fullName}</span>
+                      </label>
+                    ))
+                  )}
+                </fieldset>
+              )}
+              {draft.partyMode === "PLUS_ONE" && (
+                <p>One additional companion is included.</p>
+              )}
+              {draft.partyMode === "FAMILY" && (
                 <>
-                  <label className="rsvp-choice">
-                    <input
-                      type="checkbox"
-                      checked={draft.additionalChildren > 0}
-                      onChange={(event) =>
-                        edit(
-                          {
-                            ...draft,
-                            additionalChildren: event.target.checked ? 1 : 0,
-                          },
-                          true,
-                        )
-                      }
-                    />
-                    <span>I’m with my children</span>
-                  </label>
-                  <label className="rsvp-count">
-                    <span>
-                      Additional children{" "}
-                      <small>
-                        Up to {invitation.rules.maxAdditionalChildren}
-                      </small>
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      max={invitation.rules.maxAdditionalChildren}
-                      step={1}
-                      value={
-                        Number.isNaN(draft.additionalChildren)
-                          ? ""
-                          : draft.additionalChildren
-                      }
-                      onChange={(event) =>
-                        edit(
-                          {
-                            ...draft,
-                            additionalChildren: event.target.valueAsNumber,
-                          },
-                          true,
-                        )
-                      }
-                    />
-                  </label>
+                  {invitation.rules.allowPlusOne && (
+                    <label className="rsvp-choice">
+                      <input
+                        type="checkbox"
+                        checked={draft.plusOne}
+                        onChange={(event) =>
+                          edit({ ...draft, plusOne: event.target.checked })
+                        }
+                      />
+                      <span>Include one additional partner</span>
+                    </label>
+                  )}
+                  {childrenAllowed && (
+                    <div className="rsvp-companion">
+                      <label className="rsvp-choice">
+                        <input
+                          type="checkbox"
+                          checked={draft.includeChildren}
+                          onChange={(event) =>
+                            edit(
+                              event.target.checked
+                                ? { ...draft, includeChildren: true }
+                                : {
+                                    ...draft,
+                                    includeChildren: false,
+                                    additionalChildren: 0,
+                                    namedInviteeIds:
+                                      draft.namedInviteeIds.filter(
+                                        (selected) =>
+                                          !namedChildren.some(
+                                            ({ id }) => id === selected,
+                                          ),
+                                      ),
+                                  },
+                            )
+                          }
+                        />
+                        <span>Include children</span>
+                      </label>
+                      {draft.includeChildren && (
+                        <>
+                          {namedChildren.map(({ id: inviteeId, fullName }) => (
+                            <label key={inviteeId} className="rsvp-choice">
+                              <input
+                                type="checkbox"
+                                checked={draft.namedInviteeIds.includes(
+                                  inviteeId,
+                                )}
+                                onChange={(event) =>
+                                  edit({
+                                    ...draft,
+                                    namedInviteeIds: toggleId(
+                                      draft.namedInviteeIds,
+                                      inviteeId,
+                                      event.target.checked,
+                                    ),
+                                  })
+                                }
+                              />
+                              <span>{fullName}</span>
+                            </label>
+                          ))}
+                          {invitation.rules.maxAdditionalChildren > 0 && (
+                            <label className="rsvp-count">
+                              <span>
+                                Additional children (excluding named children
+                                above)
+                              </span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={invitation.rules.maxAdditionalChildren}
+                                step={1}
+                                value={
+                                  Number.isNaN(draft.additionalChildren)
+                                    ? ""
+                                    : draft.additionalChildren
+                                }
+                                onChange={(event) =>
+                                  edit({
+                                    ...draft,
+                                    additionalChildren:
+                                      event.target.valueAsNumber,
+                                  })
+                                }
+                              />
+                            </label>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </>
-              ) : null}
-              <p id={`${id}-total`} aria-live="polite">
-                Total attending: {Number.isFinite(total) ? total : "—"}
-              </p>
+              )}
             </fieldset>
-            <div className="rsvp-dietary">
-              <label htmlFor={`${id}-dietary`}>
-                Dietary Restrictions &amp; Preferences <span>(optional)</span>
-              </label>
-              <p className="rsvp-dietary-help">
-                To help us accommodate your family safely, please mention any
-                specific needs (allergy, vegan, etc).
-              </p>
-              <textarea
-                id={`${id}-dietary`}
-                aria-label="Dietary requirements (optional)"
-                rows={4}
-                maxLength={500}
-                value={draft.dietaryNotes}
-                aria-describedby={`${id}-dietary-limit`}
-                onChange={(event) =>
-                  edit({ ...draft, dietaryNotes: event.target.value })
-                }
-              />
-              <p id={`${id}-dietary-limit`}>
-                {draft.dietaryNotes.length} / 500 characters
-              </p>
-            </div>
-          </>
-        ) : null}
-        <button className="rsvp-submit" type="submit" disabled={submitBlocked}>
-          {operation === "submit"
-            ? "Saving…"
-            : notice?.recovery === "retry"
-              ? "Try again"
-              : editing
-                ? "Save Changes"
-                : "Submit RSVP"}
-        </button>
-      </fieldset>
+          )}
+          {partyReady && (
+            <>
+              <div
+                className="rsvp-group"
+                role="region"
+                aria-label="Review attendance"
+              >
+                <h3>Review your attendance</h3>
+                <p>{session.label}</p>
+                <p>
+                  Attending named guests:{" "}
+                  {invitation.invitees
+                    .filter(({ id }) => draft.namedInviteeIds.includes(id))
+                    .map(({ fullName }) => fullName)
+                    .join(", ")}
+                </p>
+                <p>
+                  Additional companions: {Number(draft.plusOne)} · Additional
+                  children: {draft.additionalChildren}
+                </p>
+                <p>
+                  {total} {total === 1 ? "person" : "people"} expected at each
+                  selected session.
+                </p>
+              </div>
+              {dietaryField}
+            </>
+          )}
+          {submitButton}
+        </fieldset>
+      )}
       {editing ? (
         <button
           type="button"
           className="rsvp-submit rsvp-cancel"
           disabled={pending}
           onClick={() => {
-            setDraft(createRsvpDraft(invitation, canonical));
+            setDraft(createRsvpDraft(canonical));
+            setPreserveAttendance(false);
+            setReplacing(false);
             setEditing(false);
             setValidation(null);
             setFeedback(null);
@@ -656,5 +742,50 @@ export function PublicRsvpForm({
         </button>
       ) : null}
     </form>
+  );
+}
+
+function toggleId(ids: string[], id: string, checked: boolean) {
+  return checked ? [...ids, id] : ids.filter((item) => item !== id);
+}
+
+function SavedAttendance({
+  invitation,
+  rsvp,
+}: {
+  invitation: RsvpInvitation;
+  rsvp: NonNullable<PublicRsvpReadResponse["rsvp"]>;
+}) {
+  return (
+    <>
+      <p>Expected guests: {rsvp.attendeeQuantityTotal}</p>
+      <ul>
+        {rsvp.attendees.map((attendee, index) => (
+          <li key={index}>
+            {attendee.type === "NAMED_INVITEE"
+              ? (invitation.invitees.find(({ id }) => id === attendee.inviteeId)
+                  ?.fullName ?? "Named guest")
+              : attendee.type === "PLUS_ONE"
+                ? "Plus-one"
+                : attendee.type === "UNNAMED_COMPANION"
+                  ? "Unnamed companions"
+                  : "Additional children"}{" "}
+            × {attendee.quantity}
+          </li>
+        ))}
+      </ul>
+      <ul>
+        {rsvp.eventSelections
+          .filter(({ attending }) => attending)
+          .map(({ eventId, expectedAttendeeCount }) => (
+            <li key={eventId}>
+              {invitation.events.find(({ id }) => id === eventId)?.name ??
+                "Wedding event"}
+              : {expectedAttendeeCount} guests
+            </li>
+          ))}
+      </ul>
+      {rsvp.dietaryNotes && <p>Dietary requirements: {rsvp.dietaryNotes}</p>}
+    </>
   );
 }

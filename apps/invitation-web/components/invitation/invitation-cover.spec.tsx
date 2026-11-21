@@ -61,7 +61,7 @@ describe("invitation cover markup", () => {
     expect(html).toContain('aria-labelledby="invitation-hero-title"');
     expect(html).toContain('<h1 id="invitation-hero-title"');
     expect(html).toContain("The Wedding of");
-    expect(html).toContain("Jo <span><i>&amp;</i> Venta</span>");
+    expect(html).toContain("<span>Jo</span> <i>&amp;</i> <span>Venta</span>");
     expect(html).toContain(
       'class="invitation-hero-monogram" aria-hidden="true">Y<span>&amp;</span>A',
     );

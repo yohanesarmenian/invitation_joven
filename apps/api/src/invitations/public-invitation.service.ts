@@ -9,6 +9,7 @@ import type {
 } from "../security/credential.types.js";
 import type { PublicInvitationResponseDto } from "./dto/public-invitation.dto.js";
 import { InvitationNotAvailableError } from "./invitation-not-available.error.js";
+import { readRsvpPolicy } from "./rsvp-policy.js";
 import {
   mapPublicInvitationResponse,
   type PublicInvitationProjection,
@@ -143,7 +144,8 @@ export async function readPublicInvitationProjectionForLookupHash(
   return {
     displayName: invitation.displayName,
     greetingName: invitation.greetingName,
-    rsvpDeadlineAt: invitation.rsvpDeadlineAt,
+    rsvpDeadlineAt:
+      invitation.rsvpDeadlineAt ?? (await readRsvpPolicy(tx)).initialDeadlineAt,
     events,
     invitees,
     allowPlusOne: invitation.allowPlusOne,

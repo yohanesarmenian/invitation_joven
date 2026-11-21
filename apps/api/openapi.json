@@ -2064,6 +2064,88 @@
         "tags": [
           "Public Invitations"
         ]
+      },
+      "patch": {
+        "operationId": "PublicInvitationController_editPublicRsvpDietary",
+        "parameters": [
+          {
+            "name": "publicCredential",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "maxLength": 43,
+              "minLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditPublicRsvpDietaryRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRsvpMutationResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Edit dietary notes on the saved accepted RSVP",
+        "tags": [
+          "Public Invitations"
+        ]
       }
     },
     "/api/admin/checkin/events": {
@@ -2745,6 +2827,70 @@
         ]
       }
     },
+    "/api/public/invitations/{publicCredential}/messages/receipt": {
+      "get": {
+        "operationId": "PublicGuestMessageController_readReceipt",
+        "parameters": [
+          {
+            "name": "x-message-submission-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          },
+          {
+            "name": "publicCredential",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "maxLength": 43,
+              "minLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicGuestMessageResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verify one guest message receipt",
+        "tags": [
+          "Public Guest Messages"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_getHealth",
@@ -3013,6 +3159,224 @@
         },
         "tags": [
           "Reports"
+        ]
+      }
+    },
+    "/api/admin/rsvp-policy": {
+      "get": {
+        "operationId": "RsvpPolicyController_read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsvpPolicyDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Wedding RSVP policy"
+        ]
+      },
+      "put": {
+        "operationId": "RsvpPolicyController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRsvpPolicyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RsvpPolicyDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Wedding RSVP policy"
+        ]
+      }
+    },
+    "/api/admin/reports/catering/live": {
+      "get": {
+        "operationId": "CateringController_live",
+        "parameters": [
+          {
+            "name": "archived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "include",
+                "exclude"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "eventId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CateringLiveDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Catering reports"
+        ]
+      }
+    },
+    "/api/admin/reports/catering/snapshots": {
+      "get": {
+        "operationId": "CateringController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CateringSnapshotDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Catering reports"
+        ]
+      },
+      "post": {
+        "operationId": "CateringController_freeze",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreezeCateringDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CateringSnapshotDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Catering reports"
+        ]
+      }
+    },
+    "/api/admin/reports/catering/snapshots/{version}": {
+      "get": {
+        "operationId": "CateringController_compare",
+        "parameters": [
+          {
+            "name": "version",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CateringComparisonDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Catering reports"
+        ]
+      }
+    },
+    "/api/admin/reports/catering/snapshots/{version}/export": {
+      "get": {
+        "operationId": "CateringController_export",
+        "parameters": [
+          {
+            "name": "kind",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "summary",
+                "households",
+                "changes"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Catering reports"
         ]
       }
     },
@@ -6330,6 +6694,14 @@
             "type": "string",
             "nullable": true
           },
+          "partyMode": {
+            "type": "string",
+            "enum": [
+              "ALONE",
+              "FAMILY",
+              "PLUS_ONE"
+            ]
+          },
           "attendeeQuantityTotal": {
             "type": "number",
             "minimum": 0
@@ -6454,6 +6826,14 @@
             "type": "string",
             "maxLength": 500,
             "nullable": true
+          },
+          "partyMode": {
+            "type": "string",
+            "enum": [
+              "ALONE",
+              "FAMILY",
+              "PLUS_ONE"
+            ]
           }
         },
         "required": [
@@ -6482,6 +6862,24 @@
         "required": [
           "rsvp",
           "checkinPass"
+        ]
+      },
+      "EditPublicRsvpDietaryRequestDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "dietaryNotes": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "dietaryNotes"
         ]
       },
       "AdminCheckinEventDto": {
@@ -7131,6 +7529,11 @@
           "message": {
             "type": "string",
             "maxLength": 1000
+          },
+          "submissionId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
           }
         },
         "required": [
@@ -7339,6 +7742,337 @@
           "generatedAt",
           "items",
           "page"
+        ]
+      },
+      "RsvpDeadlineExceptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "rsvpDeadlineAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "rsvpDeadlineAt"
+        ]
+      },
+      "RsvpPolicyDto": {
+        "type": "object",
+        "properties": {
+          "initialDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "allowLateEdits": {
+            "type": "boolean"
+          },
+          "finalEditDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "activeExceptionCount": {
+            "type": "number"
+          },
+          "activeExceptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RsvpDeadlineExceptionDto"
+            }
+          }
+        },
+        "required": [
+          "initialDeadlineAt",
+          "allowLateEdits",
+          "finalEditDeadlineAt",
+          "version",
+          "activeExceptionCount",
+          "activeExceptions"
+        ]
+      },
+      "UpdateRsvpPolicyDto": {
+        "type": "object",
+        "properties": {
+          "initialDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "allowLateEdits": {
+            "type": "boolean"
+          },
+          "finalEditDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "initialDeadlineAt",
+          "allowLateEdits",
+          "finalEditDeadlineAt",
+          "expectedVersion"
+        ]
+      },
+      "CateringEventTotalsDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "number"
+          },
+          "rsvpExpected": {
+            "type": "number"
+          },
+          "capacityAdjustment": {
+            "type": "number"
+          },
+          "actual": {
+            "type": "number"
+          },
+          "partialHouseholds": {
+            "type": "number"
+          },
+          "walkinActual": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "expected",
+          "rsvpExpected",
+          "capacityAdjustment",
+          "actual",
+          "partialHouseholds",
+          "walkinActual"
+        ]
+      },
+      "CateringTotalsDto": {
+        "type": "object",
+        "properties": {
+          "households": {
+            "type": "number"
+          },
+          "namedInvitees": {
+            "type": "number"
+          },
+          "accepted": {
+            "type": "number"
+          },
+          "declined": {
+            "type": "number"
+          },
+          "pending": {
+            "type": "number"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CateringEventTotalsDto"
+            }
+          }
+        },
+        "required": [
+          "households",
+          "namedInvitees",
+          "accepted",
+          "declined",
+          "pending",
+          "events"
+        ]
+      },
+      "CateringLiveDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "includeArchived": {
+            "type": "boolean"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/CateringTotalsDto"
+          }
+        },
+        "required": [
+          "eventId",
+          "includeArchived",
+          "generatedAt",
+          "totals"
+        ]
+      },
+      "CateringSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "includeArchived": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "schemaVersion": {
+            "type": "number"
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "capturedById": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "eventId",
+          "includeArchived",
+          "version",
+          "schemaVersion",
+          "capturedAt",
+          "capturedById"
+        ]
+      },
+      "FreezeCateringDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "includeArchived": {
+            "type": "boolean"
+          },
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedVersion": {
+            "type": "number",
+            "description": "Latest snapshot version seen, or zero."
+          }
+        },
+        "required": [
+          "eventId",
+          "includeArchived",
+          "operationId",
+          "expectedVersion"
+        ]
+      },
+      "CateringChangeDto": {
+        "type": "object",
+        "properties": {
+          "invitationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "currentStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "frozenExpected": {
+            "type": "number"
+          },
+          "currentExpected": {
+            "type": "number"
+          },
+          "netChange": {
+            "type": "number"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "invitationId",
+          "eventId",
+          "previousStatus",
+          "currentStatus",
+          "frozenExpected",
+          "currentExpected",
+          "netChange",
+          "changes",
+          "evidence"
+        ]
+      },
+      "CateringComparisonDto": {
+        "type": "object",
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/CateringSnapshotDto"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "frozen": {
+            "$ref": "#/components/schemas/CateringTotalsDto"
+          },
+          "live": {
+            "$ref": "#/components/schemas/CateringTotalsDto"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CateringChangeDto"
+            }
+          }
+        },
+        "required": [
+          "snapshot",
+          "generatedAt",
+          "frozen",
+          "live",
+          "changes"
         ]
       },
       "EventParkingDto": {
@@ -7968,6 +8702,14 @@
             "type": "string",
             "maxLength": 500,
             "nullable": true
+          },
+          "partyMode": {
+            "type": "string",
+            "enum": [
+              "ALONE",
+              "FAMILY",
+              "PLUS_ONE"
+            ]
           },
           "reason": {
             "type": "string",

@@ -26,16 +26,15 @@ async function open(page: Page, credential: string) {
 async function accept(page: Page) {
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
   await page
-    .getByRole("checkbox", { name: "Synthetic Guest", exact: true })
+    .getByRole("radio", { name: "I’ll attend with family", exact: true })
     .check();
   await page
-    .getByRole("checkbox", { name: /Wife\/Husband or plus one/ })
+    .getByRole("checkbox", { name: "Include one additional partner" })
     .check();
-  await page.getByRole("checkbox", { name: /with my children/ }).check();
   await page
-    .getByRole("checkbox", { name: fixture.event.name, exact: true })
+    .getByRole("checkbox", { name: "Include children", exact: true })
     .check();
-  await page.getByLabel(`Guests attending ${fixture.event.name}`).fill("3");
+  await page.getByRole("spinbutton", { name: /Additional children/ }).fill("1");
   await page
     .getByLabel("Dietary requirements (optional)")
     .fill("Synthetic no seafood");

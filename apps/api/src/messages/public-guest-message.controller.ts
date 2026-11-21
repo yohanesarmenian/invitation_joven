@@ -1,7 +1,9 @@
 import {
-  BadRequestException,
   Body,
   Controller,
+  Get,
+  Headers,
+  Header,
   Inject,
   NotFoundException,
   Param,
@@ -11,6 +13,8 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiCreatedResponse,
+  ApiHeader,
+  ApiOkResponse,
   ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
@@ -20,6 +24,8 @@ import { ApiErrorEnvelopeDto } from "../common/api-error.dto.js";
 import { isInvitationNotAvailableError } from "../invitations/invitation-not-available.error.js";
 import {
   mapSubmitPublicGuestMessageRequest,
+  parseSubmissionId,
+  SUBMISSION_ID_PATTERN,
   PublicGuestMessageResponseDto,
   SubmitPublicGuestMessageRequestDto,
 } from "./dto/public-guest-message.dto.js";
@@ -61,10 +67,42 @@ export class PublicGuestMessageController {
     @Param("publicCredential") publicCredential: string,
     @Body() body: unknown,
   ): Promise<PublicGuestMessageResponseDto> {
-    try {
-      return await this.publicGuestMessageService.submitPublicGuestMessage(
+    return this.withAvailableInvitation(() =>
+      this.publicGuestMessageService.submitPublicGuestMessage(
         mapSubmitPublicGuestMessageRequest(publicCredential, body),
-      );
+      ),
+    );
+  }
+
+  @Get(":publicCredential/messages/receipt")
+  @Header("Cache-Control", "no-store")
+  @ApiOperation({ summary: "Verify one guest message receipt" })
+  @ApiParam(PUBLIC_CREDENTIAL_PARAM)
+  @ApiHeader({
+    name: "x-message-submission-id",
+    required: true,
+    schema: { type: "string", format: "uuid", pattern: SUBMISSION_ID_PATTERN },
+  })
+  @ApiOkResponse({ type: PublicGuestMessageResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiNotFoundResponse({ type: ApiErrorEnvelopeDto })
+  readReceipt(
+    @Param("publicCredential") publicCredential: string,
+    @Headers("x-message-submission-id") submissionId: unknown,
+  ): Promise<PublicGuestMessageResponseDto> {
+    return this.withAvailableInvitation(() =>
+      this.publicGuestMessageService.readReceipt(
+        publicCredential,
+        parseSubmissionId(submissionId),
+      ),
+    );
+  }
+
+  private async withAvailableInvitation(
+    operation: () => Promise<PublicGuestMessageResponseDto>,
+  ): Promise<PublicGuestMessageResponseDto> {
+    try {
+      return await operation();
     } catch (error) {
       if (isInvitationNotAvailableError(error)) {
         throw new NotFoundException({
@@ -72,10 +110,6 @@ export class PublicGuestMessageController {
           details: error.details,
           message: error.message,
         });
-      }
-
-      if (error instanceof BadRequestException) {
-        throw error;
       }
 
       throw error;

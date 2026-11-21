@@ -145,7 +145,7 @@ it.each([
     expect(html).toContain('data-label="Invitees">0</td>');
     expect(html).toContain('data-label="Opens">0</td>');
     expect(html).toContain("Not opened");
-    expect(html).toContain("No deadline");
+    expect(html).toContain("Wedding default");
     expect(html).not.toContain('class="greeting-name"');
     expect(html).not.toContain("<time");
   },

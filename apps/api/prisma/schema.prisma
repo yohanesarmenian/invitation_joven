@@ -54,6 +54,14 @@ enum RSVPAttendeeType {
   @@map("rsvp_attendee_type")
 }
 
+enum RSVPPublicPartyMode {
+  ALONE
+  FAMILY
+  PLUS_ONE
+
+  @@map("rsvp_public_party_mode")
+}
+
 enum CheckinPassStatus {
   ACTIVE
   REVOKED
@@ -102,6 +110,7 @@ model AdminUser {
   sessions       AdminSession[]
   submittedRSVPs RSVP[]               @relation("RSVPSubmittedBy")
   rsvpChanges    RsvpChangeEvent[]
+  cateringSnapshots CateringSnapshot[]
   arrivals       CheckinArrival[]
   receptionActions ReceptionAction[]
   checkinRecords CheckinRecord[]      @relation("CheckinConfirmedBy")
@@ -109,6 +118,28 @@ model AdminUser {
   importPreviews GuestImportPreview[] @relation("ImportPreviewCreatedBy")
 
   @@map("admin_users")
+}
+
+model WeddingRsvpPolicy {
+  id                  Int       @id
+  version             Int       @default(1)
+  initialDeadlineAt   DateTime? @map("initial_deadline_at") @db.Timestamptz(6)
+  allowLateEdits      Boolean   @default(false) @map("allow_late_edits")
+  finalEditDeadlineAt DateTime? @map("final_edit_deadline_at") @db.Timestamptz(6)
+
+  @@map("wedding_rsvp_policy")
+}
+
+model CateringSnapshot {
+  version       Int       @id
+  operationId   String    @unique @map("operation_id") @db.Uuid
+  capturedAt    DateTime  @map("captured_at") @db.Timestamptz(6)
+  capturedById  String    @map("captured_by_id") @db.Uuid
+  schemaVersion Int       @default(1) @map("schema_version")
+  payload       Json
+  capturedBy    AdminUser @relation(fields: [capturedById], references: [id], onDelete: Restrict)
+
+  @@map("catering_snapshots")
 }
 
 model AdminSession {
@@ -250,6 +281,7 @@ model RSVP {
   status                 RSVPStatus           @default(PENDING)
   version                Int                  @default(1)
   dietaryNotes           String?              @map("dietary_notes")
+  publicPartyMode        RSVPPublicPartyMode? @map("public_party_mode")
   guestNote              String?              @map("guest_note")
   submittedAt            DateTime?            @map("submitted_at") @db.Timestamptz(6)
   lastUpdatedAt          DateTime             @default(now()) @map("last_updated_at") @db.Timestamptz(6)

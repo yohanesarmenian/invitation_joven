@@ -167,17 +167,20 @@ describe("POST /api/public/invitations/:publicCredential/messages", () => {
     const fixture = await createFixture();
     logEntries.length = 0;
 
-    const response = await app.getHttpAdapter().getInstance().inject({
-      headers: {
-        "x-request-id": "req-message-success",
-      },
-      method: "POST",
-      payload: {
-        authorName: "  Jo  ",
-        message: "  Congratulations!\nHave a wonderful life.  ",
-      },
-      url: `/api/public/invitations/${fixture.credential}/messages`,
-    });
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: {
+          "x-request-id": "req-message-success",
+        },
+        method: "POST",
+        payload: {
+          authorName: "  Jo  ",
+          message: "  Congratulations!\nHave a wonderful life.  ",
+        },
+        url: `/api/public/invitations/${fixture.credential}/messages`,
+      });
     const messages = await getMessages(fixture.invitationId);
     const logEntry = logEntries.at(-1);
 
@@ -221,11 +224,14 @@ describe("POST /api/public/invitations/:publicCredential/messages", () => {
     ];
 
     for (const [index, payload] of invalidPayloads.entries()) {
-      const response = await app.getHttpAdapter().getInstance().inject({
-        method: "POST",
-        payload,
-        url: `/api/public/invitations/${fixture.credential}/messages`,
-      });
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: "POST",
+          payload,
+          url: `/api/public/invitations/${fixture.credential}/messages`,
+        });
 
       expect(response.statusCode, `case ${index}`).toBe(400);
       expect(response.json()).toMatchObject({
@@ -245,13 +251,16 @@ describe("POST /api/public/invitations/:publicCredential/messages", () => {
     const archived = await createFixture({ status: InvitationStatus.ARCHIVED });
 
     for (const credential of [VALID_UNKNOWN_CREDENTIAL, archived.credential]) {
-      const response = await app.getHttpAdapter().getInstance().inject({
-        method: "POST",
-        payload: {
-          message: "Best wishes",
-        },
-        url: `/api/public/invitations/${credential}/messages`,
-      });
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: "POST",
+          payload: {
+            message: "Best wishes",
+          },
+          url: `/api/public/invitations/${credential}/messages`,
+        });
 
       expect(response.statusCode).toBe(404);
       expect(response.json()).toMatchObject({
@@ -276,14 +285,17 @@ describe("POST /api/public/invitations/:publicCredential/messages", () => {
     });
 
     for (const fixture of [accepted, declined, pastDeadline]) {
-      const response = await app.getHttpAdapter().getInstance().inject({
-        method: "POST",
-        payload: {
-          authorName: "  ",
-          message: "Best wishes",
-        },
-        url: `/api/public/invitations/${fixture.credential}/messages`,
-      });
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: "POST",
+          payload: {
+            authorName: "  ",
+            message: "Best wishes",
+          },
+          url: `/api/public/invitations/${fixture.credential}/messages`,
+        });
 
       expect(response.statusCode).toBe(201);
       await expect(getMessages(fixture.invitationId)).resolves.toMatchObject([
@@ -298,17 +310,76 @@ describe("POST /api/public/invitations/:publicCredential/messages", () => {
   it("creates a new row for each explicit duplicate submission", async () => {
     const fixture = await createFixture();
 
-    await app.getHttpAdapter().getInstance().inject({
-      method: "POST",
-      payload: { authorName: "Jo", message: "Again" },
-      url: `/api/public/invitations/${fixture.credential}/messages`,
-    });
-    await app.getHttpAdapter().getInstance().inject({
-      method: "POST",
-      payload: { authorName: "Jo", message: "Again" },
-      url: `/api/public/invitations/${fixture.credential}/messages`,
-    });
+    await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "POST",
+        payload: { authorName: "Jo", message: "Again" },
+        url: `/api/public/invitations/${fixture.credential}/messages`,
+      });
+    await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: "POST",
+        payload: { authorName: "Jo", message: "Again" },
+        url: `/api/public/invitations/${fixture.credential}/messages`,
+      });
 
     await expect(getMessages(fixture.invitationId)).resolves.toHaveLength(2);
+  });
+
+  it("deduplicates simultaneous keyed submissions and scopes a content-free receipt", async () => {
+    const fixture = await createFixture();
+    const other = await createFixture();
+    const server = app.getHttpAdapter().getInstance();
+    const path = (credential: DerivedCredential) =>
+      `/api/public/invitations/${credential}/messages`;
+    const submissionId = randomUUID();
+    const payload = {
+      authorName: "Synthetic author",
+      message: "Synthetic message",
+      submissionId,
+    };
+    const post = (credential: DerivedCredential, message = payload.message) =>
+      server.inject({
+        method: "POST",
+        url: path(credential),
+        payload: { ...payload, message },
+      });
+    const [first, replay] = await Promise.all([
+      post(fixture.credential),
+      post(fixture.credential),
+    ]);
+    expect(first.statusCode).toBe(201);
+    expect(replay.statusCode).toBe(201);
+    expect(replay.json()).toEqual(first.json());
+    expect((await post(fixture.credential, "Changed message")).statusCode).toBe(
+      404,
+    );
+    expect((await post(other.credential)).statusCode).toBe(404);
+    const read = (credential: DerivedCredential, id: string) =>
+      server.inject({
+        method: "GET",
+        url: `${path(credential)}/receipt`,
+        headers: { "x-message-submission-id": id },
+      });
+    const receipt = await read(fixture.credential, submissionId);
+    expect(receipt.statusCode).toBe(200);
+    expect(receipt.headers["cache-control"]).toBe("no-store");
+    const [row] = await getMessages(fixture.invitationId);
+    expect(row).toMatchObject({
+      invitationId: fixture.invitationId,
+      authorName: payload.authorName,
+      message: payload.message,
+    });
+    expect(receipt.json()).toEqual({
+      message: { createdAt: row!.createdAt.toISOString() },
+    });
+    expect((await getMessages(fixture.invitationId)).length).toBe(1);
+    expect((await read(other.credential, submissionId)).statusCode).toBe(404);
+    expect((await read(fixture.credential, randomUUID())).statusCode).toBe(404);
+    expect((await read(fixture.credential, "invalid")).statusCode).toBe(400);
   });
 });

@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   createInvitationApiClient,
+  type ApiComponents,
   type PublicRsvpReadResponse,
   type PublicRsvpMutationResponse,
   type SubmitPublicRsvpRequest,
@@ -13,6 +14,8 @@ import {
 } from "./public-invitation";
 
 const RSVP_PATH = "/api/public/invitations/{publicCredential}/rsvp";
+export type EditRsvpDietary =
+  ApiComponents["schemas"]["EditPublicRsvpDietaryRequestDto"];
 
 export function retrievePublicRsvp(
   publicCredential: string,
@@ -23,7 +26,7 @@ export function retrievePublicRsvp(
 
 export async function submitPublicRsvp(
   publicCredential: string,
-  body: SubmitPublicRsvpRequest,
+  body: SubmitPublicRsvpRequest | EditRsvpDietary,
   options: RetrievePublicInvitationOptions = {},
 ): Promise<RsvpResult<PublicRsvpMutationResponse>> {
   const result = await requestRsvp(
@@ -42,7 +45,7 @@ export async function submitPublicRsvp(
 
 async function requestRsvp<T>(
   publicCredential: string,
-  body: SubmitPublicRsvpRequest | undefined,
+  body: SubmitPublicRsvpRequest | EditRsvpDietary | undefined,
   options: RetrievePublicInvitationOptions,
   validate: (value: unknown) => value is T,
 ): Promise<RsvpResult<T>> {
@@ -58,7 +61,9 @@ async function requestRsvp<T>(
     const result =
       body === undefined
         ? await client.GET(RSVP_PATH, request)
-        : await client.PUT(RSVP_PATH, { ...request, body });
+        : "status" in body
+          ? await client.PUT(RSVP_PATH, { ...request, body })
+          : await client.PATCH(RSVP_PATH, { ...request, body });
 
     if (!result.response.ok) {
       const error: unknown = result.error;
@@ -133,6 +138,9 @@ function isRsvpResponse(
     Number.isInteger(rsvp.version) &&
     Number(rsvp.version) >= 1 &&
     (rsvp.dietaryNotes === null || typeof rsvp.dietaryNotes === "string") &&
+    (rsvp.partyMode === undefined ||
+      (rsvp.status === "ACCEPTED" &&
+        ["ALONE", "FAMILY", "PLUS_ONE"].includes(String(rsvp.partyMode)))) &&
     Number.isInteger(rsvp.attendeeQuantityTotal) &&
     Number(rsvp.attendeeQuantityTotal) >= 0 &&
     Array.isArray(rsvp.eventSelections) &&

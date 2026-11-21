@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { getDatabaseUrl } from "../database/database-url.js";
 import type { PrismaService } from "../database/prisma.service.js";
 import {
@@ -210,7 +210,7 @@ function declinedCommand(
 ): SubmitPublicRsvpCommand {
   return {
     attendees: [],
-    dietaryNotes: "ignored on decline",
+    dietaryNotes: null,
     eventSelections: [],
     expectedVersion: null,
     publicCredential: fixture.credential,
@@ -350,6 +350,246 @@ afterAll(async () => {
 });
 
 describe("PublicRsvpService", () => {
+  it("uses the committed cutoff when a policy change and guest edit overlap", async () => {
+    const initial = new Date(DEFAULT_NOW.getTime() - 2000);
+    const original = await prisma.weddingRsvpPolicy.findUniqueOrThrow({
+      where: { id: 1 },
+    });
+    const fixture = await createFixture({ rsvpDeadlineAt: initial });
+    currentTime = initial;
+    await service.submitPublicRsvp(acceptedCommand(fixture));
+    currentTime = DEFAULT_NOW;
+    let signalUpdated!: () => void;
+    let release!: () => void;
+    const updated = new Promise<void>((resolve) => {
+      signalUpdated = resolve;
+    });
+    const commit = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const change = prisma.$transaction(async (tx) => {
+      await tx.weddingRsvpPolicy.update({
+        where: { id: 1 },
+        data: {
+          initialDeadlineAt: initial,
+          allowLateEdits: true,
+          finalEditDeadlineAt: new Date(DEFAULT_NOW.getTime() - 1),
+        },
+      });
+      signalUpdated();
+      await commit;
+    });
+    await Promise.race([change, updated]);
+    const rejected = expectDomainError(
+      service.submitPublicRsvp(
+        declinedCommand(fixture, { expectedVersion: 1 }),
+      ),
+      "RSVP_DEADLINE_PASSED",
+    );
+    try {
+      await vi.waitFor(async () => {
+        const [row] = await prisma.$queryRaw<{ waiting: boolean }[]>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_stat_activity
+            WHERE datname = current_database() AND wait_event_type = 'Lock'
+              AND query LIKE '%wedding_rsvp_policy%FOR SHARE%'
+          ) AS waiting
+        `;
+        expect(row?.waiting).toBe(true);
+      });
+    } finally {
+      release();
+      try {
+        await change;
+        await rejected;
+        expect(await getRsvp(fixture.invitationId)).toMatchObject({
+          status: "ACCEPTED",
+          version: 1,
+        });
+      } finally {
+        const { id, ...data } = original;
+        await prisma.weddingRsvpPolicy.update({ where: { id }, data });
+      }
+    }
+  });
+
+  it("closes first replies but allows existing guests to change within capacity until the optional final cutoff", async () => {
+    const initialDeadlineAt = new Date(DEFAULT_NOW.getTime() + 1000);
+    const finalEditDeadlineAt = new Date(DEFAULT_NOW.getTime() + 5000);
+    const original = await prisma.weddingRsvpPolicy.findUniqueOrThrow({
+      where: { id: 1 },
+    });
+    try {
+      await prisma.weddingRsvpPolicy.update({
+        where: { id: 1 },
+        data: {
+          initialDeadlineAt,
+          finalEditDeadlineAt: null,
+          allowLateEdits: true,
+        },
+      });
+      const accepted = await createFixture({
+        rsvpDeadlineAt: initialDeadlineAt,
+      });
+      const legacy = await createFixture({ rsvpDeadlineAt: initialDeadlineAt });
+      const noResponse = await createFixture();
+      const pending = await createFixture();
+      for (const fixture of [pending, noResponse])
+        await prisma.invitation.update({
+          where: { id: fixture.invitationId },
+          data: { rsvpDeadlineAt: null },
+        });
+      await prisma.rSVP.create({
+        data: { invitationId: pending.invitationId, status: "PENDING" },
+      });
+      await prisma.rSVP.create({
+        data: {
+          invitationId: legacy.invitationId,
+          status: "DECLINED",
+          version: 1,
+        },
+      });
+      currentTime = initialDeadlineAt;
+      const first = await service.submitPublicRsvp(acceptedCommand(accepted));
+      const originalQr = first.checkinPass!.qrPayload;
+      currentTime = new Date(initialDeadlineAt.getTime() + 1);
+      for (const [fixture, expectedVersion] of [
+        [pending, 1],
+        [noResponse, null],
+      ] as const) {
+        expect(
+          await service.retrievePublicRsvp(fixture.credential),
+        ).toMatchObject({
+          canEdit: false,
+          editBlockedReason: "DEADLINE_PASSED",
+        });
+        await expectDomainError(
+          service.submitPublicRsvp(
+            declinedCommand(fixture, { expectedVersion }),
+          ),
+          "RSVP_DEADLINE_PASSED",
+        );
+      }
+      expect(
+        await prisma.rSVP.count({
+          where: { invitationId: noResponse.invitationId },
+        }),
+      ).toBe(0);
+      expect(await getRsvp(pending.invitationId)).toMatchObject({
+        status: "PENDING",
+        version: 1,
+      });
+      expect(await service.retrievePublicRsvp(legacy.credential)).toMatchObject(
+        { canEdit: true },
+      );
+      const legacyAccepted = await service.submitPublicRsvp(
+        acceptedCommand(legacy, { expectedVersion: 1 }),
+      );
+      expect(legacyAccepted.rsvp.version).toBe(2);
+      expect(legacyAccepted.checkinPass).not.toBeNull();
+
+      const larger = acceptedCommand(accepted, {
+        expectedVersion: 1,
+        attendees: [
+          {
+            inviteeId: accepted.adultInviteeId,
+            quantity: 1,
+            type: RSVPAttendeeType.NAMED_INVITEE,
+          },
+          { quantity: 1, type: RSVPAttendeeType.PLUS_ONE },
+        ],
+        eventSelections: [
+          {
+            eventId: accepted.eventId,
+            attending: true,
+            expectedAttendeeCount: 2,
+          },
+        ],
+      });
+      await expectDomainError(
+        service.submitPublicRsvp({
+          ...larger,
+          eventSelections: [
+            {
+              eventId: accepted.unlinkedEventId,
+              attending: true,
+              expectedAttendeeCount: 2,
+            },
+          ],
+        }),
+        "EVENT_NOT_ALLOWED",
+      );
+      await expectDomainError(
+        service.submitPublicRsvp({
+          ...larger,
+          attendees: [
+            ...larger.attendees,
+            { quantity: 3, type: RSVPAttendeeType.ADDITIONAL_CHILD },
+          ],
+        }),
+        "ADDITIONAL_CHILD_LIMIT_EXCEEDED",
+      );
+      const updated = await service.submitPublicRsvp(larger);
+      expect(updated.rsvp.attendeeQuantityTotal).toBe(2);
+      expect(updated.checkinPass?.qrPayload).toBe(originalQr);
+      await expectDomainError(
+        service.submitPublicRsvp(larger),
+        "RSVP_VERSION_CONFLICT",
+      );
+      const reduced = await service.submitPublicRsvp(
+        acceptedCommand(accepted, { expectedVersion: 2 }),
+      );
+      expect(reduced.rsvp.attendeeQuantityTotal).toBe(1);
+      const declined = await service.submitPublicRsvp(
+        declinedCommand(accepted, { expectedVersion: 3 }),
+      );
+      expect(declined.checkinPass).toBeNull();
+      const reaccepted = await service.submitPublicRsvp(
+        acceptedCommand(accepted, { expectedVersion: 4 }),
+      );
+      expect(reaccepted.checkinPass?.qrPayload).not.toBe(originalQr);
+      expect(
+        await prisma.checkinPass.count({
+          where: { invitationId: accepted.invitationId, status: "REVOKED" },
+        }),
+      ).toBe(1);
+      expect(
+        await prisma.rsvpChangeEvent.count({
+          where: { invitationId: accepted.invitationId },
+        }),
+      ).toBe(5);
+
+      await prisma.weddingRsvpPolicy.update({
+        where: { id: 1 },
+        data: { finalEditDeadlineAt },
+      });
+      currentTime = finalEditDeadlineAt;
+      expect(
+        await service.retrievePublicRsvp(accepted.credential),
+      ).toMatchObject({ canEdit: true });
+      await service.submitPublicRsvp(
+        declinedCommand(accepted, { expectedVersion: 5 }),
+      );
+      currentTime = new Date(finalEditDeadlineAt.getTime() + 1);
+      expect(
+        await service.retrievePublicRsvp(accepted.credential),
+      ).toMatchObject({ canEdit: false });
+      await expectDomainError(
+        service.submitPublicRsvp(
+          acceptedCommand(accepted, { expectedVersion: 6 }),
+        ),
+        "RSVP_DEADLINE_PASSED",
+      );
+      expect(await getRsvp(accepted.invitationId)).toMatchObject({
+        status: "DECLINED",
+        version: 6,
+      });
+    } finally {
+      const { id, ...data } = original;
+      await prisma.weddingRsvpPolicy.update({ where: { id }, data });
+    }
+  });
+
   it("records effective changes atomically, skips current-version no-ops, and keeps stale duplicates conflicting", async () => {
     const fixture = await createFixture();
     const first = await service.submitPublicRsvp(acceptedCommand(fixture));

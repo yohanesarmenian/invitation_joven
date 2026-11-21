@@ -30,7 +30,7 @@ const publicInvitationFixture: PublicInvitationResponse = {
     events: [
       {
         id: "event-test-1",
-        slug: "holy-matrimony-test",
+        slug: "holy-matrimony",
         name: "Holy Matrimony Test",
         endsAt: null,
         startsAt: "2027-01-09T01:00:00.000Z",
@@ -40,7 +40,7 @@ const publicInvitationFixture: PublicInvitationResponse = {
       },
       {
         id: "event-test-2",
-        slug: "reception-test",
+        slug: "reception",
         name: "Reception Test",
         endsAt: null,
         startsAt: "2027-01-09T05:00:00.000Z",
@@ -129,13 +129,16 @@ function syncPass() {
     };
   }
 }
-let rsvpRequests: SubmitPublicRsvpRequest[] = [];
+type RsvpWrite =
+  | SubmitPublicRsvpRequest
+  | { expectedVersion: number; dietaryNotes: string | null };
+let rsvpRequests: RsvpWrite[] = [];
 let rsvpRules = publicInvitationFixture.invitation.rules;
 let rsvpDelayMs = 0;
 let rsvpFailure: {
   status: number;
   code: string;
-  method: "GET" | "PUT";
+  method: "GET" | "PUT" | "PATCH";
 } | null = null;
 let nextRsvpVersion: number | null = null;
 let rsvpReadCount = 0;
@@ -143,6 +146,7 @@ let dropRsvpResponse = false;
 let rsvpDeadlineAt = publicInvitationFixture.invitation.rsvpDeadlineAt;
 let messageRequests: SubmitPublicGuestMessageRequest[] = [];
 let messageCommits = 0;
+const messageReceipts = new Set<string>();
 let messageFixture: {
   delayMs?: number;
   failure?: { status: number; code: string };
@@ -177,6 +181,7 @@ const server = createServer(async (request, response) => {
     publicInvitationRequestCount = 0;
     messageRequests = [];
     messageCommits = 0;
+    messageReceipts.clear();
     messageFixture = {};
     rsvpState = null;
     editBlockedReason = null;
@@ -204,7 +209,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === "GET" && pathname === "/__message-state") {
-    // Test harness inspection only; there is no public message read endpoint.
+    // Test harness inspection only. The public receipt never exposes content.
     sendJson(response, 200, {
       requests: messageRequests,
       commits: messageCommits,
@@ -258,6 +263,22 @@ const server = createServer(async (request, response) => {
   }
 
   if (
+    request.method === "GET" &&
+    pathname ===
+      `${PUBLIC_INVITATION_PATH_PREFIX}${"A".repeat(43)}/messages/receipt`
+  ) {
+    const id = request.headers["x-message-submission-id"];
+    if (typeof id === "string" && messageReceipts.has(id)) {
+      sendJson(response, 200, {
+        message: { createdAt: "2026-09-30T00:00:00Z" },
+      });
+    } else {
+      sendJson(response, 404, unavailableEnvelope);
+    }
+    return;
+  }
+
+  if (
     pathname.startsWith(PUBLIC_INVITATION_PATH_PREFIX) &&
     pathname.endsWith("/messages")
   ) {
@@ -296,7 +317,10 @@ const server = createServer(async (request, response) => {
       });
       return;
     }
-    messageCommits += 1;
+    if (!body.submissionId || !messageReceipts.has(body.submissionId)) {
+      messageCommits += 1;
+      if (body.submissionId) messageReceipts.add(body.submissionId);
+    }
     if (fixture.dropResponse) response.destroy();
     else
       sendJson(
@@ -371,14 +395,14 @@ const server = createServer(async (request, response) => {
       }
       return;
     }
-    if (request.method === "PUT") {
+    if (request.method === "PUT" || request.method === "PATCH") {
       let json = "";
       for await (const chunk of request) json += String(chunk);
-      const body = JSON.parse(json) as SubmitPublicRsvpRequest;
+      const body = JSON.parse(json) as RsvpWrite;
       rsvpRequests.push(body);
       if (rsvpDelayMs)
         await new Promise((resolve) => setTimeout(resolve, rsvpDelayMs));
-      if (rsvpFailure?.method === "PUT") {
+      if (rsvpFailure?.method === request.method) {
         sendJson(response, rsvpFailure.status, {
           error: {
             code: rsvpFailure.code,
@@ -398,20 +422,32 @@ const server = createServer(async (request, response) => {
         });
         return;
       }
-      rsvpState = {
-        status: body.status,
-        version: nextRsvpVersion ?? (rsvpState?.version ?? 0) + 1,
-        eventSelections: body.eventSelections,
-        attendees: body.attendees.map((attendee) => ({
-          ...attendee,
-          inviteeId: attendee.inviteeId ?? null,
-        })),
-        dietaryNotes: body.dietaryNotes?.trim() || null,
-        attendeeQuantityTotal: body.attendees.reduce(
-          (sum, attendee) => sum + attendee.quantity,
-          0,
-        ),
-      };
+      if (!("status" in body)) {
+        if (rsvpState?.status !== "ACCEPTED") {
+          sendJson(response, 422, { error: { code: "RSVP_PARTY_INVALID" } });
+          return;
+        }
+        rsvpState = {
+          ...rsvpState,
+          version: nextRsvpVersion ?? rsvpState.version + 1,
+          dietaryNotes: body.dietaryNotes,
+        };
+      } else
+        rsvpState = {
+          status: body.status,
+          ...(body.partyMode ? { partyMode: body.partyMode } : {}),
+          version: nextRsvpVersion ?? (rsvpState?.version ?? 0) + 1,
+          eventSelections: body.eventSelections,
+          attendees: body.attendees.map((attendee) => ({
+            ...attendee,
+            inviteeId: attendee.inviteeId ?? null,
+          })),
+          dietaryNotes: body.dietaryNotes?.trim() || null,
+          attendeeQuantityTotal: body.attendees.reduce(
+            (sum, attendee) => sum + attendee.quantity,
+            0,
+          ),
+        };
       nextRsvpVersion = null;
       syncPass();
       // Simulates a committed save whose response is lost in transit.

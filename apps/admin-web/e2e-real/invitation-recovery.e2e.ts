@@ -191,11 +191,10 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
       });
     }
     await guest.getByRole("radio", { name: "Joyfully Accept" }).check();
-    await guest.getByRole("checkbox", { name: names[0]!, exact: true }).check();
     await guest
-      .getByRole("checkbox", { name: fixture.event.name, exact: true })
+      .getByRole("radio", { name: "I’ll attend on my own", exact: true })
       .check();
-    await guest.getByLabel(`Guests attending ${fixture.event.name}`).fill("1");
+    await guest.getByRole("radio", { name: names[0]!, exact: true }).check();
     await guest
       .getByRole("button", {
         name: /^(Submit RSVP|Save Changes)$/,

@@ -590,7 +590,6 @@ function GuestMessageSection({ children }: { children: ReactNode }) {
       className="invitation-section guest-message-section"
       aria-labelledby="message-title"
     >
-      <h2 id="message-title">Leave a Message for the Bride &amp; Groom</h2>
       {children}
     </section>
   );
@@ -617,51 +616,37 @@ function ClosingSection() {
   );
 }
 
-const deadlineMonths = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-] as const;
+const deadlineFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Jakarta",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
 
-/**
- * Renders the deadline's ISO date portion as `25 December 2026`. String-only on
- * purpose: the deadline is displayed as the calendar date the API sent, without
- * introducing a second time zone rule next to the event-time one.
- */
 function formatDeadlineLabel(value: string | null): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-
-  if (match === null) {
-    return null;
-  }
-
-  const [, year, month, day] = match;
-  const monthName = deadlineMonths[Number(month) - 1];
-
-  if (
-    year === undefined ||
-    day === undefined ||
-    monthName === undefined ||
-    Number(month) < 1 ||
-    Number(month) > 12
-  ) {
-    return null;
-  }
-
-  return `${Number(day)} ${monthName} ${year}`;
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  const parts = Object.fromEntries(
+    deadlineFormatter
+      .formatToParts(date)
+      .map(({ type, value }) => [type, value]),
+  );
+  return (
+    parts.day +
+    " " +
+    parts.month +
+    " " +
+    parts.year +
+    " at " +
+    parts.hour +
+    ":" +
+    parts.minute +
+    " WIB"
+  );
 }
 
 function formatInvitationEventTime(value: string | null): string | null {

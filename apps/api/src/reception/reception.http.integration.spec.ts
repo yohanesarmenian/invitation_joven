@@ -451,6 +451,19 @@ describe("real PostgreSQL reception workflow", () => {
   it("atomically establishes explicit on-site expectation then records 2 + 1 + 1, retaining one pass and accurate aggregates", async () => {
     const f = await fixture(),
       initial = command(f);
+    await prisma.invitation.update({
+      where: { id: f.invitation.id },
+      data: { rsvpDeadlineAt: new Date("2020-01-01T00:00:00.000Z") },
+    });
+    const closed = await app.inject({
+      method: "GET",
+      url: `/api/public/invitations/${f.credential}/rsvp`,
+    });
+    expect(closed.json()).toMatchObject({
+      canEdit: false,
+      editBlockedReason: "DEADLINE_PASSED",
+      rsvp: null,
+    });
     const first = await post(f, initial);
     expect(first.statusCode).toBe(201);
     expect(first.json().arrival).toMatchObject({

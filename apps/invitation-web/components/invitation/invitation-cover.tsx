@@ -110,11 +110,12 @@ export function InvitationHero({
         </span>
         <div className="invitation-hero-introduction">
           <p className="invitation-hero-kicker">The Wedding of</p>
-          <h1 id="invitation-hero-title" className="invitation-hero-title">
-            Jo{" "}
-            <span>
-              <i>&amp;</i> Venta
-            </span>
+          <h1
+            id="invitation-hero-title"
+            className="invitation-hero-title"
+            tabIndex={-1}
+          >
+            <span>Jo</span> <i>&amp;</i> <span>Venta</span>
           </h1>
           <p className="invitation-hero-message">
             Some moments are meant

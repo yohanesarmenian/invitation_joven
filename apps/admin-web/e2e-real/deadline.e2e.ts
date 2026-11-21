@@ -191,9 +191,20 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
     "2027-06-02T18:00:00.000Z",
   );
   await editBeforeHydration(page, path, async () => {
+    // Wait for the HTML to finish parsing while hydration scripts are held.
+    await expect
+      .poll(() => page.evaluate(() => document.readyState))
+      .toBe("interactive");
     await expect(input).toHaveValue("2027-06-03T01:00");
-    for (let i = 0; i < 6; i++) await input.press("ArrowLeft");
-    await input.press("Backspace");
+    // Tab from the preceding field enters the first native date segment.
+    const children = page.getByLabel("Maximum additional children (required)", {
+      exact: true,
+    });
+    await children.focus();
+    await expect(children).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(input).toBeFocused();
+    await page.keyboard.press("Backspace");
     expect(
       await input.evaluate(
         (element: HTMLInputElement) =>
@@ -202,11 +213,27 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
     ).toBe(true);
   });
   const beforePartial = writes;
+  expect(
+    await input.evaluate((element: HTMLInputElement) => ({
+      value: element.value,
+      badInput: element.validity.badInput,
+    })),
+  ).toEqual({ value: "", badInput: true });
   await save.click();
   await expect(input).toHaveAttribute("aria-invalid", "true");
   await expect(input).toBeFocused();
   expect(writes).toBe(beforePartial);
   expect(await saved()).toEqual(corrected);
+  const readBack = await page.request.get(
+    `/api/admin/invitations/${invitationId}`,
+  );
+  expect(readBack.status()).toBe(200);
+  expect(await readBack.json()).toMatchObject({
+    invitation: {
+      id: invitationId,
+      rsvpDeadlineAt: corrected.rsvpDeadlineAt?.toISOString(),
+    },
+  });
   const beforeClear = writes;
   await clear.click();
   await expect(input).toHaveValue("");

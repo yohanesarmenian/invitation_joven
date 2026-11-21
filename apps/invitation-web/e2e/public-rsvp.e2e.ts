@@ -14,6 +14,7 @@ const browserErrors = new WeakMap<Page, string[]>();
 const accepted = {
   status: "ACCEPTED",
   version: 7,
+  partyMode: "PLUS_ONE",
   dietaryNotes: "No seafood",
   attendeeQuantityTotal: 2,
   attendees: [
@@ -59,9 +60,11 @@ async function editSaved(page: Page) {
 
 async function accept(page: Page) {
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
-  await page.getByRole("checkbox", { name: "Test Guest", exact: true }).check();
   await page
-    .getByRole("checkbox", { name: "Holy Matrimony Test", exact: true })
+    .getByRole("radio", { name: "Holy Matrimony Test", exact: true })
+    .check();
+  await page
+    .getByRole("radio", { name: "I’ll attend on my own", exact: true })
     .check();
 }
 
@@ -258,27 +261,28 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await expect(form.locator("input:checked")).toHaveCount(0);
     await accept(page);
     await page
-      .getByRole("checkbox", {
-        name: "Of Course I will bring my Wife/Husband or plus one!",
+      .getByRole("radio", {
+        name: "Holy Matrimony Test & Reception Test",
+        exact: true,
       })
       .check();
     await page
-      .getByRole("spinbutton", { name: /Additional children/ })
-      .fill("2");
-    await page
-      .getByRole("checkbox", { name: "Reception Test", exact: true })
+      .getByRole("radio", { name: "I’ll attend with family", exact: true })
       .check();
     await page
-      .getByRole("spinbutton", { name: "Guests attending Holy Matrimony Test" })
-      .fill("4");
+      .getByRole("checkbox", { name: "Include one additional partner" })
+      .check();
+    await page.getByRole("checkbox", { name: "Include children" }).check();
     await page
-      .getByRole("spinbutton", { name: "Guests attending Reception Test" })
+      .getByRole("spinbutton", { name: /Additional children/ })
       .fill("2");
     const dietary = page.getByRole("textbox", {
       name: "Dietary requirements (optional)",
     });
     await dietary.fill("No seafood");
-    await expect(page.getByText("Total attending: 4")).toBeVisible();
+    await expect(
+      page.getByText("4 people expected at each selected session."),
+    ).toBeVisible();
     await expect(dietary).toHaveAttribute("maxlength", "500");
     await dietary.fill("x".repeat(501));
     await expect(dietary).toHaveValue("x".repeat(500));
@@ -340,6 +344,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     expect((await submissions(request))[0]).toEqual({
       expectedVersion: null,
       status: "ACCEPTED",
+      partyMode: "FAMILY",
       attendees: [
         { type: "NAMED_INVITEE", inviteeId: "invitee-test-1", quantity: 1 },
         { type: "PLUS_ONE", inviteeId: null, quantity: 1 },
@@ -347,7 +352,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
       ],
       eventSelections: [
         { eventId: "event-test-1", attending: true, expectedAttendeeCount: 4 },
-        { eventId: "event-test-2", attending: true, expectedAttendeeCount: 2 },
+        { eventId: "event-test-2", attending: true, expectedAttendeeCount: 4 },
       ],
       dietaryNotes: "No seafood",
     });
@@ -376,8 +381,8 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await expectPass(page, null);
     await expect(dietary).toHaveValue("No seafood");
     await page
-      .getByRole("checkbox", { name: "Reception Test", exact: true })
-      .uncheck();
+      .getByRole("radio", { name: "Holy Matrimony Test", exact: true })
+      .check();
     await dietary.fill("");
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
@@ -391,11 +396,9 @@ for (const width of [320, 375, 412, 768, 1280]) {
     const update = (await submissions(request))[1]!;
     expect(update.expectedVersion).toBe(42);
     expect(update.dietaryNotes).toBeNull();
-    expect(update.eventSelections[1]).toEqual({
-      eventId: "event-test-2",
-      attending: false,
-      expectedAttendeeCount: 0,
-    });
+    expect(update.eventSelections).toEqual([
+      { eventId: "event-test-1", attending: true, expectedAttendeeCount: 4 },
+    ]);
     expect(update).not.toHaveProperty("guestNote");
     await expectPass(page, firstPass);
     expect(
@@ -412,16 +415,17 @@ for (const width of [320, 375, 412, 768, 1280]) {
       page.getByRole("radio", { name: "Joyfully Accept" }),
     ).toBeChecked();
     await expect(
-      page.getByRole("spinbutton", {
-        name: "Guests attending Holy Matrimony Test",
-      }),
-    ).toHaveValue("4");
+      page.getByRole("radio", { name: "Holy Matrimony Test", exact: true }),
+    ).toBeChecked();
     await page.getByRole("radio", { name: "Regretfully Decline" }).check();
     await expect(dietary).toHaveCount(0);
     await page.getByRole("radio", { name: "Joyfully Accept" }).check();
     await expect(
+      page.getByRole("radio", { name: "Holy Matrimony Test", exact: true }),
+    ).not.toBeChecked();
+    await expect(
       page.getByRole("spinbutton", { name: /Additional children/ }),
-    ).toHaveValue("2");
+    ).toHaveCount(0);
     await page.getByRole("radio", { name: "Regretfully Decline" }).check();
     await page
       .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
@@ -443,8 +447,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     );
     await editSaved(page);
     await page.getByRole("radio", { name: "Joyfully Accept" }).check();
-    await expect(page.getByText("Total attending: 0")).toBeVisible();
-    await expect(dietary).toHaveValue("");
+    await expect(dietary).toHaveCount(0);
     await accept(page);
     await page
       .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
@@ -471,60 +474,52 @@ for (const width of [320, 375, 412, 768, 1280]) {
   });
 }
 
-test("validates required choice, people, events and counts; normalizes composition reductions", async ({
+test("validates progressive choice and incomplete family before a request", async ({
   page,
   request,
 }) => {
-  await open(page);
-  const send = page.getByRole("button", {
-    name: /^(Submit RSVP|Save Changes)$/,
+  await configure(request, {
+    rules: { allowPlusOne: true, maxAdditionalChildren: 2 },
   });
+  await open(page);
+  const send = page.getByRole("button", { name: "Submit RSVP", exact: true });
+  const alert = page.locator(".rsvp-information-section").getByRole("alert");
   await send.click();
-  await expect(
-    page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toContainText("Please choose whether you can join us.");
-  await expect(
-    page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toBeFocused();
+  await expect(alert).toContainText("Please choose whether you can join us.");
+  await expect(alert).toBeFocused();
   await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveAttribute(
     "aria-describedby",
     /error/,
   );
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
   await send.click();
-  await expect(
-    page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toContainText("at least one person");
-  await page.getByRole("checkbox", { name: "Test Guest", exact: true }).check();
-  await send.click();
-  await expect(
-    page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toContainText("at least one event");
+  await expect(alert).toContainText("Please choose the wedding sessions");
   await page
-    .getByRole("checkbox", { name: "Holy Matrimony Test", exact: true })
+    .getByRole("radio", { name: "Holy Matrimony Test", exact: true })
     .check();
-  const count = page.getByRole("spinbutton", {
-    name: "Guests attending Holy Matrimony Test",
-  });
-  await expect(count).toBeEnabled();
-  await count.fill("2");
   await send.click();
-  await expect(
-    page.locator(".rsvp-information-section").getByRole("alert"),
-  ).toContainText("event count");
+  await expect(alert).toContainText("Please choose who will attend.");
+  await page
+    .getByRole("radio", { name: "I’ll attend with family", exact: true })
+    .check();
+  await page
+    .getByRole("checkbox", { name: "Include children", exact: true })
+    .check();
+  await send.click();
+  await expect(alert).toContainText(
+    "Please select the invited children or enter the number",
+  );
+  const count = page.getByRole("spinbutton", { name: /Additional children/ });
+  await count.fill("3");
+  await send.click();
+  await expect(alert).toContainText(
+    "Please check the number of additional children",
+  );
   expect(await submissions(request)).toHaveLength(0);
-  await page
-    .getByRole("checkbox", {
-      name: "Of Course I will bring my Wife/Husband or plus one!",
-    })
-    .check();
-  await expect(count).toHaveValue("2");
-  await page
-    .getByRole("checkbox", {
-      name: "Of Course I will bring my Wife/Husband or plus one!",
-    })
-    .uncheck();
-  await expect(count).toHaveValue("1");
+  await count.fill("2");
+  await expect(
+    page.getByText("3 people expected at each selected session."),
+  ).toBeVisible();
 });
 
 for (const width of [320, 375, 412, 1280]) {
@@ -611,13 +606,13 @@ for (const width of [320, 375, 412, 1280]) {
 
     await editSaved(page);
     await configure(request, {
-      failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PUT" },
+      failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PATCH" },
     });
     await send.click();
     await expect(alert).toContainText("RSVP is closed");
     await expect(alert).toBeFocused();
     await expect(
-      page.getByText("Kindly reply by 8 November 2031."),
+      page.getByText("Kindly reply by 8 November 2031 at 23:59 WIB."),
     ).toBeVisible();
     await expect(send).toBeDisabled();
     await expect(dietary).toBeDisabled();
@@ -647,7 +642,7 @@ test("temporary server failure suspends the QR and requires reload before an exp
 }) => {
   await configure(request, {
     rsvp: accepted,
-    failure: { status: 500, code: "INTERNAL_SERVER_ERROR", method: "PUT" },
+    failure: { status: 500, code: "INTERNAL_SERVER_ERROR", method: "PATCH" },
   });
   await open(page);
   await editSaved(page);
@@ -759,8 +754,8 @@ test("initial read retry loads existing state without re-opening the invitation"
 });
 
 for (const [code, button, group] of [
-  ["EVENT_NOT_SELECTED", "Review events", "Which events will you attend?"],
-  ["PLUS_ONE_NOT_ALLOWED", "Review attendees", "Who will be joining us?"],
+  ["EVENT_NOT_SELECTED", "Review events", "Which sessions will you attend?"],
+  ["PLUS_ONE_NOT_ALLOWED", "Review attendees", "Who will attend with you?"],
 ] as const) {
   test(`${code} guides correction without blind retry`, async ({
     page,
@@ -769,7 +764,7 @@ for (const [code, button, group] of [
     await page.setViewportSize({ width: 412, height: 900 });
     await configure(request, {
       rsvp: accepted,
-      failure: { status: 422, code, method: "PUT" },
+      failure: { status: 422, code, method: "PATCH" },
     });
     await open(page);
     await editSaved(page);
@@ -793,13 +788,11 @@ for (const [code, button, group] of [
     await configure(request, {});
     if (code === "PLUS_ONE_NOT_ALLOWED")
       await page
-        .getByRole("checkbox", {
-          name: "Of Course I will bring my Wife/Husband or plus one!",
-        })
-        .uncheck();
+        .getByRole("radio", { name: "I’ll attend on my own", exact: true })
+        .check();
     else
       await page
-        .getByRole("checkbox", { name: "Reception Test", exact: true })
+        .getByRole("radio", { name: "Reception Test", exact: true })
         .check();
     await page
       .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
@@ -819,7 +812,7 @@ test("unavailable mutation locks the form without disclosing a reason", async ({
 }) => {
   await configure(request, {
     rsvp: accepted,
-    failure: { status: 404, code: "INVITATION_NOT_AVAILABLE", method: "PUT" },
+    failure: { status: 404, code: "INVITATION_NOT_AVAILABLE", method: "PATCH" },
   });
   await open(page);
   await editSaved(page);
@@ -874,7 +867,7 @@ test("loads accepted state and keeps its draft on a version conflict", async ({
 }) => {
   await configure(request, {
     rsvp: accepted,
-    failure: { status: 409, code: "RSVP_VERSION_CONFLICT", method: "PUT" },
+    failure: { status: 409, code: "RSVP_VERSION_CONFLICT", method: "PATCH" },
   });
   await open(page);
   await editSaved(page);
@@ -885,10 +878,11 @@ test("loads accepted state and keeps its draft on a version conflict", async ({
     page.locator(".public-rsvp-form").getByRole("textbox"),
   ).toHaveValue("No seafood");
   await expect(
-    page.getByRole("spinbutton", {
-      name: "Guests attending Holy Matrimony Test",
-    }),
-  ).toHaveValue("2");
+    page.getByRole("radio", { name: "Holy Matrimony Test", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("radio", { name: "I’ll bring a plus one", exact: true }),
+  ).toBeChecked();
   await page
     .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
     .click();
@@ -909,7 +903,7 @@ test("declined initial state hides stale values and respects companion permissio
   request,
 }) => {
   await configure(request, {
-    rsvp: { ...accepted, status: "DECLINED" },
+    rsvp: { ...accepted, status: "DECLINED", partyMode: undefined },
     rules: { allowPlusOne: false, maxAdditionalChildren: 0 },
   });
   await open(page);
@@ -921,20 +915,19 @@ test("declined initial state hides stale values and respects companion permissio
     page.locator(".public-rsvp-form").getByRole("textbox"),
   ).toHaveCount(0);
   await page.getByRole("radio", { name: "Joyfully Accept" }).check();
+  await page
+    .getByRole("radio", { name: "Holy Matrimony Test", exact: true })
+    .check();
   await expect(
-    page.getByRole("checkbox", {
-      name: "Of Course I will bring my Wife/Husband or plus one!",
-    }),
+    page.getByRole("radio", { name: "I’ll bring a plus one", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("spinbutton", { name: /Additional children/ }),
-  ).toHaveCount(0);
+    page.getByRole("radio", { name: "I’ll attend on my own", exact: true }),
+  ).not.toBeChecked();
+  await expect(page.getByRole("spinbutton")).toHaveCount(0);
   await expect(
     page.locator(".public-rsvp-form").getByRole("textbox"),
-  ).toHaveValue("");
-  await expect(
-    page.getByRole("checkbox", { name: "Test Guest", exact: true }),
-  ).not.toBeChecked();
+  ).toHaveCount(0);
 });
 
 test("initial GET failure never enables a create-only form", async ({
@@ -967,22 +960,16 @@ test("attendance and event choices are keyboard operable with visible focus", as
   await expect(choice).not.toBeChecked();
   await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("checkbox", { name: "Attend all invited events" }),
-  ).toBeFocused();
-  const guest = page.getByRole("checkbox", { name: "Test Guest", exact: true });
-  await guest.focus();
-  await page.keyboard.press("Space");
-  await expect(
-    page.getByRole("checkbox", { name: "Test Guest", exact: true }),
-  ).toBeChecked();
-  const event = page.getByRole("checkbox", {
+  const event = page.getByRole("radio", {
     name: "Holy Matrimony Test",
     exact: true,
   });
-  await event.focus();
+  await expect(event).toBeFocused();
   await page.keyboard.press("Space");
   await expect(event).toBeChecked();
+  await expect(
+    page.getByRole("radio", { name: "I’ll attend on my own", exact: true }),
+  ).toBeVisible();
   expect(
     await event.evaluate((element) => getComputedStyle(element).outlineStyle),
   ).toBe("solid");
@@ -1000,6 +987,7 @@ test("conflict reload adopts a saved decline and removes the previous pass", asy
   await configure(request, {
     rsvp: {
       ...accepted,
+      partyMode: undefined,
       status: "DECLINED",
       version: 8,
       dietaryNotes: null,

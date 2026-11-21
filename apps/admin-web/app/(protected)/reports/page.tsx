@@ -3,6 +3,7 @@ import { getServerSession } from "../../../src/auth/server-session";
 import { SESSION_ENDED_PATH } from "../../../src/auth/auth-state";
 import { SessionUnavailable } from "../../../components/session-unavailable";
 import { ReportsWorkspace } from "../../../components/reports-workspace";
+import { CateringReports } from "../../../components/catering-reports";
 export default async function ReportsPage() {
   const session = await getServerSession();
   if (session.kind === "unauthenticated") redirect(SESSION_ENDED_PATH);
@@ -13,6 +14,7 @@ export default async function ReportsPage() {
   return (
     <>
       <h1>Reports</h1>
+      <CateringReports csrfToken={session.auth.csrfToken} />
       <ReportsWorkspace />
     </>
   );

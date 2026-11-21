@@ -224,7 +224,7 @@ export function InvitationList({
                     >
                       <DateValue
                         value={item.rsvpDeadlineAt}
-                        empty="No deadline"
+                        empty="Wedding default"
                       />
                     </td>
                   </tr>

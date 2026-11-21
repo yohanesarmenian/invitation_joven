@@ -270,6 +270,17 @@ validate and switch over with explicit acceptance of writes lost since backup.
 Keep original DB and old images for investigation. Prune unused images only after
 the rollback window; monitor 80 GB disk capacity.
 
+The conditional RSVP compatibility rehearsal used the API built from
+`eeab49da00f83f10ba11158455021dcc79d95682` with its own Prisma client on an
+upgraded, populated PostgreSQL 18.6 database. The older API committed declines
+and revoked passes for all three stored `partyMode` values. It also changed
+attendance and reactivated an RSVP. The newer API treated the mode as optional
+metadata confirmed by the current RSVP revision, preserving existing attendee
+and session counts when reopening older answers. This verifies the RSVP contract
+for that API pair. Before approving a rollback, verify the exact deployed image
+digests and review the effect of running the older API on the configured wedding
+deadline policy.
+
 ## Acceptance boundaries
 
 This prepares deployment, not Phase 10E/10F acceptance. Existing source includes

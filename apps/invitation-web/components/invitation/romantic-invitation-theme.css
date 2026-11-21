@@ -1355,7 +1355,7 @@
     font: var(--type-display);
   }
 
-  .invitation-hero-title > span {
+  .invitation-hero-title > :is(span, i) {
     display: block;
   }
 

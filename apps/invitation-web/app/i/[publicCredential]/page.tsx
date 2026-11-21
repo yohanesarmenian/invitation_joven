@@ -6,10 +6,17 @@ import {
 } from "@/components/invitation/public-invitation-long-page";
 import { retrievePublicInvitation } from "@/src/server/public-invitation";
 import { retrievePublishedVenue } from "@/src/server/published-venue";
-import { retrievePublicRsvp, submitPublicRsvp } from "@/src/server/public-rsvp";
+import {
+  retrievePublicRsvp,
+  submitPublicRsvp,
+  type EditRsvpDietary,
+} from "@/src/server/public-rsvp";
 import { PublicRsvpForm } from "@/components/invitation/public-rsvp-form";
 import { GuestMessageForm } from "@/components/invitation/guest-message-form";
-import { submitPublicGuestMessage } from "@/src/server/public-guest-message";
+import {
+  readPublicGuestMessageReceipt,
+  submitPublicGuestMessage,
+} from "@/src/server/public-guest-message";
 import type {
   SubmitPublicRsvpRequest,
   SubmitPublicGuestMessageRequest,
@@ -42,11 +49,17 @@ export default async function PublicInvitationPage({
     "use server";
     return submitPublicGuestMessage(publicCredential, request);
   }
+  async function verifyGuestMessage(submissionId: string) {
+    "use server";
+    return readPublicGuestMessageReceipt(publicCredential, submissionId);
+  }
   async function reloadRsvp() {
     "use server";
     return retrievePublicRsvp(publicCredential);
   }
-  async function submitRsvp(request: SubmitPublicRsvpRequest) {
+  async function submitRsvp(
+    request: SubmitPublicRsvpRequest | EditRsvpDietary,
+  ) {
     "use server";
     // Next encrypts the captured credential in the server action closure.
     // The API remains authoritative for every submitted field and version.
@@ -74,16 +87,25 @@ export default async function PublicInvitationPage({
         initialNow={result.receivedAt}
         invitation={invitation}
         venueContent={venueContent}
-        guestMessageForm={<GuestMessageForm submitAction={sendGuestMessage} />}
+        guestMessageForm={
+          <GuestMessageForm
+            submitAction={sendGuestMessage}
+            receiptAction={verifyGuestMessage}
+            receiptKey={`guest-message:${createHash("sha256").update(publicCredential).digest("hex")}`}
+          />
+        }
         rsvpForm={
           <PublicRsvpForm
             invitation={{
               invitees: result.data.invitation.invitees,
               rules: result.data.invitation.rules,
-              events: result.data.invitation.events.map(({ id, name }) => ({
-                id,
-                name,
-              })),
+              events: result.data.invitation.events.map(
+                ({ id, name, slug }) => ({
+                  id,
+                  name,
+                  slug,
+                }),
+              ),
             }}
             initialResult={initialRsvp}
             submitAction={submitRsvp}
@@ -94,3 +116,4 @@ export default async function PublicInvitationPage({
     </InvitationOpeningFlow>
   );
 }
+import { createHash } from "node:crypto";

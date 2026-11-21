@@ -111,7 +111,7 @@ describe("PublicInvitationLongPage", () => {
       "Wedding Events",
       "Dress Code",
       "RSVP &amp; Dietary Information",
-      "Kindly reply by 25 December 2026.",
+      "Kindly reply by 25 December 2026 at 07:00 WIB.",
       "RSVP form",
       "Pre-wedding Gallery",
       "1 John 4:19",
@@ -288,11 +288,13 @@ describe("PublicInvitationLongPage", () => {
 
   it("renders RSVP deadline only from API data", () => {
     const withDeadline = renderInvitation({
-      rsvpDeadlineAt: "2026-12-25T00:00:00.000Z",
+      rsvpDeadlineAt: "2026-12-24T17:30:00.000Z",
     });
     const withoutDeadline = renderInvitation({ rsvpDeadlineAt: null });
 
-    expect(withDeadline).toContain("Kindly reply by 25 December 2026.");
+    expect(withDeadline).toContain(
+      "Kindly reply by 25 December 2026 at 00:30 WIB.",
+    );
     expect(withoutDeadline).not.toContain("Kindly reply by");
     expect(withoutDeadline).not.toContain("25 December 2026");
   });
@@ -323,7 +325,7 @@ describe("PublicInvitationLongPage", () => {
     expect(html).not.toContain('role="textbox"');
     expect(html).not.toContain("Joyfully Accept");
     expect(html).not.toContain("Regretfully Decline");
-    expect(html).not.toContain("Bring someone special");
+    expect(html).not.toContain("Named guests and companions");
     expect(html).not.toContain("Send Confirmation");
     expect(html).toContain("Send Message");
   });

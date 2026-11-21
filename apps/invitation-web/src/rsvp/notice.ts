@@ -36,6 +36,21 @@ const domainMessages: Record<
       "Some attendance details are invalid or no longer current. Please review who will be attending.",
     section: "attendees",
   },
+  RSVP_PARTY_INVALID: {
+    message:
+      "Review who will attend. The saved party must match your attendance choice.",
+    section: "attendees",
+  },
+  RSVP_SESSION_COUNTS_MISMATCH: {
+    message:
+      "The same party must attend every selected session. Review your session choices.",
+    section: "events",
+  },
+  RSVP_SESSION_CONFIGURATION_UNSUPPORTED: {
+    message:
+      "This invitation’s sessions have changed. Reopen the invitation to refresh them or contact the couple for help.",
+    section: "events",
+  },
 };
 
 export function rsvpFailureNotice(failure: RsvpFailure): RsvpNotice {
@@ -73,7 +88,7 @@ export function rsvpFailureNotice(failure: RsvpFailure): RsvpNotice {
       };
     }
     if (
-      failure.httpStatus === 422 &&
+      failure.httpStatus === 409 &&
       failure.code === "RSVP_LOCKED_AFTER_CHECKIN"
     )
       return {

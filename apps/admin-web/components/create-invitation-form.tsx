@@ -16,6 +16,7 @@ import {
 } from "../src/invitations/form-state";
 import {
   CREATE_PENDING_KEY,
+  activeWeddingSessions,
   initialCreateFields,
   weddingEventIssue,
   withGuestDisplayName,
@@ -54,7 +55,11 @@ export function CreateInvitationForm({
   const formRef = useRef<HTMLFormElement>(null);
   const notice = useRef<HTMLDivElement>(null);
   const prerequisite = weddingEventIssue(events);
-  const event = events[0];
+  const sessions = activeWeddingSessions(events);
+  const event = sessions.length === 1 ? sessions[0] : undefined;
+  const selectedSessions = sessions.filter(({ id }) =>
+    fields.eventIds.includes(id),
+  );
   const [deadlineDate = "", deadlineTime = ""] = fields.deadline.split("T");
   const deadlineIso = fields.deadline ? deadlineToIso(fields.deadline) : null;
 
@@ -238,6 +243,10 @@ export function CreateInvitationForm({
           Reload wedding event
         </button>
         {" · "}
+        <Link href="/events" prefetch={false}>
+          Manage events
+        </Link>
+        {" · "}
         <Link href="/invitations" prefetch={false}>
           Back to invitations
         </Link>
@@ -297,30 +306,62 @@ export function CreateInvitationForm({
           </div>
         )}
       </div>
-      <section className="create-event-summary" aria-label="Wedding event">
-        <h2>Your wedding event</h2>
-        <p>
-          <strong>{event!.name}</strong> is included automatically.
-        </p>
-        {event!.startsAt && (
+      {event ? (
+        <section className="create-event-summary" aria-label="Wedding event">
+          <h2>Your wedding event</h2>
           <p>
-            {new Intl.DateTimeFormat("en-GB", {
-              dateStyle: "long",
-              timeStyle: "short",
-              timeZone: "Asia/Jakarta",
-            }).format(new Date(event!.startsAt))}{" "}
-            WIB
+            <strong>{event!.name}</strong> is included automatically.
           </p>
-        )}
-        {event!.venueName && <p>{event!.venueName}</p>}
-        {(!event!.startsAt || !event!.venueName || !event!.address) && (
+          {event!.startsAt && (
+            <p>
+              {new Intl.DateTimeFormat("en-GB", {
+                dateStyle: "long",
+                timeStyle: "short",
+                timeZone: "Asia/Jakarta",
+              }).format(new Date(event!.startsAt))}{" "}
+              WIB
+            </p>
+          )}
+          {event!.venueName && <p>{event!.venueName}</p>}
+          {(!event!.startsAt || !event!.venueName || !event!.address) && (
+            <p className="hint">
+              Some wedding time or location details are not configured. Ask the
+              operator to review this existing event before sharing invitations.
+              No event details are changed here.
+            </p>
+          )}
+        </section>
+      ) : (
+        <fieldset
+          className="create-event-summary"
+          disabled={pending || locked || checking}
+        >
+          <legend>Wedding sessions</legend>
           <p className="hint">
-            Some wedding time or location details are not configured. Ask the
-            operator to review this existing event before sharing invitations.
-            No event details are changed here.
+            Select each session this invitation can attend.
           </p>
-        )}
-      </section>
+          {error("eventIds")}
+          {sessions.map(({ id, name }) => (
+            <label key={id} className="checkbox-label">
+              <input
+                type="checkbox"
+                {...errorProps("eventIds")}
+                checked={fields.eventIds.includes(id)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setFields((previous) => ({
+                    ...previous,
+                    eventIds: checked
+                      ? [...previous.eventIds, id]
+                      : previous.eventIds.filter((selected) => selected !== id),
+                  }));
+                }}
+              />
+              {name}
+            </label>
+          ))}
+        </fieldset>
+      )}
 
       <div className="create-columns">
         <div className="create-fields">
@@ -629,14 +670,17 @@ export function CreateInvitationForm({
                 <dd>{fields.children || "0"}</dd>
               </div>
               <div>
-                <dt>Wedding event</dt>
-                <dd>{event!.name}</dd>
+                <dt>Wedding sessions</dt>
+                <dd>
+                  {selectedSessions.map(({ name }) => name).join(", ") ||
+                    "Choose at least one session"}
+                </dd>
               </div>
               <div>
                 <dt>RSVP deadline</dt>
                 <dd>
                   {!fields.deadline
-                    ? "No deadline"
+                    ? "Wedding default"
                     : deadlineIso
                       ? `${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" }).format(new Date(deadlineIso))} WIB`
                       : "Choose a valid date and time"}

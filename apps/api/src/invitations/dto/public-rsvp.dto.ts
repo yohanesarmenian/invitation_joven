@@ -1,6 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import type { SubmitPublicRsvpCommand } from "../public-rsvp.service.js";
+import type {
+  EditPublicRsvpDietaryCommand,
+  SubmitPublicRsvpCommand,
+} from "../public-rsvp.service.js";
+import { RSVPPublicPartyMode } from "../../generated/prisma/client.js";
 
 export const publicRsvpMutationStatuses = ["ACCEPTED", "DECLINED"] as const;
 export type PublicRsvpMutationStatus =
@@ -23,6 +27,7 @@ const TOP_LEVEL_REQUEST_FIELDS = new Set([
   "dietaryNotes",
   "eventSelections",
   "expectedVersion",
+  "partyMode",
   "status",
 ]);
 
@@ -63,6 +68,17 @@ export class SubmitPublicRsvpRequestDto {
 
   @ApiPropertyOptional({ maxLength: 500, nullable: true, type: String })
   dietaryNotes?: string | null;
+
+  @ApiPropertyOptional({ enum: RSVPPublicPartyMode, type: String })
+  partyMode?: RSVPPublicPartyMode;
+}
+
+export class EditPublicRsvpDietaryRequestDto {
+  @ApiProperty({ minimum: 1, type: Number })
+  expectedVersion: number;
+
+  @ApiProperty({ maxLength: 500, nullable: true, type: String })
+  dietaryNotes: string | null;
 }
 
 export class PublicRsvpEventSelectionDto {
@@ -99,6 +115,9 @@ export class PublicRsvpStateDto {
 
   @ApiProperty({ nullable: true, type: String })
   dietaryNotes: string | null;
+
+  @ApiPropertyOptional({ enum: RSVPPublicPartyMode, type: String })
+  partyMode?: RSVPPublicPartyMode;
 
   @ApiProperty({ minimum: 0, type: Number })
   attendeeQuantityTotal: number;
@@ -225,7 +244,13 @@ function parseEventSelections(
   }
 
   return value.map((selection) => {
-    if (!isRecord(selection)) {
+    if (
+      !isRecord(selection) ||
+      Object.keys(selection).some(
+        (key) =>
+          !["eventId", "attending", "expectedAttendeeCount"].includes(key),
+      )
+    ) {
       badRequest();
     }
 
@@ -273,7 +298,12 @@ function parseAttendees(value: unknown): SubmitPublicRsvpCommand["attendees"] {
   }
 
   return value.map((attendee) => {
-    if (!isRecord(attendee)) {
+    if (
+      !isRecord(attendee) ||
+      Object.keys(attendee).some(
+        (key) => !["type", "inviteeId", "quantity"].includes(key),
+      )
+    ) {
       badRequest();
     }
 
@@ -295,6 +325,32 @@ function parseDietaryNotes(value: unknown): string | null | undefined {
   }
 
   badRequest();
+}
+
+function parsePartyMode(value: unknown): RSVPPublicPartyMode {
+  if (value === "ALONE" || value === "FAMILY" || value === "PLUS_ONE")
+    return value;
+  return badRequest();
+}
+
+export function mapEditPublicRsvpDietaryRequest(
+  publicCredential: string,
+  body: unknown,
+): EditPublicRsvpDietaryCommand {
+  if (
+    !isRecord(body) ||
+    Object.keys(body).length !== 2 ||
+    !Object.hasOwn(body, "expectedVersion") ||
+    !Object.hasOwn(body, "dietaryNotes") ||
+    body.dietaryNotes === undefined
+  )
+    badRequest();
+  return {
+    kind: "dietary",
+    publicCredential,
+    expectedVersion: parsePositiveInteger(body.expectedVersion),
+    dietaryNotes: parseDietaryNotes(body.dietaryNotes) ?? null,
+  };
 }
 
 export function mapSubmitPublicRsvpRequest(
@@ -321,6 +377,9 @@ export function mapSubmitPublicRsvpRequest(
     dietaryNotes: parseDietaryNotes(body.dietaryNotes),
     eventSelections: parseEventSelections(body.eventSelections),
     expectedVersion: parseExpectedVersion(body.expectedVersion),
+    ...(Object.hasOwn(body, "partyMode")
+      ? { partyMode: parsePartyMode(body.partyMode) }
+      : {}),
     publicCredential,
     status: parseStatus(body.status),
   };
