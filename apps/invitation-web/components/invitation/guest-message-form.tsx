@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -46,6 +47,7 @@ export function GuestMessageForm({
   > | null>(null);
   const inFlight = useRef(false);
   const focusReceipt = useRef(false);
+  const focusNewDraft = useRef(false);
   const pendingId = useRef<string | null>(null);
   const savedId = useRef<string | null>(null);
   const uncertainRequest = useRef<SubmitPublicGuestMessageRequest | null>(null);
@@ -109,6 +111,13 @@ export function GuestMessageForm({
     if (state === "success" && focusReceipt.current) {
       focusReceipt.current = false;
       successRef.current?.focus();
+    }
+  }, [state]);
+
+  useLayoutEffect(() => {
+    if (state === "idle" && focusNewDraft.current) {
+      focusNewDraft.current = false;
+      authorRef.current?.focus();
     }
   }, [state]);
 
@@ -202,8 +211,8 @@ export function GuestMessageForm({
             <button
               type="button"
               onClick={() => {
+                focusNewDraft.current = true;
                 setState("idle");
-                requestAnimationFrame(() => authorRef.current?.focus());
               }}
             >
               Write another message
