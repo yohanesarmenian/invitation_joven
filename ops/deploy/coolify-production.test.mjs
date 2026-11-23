@@ -135,7 +135,7 @@ function fixture(options = {}) {
     created_at: "2026-11-07T01:00:00Z",
     restart_only: false,
     rollback: false,
-    // Reviewed v4.7.5 still hides configuration_snapshot from the API.
+    // Coolify hides configuration_snapshot from the API.
     configuration_hash: "9".repeat(64),
   });
   let posted = false;
@@ -160,7 +160,7 @@ function fixture(options = {}) {
       if (options.postLost) throw Error("Simulated lost POST response");
       return { deployment_uuid: record().deployment_uuid };
     }
-    if (path === "/version") return options.version ?? "4.7.5";
+    if (path === "/version") return options.version ?? "4.7.6";
     if (path.endsWith("/envs")) return structuredClone(envs);
     if (path.endsWith("/storages")) return structuredClone(storages);
     if (path.startsWith("/deployments/applications/"))
@@ -243,8 +243,17 @@ test("production plan captures only immutable rollback refs and keyed integrity,
   assert.ok(f.calls.every((call) => !call.method));
 });
 
-test("reviewed Coolify 4.7.5 supports read-only planning with scoped resource fields", async () => {
-  const f = fixture({ version: " \tv4.7.5\r\n" });
+test("reviewed Coolify 4.7.6 supports read-only planning with scoped resource fields", async () => {
+  const f = fixture({ version: " \tv4.7.6\r\n" });
+  const reads = [];
+  const api = coolifyClient(secret, {
+    fetchImpl: async (url, { method }) => {
+      const path = url.slice(`${target.coolifyOrigin}/api/v1`.length);
+      reads.push(`${method} ${path}`);
+      const value = await f.api(path);
+      return path === "/version" ? new Response(value) : Response.json(value);
+    },
+  });
   Object.assign(f.app.settings, {
     is_auto_cancel_queued_deployments_enabled: true,
     is_auto_cancel_building_deployments_enabled: false,
@@ -255,7 +264,7 @@ test("reviewed Coolify 4.7.5 supports read-only planning with scoped resource fi
   let approvals = 0;
   const plan = await planDeployment({
     manifest,
-    api: f.api,
+    api,
     secret,
     runId: 789,
     assertAuthority: async () => {
@@ -263,10 +272,18 @@ test("reviewed Coolify 4.7.5 supports read-only planning with scoped resource fi
     },
     inspect: async () => ({ revision: previous }),
   });
-  assert.equal(target.coolifyVersion, "4.7.5");
+  assert.equal(target.coolifyVersion, "4.7.6");
   assert.equal(approvals, 1);
   assert.deepEqual(plan.previousImages, previousImages);
-  assert.ok(f.calls.every((call) => !call.method));
+  const resource = `/applications/${target.applicationUuid}`;
+  assert.deepEqual(reads, [
+    "GET /version",
+    `GET ${resource}`,
+    `GET ${resource}/envs`,
+    `GET ${resource}/storages`,
+    `GET /deployments${resource}?skip=0&take=20`,
+    `GET /deployments/${f.history[0].deployment_uuid}`,
+  ]);
   assert.equal(f.app.destination.server.private_key, undefined);
   assert.equal(f.history[0].configuration_snapshot, undefined);
 });
@@ -277,11 +294,10 @@ test("unreviewed Coolify versions stop after the version read before resource ac
     "4.7.2",
     "4.7.3",
     "4.7.4",
-    "4.7.6",
+    "4.7.5",
+    "4.7.7",
     "4.8.0",
-    "4.7.5-beta.1",
-    "4.7.50",
-    "4.7.5+unreviewed",
+    "4.7.60",
   ]) {
     const f = fixture({ version });
     await assert.rejects(
@@ -293,7 +309,9 @@ test("unreviewed Coolify versions stop after the version read before resource ac
         assertAuthority: async () => {},
         inspect: async () => ({ revision: previous }),
       }),
-      /version differs/,
+      {
+        message: `COOLIFY_VERSION_MISMATCH (expected=4.7.6, observed=${version}).`,
+      },
     );
     assert.deepEqual(f.calls, [{ path: "/version", text: true }]);
   }
@@ -303,10 +321,13 @@ test("malformed version responses block after one HTTP GET", async () => {
   for (const body of [
     "",
     "null",
-    '"4.7.5"',
-    '{"version":"4.7.5"}',
-    "<html>4.7.5</html>",
-    "4.7.5\n4.7.5",
+    '"4.7.6"',
+    '{"version":"4.7.6"}',
+    "<html>4.7.6</html>",
+    "4.7.6\n4.7.6",
+    "4.7.6-beta.1",
+    `4.7.6+${secret}`,
+    `https://example.invalid/?signature=${secret}`,
   ]) {
     const requests = [];
     const api = coolifyClient(secret, {
@@ -325,7 +346,10 @@ test("malformed version responses block after one HTTP GET", async () => {
         inspect: async () =>
           assert.fail("Version mismatch must precede image inspection"),
       }),
-      /version differs/,
+      {
+        message:
+          "COOLIFY_VERSION_MISMATCH (expected=4.7.6, observed=INVALID_RESPONSE).",
+      },
     );
     assert.deepEqual(requests, [`GET ${target.coolifyOrigin}/api/v1/version`]);
   }
@@ -338,10 +362,10 @@ test("an unsupported upgrade blocks mutation or requires reconciliation after im
       const value = await f.api(path, init);
       const imageWritten = f.calls.some((call) => call.method === "PATCH");
       return path === "/version" && (!afterImageWrite || imageWritten)
-        ? "4.7.6"
+        ? "4.7.7"
         : value;
     };
-    await assert.rejects(f.deploy({ api }), /version differs/);
+    await assert.rejects(f.deploy({ api }), /COOLIFY_VERSION_MISMATCH/);
     assert.deepEqual(
       f.calls.filter((call) => call.method).map((call) => call.method),
       afterImageWrite ? ["PATCH"] : [],
@@ -353,14 +377,14 @@ test("an unsupported upgrade blocks mutation or requires reconciliation after im
   }
 });
 
-test("reviewed 4.7.5 settings remain protected against drift after planning", async () => {
+test("reviewed settings remain protected against drift after planning", async () => {
   const f = await planned();
   f.app.settings.is_auto_cancel_queued_deployments_enabled = true;
   await assert.rejects(f.deploy(), /Production changed after planning/);
   assert.ok(f.calls.every((call) => !call.method));
 });
 
-test("4.7.5 MCP deployments cannot reconcile an uncertain API start", async () => {
+test("MCP deployments cannot reconcile an uncertain API start", async () => {
   const f = await planned({ postLost: true });
   const api = async (path, init) => {
     const value = await f.api(path, init);
@@ -386,7 +410,7 @@ test("4.7.5 MCP deployments cannot reconcile an uncertain API start", async () =
   );
 });
 
-test("Coolify 4.7.5 starting health is never planning or rollout success", async () => {
+test("Coolify starting health is never planning or rollout success", async () => {
   const starting = fixture();
   starting.app.status = "running:starting";
   await assert.rejects(
@@ -436,7 +460,7 @@ test("Coolify 4.7.5 starting health is never planning or rollout success", async
   assert.equal(f.calls.filter((call) => call.method === "POST").length, 1);
 });
 
-test("reviewed 4.7.5 HTTP contracts support one approved rollout with exact image updates, migration and applied hashes", async () => {
+test("reviewed 4.7.6 HTTP contracts support one approved rollout with exact image updates, migration and applied hashes", async () => {
   const f = await planned();
   const beforeProtected = structuredClone(
     f.envs.filter((row) => !Object.values(imageKeys).includes(row.key)),
@@ -565,7 +589,7 @@ test("unexpected resource, version, source, webhook, volume or migration setting
       assertAuthority: async () => {},
       inspect: async () => ({ revision: previous }),
     }),
-    /version differs/,
+    /COOLIFY_VERSION_MISMATCH/,
   );
 });
 
@@ -706,7 +730,7 @@ test("migration proof must be a fresh timestamped success marker", () => {
     assert.equal(migrationSucceeded(value, "2026-11-07T01:00:00Z"), false);
 });
 
-test("Coolify HTTP adapter uses reviewed v4.7.5 endpoints and never exposes token, env response or logs on errors", async () => {
+test("Coolify HTTP adapter enforces reviewed endpoints and never exposes token, env response or logs on errors", async () => {
   const calls = [];
   const client = coolifyClient(secret, {
     fetchImpl: async (url, init) => {

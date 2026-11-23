@@ -297,11 +297,17 @@ export function validateResource(app) {
 
 export async function readSnapshot(api) {
   const base = `/applications/${target.applicationUuid}`;
-  const version = await api("/version", { text: true });
-  if (version.trim().replace(/^v/, "") !== target.coolifyVersion)
+  const response = await api("/version", { text: true });
+  const version =
+    typeof response === "string" ? response.trim().replace(/^v/, "") : "";
+  if (version !== target.coolifyVersion) {
+    const observed = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(version)
+      ? version
+      : "INVALID_RESPONSE";
     throw new DeploymentError(
-      "Installed Coolify version differs from the reviewed API adapter.",
+      `COOLIFY_VERSION_MISMATCH (expected=${target.coolifyVersion}, observed=${observed}).`,
     );
+  }
   const app = await api(base);
   const document = validateResource(app);
   const envs = await api(`${base}/envs`),
@@ -431,7 +437,7 @@ export async function planDeployment({
     throw new DeploymentError(
       "Existing resource health is not verified. No automatic rollout allowed.",
     );
-  // Reviewed v4.7.5 hides configuration_snapshot for read:sensitive. It exposes the
+  // Coolify hides configuration_snapshot for read:sensitive. It exposes the
   // applied SHA-256 on both Application and DeploymentQueue instead. Confirm
   // that real read capability before allowing any image mutation.
   const applied = snapshot.history.find(
@@ -631,7 +637,7 @@ export async function deployProduction({
     } catch {
       updateError = true;
     }
-    // Bulk upsert is not transactional in reviewed Coolify 4.7.5. Read back every
+    // Coolify bulk upsert is not transactional. Read back every
     // image and the protected configuration, even after a refused/lost response.
     const updated = await readSnapshot(api);
     if (
