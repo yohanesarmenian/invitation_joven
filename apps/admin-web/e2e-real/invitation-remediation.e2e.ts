@@ -167,9 +167,36 @@ test("guest message receipt survives a lost response, returning to the hero and 
         path: testInfo.outputPath(`saved-message-${width}.png`),
       });
     }
-    await page.getByRole("button", { name: "Write another message" }).click();
+    const author = section.getByRole("textbox", { name: /Your name/ });
+    const secondDraft = "Synthetic deliberate second message";
+    const focusedAtMount = await page
+      .getByRole("button", { name: "Write another message" })
+      .evaluate((button: HTMLButtonElement) => {
+        const editor = button.closest(".guest-message-form");
+        if (!editor) throw new Error("Missing guest message editor");
+        // Check the first committed form, before a later animation frame can focus it.
+        return new Promise<boolean>((resolve) => {
+          const observer = new MutationObserver(() => {
+            const field = editor.querySelector("form input");
+            if (!field) return;
+            observer.disconnect();
+            resolve(document.activeElement === field);
+          });
+          observer.observe(editor, { childList: true, subtree: true });
+          button.click();
+        });
+      });
+    expect(focusedAtMount).toBe(true);
     await expect(message).toHaveValue("");
-    await message.fill("Synthetic deliberate second message");
+    await message.fill(secondDraft);
+    await expect(author).toHaveValue("");
+    await expect(message).toBeFocused();
+    await expect(message).toHaveValue(secondDraft);
+    await expect(
+      section.getByText(`${secondDraft.length} / 1000 characters`, {
+        exact: false,
+      }),
+    ).toBeVisible();
     await fixture.prisma.invitation.update({
       where: { id: guest.id },
       data: { status: "ARCHIVED" },
@@ -179,7 +206,7 @@ test("guest message receipt survives a lost response, returning to the hero and 
       await expect(section.getByRole("alert")).toContainText(
         "This invitation is currently unavailable.",
       );
-      await expect(message).toHaveValue("Synthetic deliberate second message");
+      await expect(message).toHaveValue(secondDraft);
       expect(
         await fixture.prisma.guestMessage.count({
           where: { invitationId: guest.id },
@@ -197,8 +224,9 @@ test("guest message receipt survives a lost response, returning to the hero and 
       where: { invitationId: guest.id },
     });
     expect(messages.map((item) => item.message)).toEqual(
-      expect.arrayContaining([content, "Synthetic deliberate second message"]),
+      expect.arrayContaining([content, secondDraft]),
     );
+    expect(messages.every((item) => item.invitationId === guest.id)).toBe(true);
     expect(messages).toHaveLength(2);
     expect(
       await fixture.prisma.guestMessage.count({
