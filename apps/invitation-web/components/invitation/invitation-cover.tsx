@@ -3,6 +3,18 @@
 import Image from "next/image";
 import { useRef, useState, type MouseEvent } from "react";
 import { weddingMedia } from "../../src/presentation/wedding-media";
+import {
+  CHECKIN_PASS_HEADING_ID,
+  RSVP_RESPONSE_HEADING_ID,
+  type RsvpHeroAction,
+} from "./invitation-opening-context";
+
+const rsvpActions = {
+  rsvp: { label: "View RSVP", target: "rsvp-title" },
+  confirm: { label: "Confirm Attendance", target: "rsvp-title" },
+  response: { label: "View RSVP Response", target: RSVP_RESPONSE_HEADING_ID },
+  qr: { label: "View Check-in QR", target: CHECKIN_PASS_HEADING_ID },
+} satisfies Record<RsvpHeroAction, { label: string; target: string }>;
 
 export function ClosedEnvelopeCover({
   onOpen,
@@ -84,13 +96,16 @@ export function ClosedEnvelopeCover({
 export function InvitationHero({
   onReady,
   fallback = false,
+  rsvpAction = "rsvp",
 }: {
   onReady?: () => void;
   fallback?: boolean;
+  rsvpAction?: RsvpHeroAction;
 }) {
   const [heroFailed, setHeroFailed] = useState(false);
   const ready = useRef(false);
   const showFallback = heroFailed || fallback;
+  const { label, target } = rsvpActions[rsvpAction];
 
   function finishReady() {
     if (ready.current) return;
@@ -108,7 +123,9 @@ export function InvitationHero({
     )
       return;
 
-    const heading = document.getElementById(event.currentTarget.hash.slice(1));
+    const heading =
+      document.getElementById(target) ??
+      document.getElementById(rsvpActions.rsvp.target);
     if (!heading || heading.closest("[inert]")) return;
 
     event.preventDefault();
@@ -142,10 +159,10 @@ export function InvitationHero({
           </p>
           <a
             className="invitation-hero-rsvp"
-            href="#rsvp-title"
+            href={`#${target}`}
             onClick={navigateToRsvp}
           >
-            View RSVP
+            {label}
           </a>
         </div>
         <p className="invitation-hero-foot">Together with our families</p>

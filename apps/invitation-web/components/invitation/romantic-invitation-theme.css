@@ -170,11 +170,13 @@
   box-shadow: 0 0 0 3px var(--romantic-plum);
 }
 
-.rsvp-section-copy #rsvp-title {
+.rsvp-section-copy #rsvp-title,
+.invitation-rsvp-jump-target {
   scroll-margin-block-start: calc(24px + env(safe-area-inset-top, 0px));
 }
 
-.rsvp-section-copy #rsvp-title:focus {
+.rsvp-section-copy #rsvp-title:focus,
+.invitation-rsvp-jump-target:focus {
   outline: 3px solid var(--romantic-plum);
   outline-offset: 4px;
 }

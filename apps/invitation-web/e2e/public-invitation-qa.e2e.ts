@@ -232,13 +232,15 @@ test("hero RSVP link waits for opening and moves keyboard focus only on activati
 }) => {
   await page.goto(SUCCESS_PATH);
   const content = page.locator(".invitation-opening-content");
-  const rsvp = page.getByRole("link", { name: "View RSVP" });
+  const rsvp = page.getByRole("link", { name: "Confirm Attendance" });
   const heading = page.getByRole("heading", {
     name: "RSVP & Dietary Information",
   });
 
   await expect(content).toHaveAttribute("inert", "");
-  await expect(rsvp).toHaveCount(0);
+  await expect(page.locator(".invitation-hero").getByRole("link")).toHaveCount(
+    0,
+  );
   await expect(content).not.toBeFocused();
   expect(await page.evaluate(() => scrollY)).toBe(0);
   await advanceToContent(page);
@@ -266,7 +268,7 @@ test.describe("touch RSVP navigation", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(SUCCESS_PATH);
     await advanceToContent(page);
-    const rsvp = page.getByRole("link", { name: "View RSVP" });
+    const rsvp = page.getByRole("link", { name: "Confirm Attendance" });
     const heading = page.getByRole("heading", {
       name: "RSVP & Dietary Information",
     });

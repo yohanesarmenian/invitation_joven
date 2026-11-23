@@ -9,7 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { ClosedEnvelopeCover, InvitationHero } from "./invitation-cover";
-import { InvitationContentVisible } from "./invitation-opening-context";
+import {
+  InvitationContentVisible,
+  RsvpHeroActionUpdate,
+  type RsvpHeroAction,
+} from "./invitation-opening-context";
 import {
   invitationMotion,
   invitationMotionStyle,
@@ -42,6 +46,7 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
   const preparationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [reduced, setReduced] = useState(false);
+  const [rsvpHeroAction, setRsvpHeroAction] = useState<RsvpHeroAction>("rsvp");
 
   const finishPreparation = useCallback(() => {
     if (!mountedRef.current || preparedRef.current) return;
@@ -187,9 +192,15 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
           inert={concealed}
           aria-hidden={concealed || undefined}
         >
-          <InvitationHero onReady={coverReady} fallback={heroFallback} />
+          <InvitationHero
+            onReady={coverReady}
+            fallback={heroFallback}
+            rsvpAction={rsvpHeroAction}
+          />
           <InvitationContentVisible value={!concealed}>
-            {children}
+            <RsvpHeroActionUpdate value={setRsvpHeroAction}>
+              {children}
+            </RsvpHeroActionUpdate>
           </InvitationContentVisible>
         </div>
         {concealed && (

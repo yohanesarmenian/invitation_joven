@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import {
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import type {
   PublicRsvpMutationResponse,
   PublicRsvpReadResponse,
@@ -16,6 +24,11 @@ import {
 } from "../../src/rsvp/notice";
 import { RsvpResultNotice } from "./rsvp-result-notice";
 import { GuestCheckinPass } from "./guest-checkin-pass";
+import {
+  RsvpHeroActionUpdate,
+  RSVP_RESPONSE_HEADING_ID,
+  type RsvpHeroAction,
+} from "./invitation-opening-context";
 import {
   attendeeTotal,
   attendeeOptions,
@@ -95,6 +108,24 @@ export function PublicRsvpForm({
     lock === "closed" ||
     lock === "unavailable" ||
     canonicalResponse?.canEdit === false;
+  const confirmedView = loaded && !editing && !pending && !failure && !lock;
+  const pass = canonicalResponse?.checkinPass;
+  const activePass =
+    confirmedView &&
+    canonical?.status === "ACCEPTED" &&
+    !passNeedsReload &&
+    pass?.status === "ACTIVE"
+      ? pass
+      : null;
+  const updateHeroAction = useContext(RsvpHeroActionUpdate);
+  let heroAction: RsvpHeroAction = "rsvp";
+  if (activePass) heroAction = "qr";
+  else if (confirmedView && canonical?.status === "DECLINED")
+    heroAction = "response";
+  else if (confirmedView && !responded && !terminal) heroAction = "confirm";
+  useLayoutEffect(() => {
+    updateHeroAction?.(heroAction);
+  }, [heroAction, updateHeroAction]);
   const notice: RsvpNotice | null = validation
     ? {
         tone: "error",
@@ -141,7 +172,9 @@ export function PublicRsvpForm({
     }
     if (error.kind !== "api") return;
     if (
-      (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT") ||
+      (error.httpStatus === 409 &&
+        (error.code === "RSVP_VERSION_CONFLICT" ||
+          error.code === "RSVP_LOCKED_AFTER_CHECKIN")) ||
       (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
     )
       setPassNeedsReload(true);
@@ -321,7 +354,11 @@ export function PublicRsvpForm({
       >
         {errorNotice}
         {statusNotice}
-        <h3>
+        <h3
+          id={RSVP_RESPONSE_HEADING_ID}
+          tabIndex={-1}
+          className="invitation-rsvp-jump-target"
+        >
           {canonical.status === "ACCEPTED"
             ? "Attendance Confirmed"
             : "Unable to Attend"}
@@ -329,9 +366,7 @@ export function PublicRsvpForm({
         {canonical.status === "ACCEPTED" ? (
           <>
             <SavedAttendance invitation={invitation} rsvp={canonical} />
-            {!passNeedsReload ? (
-              <GuestCheckinPass pass={canonicalResponse?.checkinPass ?? null} />
-            ) : null}
+            <GuestCheckinPass pass={activePass} />
           </>
         ) : (
           <p>Your response has been saved as not attending.</p>
