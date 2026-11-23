@@ -500,7 +500,9 @@ function RsvpInformationSection({
         sizes="(min-width: 412px) 126px, 31vw"
       />
       <div className="rsvp-section-copy">
-        <h2 id="rsvp-title">RSVP &amp; Dietary Information</h2>
+        <h2 id="rsvp-title" tabIndex={-1}>
+          RSVP &amp; Dietary Information
+        </h2>
         <p className="figma-rsvp-intro">
           To help us make proper arrangements with our venue and caterers, we
           kindly ask that you confirm your attendance.

@@ -227,6 +227,74 @@ test("reduced motion reaches focused content with one activation", async ({
   await expect(page.getByText("Test Ballroom")).toBeVisible();
 });
 
+test("hero RSVP link waits for opening and moves keyboard focus only on activation", async ({
+  page,
+}) => {
+  await page.goto(SUCCESS_PATH);
+  const content = page.locator(".invitation-opening-content");
+  const rsvp = page.getByRole("link", { name: "View RSVP" });
+  const heading = page.getByRole("heading", {
+    name: "RSVP & Dietary Information",
+  });
+
+  await expect(content).toHaveAttribute("inert", "");
+  await expect(rsvp).toHaveCount(0);
+  await expect(content).not.toBeFocused();
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  await advanceToContent(page);
+  await expect(content).toBeFocused();
+  await expect(heading).not.toBeInViewport();
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+
+  await page.keyboard.press("Tab");
+  await expect(rsvp).toBeFocused();
+  await expect(rsvp).toHaveCSS("outline-style", "solid");
+  await expect(heading).not.toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(heading).toBeFocused();
+  await expect(heading).toBeInViewport({ ratio: 1 });
+  await expect(heading).toHaveCSS("outline-style", "solid");
+  await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
+});
+
+test.describe("touch RSVP navigation", () => {
+  test.use({ viewport: { width: 320, height: 640 }, hasTouch: true });
+
+  test("hero RSVP link fits narrow mobile and jumps instantly with reduced motion", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(SUCCESS_PATH);
+    await advanceToContent(page);
+    const rsvp = page.getByRole("link", { name: "View RSVP" });
+    const heading = page.getByRole("heading", {
+      name: "RSVP & Dietary Information",
+    });
+    await expect(rsvp).toBeInViewport({ ratio: 1 });
+    expect((await rsvp.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await page.evaluate(() => {
+      // Record the position in the same event, before any animated scroll.
+      document.addEventListener(
+        "click",
+        () => {
+          const heading = document.getElementById("rsvp-title")!;
+          heading.dataset.topAfterClick = String(
+            heading.getBoundingClientRect().top,
+          );
+        },
+        { once: true },
+      );
+    });
+    await rsvp.tap();
+    await expect(heading).toBeFocused();
+    await expect(heading).toBeInViewport({ ratio: 1 });
+    await expect(heading).toHaveCSS("outline-style", "solid");
+    const top = Number(await heading.getAttribute("data-top-after-click"));
+    expect(top).toBeGreaterThanOrEqual(23);
+    expect(top).toBeLessThanOrEqual(25);
+  });
+});
+
 test("unavailable invitation renders the generic not-found UI without leaking details", async ({
   page,
   request,
