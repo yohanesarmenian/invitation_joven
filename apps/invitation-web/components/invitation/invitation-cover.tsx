@@ -1,20 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState, type MouseEvent } from "react";
+import { useRef, useState } from "react";
 import { weddingMedia } from "../../src/presentation/wedding-media";
-import {
-  CHECKIN_PASS_HEADING_ID,
-  RSVP_RESPONSE_HEADING_ID,
-  type RsvpHeroAction,
-} from "./invitation-opening-context";
-
-const rsvpActions = {
-  rsvp: { label: "View RSVP", target: "rsvp-title" },
-  confirm: { label: "Confirm Attendance", target: "rsvp-title" },
-  response: { label: "View RSVP Response", target: RSVP_RESPONSE_HEADING_ID },
-  qr: { label: "View Check-in QR", target: CHECKIN_PASS_HEADING_ID },
-} satisfies Record<RsvpHeroAction, { label: string; target: string }>;
+import type { RsvpHeroAction } from "./invitation-opening-context";
+import { InvitationRsvpAction } from "./invitation-rsvp-action";
 
 export function ClosedEnvelopeCover({
   onOpen,
@@ -105,32 +95,11 @@ export function InvitationHero({
   const [heroFailed, setHeroFailed] = useState(false);
   const ready = useRef(false);
   const showFallback = heroFailed || fallback;
-  const { label, target } = rsvpActions[rsvpAction];
 
   function finishReady() {
     if (ready.current) return;
     ready.current = true;
     onReady?.();
-  }
-
-  function navigateToRsvp(event: MouseEvent<HTMLAnchorElement>) {
-    if (
-      event.button !== 0 ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey
-    )
-      return;
-
-    const heading =
-      document.getElementById(target) ??
-      document.getElementById(rsvpActions.rsvp.target);
-    if (!heading || heading.closest("[inert]")) return;
-
-    event.preventDefault();
-    heading.focus({ preventScroll: true });
-    heading.scrollIntoView({ block: "start", behavior: "instant" });
   }
 
   return (
@@ -157,13 +126,10 @@ export function InvitationHero({
             <br />
             to be shared with you.
           </p>
-          <a
+          <InvitationRsvpAction
+            action={rsvpAction}
             className="invitation-hero-rsvp"
-            href={`#${target}`}
-            onClick={navigateToRsvp}
-          >
-            {label}
-          </a>
+          />
         </div>
         <p className="invitation-hero-foot">Together with our families</p>
       </div>

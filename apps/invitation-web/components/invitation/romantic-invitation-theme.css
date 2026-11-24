@@ -170,6 +170,42 @@
   box-shadow: 0 0 0 3px var(--romantic-plum);
 }
 
+.invitation-sticky-rsvp {
+  display: none;
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 5;
+  padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-inline: max(16px, env(safe-area-inset-left, 0px))
+    max(16px, env(safe-area-inset-right, 0px));
+  background: var(--romantic-paper);
+  border-block-start: 1px solid #eadbd5;
+}
+
+/* Keep a keyboard user's focus visible until they leave or activate the link. */
+.invitation-sticky-rsvp:focus-within {
+  display: block;
+}
+
+.invitation-sticky-rsvp-link {
+  display: grid;
+  place-items: center;
+  width: min(100%, 26rem);
+  min-height: 48px;
+  margin-inline: auto;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--romantic-plum);
+  color: var(--romantic-paper);
+  font: var(--type-label);
+  text-align: center;
+  text-decoration: none;
+}
+
+.invitation-sticky-rsvp-link:hover {
+  text-decoration: underline;
+}
+
 .rsvp-section-copy #rsvp-title,
 .invitation-rsvp-jump-target {
   scroll-margin-block-start: calc(24px + env(safe-area-inset-top, 0px));
@@ -1379,6 +1415,18 @@
 }
 
 @media (max-width: 699px) {
+  .invitation-sticky-rsvp[data-visible] {
+    display: block;
+  }
+
+  .invitation-opening-content:has(:is(input, select, textarea):focus)
+    .invitation-sticky-rsvp {
+    display: none;
+  }
+
+  .invitation-opening-flow[data-stage="content"] {
+    padding-block-end: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
   .invitation-hero-copy {
     padding: 34px 28px;
   }

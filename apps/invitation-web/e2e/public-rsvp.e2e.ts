@@ -1278,3 +1278,253 @@ for (const reason of ["DEADLINE_PASSED", "CHECKED_IN"] as const) {
     expect(await submissions(request)).toHaveLength(0);
   });
 }
+
+function stickyAction(page: Page) {
+  return page.locator(".invitation-sticky-rsvp").getByRole("link");
+}
+
+async function browsePastHero(page: Page) {
+  await page
+    .locator("#couple-title")
+    .evaluate((heading) =>
+      heading.scrollIntoView({ block: "start", behavior: "instant" }),
+    );
+}
+
+async function expectStickyAction(page: Page, label: string, target: string) {
+  const action = stickyAction(page);
+  const hero = heroAction(page, label);
+  await expect(action).toHaveAccessibleName(label);
+  await expect(action).toHaveAttribute("href", `#${target}`);
+  await expect(hero).toHaveAttribute("href", `#${target}`);
+  await expect(action).toBeInViewport({ ratio: 1 });
+  return action;
+}
+
+async function expectRsvpTraffic(
+  request: APIRequestContext,
+  reads: number,
+  mutations = 0,
+) {
+  const response = await request.get(`${MOCK}/__rsvp-state`);
+  const state = await response.json();
+  expect(state.reads).toBe(reads);
+  expect(state.requests).toHaveLength(mutations);
+}
+
+for (const width of [320, 375, 412]) {
+  test(`sticky RSVP shortcut clears the form and fits a ${width}px viewport`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(PATH);
+    await expect(page.locator(".invitation-sticky-rsvp")).toHaveCount(0);
+    await page.getByRole("button", { name: "Open invitation" }).click();
+    const hero = heroAction(page, "Confirm Attendance");
+    await expect(hero).toBeVisible();
+    await expect(stickyAction(page)).toBeHidden();
+
+    await hero.focus();
+    await browsePastHero(page);
+    const action = await expectStickyAction(
+      page,
+      "Confirm Attendance",
+      "rsvp-title",
+    );
+    const box = (await action.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(48);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    expect(box.y + box.height).toBeLessThanOrEqual(640);
+    await page.keyboard.press("Tab");
+    await expect(action).toBeFocused();
+    await expect(action).toHaveCSS("outline-style", "solid");
+
+    // Scrolling back across the threshold must not drop keyboard focus.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(page.locator(".invitation-sticky-rsvp")).not.toHaveAttribute(
+      "data-visible",
+      "true",
+    );
+    await expect(action).toBeFocused();
+    await page.keyboard.press("Enter");
+    const heading = page.locator("#rsvp-title");
+    await expect(heading).toBeFocused();
+    await expect(heading).toBeInViewport({ ratio: 1 });
+    await expect(stickyAction(page)).toBeHidden();
+
+    await page.getByRole("radio", { name: "Regretfully Decline" }).check();
+    const submit = page.getByRole("button", { name: "Submit RSVP" });
+    await submit.scrollIntoViewIfNeeded();
+    await expect(submit).toBeInViewport({ ratio: 1 });
+    await expect(stickyAction(page)).toBeHidden();
+    await expect(heroAction(page, "Confirm Attendance")).toBeVisible();
+    await expectRsvpTraffic(request, 1);
+
+    await submit.click();
+    await expect(heroAction(page, "View RSVP Response")).toBeVisible();
+    await browsePastHero(page);
+    await expectStickyAction(page, "View RSVP Response", "rsvp-response-title");
+    await expectRsvpTraffic(request, 1, 1);
+  });
+}
+
+test("sticky RSVP shortcut responds to viewport changes, zoom and the message form", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 412, height: 700 });
+  await open(page);
+  await browsePastHero(page);
+  await expectStickyAction(page, "Confirm Attendance", "rsvp-title");
+
+  for (const size of [
+    { width: 768, height: 900 },
+    { width: 1280, height: 900 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(size);
+    await browsePastHero(page);
+    await expect(stickyAction(page)).toBeHidden();
+    await expect(heroAction(page, "Confirm Attendance")).toBeVisible();
+  }
+
+  await page.setViewportSize({ width: 375, height: 640 });
+  await browsePastHero(page);
+  await expectStickyAction(page, "Confirm Attendance", "rsvp-title");
+
+  const client = await page.context().newCDPSession(page);
+  await client.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+  await expect(stickyAction(page)).toBeHidden();
+  await client.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+  await expectStickyAction(page, "Confirm Attendance", "rsvp-title");
+
+  const message = page.getByRole("textbox", { name: /Your message/ });
+  await message.focus();
+  await expect(message).toBeFocused();
+  await expect(stickyAction(page)).toBeHidden();
+  await message.fill("Synthetic message draft.");
+  await expect(message).toHaveValue("Synthetic message draft.");
+  await browsePastHero(page);
+  await expect(message).toBeFocused();
+  await expect(stickyAction(page)).toBeHidden();
+  await message.blur();
+  await expectStickyAction(page, "Confirm Attendance", "rsvp-title");
+  await expectRsvpTraffic(request, 1);
+});
+
+for (const status of ["ACCEPTED", "DECLINED"] as const) {
+  test(`sticky RSVP shortcut opens the saved ${status} view without requests`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 660 });
+    await configure(request, {
+      rsvp:
+        status === "ACCEPTED"
+          ? accepted
+          : { ...accepted, status, partyMode: undefined },
+    });
+    await open(page);
+    await browsePastHero(page);
+    const hasPass = status === "ACCEPTED";
+    const target = hasPass ? "checkin-pass-title" : "rsvp-response-title";
+    const action = await expectStickyAction(
+      page,
+      hasPass ? "View Check-in QR" : "View RSVP Response",
+      target,
+    );
+    await action.click();
+    await expect(page.locator(`#${target}`)).toBeFocused();
+    await expect(page.locator(`#${target}`)).toBeInViewport({ ratio: 1 });
+    await expect(stickyAction(page)).toBeHidden();
+    await expectPass(page, hasPass ? firstPass : null);
+    await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+    await expectRsvpTraffic(request, 1);
+  });
+}
+
+test("sticky RSVP shortcut hides stale QR after failed recovery and revocation", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 412, height: 700 });
+  await configure(request, { rsvp: accepted });
+  await open(page);
+  await browsePastHero(page);
+  await expectStickyAction(page, "View Check-in QR", "checkin-pass-title");
+
+  await configure(request, {
+    failure: { status: 503, code: "UNEXPECTED", method: "GET" },
+  });
+  await page.getByRole("button", { name: "Edit RSVP" }).click();
+  await expect(
+    page.locator(".rsvp-information-section").getByRole("alert"),
+  ).toContainText("details couldn’t be loaded");
+  await browsePastHero(page);
+  const fallback = await expectStickyAction(page, "View RSVP", "rsvp-title");
+  await fallback.click();
+  await expect(page.locator("#rsvp-title")).toBeFocused();
+  await expectPass(page, null);
+  await expectRsvpTraffic(request, 2);
+
+  await configure(request, {
+    checkinPass: null,
+    editBlockedReason: "CHECKED_IN",
+  });
+  await page.getByRole("button", { name: "Reload latest RSVP" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "has checked in" }),
+  ).toBeVisible();
+  await browsePastHero(page);
+  await expectStickyAction(page, "View RSVP", "rsvp-title");
+  await expectPass(page, null);
+  await expectRsvpTraffic(request, 3);
+});
+
+test("sticky RSVP shortcut disconnects when observing a section fails", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 412, height: 700 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(PATH);
+  const openInvitation = page.getByRole("button", { name: "Open invitation" });
+  await expect(openInvitation).toBeEnabled();
+
+  await page.evaluate(() => {
+    const BrowserObserver = window.IntersectionObserver;
+    window.IntersectionObserver = class extends BrowserObserver {
+      private sticky = false;
+
+      override observe(target: Element) {
+        if (this.sticky) throw new Error("Synthetic sticky observe failure");
+        this.sticky = target.matches(".invitation-hero");
+        super.observe(target);
+      }
+
+      override disconnect() {
+        if (this.sticky)
+          Reflect.set(window, "stickyObserverDisconnected", true);
+        super.disconnect();
+      }
+    };
+  });
+
+  await openInvitation.press("Enter");
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
+  await expect
+    .poll(() =>
+      page.evaluate(() => Reflect.get(window, "stickyObserverDisconnected")),
+    )
+    .toBe(true);
+  await browsePastHero(page);
+  await expect(stickyAction(page)).toBeHidden();
+
+  await heroAction(page, "Confirm Attendance").press("Enter");
+  await expect(page.locator("#rsvp-title")).toBeFocused();
+  await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
+  await expectRsvpTraffic(request, 1);
+});

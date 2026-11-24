@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { ClosedEnvelopeCover, InvitationHero } from "./invitation-cover";
+import { InvitationStickyRsvpAction } from "./invitation-rsvp-action";
 import {
   InvitationContentVisible,
   RsvpHeroActionUpdate,
@@ -197,6 +198,12 @@ export function InvitationOpeningFlow({ children }: { children: ReactNode }) {
             fallback={heroFallback}
             rsvpAction={rsvpHeroAction}
           />
+          {!concealed && (
+            <InvitationStickyRsvpAction
+              action={rsvpHeroAction}
+              content={contentRef}
+            />
+          )}
           <InvitationContentVisible value={!concealed}>
             <RsvpHeroActionUpdate value={setRsvpHeroAction}>
               {children}
