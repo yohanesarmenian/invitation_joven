@@ -20,6 +20,7 @@ describe("server-rendered opening preparation", () => {
     expect(html).toContain("Submit fixture");
     expect(html).toContain("invitation-hero");
     expect(html).not.toContain("View invitation");
+    expect(html).not.toContain("invitation-sticky-rsvp");
   });
 
   it("keeps opening disabled before hydration and critical-asset readiness", () => {
