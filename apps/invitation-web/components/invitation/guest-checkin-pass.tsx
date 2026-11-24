@@ -2,6 +2,7 @@ import { useId } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { PublicRsvpReadResponse } from "../../../../packages/api-client/src/index";
 import { FigmaConfirmationArt } from "./figma-confirmation-art";
+import { CHECKIN_PASS_HEADING_ID } from "./invitation-opening-context";
 
 export function GuestCheckinPass({
   pass,
@@ -12,10 +13,18 @@ export function GuestCheckinPass({
   if (!pass || pass.status !== "ACTIVE") return null;
 
   return (
-    <section className="guest-checkin-pass" aria-labelledby={`${id}-title`}>
+    <section
+      className="guest-checkin-pass"
+      aria-labelledby={CHECKIN_PASS_HEADING_ID}
+    >
       <FigmaConfirmationArt />
       <div className="figma-pass-content">
-        <h3 id={`${id}-title`} aria-label="Your check-in pass">
+        <h3
+          id={CHECKIN_PASS_HEADING_ID}
+          aria-label="Your check-in pass"
+          tabIndex={-1}
+          className="invitation-rsvp-jump-target"
+        >
           Thank You for Confirming!
         </h3>
         <p>

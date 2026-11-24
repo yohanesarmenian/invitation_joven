@@ -71,6 +71,20 @@ describe("invitation cover markup", () => {
     expect(html).not.toMatch(/(?:Open|View) invitation/i);
   });
 
+  it.each([
+    ["confirm", "rsvp-title", "Confirm Attendance"],
+    ["response", "rsvp-response-title", "View RSVP Response"],
+    ["qr", "checkin-pass-title", "View Check-in QR"],
+  ] as const)(
+    "renders the %s action with a fixed fragment",
+    (rsvpAction, target, label) => {
+      const html = renderToStaticMarkup(
+        createElement(InvitationHero, { rsvpAction }),
+      );
+      expect(html).toContain(`href="#${target}">${label}</a>`);
+    },
+  );
+
   it("renders the approved local hero through responsive image optimization", () => {
     const html = renderToStaticMarkup(createElement(InvitationHero));
 

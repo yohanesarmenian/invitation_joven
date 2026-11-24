@@ -49,6 +49,12 @@ async function open(page: Page) {
   );
 }
 
+function heroAction(page: Page, name: string) {
+  return page
+    .locator(".invitation-hero")
+    .getByRole("link", { name, exact: true });
+}
+
 async function editSaved(page: Page) {
   await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
   await page.getByRole("button", { name: "Edit RSVP", exact: true }).click();
@@ -256,10 +262,12 @@ for (const width of [320, 375, 412, 768, 1280]) {
       nextVersion: 42,
     });
     await open(page);
+    await expect(heroAction(page, "Confirm Attendance")).toBeVisible();
     await expectPass(page, null);
     const form = page.getByRole("form", { name: "Your RSVP" });
     await expect(form.locator("input:checked")).toHaveCount(0);
     await accept(page);
+    await expect(heroAction(page, "Confirm Attendance")).toBeVisible();
     await page
       .getByRole("radio", {
         name: "Holy Matrimony Test & Reception Test",
@@ -365,6 +373,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     ).toContainText("before the reply deadline");
     await noticeScreenshot(page, testInfo, `accepted-${width}`);
     await expectPass(page, firstPass);
+    await expect(heroAction(page, "View Check-in QR")).toBeVisible();
     await assertPassLayout(page);
     const originalModules = await page
       .locator(".guest-checkin-pass svg")
@@ -442,6 +451,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     });
     await noticeScreenshot(page, testInfo, `declined-${width}`);
     await expectPass(page, null);
+    await expect(heroAction(page, "View RSVP Response")).toBeVisible();
     expect((await page.locator("body").innerText()).includes(firstPass)).toBe(
       false,
     );
@@ -605,6 +615,8 @@ for (const width of [320, 375, 412, 1280]) {
     expect((await submissions(request))[1]!.expectedVersion).toBe(23);
 
     await editSaved(page);
+    const beforeDeadline = await request.get(`${MOCK}/__rsvp-state`);
+    const { reads } = await beforeDeadline.json();
     await configure(request, {
       failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PATCH" },
     });
@@ -632,7 +644,71 @@ for (const width of [320, 375, 412, 1280]) {
     expect(await submissions(request)).toHaveLength(3);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await expectPass(page, secondPass);
+    await expect(page.getByRole("button", { name: "Edit RSVP" })).toHaveCount(
+      0,
+    );
+    await expect(alert).toContainText("RSVP is closed");
+    const shortcut = heroAction(page, "View Check-in QR");
+    await expect(shortcut).toHaveAttribute("href", "#checkin-pass-title");
+    await shortcut.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("heading", { name: "Your check-in pass" }),
+    ).toBeFocused();
+    const afterShortcut = await request.get(`${MOCK}/__rsvp-state`);
+    expect(await afterShortcut.json()).toMatchObject({ reads: reads + 1 });
+    expect(await submissions(request)).toHaveLength(3);
     await expect(page.getByText("See you at the Wedding!")).toBeAttached();
+  });
+}
+
+for (const outcome of ["revoked", "replaced", "read failed"] as const) {
+  test(`deadline rejection never restores an old QR when revalidation shows ${outcome}`, async ({
+    page,
+    request,
+  }) => {
+    await configure(request, { rsvp: accepted });
+    await open(page);
+    await expectPass(page, firstPass);
+    await editSaved(page);
+    const before = await request.get(`${MOCK}/__rsvp-state`);
+    const { reads } = await before.json();
+    await configure(request, {
+      failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PATCH" },
+      ...(outcome === "revoked" && { checkinPass: null }),
+      ...(outcome === "replaced" && {
+        checkinPass: {
+          status: "ACTIVE",
+          issuedAt: "2026-09-30T00:00:00Z",
+          qrPayload: secondPass,
+        },
+      }),
+      ...(outcome === "read failed" && {
+        readFailure: { status: 503, code: "UNEXPECTED" },
+      }),
+    });
+    await page
+      .getByRole("button", { name: "Save Changes", exact: true })
+      .click();
+    const alert = page.locator(".rsvp-information-section").getByRole("alert");
+    await expect(alert).toContainText("RSVP is closed");
+    await expectPass(page, null);
+    await expect(heroAction(page, "View Check-in QR")).toHaveCount(0);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(alert).toContainText("RSVP is closed");
+    await expect(page.getByRole("button", { name: "Edit RSVP" })).toHaveCount(
+      0,
+    );
+    await expectPass(page, outcome === "replaced" ? secondPass : null);
+    await expect(
+      heroAction(
+        page,
+        outcome === "replaced" ? "View Check-in QR" : "View RSVP",
+      ),
+    ).toBeVisible();
+    const after = await request.get(`${MOCK}/__rsvp-state`);
+    expect(await after.json()).toMatchObject({ reads: reads + 1 });
+    expect(await submissions(request)).toHaveLength(1);
   });
 }
 
@@ -716,10 +792,14 @@ test("initial read retry loads existing state without re-opening the invitation"
     failure: { status: 503, code: "UNEXPECTED", method: "GET" },
   });
   await open(page);
+  await expect(heroAction(page, "View RSVP")).toBeVisible();
+  await heroAction(page, "View RSVP").click();
+  await expect(page.locator("#rsvp-title")).toBeFocused();
   await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
   await expectPass(page, null);
   const reload = page.getByRole("button", { name: "Reload latest RSVP" });
   await expect(reload).toBeEnabled();
+  await expect(heroAction(page, "View RSVP")).toBeVisible();
   await noticeScreenshot(page, info, "initial-load-failure");
   await reload.click();
   await expect(
@@ -737,6 +817,7 @@ test("initial read retry loads existing state without re-opening the invitation"
   await expect(
     page.locator(".public-rsvp-form").getByRole("status"),
   ).toBeFocused();
+  await expect(heroAction(page, "View Check-in QR")).toBeVisible();
   await editSaved(page);
   await expect(
     page.locator(".public-rsvp-form").getByRole("textbox"),
@@ -879,12 +960,28 @@ for (const status of ["ACCEPTED", "DECLINED"] as const) {
     await expect(confirmation).toBeVisible();
     const stateBefore = await request.get(`${MOCK}/__rsvp-state`);
     const { reads } = await stateBefore.json();
-    await page.getByRole("link", { name: "View RSVP" }).click();
+    const action = heroAction(
+      page,
+      status === "ACCEPTED" ? "View Check-in QR" : "View RSVP Response",
+    );
+    const target =
+      status === "ACCEPTED" ? "checkin-pass-title" : "rsvp-response-title";
+    await expect(action).toHaveAttribute("href", `#${target}`);
     const heading = page.getByRole("heading", {
-      name: "RSVP & Dietary Information",
+      name: status === "ACCEPTED" ? "Your check-in pass" : "Unable to Attend",
     });
+    if (status === "ACCEPTED") {
+      await action.focus();
+      await page.keyboard.press("Enter");
+      await expectPass(page, firstPass);
+    } else {
+      await action.click();
+      await expectPass(page, null);
+    }
     await expect(heading).toBeFocused();
     await expect(heading).toBeInViewport({ ratio: 1 });
+    await expect(heading).toHaveCSS("outline-style", "solid");
+    expect(new URL(page.url()).hash).toBe("");
     await expect(confirmation).toBeVisible();
     await expect(confirmation).toContainText(
       status === "ACCEPTED" ? "Attendance Confirmed" : "Unable to Attend",
@@ -894,6 +991,61 @@ for (const status of ["ACCEPTED", "DECLINED"] as const) {
     expect(await stateAfter.json()).toMatchObject({ reads, requests: [] });
   });
 }
+
+test("hero RSVP link drops stale QR after failed revalidation and pass revocation", async ({
+  page,
+  request,
+}) => {
+  await configure(request, { rsvp: accepted });
+  await open(page);
+  await expect(heroAction(page, "View Check-in QR")).toBeVisible();
+  await configure(request, {
+    failure: { status: 503, code: "UNEXPECTED", method: "GET" },
+  });
+  await page.getByRole("button", { name: "Edit RSVP" }).click();
+  await expect(
+    page.locator(".rsvp-information-section").getByRole("alert"),
+  ).toContainText("details couldn’t be loaded");
+  await expect(heroAction(page, "View RSVP")).toBeVisible();
+  await expectPass(page, null);
+
+  await configure(request, {
+    checkinPass: null,
+    editBlockedReason: "CHECKED_IN",
+  });
+  await page.getByRole("button", { name: "Reload latest RSVP" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "has checked in" }),
+  ).toBeVisible();
+  await expect(heroAction(page, "View RSVP")).toHaveAttribute(
+    "href",
+    "#rsvp-title",
+  );
+  await expect(heroAction(page, "View Check-in QR")).toHaveCount(0);
+  await expectPass(page, null);
+  await expect(page.getByRole("button", { name: "Edit RSVP" })).toHaveCount(0);
+  expect(await submissions(request)).toHaveLength(0);
+});
+
+test.describe("QR shortcut on a narrow touch viewport", () => {
+  test.use({ viewport: { width: 320, height: 640 }, hasTouch: true });
+  test("hero RSVP link jumps straight to the existing pass with reduced motion", async ({
+    page,
+    request,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await configure(request, { rsvp: accepted });
+    await open(page);
+    const action = heroAction(page, "View Check-in QR");
+    await expect(action).toBeInViewport({ ratio: 1 });
+    await action.tap();
+    const heading = page.getByRole("heading", { name: "Your check-in pass" });
+    await expect(heading).toBeFocused();
+    await expect(heading).toBeInViewport({ ratio: 1 });
+    await expect(heading).toHaveCSS("outline-style", "solid");
+    await expectPass(page, firstPass);
+  });
+});
 
 test("loads accepted state and keeps its draft on a version conflict", async ({
   page,
@@ -1037,6 +1189,7 @@ test("conflict reload adopts a saved decline and removes the previous pass", asy
     page.locator(".public-rsvp-form").getByRole("textbox"),
   ).toHaveValue("My draft");
   await expectPass(page, null);
+  await expect(heroAction(page, "View RSVP")).toBeVisible();
   await page.getByRole("button", { name: "Reload latest RSVP" }).click();
   await expect(
     page.getByRole("heading", { name: "Unable to Attend", exact: true }),
@@ -1045,6 +1198,7 @@ test("conflict reload adopts a saved decline and removes the previous pass", asy
     page.locator(".public-rsvp-form").getByRole("status"),
   ).toContainText("latest RSVP has been loaded");
   await expectPass(page, null);
+  await expect(heroAction(page, "View RSVP Response")).toBeVisible();
   expect((await page.locator("body").innerText()).includes(firstPass)).toBe(
     false,
   );
@@ -1062,9 +1216,11 @@ test("an uncertain first acceptance never invents a pass before explicit recover
     page.locator(".public-rsvp-form").getByRole("alert"),
   ).toContainText("could not confirm whether");
   await expectPass(page, null);
+  await expect(heroAction(page, "View RSVP")).toBeVisible();
   await configure(request, {});
   await page.getByRole("button", { name: "Reload latest RSVP" }).click();
   await expectPass(page, firstPass);
+  await expect(heroAction(page, "View Check-in QR")).toBeVisible();
   expect(
     (await submissions(request)).map((body) => body.expectedVersion),
   ).toEqual([null]);
@@ -1118,6 +1274,7 @@ for (const reason of ["DEADLINE_PASSED", "CHECKED_IN"] as const) {
     ).toHaveCount(0);
     await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
     await expectPass(page, firstPass);
+    await expect(heroAction(page, "View Check-in QR")).toBeVisible();
     expect(await submissions(request)).toHaveLength(0);
   });
 }
