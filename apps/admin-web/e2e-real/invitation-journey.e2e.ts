@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
 import { runnerOrigins } from "./origins";
+import { installSyntheticCamera } from "./synthetic-camera";
 
 const origins = runnerOrigins();
 const publicOrigin = origins.invitation;
@@ -53,65 +54,31 @@ async function staffLogin(page: Page) {
     .getByLabel("Event", { exact: true })
     .selectOption(fixture.event.id);
 }
-async function installCamera(page: Page, svg: string) {
-  // Real guest-rendered SVG becomes a raster video stream. ZXing itself is unmodified.
-  await page.addInitScript((source: string) => {
-    Reflect.set(window, "journeyStoppedTracks", 0);
-    Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
-      configurable: true,
-      value: async () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 320;
-        const image = new Image();
-        const url = URL.createObjectURL(
-          new Blob([source], { type: "image/svg+xml" }),
-        );
-        image.src = url;
-        await image.decode();
-        const stream = canvas.captureStream(15);
-        const context = canvas.getContext("2d")!;
-        let paintFrame = 0;
-        // captureStream's frame rate is a ceiling. Fresh frames require repainting.
-        function paint() {
-          context.drawImage(image, 0, 0, 320, 320);
-          paintFrame = requestAnimationFrame(paint);
-        }
-        paint();
-        URL.revokeObjectURL(url);
-        for (const track of stream.getTracks()) {
-          const stop = track.stop.bind(track);
-          track.stop = () => {
-            cancelAnimationFrame(paintFrame);
-            Reflect.set(
-              window,
-              "journeyStoppedTracks",
-              Reflect.get(window, "journeyStoppedTracks") + 1,
-            );
-            stop();
-          };
-        }
-        return stream;
-      },
-    });
-  }, svg);
-}
-
 test("synthetic camera delivers advancing frames and releases its tracks", async ({
   page,
 }) => {
-  await installCamera(
+  await installSyntheticCamera(
     page,
     '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="320" height="320" fill="white"/><rect x="80" y="80" width="160" height="160" fill="black"/></svg>',
   );
   await page.goto("/login");
   await page.evaluate(async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const animate = window.requestAnimationFrame;
+    // Simulate a stalled animation clock during synthetic camera startup.
+    window.requestAnimationFrame = () => 0;
+    const stream = await navigator.mediaDevices
+      .getUserMedia({ video: true })
+      .finally(() => {
+        window.requestAnimationFrame = animate;
+      });
     const video = document.createElement("video");
     video.muted = true;
     video.playsInline = true;
     const probe = {
       times: [] as number[],
       playError: null as string | null,
+      nonblank: false,
+      dimensions: null as [number, number] | null,
       stop: () => {
         stream.getTracks().forEach((track) => track.stop());
         video.srcObject = null;
@@ -123,6 +90,17 @@ test("synthetic camera delivers advancing frames and releases its tracks", async
     };
     function recordFrame(_now: number, metadata: VideoFrameCallbackMetadata) {
       probe.times.push(metadata.mediaTime);
+      if (probe.times.length === 1) {
+        const sample = document.createElement("canvas");
+        sample.width = video.videoWidth;
+        sample.height = video.videoHeight;
+        probe.dimensions = [sample.width, sample.height];
+        const context = sample.getContext("2d")!;
+        context.drawImage(video, 0, 0);
+        const white = context.getImageData(10, 10, 1, 1).data[0]!;
+        const black = context.getImageData(160, 160, 1, 1).data[0]!;
+        probe.nonblank = white > 240 && black < 15;
+      }
       if (stream.active) video.requestVideoFrameCallback(recordFrame);
     }
     video.requestVideoFrameCallback(recordFrame);
@@ -142,10 +120,17 @@ test("synthetic camera delivers advancing frames and releases its tracks", async
             advancing:
               probe.times.length >= 2 && probe.times[1] > probe.times[0],
             playError: probe.playError,
+            nonblank: probe.nonblank,
+            dimensions: probe.dimensions,
           };
         }),
       )
-      .toEqual({ advancing: true, playError: null });
+      .toEqual({
+        advancing: true,
+        playError: null,
+        nonblank: true,
+        dimensions: [320, 320],
+      });
   } finally {
     expect(
       await page.evaluate(() =>
@@ -282,11 +267,9 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
       expect(Math.abs(box!.width - box!.height)).toBeLessThan(1);
       expect(box!.x >= 0 && box!.x + box!.width <= width).toBe(true);
     }
-    let svg = await guest
+    const svg = await guest
       .getByRole("img", { name: "Household check-in pass QR code" })
       .evaluate((node) => node.outerHTML);
-    if (!svg.includes("xmlns="))
-      svg = svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" ');
     const message =
       "Synthetic congratulations <script>window.journeyXss=1</script>";
     await guest.getByLabel(/Your name/).fill("Synthetic Journey Guest");
@@ -312,7 +295,7 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
       ),
     ).toBe(true);
 
-    await installCamera(page, svg);
+    await installSyntheticCamera(page, svg);
     await staffLogin(page);
     // Keep an unrelated live alert present: Next's route announcer must never
     // satisfy (or make ambiguous) an assertion about the check-in result.

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
 import { runnerOrigins } from "./origins";
+import { installSyntheticCamera } from "./synthetic-camera";
 const origins = runnerOrigins();
 let f: Awaited<ReturnType<typeof createWorkflowFixture>>,
   manager: { id: string; email: string };
@@ -261,43 +262,10 @@ test("Guest Manager scans a real guest QR with the existing decoder and cannot a
       .getByRole("button", { name: "Open invitation", exact: true })
       .click();
     await expect(guest.locator(".checkin-code")).toBeVisible();
-    let svg = await guest
+    const svg = await guest
       .getByRole("img", { name: "Household check-in pass QR code" })
       .evaluate((node) => node.outerHTML);
-    if (!svg.includes("xmlns="))
-      svg = svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" ');
-    await page.addInitScript((source) => {
-      Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
-        configurable: true,
-        value: async () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = canvas.height = 320;
-          const img = new Image(),
-            url = URL.createObjectURL(
-              new Blob([source], { type: "image/svg+xml" }),
-            );
-          img.src = url;
-          await img.decode();
-          URL.revokeObjectURL(url);
-          const stream = canvas.captureStream(15),
-            ctx = canvas.getContext("2d")!;
-          let frame = 0;
-          function paint() {
-            ctx.drawImage(img, 0, 0, 320, 320);
-            frame = requestAnimationFrame(paint);
-          }
-          paint();
-          for (const track of stream.getTracks()) {
-            const stop = track.stop.bind(track);
-            track.stop = () => {
-              cancelAnimationFrame(frame);
-              stop();
-            };
-          }
-          return stream;
-        },
-      });
-    }, svg);
+    await installSyntheticCamera(page, svg);
     await login(page);
     for (const url of [
       "/invitations",
