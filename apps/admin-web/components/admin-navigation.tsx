@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 const groups = [
   {
@@ -73,6 +73,9 @@ const groups = [
   },
 ];
 const destinations = groups.flatMap((group) => group.items);
+const subscribeHydration = () => () => {};
+const clientHydrated = () => true;
+const serverHydrated = () => false;
 
 export function isCurrentSection(pathname: string, href: string) {
   return href === "/"
@@ -82,6 +85,11 @@ export function isCurrentSection(pathname: string, href: string) {
 
 export function AdminNavigation() {
   const pathname = usePathname();
+  const hydrated = useSyncExternalStore(
+    subscribeHydration,
+    clientHydrated,
+    serverHydrated,
+  );
   const [expanded, setExpanded] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const current = destinations.find((item) =>
@@ -101,6 +109,7 @@ export function AdminNavigation() {
         ref={trigger}
         type="button"
         className="navigation-toggle"
+        disabled={!hydrated}
         aria-expanded={expanded}
         aria-controls="primary-navigation"
         onClick={() => setExpanded(!expanded)}

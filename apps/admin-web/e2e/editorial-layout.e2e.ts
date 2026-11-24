@@ -14,6 +14,52 @@ async function login(page: Page) {
   ).toBeVisible();
 }
 
+test("mobile navigation waits for hydration and returns keyboard focus on Escape", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 412, height: 900 });
+  await login(page);
+
+  let releaseScripts!: () => void;
+  const scriptsReady = new Promise<void>((resolve) => {
+    releaseScripts = resolve;
+  });
+  await page.route("**/_next/static/**", async (route) => {
+    if (route.request().resourceType() === "script") await scriptsReady;
+    await route.continue();
+  });
+
+  const toggle = page.locator("button[aria-controls='primary-navigation']");
+  const navigation = page.getByRole("navigation", {
+    name: "Primary navigation",
+  });
+  try {
+    await page.reload({ waitUntil: "commit" });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toBeDisabled();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(navigation).toBeHidden();
+  } finally {
+    releaseScripts();
+  }
+
+  await expect(toggle).toBeEnabled();
+  await toggle.focus();
+  await page.keyboard.press("Enter");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const dashboard = navigation.getByRole("link", {
+    name: "Dashboard",
+    exact: true,
+  });
+  await expect(dashboard).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(dashboard).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(navigation).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toBeFocused();
+});
+
 for (const width of [320, 375, 412, 768, 1280]) {
   test(`editorial workspace keeps primary tasks and guest identity usable at ${width}px`, async ({
     page,
