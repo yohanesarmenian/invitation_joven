@@ -482,9 +482,14 @@ test("detail manages invitees and event eligibility with explicit conflict recov
     category: "ADULT",
     label: "duplicate",
   });
-  await page.unroute("**/api/admin/invitations/*/invitees");
+  // Keep request interception active while the replacement document hydrates.
   await expect(page.getByText("Invitee added.")).toBeVisible();
   await expect(page.getByText("Sample guest")).toHaveCount(2);
+
+  const editInvitee = page
+    .getByRole("row", { name: /Sample guest Adult None/ })
+    .getByRole("button", { name: "Edit" });
+  await expect(editInvitee).toBeEnabled();
 
   let patchPayload: unknown;
   await page.route("**/api/admin/invitees/*", async (route) => {
@@ -503,10 +508,7 @@ test("detail manages invitees and event eligibility with explicit conflict recov
       },
     });
   });
-  await page
-    .getByRole("row", { name: /Sample guest Adult None/ })
-    .getByRole("button", { name: "Edit" })
-    .click();
+  await editInvitee.click();
   await page.getByLabel("Full name (required)").fill("Edited guest");
   await page.getByLabel("Category").selectOption("CHILD");
   await page.getByLabel("Label").fill("Child");
