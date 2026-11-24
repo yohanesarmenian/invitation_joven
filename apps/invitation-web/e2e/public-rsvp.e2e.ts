@@ -1483,3 +1483,48 @@ test("sticky RSVP shortcut hides stale QR after failed recovery and revocation",
   await expectPass(page, null);
   await expectRsvpTraffic(request, 3);
 });
+
+test("sticky RSVP shortcut disconnects when observing a section fails", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 412, height: 700 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(PATH);
+  const openInvitation = page.getByRole("button", { name: "Open invitation" });
+  await expect(openInvitation).toBeEnabled();
+
+  await page.evaluate(() => {
+    const BrowserObserver = window.IntersectionObserver;
+    window.IntersectionObserver = class extends BrowserObserver {
+      private sticky = false;
+
+      override observe(target: Element) {
+        if (this.sticky) throw new Error("Synthetic sticky observe failure");
+        this.sticky = target.matches(".invitation-hero");
+        super.observe(target);
+      }
+
+      override disconnect() {
+        if (this.sticky)
+          Reflect.set(window, "stickyObserverDisconnected", true);
+        super.disconnect();
+      }
+    };
+  });
+
+  await openInvitation.press("Enter");
+  await expect(page.locator(".invitation-opening-content")).toBeFocused();
+  await expect
+    .poll(() =>
+      page.evaluate(() => Reflect.get(window, "stickyObserverDisconnected")),
+    )
+    .toBe(true);
+  await browsePastHero(page);
+  await expect(stickyAction(page)).toBeHidden();
+
+  await heroAction(page, "Confirm Attendance").press("Enter");
+  await expect(page.locator("#rsvp-title")).toBeFocused();
+  await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
+  await expectRsvpTraffic(request, 1);
+});

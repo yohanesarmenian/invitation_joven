@@ -78,25 +78,36 @@ export function InvitationStickyRsvpAction({
       setVisible(pastHero && visibleSections.size === 0 && !viewportObstructed);
     }
 
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === hero) {
-          pastHero =
-            !entry.isIntersecting &&
-            entry.boundingClientRect.bottom <= (entry.rootBounds?.top ?? 0);
-        } else if (entry.isIntersecting) {
-          visibleSections.add(entry.target);
-        } else {
-          visibleSections.delete(entry.target);
+    let observer: IntersectionObserver | undefined;
+    let observing = false;
+    try {
+      observer = new IntersectionObserver((entries) => {
+        if (!observing) return;
+        for (const entry of entries) {
+          if (entry.target === hero) {
+            pastHero =
+              !entry.isIntersecting &&
+              entry.boundingClientRect.bottom <= (entry.rootBounds?.top ?? 0);
+          } else if (entry.isIntersecting) {
+            visibleSections.add(entry.target);
+          } else {
+            visibleSections.delete(entry.target);
+          }
         }
-      }
-      updateVisibility();
-    });
-    observer.observe(hero);
-    interactiveSections.forEach((section) => observer.observe(section));
+        updateVisibility();
+      });
+      observer.observe(hero);
+      for (const section of interactiveSections) observer.observe(section);
+    } catch {
+      observer?.disconnect();
+      return;
+    }
+
+    observing = true;
     viewport?.addEventListener("resize", updateVisibility);
 
     return () => {
+      observing = false;
       observer.disconnect();
       viewport?.removeEventListener("resize", updateVisibility);
     };
