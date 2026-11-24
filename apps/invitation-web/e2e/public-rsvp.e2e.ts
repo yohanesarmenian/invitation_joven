@@ -615,6 +615,8 @@ for (const width of [320, 375, 412, 1280]) {
     expect((await submissions(request))[1]!.expectedVersion).toBe(23);
 
     await editSaved(page);
+    const beforeDeadline = await request.get(`${MOCK}/__rsvp-state`);
+    const { reads } = await beforeDeadline.json();
     await configure(request, {
       failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PATCH" },
     });
@@ -642,7 +644,71 @@ for (const width of [320, 375, 412, 1280]) {
     expect(await submissions(request)).toHaveLength(3);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await expectPass(page, secondPass);
+    await expect(page.getByRole("button", { name: "Edit RSVP" })).toHaveCount(
+      0,
+    );
+    await expect(alert).toContainText("RSVP is closed");
+    const shortcut = heroAction(page, "View Check-in QR");
+    await expect(shortcut).toHaveAttribute("href", "#checkin-pass-title");
+    await shortcut.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("heading", { name: "Your check-in pass" }),
+    ).toBeFocused();
+    const afterShortcut = await request.get(`${MOCK}/__rsvp-state`);
+    expect(await afterShortcut.json()).toMatchObject({ reads: reads + 1 });
+    expect(await submissions(request)).toHaveLength(3);
     await expect(page.getByText("See you at the Wedding!")).toBeAttached();
+  });
+}
+
+for (const outcome of ["revoked", "replaced", "read failed"] as const) {
+  test(`deadline rejection never restores an old QR when revalidation shows ${outcome}`, async ({
+    page,
+    request,
+  }) => {
+    await configure(request, { rsvp: accepted });
+    await open(page);
+    await expectPass(page, firstPass);
+    await editSaved(page);
+    const before = await request.get(`${MOCK}/__rsvp-state`);
+    const { reads } = await before.json();
+    await configure(request, {
+      failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PATCH" },
+      ...(outcome === "revoked" && { checkinPass: null }),
+      ...(outcome === "replaced" && {
+        checkinPass: {
+          status: "ACTIVE",
+          issuedAt: "2026-09-30T00:00:00Z",
+          qrPayload: secondPass,
+        },
+      }),
+      ...(outcome === "read failed" && {
+        readFailure: { status: 503, code: "UNEXPECTED" },
+      }),
+    });
+    await page
+      .getByRole("button", { name: "Save Changes", exact: true })
+      .click();
+    const alert = page.locator(".rsvp-information-section").getByRole("alert");
+    await expect(alert).toContainText("RSVP is closed");
+    await expectPass(page, null);
+    await expect(heroAction(page, "View Check-in QR")).toHaveCount(0);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(alert).toContainText("RSVP is closed");
+    await expect(page.getByRole("button", { name: "Edit RSVP" })).toHaveCount(
+      0,
+    );
+    await expectPass(page, outcome === "replaced" ? secondPass : null);
+    await expect(
+      heroAction(
+        page,
+        outcome === "replaced" ? "View Check-in QR" : "View RSVP",
+      ),
+    ).toBeVisible();
+    const after = await request.get(`${MOCK}/__rsvp-state`);
+    expect(await after.json()).toMatchObject({ reads: reads + 1 });
+    expect(await submissions(request)).toHaveLength(1);
   });
 }
 

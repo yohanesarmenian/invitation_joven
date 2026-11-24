@@ -140,6 +140,10 @@ let rsvpFailure: {
   code: string;
   method: "GET" | "PUT" | "PATCH";
 } | null = null;
+let rsvpReadFailure: Pick<
+  NonNullable<typeof rsvpFailure>,
+  "status" | "code"
+> | null = null;
 let nextRsvpVersion: number | null = null;
 let rsvpReadCount = 0;
 let dropRsvpResponse = false;
@@ -191,6 +195,7 @@ const server = createServer(async (request, response) => {
     rsvpRules = publicInvitationFixture.invitation.rules;
     rsvpDelayMs = 0;
     rsvpFailure = null;
+    rsvpReadFailure = null;
     nextRsvpVersion = null;
     rsvpReadCount = 0;
     dropRsvpResponse = false;
@@ -343,6 +348,7 @@ const server = createServer(async (request, response) => {
       rules?: PublicInvitationResponse["invitation"]["rules"];
       delayMs?: number;
       failure?: typeof rsvpFailure;
+      readFailure?: typeof rsvpReadFailure;
       nextVersion?: number;
       dropResponse?: boolean;
       deadline?: string | null;
@@ -355,6 +361,7 @@ const server = createServer(async (request, response) => {
     if (fixture.rules) rsvpRules = fixture.rules;
     rsvpDelayMs = fixture.delayMs ?? 0;
     rsvpFailure = fixture.failure ?? null;
+    rsvpReadFailure = fixture.readFailure ?? null;
     nextRsvpVersion = fixture.nextVersion ?? null;
     dropRsvpResponse = fixture.dropResponse ?? false;
     if (fixture.deadline !== undefined) rsvpDeadlineAt = fixture.deadline;
@@ -377,10 +384,12 @@ const server = createServer(async (request, response) => {
   ) {
     if (request.method === "GET") {
       rsvpReadCount += 1;
-      if (rsvpFailure?.method === "GET") {
-        sendJson(response, rsvpFailure.status, {
+      const failure =
+        rsvpReadFailure ?? (rsvpFailure?.method === "GET" ? rsvpFailure : null);
+      if (failure) {
+        sendJson(response, failure.status, {
           error: {
-            code: rsvpFailure.code,
+            code: failure.code,
             message: "Mock read failure",
             details: null,
           },

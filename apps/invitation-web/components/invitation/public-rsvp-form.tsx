@@ -55,6 +55,14 @@ export type PublicRsvpFormProps = {
   reloadAction: () => Promise<RsvpResult<PublicRsvpReadResponse>>;
 };
 
+function isDeadlineRejection(error: RsvpFailure) {
+  return (
+    error.kind === "api" &&
+    error.httpStatus === 422 &&
+    error.code === "RSVP_DEADLINE_PASSED"
+  );
+}
+
 export function PublicRsvpForm({
   invitation,
   initialResult,
@@ -108,10 +116,16 @@ export function PublicRsvpForm({
     lock === "closed" ||
     lock === "unavailable" ||
     canonicalResponse?.canEdit === false;
-  const confirmedView = loaded && !editing && !pending && !failure && !lock;
+  const viewingSavedResponse = loaded && !editing && !pending;
+  const confirmedView = viewingSavedResponse && !failure && !lock;
+  const deadlineRejected =
+    lock === "closed" &&
+    failure?.source === "submit" &&
+    isDeadlineRejection(failure.error);
   const pass = canonicalResponse?.checkinPass;
   const activePass =
-    confirmedView &&
+    viewingSavedResponse &&
+    (confirmedView || deadlineRejected) &&
     canonical?.status === "ACCEPTED" &&
     !passNeedsReload &&
     pass?.status === "ACTIVE"
@@ -181,7 +195,7 @@ export function PublicRsvpForm({
     if (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT")
       setLock("conflict");
     if (
-      (error.httpStatus === 422 && error.code === "RSVP_DEADLINE_PASSED") ||
+      isDeadlineRejection(error) ||
       (error.httpStatus === 409 && error.code === "RSVP_LOCKED_AFTER_CHECKIN")
     )
       setLock("closed");
@@ -267,6 +281,20 @@ export function PublicRsvpForm({
       );
       if (result.status === "error") {
         recordFailure(result.error, "submit");
+        if (
+          isDeadlineRejection(result.error) &&
+          canonical?.status === "ACCEPTED" &&
+          pass?.status === "ACTIVE"
+        ) {
+          // Deadline rejection can precede the version check. Refresh the pass
+          // without reopening editing or discarding the rejected draft.
+          setPassNeedsReload(true);
+          const latest = await reloadAction().catch(() => null);
+          if (latest?.status === "success") {
+            setCanonical(latest.data);
+            setPassNeedsReload(false);
+          }
+        }
       } else {
         setCanonical((current) =>
           current ? { ...current, ...result.data } : null,
