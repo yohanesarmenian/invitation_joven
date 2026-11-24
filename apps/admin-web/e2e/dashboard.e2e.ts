@@ -96,11 +96,16 @@ for (const width of [320, 375, 412, 768, 1280])
     await login(page);
     await expect(page.locator("dd")).toHaveCount(6);
     if (width <= 760) {
-      const toggle = page.getByRole("button", { name: "Open navigation" });
-      await expect(page.getByRole("navigation")).toBeHidden();
+      const toggle = page.locator("button[aria-controls='primary-navigation']");
+      const navigation = page.getByRole("navigation", {
+        name: "Primary navigation",
+      });
+      await expect(navigation).toBeHidden();
+      await expect(toggle).toBeEnabled();
       await toggle.focus();
       await page.keyboard.press("Enter");
-      await expect(page.getByRole("navigation")).toBeVisible();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await expect(navigation).toBeVisible();
       await page.keyboard.press("Tab");
       await expect(
         page.getByRole("link", { name: "Dashboard", exact: true }),
