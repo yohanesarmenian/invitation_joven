@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useRef, useState, type MouseEvent } from "react";
 import { weddingMedia } from "../../src/presentation/wedding-media";
 
 export function ClosedEnvelopeCover({
@@ -98,6 +98,24 @@ export function InvitationHero({
     onReady?.();
   }
 
+  function navigateToRsvp(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      event.button !== 0 ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    )
+      return;
+
+    const heading = document.getElementById(event.currentTarget.hash.slice(1));
+    if (!heading || heading.closest("[inert]")) return;
+
+    event.preventDefault();
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView({ block: "start", behavior: "instant" });
+  }
+
   return (
     <header
       className="invitation-hero"
@@ -122,6 +140,13 @@ export function InvitationHero({
             <br />
             to be shared with you.
           </p>
+          <a
+            className="invitation-hero-rsvp"
+            href="#rsvp-title"
+            onClick={navigateToRsvp}
+          >
+            View RSVP
+          </a>
         </div>
         <p className="invitation-hero-foot">Together with our families</p>
       </div>

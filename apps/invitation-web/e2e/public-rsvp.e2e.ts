@@ -861,6 +861,40 @@ test("pending state disables submission and prevents duplicate requests", async 
   expect(await submissions(request)).toHaveLength(1);
 });
 
+for (const status of ["ACCEPTED", "DECLINED"] as const) {
+  test(`hero RSVP link opens the saved ${status} view without submitting`, async ({
+    page,
+    request,
+  }) => {
+    await configure(request, {
+      rsvp:
+        status === "ACCEPTED"
+          ? accepted
+          : { ...accepted, status, partyMode: undefined },
+    });
+    await open(page);
+    const confirmation = page.getByRole("region", {
+      name: "Your RSVP confirmation",
+    });
+    await expect(confirmation).toBeVisible();
+    const stateBefore = await request.get(`${MOCK}/__rsvp-state`);
+    const { reads } = await stateBefore.json();
+    await page.getByRole("link", { name: "View RSVP" }).click();
+    const heading = page.getByRole("heading", {
+      name: "RSVP & Dietary Information",
+    });
+    await expect(heading).toBeFocused();
+    await expect(heading).toBeInViewport({ ratio: 1 });
+    await expect(confirmation).toBeVisible();
+    await expect(confirmation).toContainText(
+      status === "ACCEPTED" ? "Attendance Confirmed" : "Unable to Attend",
+    );
+    await expect(page.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+    const stateAfter = await request.get(`${MOCK}/__rsvp-state`);
+    expect(await stateAfter.json()).toMatchObject({ reads, requests: [] });
+  });
+}
+
 test("loads accepted state and keeps its draft on a version conflict", async ({
   page,
   request,

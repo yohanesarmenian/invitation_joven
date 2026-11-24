@@ -54,7 +54,7 @@ describe("invitation cover markup", () => {
     },
   );
 
-  it("renders the hero as static content with a semantic wedding title", () => {
+  it("renders a semantic wedding title and RSVP section link", () => {
     const html = renderToStaticMarkup(createElement(InvitationHero));
 
     expect(html).toContain('<header class="invitation-hero"');
@@ -66,7 +66,8 @@ describe("invitation cover markup", () => {
       'class="invitation-hero-monogram" aria-hidden="true">Y<span>&amp;</span>A',
     );
     expect(html).toContain("invitation-hero-media");
-    expect(html).not.toMatch(/<(?:button|form|input|select|textarea|a)\b/);
+    expect(html).toContain('href="#rsvp-title">View RSVP</a>');
+    expect(html).not.toMatch(/<(?:button|form|input|select|textarea)\b/);
     expect(html).not.toMatch(/(?:Open|View) invitation/i);
   });
 

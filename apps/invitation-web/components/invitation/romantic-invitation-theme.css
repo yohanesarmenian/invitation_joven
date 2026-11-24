@@ -144,6 +144,41 @@
   font: var(--type-body);
 }
 
+.invitation-hero-rsvp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 24px;
+  padding: 8px 20px;
+  border: 1px solid #f0d8ba;
+  border-radius: 999px;
+  background: #fffaf3;
+  color: var(--romantic-plum);
+  font: var(--type-label);
+  text-decoration: none;
+  text-shadow: none;
+}
+
+.invitation-hero-rsvp:hover {
+  text-decoration: underline;
+}
+
+.invitation-opening-flow .invitation-hero-rsvp:focus-visible {
+  outline: 3px solid #fffaf3;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--romantic-plum);
+}
+
+.rsvp-section-copy #rsvp-title {
+  scroll-margin-block-start: calc(24px + env(safe-area-inset-top, 0px));
+}
+
+.rsvp-section-copy #rsvp-title:focus {
+  outline: 3px solid var(--romantic-plum);
+  outline-offset: 4px;
+}
+
 .invitation-hero-foot {
   margin: auto 0 0;
   padding-top: 100px;
