@@ -17,7 +17,9 @@ export function EventCalendar({ event }: { event: CalendarEvent }) {
     link.download = "wedding-event.ics";
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setMessage("Calendar file downloaded. Open it in your calendar app.");
+    setMessage(
+      "Berkas kalender telah diunduh. Silakan buka di aplikasi kalender Anda.",
+    );
   }
   return (
     <>
@@ -26,7 +28,7 @@ export function EventCalendar({ event }: { event: CalendarEvent }) {
         className="map-link calendar-button"
         onClick={download}
       >
-        Add to calendar
+        Tambahkan ke Kalender
       </button>
       <span className="visually-hidden" role="status">
         {message}
@@ -53,25 +55,30 @@ export function EventCountdown({
     Math.floor((Date.parse(next.startsAt!) - now) / 1000),
   );
   const parts = [
-    { label: "Days", value: Math.floor(seconds / 86400) },
-    { label: "Hours", value: Math.floor((seconds % 86400) / 3600) },
-    { label: "Minutes", value: Math.floor((seconds % 3600) / 60) },
-    { label: "Seconds", value: seconds % 60 },
+    { unit: "days", label: "Hari", value: Math.floor(seconds / 86400) },
+    {
+      unit: "hours",
+      label: "Jam",
+      value: Math.floor((seconds % 86400) / 3600),
+    },
+    {
+      unit: "minutes",
+      label: "Menit",
+      value: Math.floor((seconds % 3600) / 60),
+    },
+    { unit: "seconds", label: "Detik", value: seconds % 60 },
   ];
   return (
     <section
       className="event-countdown"
-      aria-label={`Time until ${next.name}`}
+      aria-label={`Hitung mundur menuju ${next.name}`}
       aria-live="off"
     >
-      <p className="countdown-kicker">Counting down to {next.name}</p>
+      <p className="countdown-kicker">Hitung mundur menuju {next.name}</p>
       <div className="countdown-grid">
-        {parts.map(({ label, value }) => (
-          <div className="countdown-part" key={label}>
-            <span
-              className="countdown-value"
-              data-countdown-unit={label.toLowerCase()}
-            >
+        {parts.map(({ unit, label, value }) => (
+          <div className="countdown-part" key={unit}>
+            <span className="countdown-value" data-countdown-unit={unit}>
               {String(value).padStart(2, "0")}
             </span>
             <span className="countdown-label">{label}</span>

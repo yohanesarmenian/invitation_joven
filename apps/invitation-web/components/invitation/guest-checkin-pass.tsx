@@ -21,20 +21,17 @@ export function GuestCheckinPass({
       <div className="figma-pass-content">
         <h3
           id={CHECKIN_PASS_HEADING_ID}
-          aria-label="Your check-in pass"
           tabIndex={-1}
           className="invitation-rsvp-jump-target"
         >
-          Thank You for Confirming!
+          QR Check-in Anda
         </h3>
         <p>
-          <span className="visually-hidden">Your acceptance is saved. </span>We
-          have received your RSVP and cannot wait to celebrate our special day
-          with you.
+          Jawaban RSVP Anda sudah tersimpan. Kami menantikan kehadiran Anda.
         </p>
         <p className="figma-pass-instruction">
-          Your check-in QR code is ready. Please present it at the reception
-          desk. If your QR code cannot be read, reception staff can assist you.
+          Tunjukkan QR ini kepada petugas penerima tamu saat tiba. Jika QR tidak
+          terbaca, petugas dapat membantu Anda.
         </p>
         <QRCodeSVG
           value={pass.qrPayload}
@@ -45,11 +42,11 @@ export function GuestCheckinPass({
           bgColor="#ffffff"
           fgColor="#000000"
           role="img"
-          aria-label="Household check-in pass QR code"
+          aria-label="Kode QR untuk check-in rombongan Anda"
           aria-describedby={`${id}-code-label`}
         />
         <p id={`${id}-code-label`} className="checkin-code-label">
-          Check-in code
+          Kode check-in
         </p>
         <code className="checkin-code" aria-labelledby={`${id}-code-label`}>
           {pass.qrPayload}
@@ -70,7 +67,7 @@ export function GuestCheckinPass({
             });
           }}
         >
-          Back to Invitation
+          Kembali ke Undangan
         </button>
       </div>
     </section>

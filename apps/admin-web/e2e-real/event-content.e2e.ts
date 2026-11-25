@@ -148,13 +148,13 @@ test("real draft/upload/preview/publish/hide survives reload and controls guest 
     const publicPage = await publicContext.newPage();
     await publicPage.goto(`/i/${guest.publicCredential}`);
     await publicPage
-      .getByRole("button", { name: "Open invitation", exact: true })
+      .getByRole("button", { name: "Buka Undangan", exact: true })
       .click();
     await expect(
       publicPage.locator(".invitation-opening-flow"),
     ).toHaveAttribute("data-stage", "content");
     await expect(
-      publicPage.getByRole("region", { name: "Parking Guide", exact: true }),
+      publicPage.getByRole("region", { name: "Panduan Parkir", exact: true }),
     ).toContainText("Reception parking for guests");
     await expect(
       publicPage.getByAltText("Guest entrance and parking area"),

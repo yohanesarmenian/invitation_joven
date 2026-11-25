@@ -123,28 +123,28 @@ test("OWNER creates an event and edits linked details; guest date, countdown, ca
       `${process.env.PUBLIC_INVITATION_BASE_URL}/i/${household.publicCredential}`,
     );
     await guest
-      .getByRole("button", { name: "Open invitation", exact: true })
+      .getByRole("button", { name: "Buka Undangan", exact: true })
       .click();
     await expect(guest.locator(".invitation-opening-flow")).toHaveAttribute(
       "data-stage",
       "content",
     );
     await expect(
-      guest.getByRole("heading", { name: "11 February 2028", exact: true }),
+      guest.getByRole("heading", { name: "11 Februari 2028", exact: true }),
     ).toBeVisible();
     await expect(guest.locator(".event-time-block time")).toHaveText("00.30");
     await expect(
       guest.getByText("Synthetic updated venue", { exact: true }),
     ).toBeVisible();
     await expect(
-      guest.getByRole("link", { name: "View in Google Maps", exact: true }),
+      guest.getByRole("link", { name: "Buka di Google Maps", exact: true }),
     ).toHaveAttribute("href", "https://www.google.com/maps?q=synthetic");
     const seconds = guest.locator('[data-countdown-unit="seconds"]');
     const first = await seconds.textContent();
     await expect(seconds).not.toHaveText(first!);
     const downloading = guest.waitForEvent("download");
     await guest
-      .getByRole("button", { name: "Add to calendar", exact: true })
+      .getByRole("button", { name: "Tambahkan ke Kalender", exact: true })
       .click();
     const download = await downloading;
     const stream = await download.createReadStream();

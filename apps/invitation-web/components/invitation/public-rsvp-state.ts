@@ -117,12 +117,12 @@ export function partyIssue(
   draft: RsvpDraft,
   invitation: RsvpInvitation,
 ): string | null {
-  if (!draft.partyMode) return "Please choose who will attend.";
+  if (!draft.partyMode) return "Silakan pilih siapa yang akan hadir.";
   const named = invitation.invitees.filter(({ id }) =>
     draft.namedInviteeIds.includes(id),
   );
   if (named.length !== draft.namedInviteeIds.length)
-    return "Please select names from this invitation.";
+    return "Silakan pilih nama yang tercantum di undangan ini.";
   const adults = named.filter(({ category }) => category === "ADULT").length;
   const children = named.length - adults;
   if (
@@ -130,16 +130,16 @@ export function partyIssue(
     draft.additionalChildren < 0 ||
     draft.additionalChildren > invitation.rules.maxAdditionalChildren
   )
-    return "Please check the number of additional children.";
+    return "Silakan periksa jumlah anak tambahan.";
   if (draft.plusOne && !invitation.rules.allowPlusOne)
-    return "This invitation does not include an additional companion.";
+    return "Undangan ini tidak mencakup pendamping tambahan.";
   if (draft.partyMode === "ALONE")
     return named.length === 1 &&
       !draft.plusOne &&
       !draft.includeChildren &&
       draft.additionalChildren === 0
       ? null
-      : "Please select one invited attendee.";
+      : "Silakan pilih satu nama tamu yang diundang.";
   if (draft.partyMode === "PLUS_ONE")
     return adults === 1 &&
       named.length === 1 &&
@@ -147,12 +147,12 @@ export function partyIssue(
       !draft.includeChildren &&
       draft.additionalChildren === 0
       ? null
-      : "Please select one invited adult for this plus-one response.";
+      : "Silakan pilih satu tamu dewasa yang akan hadir bersama pendamping.";
   if (!adults || adults + Number(draft.plusOne) > 2)
-    return "Please select one or two adults, including any additional partner.";
+    return "Silakan pilih satu atau dua tamu dewasa, termasuk pendamping jika ada.";
   return draft.includeChildren === children + draft.additionalChildren > 0
     ? null
-    : "Please select the invited children or enter the number of additional children.";
+    : "Silakan pilih nama anak yang diundang atau isi jumlah anak tambahan.";
 }
 
 export function restoreSavedDraft(
@@ -224,14 +224,14 @@ export function validateRsvpDraft(
   draft: RsvpDraft,
   invitation: RsvpInvitation,
 ): string | null {
-  if (!draft.status) return "Please choose whether you can join us.";
+  if (!draft.status) return "Silakan pilih apakah Anda dapat hadir.";
   if (draft.status === "DECLINED") return null;
   if (!selectedSession(draft, invitation))
-    return "Please choose the wedding sessions you’ll attend.";
+    return "Silakan pilih sesi pernikahan yang akan Anda hadiri.";
   return (
     partyIssue(draft, invitation) ??
     (draft.dietaryNotes.trim().length > 500
-      ? "Please limit dietary notes to 500 characters."
+      ? "Catatan makanan tidak boleh lebih dari 500 karakter."
       : null)
   );
 }

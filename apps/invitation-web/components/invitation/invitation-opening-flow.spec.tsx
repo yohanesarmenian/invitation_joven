@@ -30,7 +30,7 @@ describe("server-rendered opening preparation", () => {
       </InvitationOpeningFlow>,
     );
     const button = html.match(
-      /<button[^>]*aria-label="Open invitation"[^>]*>/,
+      /<button[^>]*aria-label="Buka Undangan"[^>]*>/,
     )?.[0];
     expect(button).toContain('disabled=""');
     expect(button).toContain('aria-busy="true"');

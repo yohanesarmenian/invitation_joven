@@ -25,6 +25,7 @@ import {
 import { RsvpResultNotice } from "./rsvp-result-notice";
 import { GuestCheckinPass } from "./guest-checkin-pass";
 import {
+  CHECKIN_PASS_HEADING_ID,
   RsvpHeroActionUpdate,
   RSVP_RESPONSE_HEADING_ID,
   type RsvpHeroAction,
@@ -63,6 +64,14 @@ function isDeadlineRejection(error: RsvpFailure) {
   );
 }
 
+function isInvitationUnavailable(error: RsvpFailure) {
+  return (
+    error.kind === "api" &&
+    error.httpStatus === 404 &&
+    error.code === "INVITATION_NOT_AVAILABLE"
+  );
+}
+
 export function PublicRsvpForm({
   invitation,
   initialResult,
@@ -83,12 +92,16 @@ export function PublicRsvpForm({
   const [passNeedsReload, setPassNeedsReload] = useState(false);
   const [draft, setDraft] = useState(() => createRsvpDraft(canonical));
   const [loaded, setLoaded] = useState(initialResult.status === "success");
-  const [operation, setOperation] = useState<"submit" | "reload" | null>(null);
-  const [feedback, setFeedback] = useState<"saved" | "reloaded" | null>(null);
+  const [operation, setOperation] = useState<
+    "submit" | "reload" | "verify-pass" | null
+  >(null);
+  const [feedback, setFeedback] = useState<
+    "saved" | "reloaded" | "pass-checked" | null
+  >(null);
   const [validation, setValidation] = useState<string | null>(null);
   const [failure, setFailure] = useState<{
     error: RsvpFailure;
-    source: "submit" | "reload";
+    source: "submit" | "reload" | "pass-unavailable";
   } | null>(
     initialResult.status === "error"
       ? { error: initialResult.error, source: "reload" }
@@ -101,6 +114,7 @@ export function PublicRsvpForm({
   const inFlight = useRef(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
+  const passStatusRef = useRef<HTMLParagraphElement>(null);
   const attendanceRef = useRef<HTMLFieldSetElement>(null);
   const attendeesRef = useRef<HTMLFieldSetElement>(null);
   const eventsRef = useRef<HTMLFieldSetElement>(null);
@@ -111,7 +125,9 @@ export function PublicRsvpForm({
   const sessionReady = accepted && session !== undefined;
   const partyReady = sessionReady && !partyIssue(draft, invitation);
   const savedDraft = canonical && restoreSavedDraft(invitation, canonical);
+  const invitationUnavailable = failure?.source === "pass-unavailable";
   const pending = operation !== null;
+  const checkingPass = operation === "verify-pass";
   const terminal =
     lock === "closed" ||
     lock === "unavailable" ||
@@ -143,7 +159,7 @@ export function PublicRsvpForm({
   const notice: RsvpNotice | null = validation
     ? {
         tone: "error",
-        title: "Please review your response",
+        title: "Periksa jawaban Anda",
         message: validation,
         recovery: "none",
       }
@@ -152,6 +168,8 @@ export function PublicRsvpForm({
         ? rsvpLoadFailureNotice(failure.error, loaded)
         : rsvpFailureNotice(failure.error)
       : null;
+  const passUnverified = passNeedsReload || notice?.recovery === "reload";
+  const canVerifyPass = deadlineRejected && passNeedsReload;
   const submitBlocked =
     pending ||
     terminal ||
@@ -165,7 +183,14 @@ export function PublicRsvpForm({
       : null;
 
   useEffect(() => {
-    if (failure || validation) errorRef.current?.focus();
+    if (feedback === "pass-checked") {
+      (
+        document.getElementById(CHECKIN_PASS_HEADING_ID) ??
+        passStatusRef.current ??
+        document.getElementById(RSVP_RESPONSE_HEADING_ID) ??
+        errorRef.current
+      )?.focus();
+    } else if (failure || validation) errorRef.current?.focus();
     else if (feedback === "reloaded" || feedback === "saved")
       statusRef.current?.focus();
   }, [failure, validation, feedback]);
@@ -189,7 +214,7 @@ export function PublicRsvpForm({
       (error.httpStatus === 409 &&
         (error.code === "RSVP_VERSION_CONFLICT" ||
           error.code === "RSVP_LOCKED_AFTER_CHECKIN")) ||
-      (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
+      isInvitationUnavailable(error)
     )
       setPassNeedsReload(true);
     if (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT")
@@ -199,8 +224,7 @@ export function PublicRsvpForm({
       (error.httpStatus === 409 && error.code === "RSVP_LOCKED_AFTER_CHECKIN")
     )
       setLock("closed");
-    if (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
-      setLock("unavailable");
+    if (isInvitationUnavailable(error)) setLock("unavailable");
   }
 
   async function reload(forEditing = false) {
@@ -239,6 +263,37 @@ export function PublicRsvpForm({
     }
   }
 
+  async function revalidatePass() {
+    const latest = await reloadAction().catch(() => null);
+    if (latest?.status === "success") {
+      setCanonical(latest.data);
+      setPassNeedsReload(false);
+      return true;
+    }
+    if (latest?.status === "error" && isInvitationUnavailable(latest.error)) {
+      // The invitation itself is unavailable. Keep the deadline lock and
+      // use the domain notice without offering generic RSVP reload.
+      setCanonical(null);
+      setEditing(false);
+      setPassNeedsReload(false);
+      setFailure({ error: latest.error, source: "pass-unavailable" });
+    }
+    return false;
+  }
+
+  async function verifyPass() {
+    if (inFlight.current || !canVerifyPass) return;
+    inFlight.current = true;
+    setOperation("verify-pass");
+    try {
+      // Keep the rejected edit and its lock, even if the read advertises canEdit.
+      if (await revalidatePass()) setFeedback("pass-checked");
+    } finally {
+      inFlight.current = false;
+      setOperation(null);
+    }
+  }
+
   function review() {
     const section = notice?.section;
     const target =
@@ -258,7 +313,7 @@ export function PublicRsvpForm({
       (preserveAttendance || sameAttendance(draft, savedDraft));
     const invalid = dietaryOnly
       ? draft.dietaryNotes.trim().length > 500
-        ? "Please limit dietary notes to 500 characters."
+        ? "Catatan makanan tidak boleh lebih dari 500 karakter."
         : null
       : validateRsvpDraft(draft, invitation);
     if (invalid) {
@@ -289,11 +344,7 @@ export function PublicRsvpForm({
           // Deadline rejection can precede the version check. Refresh the pass
           // without reopening editing or discarding the rejected draft.
           setPassNeedsReload(true);
-          const latest = await reloadAction().catch(() => null);
-          if (latest?.status === "success") {
-            setCanonical(latest.data);
-            setPassNeedsReload(false);
-          }
+          await revalidatePass();
         }
       } else {
         setCanonical((current) =>
@@ -332,6 +383,7 @@ export function PublicRsvpForm({
       aria-atomic="true"
       ref={statusRef}
       tabIndex={-1}
+      data-rsvp-mutation-success={savedNotice ? "" : undefined}
       className={
         savedNotice || feedback === "reloaded"
           ? "rsvp-notice rsvp-notice-success"
@@ -343,19 +395,19 @@ export function PublicRsvpForm({
           <h3>{savedNotice.title}</h3>
           <p>{savedNotice.message}</p>
         </>
-      ) : pending ? (
+      ) : pending && !checkingPass ? (
         operation === "reload" ? (
-          "Loading the latest RSVP…"
+          "Memuat jawaban RSVP terbaru…"
         ) : (
-          "Saving your response…"
+          "Menyimpan jawaban Anda…"
         )
       ) : feedback === "reloaded" ? (
-        "The latest RSVP has been loaded. Please review it before responding."
+        "Jawaban RSVP terbaru sudah dimuat. Silakan periksa sebelum mengirim jawaban."
       ) : null}
     </div>
   );
 
-  if (!loaded) {
+  if (!loaded || invitationUnavailable) {
     return (
       <div className="public-rsvp-form" aria-busy={pending}>
         {errorNotice}
@@ -366,19 +418,19 @@ export function PublicRsvpForm({
 
   const restriction =
     canonicalResponse?.editBlockedReason === "CHECKED_IN"
-      ? "Your household has checked in. RSVP changes are now closed. Reception staff can assist you."
+      ? "Rombongan Anda sudah check-in. Jawaban RSVP tidak dapat diubah. Petugas penerima tamu dapat membantu Anda."
       : canonicalResponse?.editBlockedReason === "DEADLINE_PASSED"
         ? responded
-          ? "The RSVP edit window has closed. Your saved response remains available."
-          : "The reply deadline has passed. Contact the couple if you need help."
+          ? "Waktu untuk mengubah RSVP sudah berakhir. Anda masih bisa melihat jawaban yang tersimpan."
+          : "Batas waktu RSVP telah lewat. Hubungi kedua mempelai jika Anda memerlukan bantuan."
         : null;
 
   if (responded && !editing) {
     return (
       <section
         className="public-rsvp-form rsvp-confirmation"
-        aria-label="Your RSVP confirmation"
-        aria-busy={pending}
+        aria-label="Konfirmasi RSVP Anda"
+        aria-busy={pending && !checkingPass}
       >
         {errorNotice}
         {statusNotice}
@@ -388,16 +440,44 @@ export function PublicRsvpForm({
           className="invitation-rsvp-jump-target"
         >
           {canonical.status === "ACCEPTED"
-            ? "Attendance Confirmed"
-            : "Unable to Attend"}
+            ? "Kehadiran Terkonfirmasi"
+            : "Tidak Hadir"}
         </h3>
         {canonical.status === "ACCEPTED" ? (
           <>
             <SavedAttendance invitation={invitation} rsvp={canonical} />
-            <GuestCheckinPass pass={activePass} />
+            {activePass ? (
+              <GuestCheckinPass pass={activePass} />
+            ) : !pending || checkingPass ? (
+              <>
+                <p
+                  id={`${id}-pass-status`}
+                  role="status"
+                  ref={passStatusRef}
+                  tabIndex={-1}
+                >
+                  {checkingPass
+                    ? "Memeriksa status QR check-in…"
+                    : passUnverified
+                      ? "Status QR check-in belum terverifikasi. Silakan periksa kembali."
+                      : "QR check-in saat ini tidak tersedia. Petugas penerima tamu dapat membantu Anda."}
+                </p>
+                {canVerifyPass ? (
+                  <button
+                    type="button"
+                    className="rsvp-notice-action"
+                    aria-describedby={`${id}-pass-status`}
+                    aria-disabled={checkingPass}
+                    onClick={() => void verifyPass()}
+                  >
+                    Periksa Ulang QR
+                  </button>
+                ) : null}
+              </>
+            ) : null}
           </>
         ) : (
-          <p>Your response has been saved as not attending.</p>
+          <p>Jawaban Anda telah tersimpan sebagai tidak hadir.</p>
         )}
         {restriction ? <p role="status">{restriction}</p> : null}
         {canonicalResponse?.canEdit && lock === null ? (
@@ -407,7 +487,7 @@ export function PublicRsvpForm({
             disabled={pending}
             onClick={() => void reload(true)}
           >
-            Edit RSVP
+            Ubah RSVP
           </button>
         ) : null}
       </section>
@@ -423,21 +503,19 @@ export function PublicRsvpForm({
   const hasAdult = invitation.invitees.some(
     ({ category }) => category === "ADULT",
   );
-  const partyChoices: [PartyMode, string][] = [
-    ["ALONE", "I’ll attend on my own"],
-  ];
-  if (hasAdult) partyChoices.push(["FAMILY", "I’ll attend with family"]);
+  const partyChoices: [PartyMode, string][] = [["ALONE", "Saya hadir sendiri"]];
+  if (hasAdult) partyChoices.push(["FAMILY", "Saya hadir bersama keluarga"]);
   if (hasAdult && invitation.rules.allowPlusOne)
-    partyChoices.push(["PLUS_ONE", "I’ll bring a plus one"]);
+    partyChoices.push(["PLUS_ONE", "Saya hadir bersama pendamping"]);
 
   const dietaryField = (
     <div className="rsvp-dietary">
       <label htmlFor={`${id}-dietary`}>
-        Dietary Restrictions &amp; Preferences <span>(optional)</span>
+        Kebutuhan dan preferensi makanan <span>(opsional)</span>
       </label>
       <textarea
         id={`${id}-dietary`}
-        aria-label="Dietary requirements (optional)"
+        aria-label="Kebutuhan dan preferensi makanan (opsional)"
         rows={4}
         maxLength={500}
         value={draft.dietaryNotes}
@@ -447,26 +525,26 @@ export function PublicRsvpForm({
         }
       />
       <p id={`${id}-dietary-limit`}>
-        {draft.dietaryNotes.length} / 500 characters
+        {draft.dietaryNotes.length} / 500 karakter
       </p>
     </div>
   );
   const submitButton = (
     <button className="rsvp-submit" type="submit" disabled={submitBlocked}>
       {operation === "submit"
-        ? "Saving…"
+        ? "Menyimpan…"
         : notice?.recovery === "retry"
-          ? "Try again"
+          ? "Coba Lagi"
           : editing
-            ? "Save Changes"
-            : "Submit RSVP"}
+            ? "Simpan Perubahan"
+            : "Kirim RSVP"}
     </button>
   );
 
   return (
     <form
       className="public-rsvp-form"
-      aria-label="Your RSVP"
+      aria-label="RSVP Anda"
       aria-describedby={notice ? `${id}-error` : undefined}
       aria-busy={pending}
       onSubmit={submit}
@@ -476,23 +554,19 @@ export function PublicRsvpForm({
       {statusNotice}
       {restriction ? <p role="status">{restriction}</p> : null}
       {!responded ? (
-        <p>
-          Please confirm your attendance to receive your personal check-in QR
-          code.
-        </p>
+        <p>Konfirmasikan kehadiran Anda untuk mendapatkan QR check-in.</p>
       ) : null}
-      <p>If your QR code cannot be read, reception staff can assist you.</p>
+      <p>Jika QR tidak terbaca, petugas penerima tamu dapat membantu Anda.</p>
       {preserveAttendance && canonical ? (
         <>
           <SavedAttendance invitation={invitation} rsvp={canonical} />
           <p>
-            Your saved attendance differs from the new form. You can update
-            dietary notes and keep all attendance details.
+            Data kehadiran yang tersimpan berbeda dari pilihan pada formulir
+            ini. Anda dapat memperbarui catatan makanan tanpa mengubah data
+            kehadiran.
           </p>
           <fieldset disabled={pending || terminal} className="rsvp-fields">
-            <legend className="visually-hidden">
-              Edit dietary information
-            </legend>
+            <legend className="visually-hidden">Ubah catatan makanan</legend>
             {dietaryField}
             <button
               type="button"
@@ -504,32 +578,32 @@ export function PublicRsvpForm({
                 requestAnimationFrame(() => attendanceRef.current?.focus());
               }}
             >
-              Change attendance details
+              Ubah Rincian Kehadiran
             </button>
             {submitButton}
           </fieldset>
         </>
       ) : (
         <fieldset disabled={pending || terminal} className="rsvp-fields">
-          <legend className="visually-hidden">Your RSVP</legend>
+          <legend className="visually-hidden">RSVP Anda</legend>
           {replacing && (
             <p role="note">
-              Review the replacement before saving. The same party will attend
-              every selected session.
+              Periksa perubahan sebelum menyimpan. Semua sesi yang dipilih akan
+              dihadiri oleh rombongan yang sama.
             </p>
           )}
           <fieldset
             className="rsvp-group"
             ref={attendanceRef}
             tabIndex={-1}
-            aria-label="Will you join us?"
+            aria-label="Apakah Anda akan hadir?"
           >
-            <legend>Attendance Confirmation</legend>
+            <legend>Konfirmasi Kehadiran</legend>
             <div className="rsvp-attendance-options">
               {(
                 [
-                  ["ACCEPTED", "Joyfully Accept"],
-                  ["DECLINED", "Regretfully Decline"],
+                  ["ACCEPTED", "Dengan senang hati hadir"],
+                  ["DECLINED", "Mohon maaf, tidak dapat hadir"],
                 ] as const
               ).map(([status, label]) => (
                 <label className="rsvp-choice" key={status}>
@@ -566,16 +640,16 @@ export function PublicRsvpForm({
                 notice?.section === "events" ? `${id}-error` : undefined
               }
             >
-              <legend>Which sessions will you attend?</legend>
+              <legend>Sesi mana yang akan Anda hadiri?</legend>
               {sessions.length === 0 ? (
                 <p role="status">
-                  The wedding sessions for this invitation need to be checked.
-                  Contact the couple for help.
+                  Sesi pernikahan untuk undangan ini perlu diperiksa. Silakan
+                  hubungi kedua mempelai.
                 </p>
               ) : sessions.length === 1 ? (
                 <p>
-                  <strong>{sessions[0]!.label}</strong> is selected for this
-                  invitation.
+                  Sesi untuk undangan ini: <strong>{sessions[0]!.label}</strong>
+                  .
                 </p>
               ) : (
                 sessions.map((option) => (
@@ -603,7 +677,7 @@ export function PublicRsvpForm({
                 notice?.section === "attendees" ? `${id}-error` : undefined
               }
             >
-              <legend>Who will attend with you?</legend>
+              <legend>Siapa yang akan hadir?</legend>
               {partyChoices.map(([mode, label]) => (
                 <label className="rsvp-choice" key={mode}>
                   <input
@@ -621,8 +695,8 @@ export function PublicRsvpForm({
                 <fieldset className="rsvp-group">
                   <legend>
                     {draft.partyMode === "FAMILY"
-                      ? "Invited adults attending"
-                      : "Select the invited attendee"}
+                      ? "Tamu dewasa yang akan hadir"
+                      : "Pilih nama tamu yang diundang"}
                   </legend>
                   {namedOptions.length === 1 ? (
                     <p>{namedOptions[0]!.fullName}</p>
@@ -656,7 +730,7 @@ export function PublicRsvpForm({
                 </fieldset>
               )}
               {draft.partyMode === "PLUS_ONE" && (
-                <p>One additional companion is included.</p>
+                <p>Undangan ini mencakup satu pendamping tambahan.</p>
               )}
               {draft.partyMode === "FAMILY" && (
                 <>
@@ -669,7 +743,7 @@ export function PublicRsvpForm({
                           edit({ ...draft, plusOne: event.target.checked })
                         }
                       />
-                      <span>Include one additional partner</span>
+                      <span>Sertakan satu pendamping tambahan</span>
                     </label>
                   )}
                   {childrenAllowed && (
@@ -697,7 +771,7 @@ export function PublicRsvpForm({
                             )
                           }
                         />
-                        <span>Include children</span>
+                        <span>Sertakan anak</span>
                       </label>
                       {draft.includeChildren && (
                         <>
@@ -725,8 +799,7 @@ export function PublicRsvpForm({
                           {invitation.rules.maxAdditionalChildren > 0 && (
                             <label className="rsvp-count">
                               <span>
-                                Additional children (excluding named children
-                                above)
+                                Jumlah anak tambahan (di luar nama anak di atas)
                               </span>
                               <input
                                 type="number"
@@ -761,25 +834,22 @@ export function PublicRsvpForm({
               <div
                 className="rsvp-group"
                 role="region"
-                aria-label="Review attendance"
+                aria-label="Ringkasan kehadiran"
               >
-                <h3>Review your attendance</h3>
+                <h3>Periksa Rincian Kehadiran</h3>
                 <p>{session.label}</p>
                 <p>
-                  Attending named guests:{" "}
+                  Nama tamu yang akan hadir:{" "}
                   {invitation.invitees
                     .filter(({ id }) => draft.namedInviteeIds.includes(id))
                     .map(({ fullName }) => fullName)
                     .join(", ")}
                 </p>
                 <p>
-                  Additional companions: {Number(draft.plusOne)} · Additional
-                  children: {draft.additionalChildren}
+                  Pendamping tambahan: {Number(draft.plusOne)} · Anak tambahan:{" "}
+                  {draft.additionalChildren}
                 </p>
-                <p>
-                  {total} {total === 1 ? "person" : "people"} expected at each
-                  selected session.
-                </p>
+                <p>{total} orang akan hadir di setiap sesi yang dipilih.</p>
               </div>
               {dietaryField}
             </>
@@ -801,7 +871,7 @@ export function PublicRsvpForm({
             setFeedback(null);
           }}
         >
-          Cancel
+          Batal
         </button>
       ) : null}
     </form>
@@ -821,18 +891,18 @@ function SavedAttendance({
 }) {
   return (
     <>
-      <p>Expected guests: {rsvp.attendeeQuantityTotal}</p>
+      <p>Jumlah tamu yang akan hadir: {rsvp.attendeeQuantityTotal}</p>
       <ul>
         {rsvp.attendees.map((attendee, index) => (
           <li key={index}>
             {attendee.type === "NAMED_INVITEE"
               ? (invitation.invitees.find(({ id }) => id === attendee.inviteeId)
-                  ?.fullName ?? "Named guest")
+                  ?.fullName ?? "Tamu terdaftar")
               : attendee.type === "PLUS_ONE"
-                ? "Plus-one"
+                ? "Pendamping tambahan"
                 : attendee.type === "UNNAMED_COMPANION"
-                  ? "Unnamed companions"
-                  : "Additional children"}{" "}
+                  ? "Pendamping tanpa nama"
+                  : "Anak tambahan"}{" "}
             × {attendee.quantity}
           </li>
         ))}
@@ -843,12 +913,12 @@ function SavedAttendance({
           .map(({ eventId, expectedAttendeeCount }) => (
             <li key={eventId}>
               {invitation.events.find(({ id }) => id === eventId)?.name ??
-                "Wedding event"}
-              : {expectedAttendeeCount} guests
+                "Sesi pernikahan"}
+              : {expectedAttendeeCount} orang
             </li>
           ))}
       </ul>
-      {rsvp.dietaryNotes && <p>Dietary requirements: {rsvp.dietaryNotes}</p>}
+      {rsvp.dietaryNotes && <p>Catatan makanan: {rsvp.dietaryNotes}</p>}
     </>
   );
 }

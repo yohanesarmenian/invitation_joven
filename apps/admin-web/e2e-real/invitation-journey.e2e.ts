@@ -16,7 +16,7 @@ test.afterAll(async () => {
 async function open(page: Page, credential: string) {
   await page.goto(`${publicOrigin}/i/${credential}`);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
@@ -25,22 +25,25 @@ async function open(page: Page, credential: string) {
   await expect(page.locator(".invitation-opening-content")).toBeFocused();
 }
 async function accept(page: Page) {
-  await page.getByRole("radio", { name: "Joyfully Accept" }).check();
+  await page.getByRole("radio", { name: "Dengan senang hati hadir" }).check();
   await page
-    .getByRole("radio", { name: "I’ll attend with family", exact: true })
+    .getByRole("radio", { name: "Saya hadir bersama keluarga", exact: true })
     .check();
   await page
-    .getByRole("checkbox", { name: "Include one additional partner" })
+    .getByRole("checkbox", { name: "Sertakan satu pendamping tambahan" })
     .check();
   await page
-    .getByRole("checkbox", { name: "Include children", exact: true })
+    .getByRole("checkbox", { name: "Sertakan anak", exact: true })
     .check();
-  await page.getByRole("spinbutton", { name: /Additional children/ }).fill("1");
+  await page.getByRole("spinbutton", { name: /anak tambahan/i }).fill("1");
   await page
-    .getByLabel("Dietary requirements (optional)")
+    .getByLabel("Kebutuhan dan preferensi makanan (opsional)")
     .fill("Synthetic no seafood");
   await page
-    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/, exact: true })
+    .getByRole("button", {
+      name: /^(Kirim RSVP|Simpan Perubahan)$/,
+      exact: true,
+    })
     .click();
   await expect(page.locator(".checkin-code")).toBeVisible();
 }
@@ -190,14 +193,14 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
     expect(accepted.eventSelections[0]?.expectedAttendeeCount).toBe(3);
     expect(accepted.dietaryNotes).toBe("Synthetic no seafood");
 
-    await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
+    await guest.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
     // Accepted edits keep the active pass; decline revokes it; reaccept issues a new pass.
     await guest
-      .getByLabel("Dietary requirements (optional)")
+      .getByLabel("Kebutuhan dan preferensi makanan (opsional)")
       .fill("Updated synthetic note");
     await guest
       .getByRole("button", {
-        name: /^(Submit RSVP|Save Changes)$/,
+        name: /^(Kirim RSVP|Simpan Perubahan)$/,
         exact: true,
       })
       .click();
@@ -207,27 +210,29 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
     expect(
       (await guest.locator(".checkin-code").innerText()).trim() === firstCode,
     ).toBe(true);
-    await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
-    await guest.getByRole("radio", { name: "Regretfully Decline" }).check();
+    await guest.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
+    await guest
+      .getByRole("radio", { name: "Mohon maaf, tidak dapat hadir" })
+      .check();
     // Edit mode already hides the pass before the mutation is sent.
     await expect(guest.locator(".checkin-code")).toHaveCount(0);
     await guest
       .getByRole("button", {
-        name: /^(Submit RSVP|Save Changes)$/,
+        name: /^(Kirim RSVP|Simpan Perubahan)$/,
         exact: true,
       })
       .click();
     const confirmation = guest.getByRole("region", {
-      name: "Your RSVP confirmation",
+      name: "Konfirmasi RSVP Anda",
     });
     await expect(
       confirmation.getByRole("heading", {
-        name: "Unable to Attend",
+        name: "Tidak Hadir",
         exact: true,
       }),
     ).toBeVisible();
     await expect(
-      guest.getByRole("form", { name: "Your RSVP", exact: true }),
+      guest.getByRole("form", { name: "RSVP Anda", exact: true }),
     ).toHaveCount(0);
     await expect(confirmation.getByRole("alert")).toHaveCount(0);
     await expect(confirmation.locator(".checkin-code")).toHaveCount(0);
@@ -247,7 +252,7 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
       revokedAt: expect.any(Date),
       revocationReason: "RSVP_DECLINED",
     });
-    await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
+    await guest.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
     await accept(guest);
     const qr = (await guest.locator(".checkin-code").innerText()).trim();
     expect(qr !== firstCode).toBe(true);
@@ -261,20 +266,20 @@ test("guest RSVP and message issue a real pass; staff camera decodes, recovers a
     for (const width of [320, 360, 412, 768, 1440]) {
       await guest.setViewportSize({ width, height: 900 });
       const box = await guest
-        .getByRole("img", { name: "Household check-in pass QR code" })
+        .getByRole("img", { name: "Kode QR untuk check-in rombongan Anda" })
         .boundingBox();
       expect(box!.width).toBeGreaterThanOrEqual(200);
       expect(Math.abs(box!.width - box!.height)).toBeLessThan(1);
       expect(box!.x >= 0 && box!.x + box!.width <= width).toBe(true);
     }
     const svg = await guest
-      .getByRole("img", { name: "Household check-in pass QR code" })
+      .getByRole("img", { name: "Kode QR untuk check-in rombongan Anda" })
       .evaluate((node) => node.outerHTML);
     const message =
       "Synthetic congratulations <script>window.journeyXss=1</script>";
-    await guest.getByLabel(/Your name/).fill("Synthetic Journey Guest");
-    await guest.getByLabel(/Your message/).fill(message);
-    await guest.getByRole("button", { name: /^Send Message$/ }).click();
+    await guest.getByLabel(/Nama Anda/).fill("Synthetic Journey Guest");
+    await guest.getByLabel(/Ucapan Anda/).fill(message);
+    await guest.getByRole("button", { name: /^Kirim Ucapan$/ }).click();
     await expect
       .poll(() =>
         fixture.prisma.guestMessage.count({
@@ -572,9 +577,12 @@ test("OWNER create form persists one invitation and its WIB deadline, then the m
     expect(saved.dietaryNotes).toBe("Synthetic no seafood");
     await open(guest, new URL(url).pathname.split("/").at(-1)!);
     await expect(
-      guest.getByRole("heading", { name: "Attendance Confirmed", exact: true }),
+      guest.getByRole("heading", {
+        name: "Kehadiran Terkonfirmasi",
+        exact: true,
+      }),
     ).toBeVisible();
-    await expect(guest.getByRole("form", { name: "Your RSVP" })).toHaveCount(0);
+    await expect(guest.getByRole("form", { name: "RSVP Anda" })).toHaveCount(0);
     await expect(guest.locator(".checkin-code")).toBeVisible();
     expect(
       await fixture.prisma.rSVP.findUniqueOrThrow({
@@ -754,7 +762,7 @@ test("delayed hero readiness follows system reduced motion without bypassing pre
       waitUntil: "domcontentloaded",
     });
     const openButton = page.getByRole("button", {
-      name: "Open invitation",
+      name: "Buka Undangan",
       exact: true,
     });
     await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
@@ -803,7 +811,7 @@ test("disabled CSS end events and failed observers still leave readable, keyboar
       ".invitation-envelope-layer { transition: none !important; } .invitation-opening-content { animation: none !important; }",
   });
   const openButton = page.getByRole("button", {
-    name: "Open invitation",
+    name: "Buka Undangan",
     exact: true,
   });
   await expect(openButton).toBeEnabled();
@@ -879,7 +887,7 @@ test("never-loading and completely failed cover images cannot trap the guest", a
         waitUntil: "domcontentloaded",
       });
       await page
-        .getByRole("button", { name: "Open invitation", exact: true })
+        .getByRole("button", { name: "Buka Undangan", exact: true })
         .click();
       await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
         "data-stage",
@@ -888,7 +896,7 @@ test("never-loading and completely failed cover images cannot trap the guest", a
       await expect(page.locator(".invitation-opening-content")).toBeFocused();
       if (mode === "failed")
         await expect(page.locator(".invitation-hero")).toBeVisible();
-      await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
+      await expect(page.getByRole("form", { name: "RSVP Anda" })).toBeVisible();
     } finally {
       release();
       await page.unrouteAll({ behavior: "wait" });

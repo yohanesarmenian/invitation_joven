@@ -1,8 +1,8 @@
 export default function Home() {
   return (
     <main>
-      <h1>Wedding Invitation Platform</h1>
-      <p>Public invitation app foundation.</p>
+      <h1>Undangan Pernikahan</h1>
+      <p>Silakan buka tautan undangan pribadi yang Anda terima.</p>
     </main>
   );
 }

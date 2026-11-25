@@ -31,7 +31,7 @@ test("records a credential-free local rendering baseline", async ({
     }).observe({ type: "longtask", buffered: true });
   });
   await page.goto(`/i/${"A".repeat(43)}`);
-  const openButton = page.getByRole("button", { name: "Open invitation" });
+  const openButton = page.getByRole("button", { name: "Buka Undangan" });
   await expect(openButton).toBeVisible();
   await expect(openButton).toBeEnabled();
   // Initial readiness covers the hero while lower-page galleries remain lazy.

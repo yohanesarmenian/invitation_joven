@@ -23,7 +23,7 @@ describe("RSVP result notice semantics", () => {
     expect(html).toContain('tabindex="-1"');
     expect(html).toContain('type="button"');
     expect(html).toContain('disabled=""');
-    expect(html).toContain("Loading RSVP");
+    expect(html).toContain("Memuat RSVP");
   });
   it("offers a section correction without exposing raw domain codes", () => {
     const html = renderToStaticMarkup(
@@ -39,8 +39,8 @@ describe("RSVP result notice semantics", () => {
         onReview: vi.fn(),
       }),
     );
-    expect(html).toContain("Review events");
+    expect(html).toContain("Periksa Pilihan Sesi");
     expect(html).not.toContain("EVENT_NOT_SELECTED");
-    expect(html).not.toContain("Reload latest");
+    expect(html).not.toContain("Muat Ulang");
   });
 });

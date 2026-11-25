@@ -71,7 +71,7 @@ async function readMockRequestCount(
 }
 
 async function advanceToContent(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
@@ -166,7 +166,7 @@ for (const key of ["Enter", "Space"]) {
   }) => {
     await page.goto(SUCCESS_PATH);
 
-    const openButton = page.getByRole("button", { name: "Open invitation" });
+    const openButton = page.getByRole("button", { name: "Buka Undangan" });
     const content = page.locator(".invitation-opening-content");
 
     await expect(openButton).toBeVisible();
@@ -188,10 +188,9 @@ for (const key of ["Enter", "Space"]) {
         break;
       }
     }
-    expect(
-      reachedOpenButton,
-      "Tab should reach the Open invitation button",
-    ).toBe(true);
+    expect(reachedOpenButton, "Tab should reach the Buka Undangan button").toBe(
+      true,
+    );
 
     await page.keyboard.press(key);
 
@@ -216,7 +215,7 @@ test("reduced motion reaches focused content with one activation", async ({
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(SUCCESS_PATH);
 
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
@@ -232,9 +231,9 @@ test("hero RSVP link waits for opening and moves keyboard focus only on activati
 }) => {
   await page.goto(SUCCESS_PATH);
   const content = page.locator(".invitation-opening-content");
-  const rsvp = page.getByRole("link", { name: "Confirm Attendance" });
+  const rsvp = page.getByRole("link", { name: "Konfirmasi Kehadiran" });
   const heading = page.getByRole("heading", {
-    name: "RSVP & Dietary Information",
+    name: "RSVP dan Kebutuhan Makanan",
   });
 
   await expect(content).toHaveAttribute("inert", "");
@@ -256,7 +255,7 @@ test("hero RSVP link waits for opening and moves keyboard focus only on activati
   await expect(heading).toBeFocused();
   await expect(heading).toBeInViewport({ ratio: 1 });
   await expect(heading).toHaveCSS("outline-style", "solid");
-  await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
+  await expect(page.getByRole("form", { name: "RSVP Anda" })).toBeVisible();
 });
 
 test.describe("touch RSVP navigation", () => {
@@ -268,9 +267,9 @@ test.describe("touch RSVP navigation", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(SUCCESS_PATH);
     await advanceToContent(page);
-    const rsvp = page.getByRole("link", { name: "Confirm Attendance" });
+    const rsvp = page.getByRole("link", { name: "Konfirmasi Kehadiran" });
     const heading = page.getByRole("heading", {
-      name: "RSVP & Dietary Information",
+      name: "RSVP dan Kebutuhan Makanan",
     });
     await expect(rsvp).toBeInViewport({ ratio: 1 });
     expect((await rsvp.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -304,10 +303,10 @@ test("unavailable invitation renders the generic not-found UI without leaking de
   const navigation = await page.goto(UNAVAILABLE_PATH);
 
   await expect(
-    page.getByRole("heading", { name: "Invitation unavailable" }),
+    page.getByRole("heading", { name: "Undangan tidak tersedia" }),
   ).toBeVisible();
   await expect(
-    page.getByText("We could not load this invitation."),
+    page.getByText("Silakan periksa kembali tautan undangan Anda."),
   ).toBeVisible();
 
   expect(navigation?.status()).toBe(404);
@@ -336,11 +335,13 @@ test("malformed 200 reaches the error boundary and never becomes not-found", asy
   await page.goto(MALFORMED_PATH);
 
   await expect(
-    page.getByRole("heading", { name: "Unable to load the invitation" }),
+    page.getByRole("heading", { name: "Undangan belum bisa dimuat" }),
   ).toBeVisible();
-  await expect(page.getByText("Please try again in a moment.")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Invitation unavailable" }),
+    page.getByText("Silakan coba lagi sebentar lagi."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Undangan tidak tersedia" }),
   ).toBeHidden();
 
   expect(await readMockRequestCount(request)).toBe(1);

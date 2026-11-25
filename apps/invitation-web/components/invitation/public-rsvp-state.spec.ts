@@ -25,10 +25,12 @@ describe("conditional RSVP draft", () => {
     expect(draft.status).toBe("");
     expect(draft.sessionIds).toEqual([]);
     expect(draft.namedInviteeIds).toEqual([]);
-    expect(validateRsvpDraft(draft, rsvpInvitation)).toMatch(/choose whether/);
+    expect(validateRsvpDraft(draft, rsvpInvitation)).toMatch(
+      /pilih apakah Anda dapat hadir/,
+    );
     expect(
       validateRsvpDraft({ ...draft, status: "ACCEPTED" }, rsvpInvitation),
-    ).toMatch(/wedding sessions/);
+    ).toMatch(/sesi pernikahan/);
     expect(() => toRsvpRequest({ ...draft, status: "ACCEPTED" }, null)).toThrow(
       "party choice",
     );
@@ -167,14 +169,14 @@ describe("conditional RSVP draft", () => {
     for (const additionalChildren of [-1, 1.5, 3, Number.NaN]) {
       expect(
         validateRsvpDraft({ ...family, additionalChildren }, rsvpInvitation),
-      ).toMatch(/additional children/);
+      ).toMatch(/jumlah anak tambahan/);
     }
     expect(
       validateRsvpDraft(family, {
         ...rsvpInvitation,
         rules: { ...rsvpInvitation.rules, allowPlusOne: false },
       }),
-    ).toMatch(/additional companion/);
+    ).toMatch(/pendamping tambahan/);
     expect(
       validateRsvpDraft(
         { ...family, dietaryNotes: "x".repeat(501) },

@@ -33,7 +33,7 @@ export function RsvpResultNotice({
           disabled={pending}
           onClick={onReload}
         >
-          {pending ? "Loading RSVP…" : "Reload latest RSVP"}
+          {pending ? "Memuat RSVP…" : "Muat Ulang RSVP"}
         </button>
       ) : null}
       {notice.recovery === "correct" ? (
@@ -44,10 +44,10 @@ export function RsvpResultNotice({
           onClick={onReview}
         >
           {notice.section === "events"
-            ? "Review events"
+            ? "Periksa Pilihan Sesi"
             : notice.section === "attendees"
-              ? "Review attendees"
-              : "Review response"}
+              ? "Periksa Daftar Tamu"
+              : "Periksa Jawaban"}
         </button>
       ) : null}
     </div>

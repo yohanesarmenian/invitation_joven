@@ -11,10 +11,10 @@ export default function PublicInvitationError({
       className="public-invitation-error"
       aria-labelledby="invitation-error-title"
     >
-      <h1 id="invitation-error-title">Unable to load the invitation</h1>
-      <p>Please try again in a moment.</p>
+      <h1 id="invitation-error-title">Undangan belum bisa dimuat</h1>
+      <p>Silakan coba lagi sebentar lagi.</p>
       <button type="button" onClick={reset}>
-        Try again
+        Coba Lagi
       </button>
     </main>
   );

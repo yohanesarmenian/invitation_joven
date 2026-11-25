@@ -299,13 +299,13 @@ test("OWNER-only link delivery renders unnamed companions on the real public inv
     const guest = await guestContext.newPage();
     await guest.goto(result.publicUrl);
     await guest
-      .getByRole("button", { name: "Open invitation", exact: true })
+      .getByRole("button", { name: "Buka Undangan", exact: true })
       .click();
     await expect(
-      guest.getByText("Unnamed companions × 2", { exact: true }),
+      guest.getByText("Pendamping tanpa nama × 2", { exact: true }),
     ).toBeVisible();
     await expect(
-      guest.getByRole("button", { name: "Edit RSVP", exact: true }),
+      guest.getByRole("button", { name: "Ubah RSVP", exact: true }),
     ).toHaveCount(0);
   } finally {
     await ownerContext.close();

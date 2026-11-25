@@ -106,14 +106,14 @@ const GROOM = {
 } as const;
 
 const dressCodeSwatches = [
-  { label: "Deep navy", color: "#11256E" },
-  { label: "Soft blue", color: "#6082FF" },
-  { label: "Warm cream", color: "#FFE8BB" },
-  { label: "Modern grey", color: "#9B9A99" },
-  { label: "Fresh teal", color: "#02ACA1" },
+  { label: "Biru navy tua", color: "#11256E" },
+  { label: "Biru lembut", color: "#6082FF" },
+  { label: "Krem hangat", color: "#FFE8BB" },
+  { label: "Abu-abu", color: "#9B9A99" },
+  { label: "Hijau kebiruan", color: "#02ACA1" },
 ];
 
-const invitationEventTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+const invitationEventTimeFormatter = new Intl.DateTimeFormat("id-ID", {
   hour: "2-digit",
   hourCycle: "h23",
   minute: "2-digit",
@@ -165,11 +165,11 @@ function InvitationHeader({ guestName }: { guestName: string }) {
         className="decoration-top"
         sizes="(min-width: 412px) 140px, 34vw"
       />
-      <p className="section-kicker">Dear,</p>
+      <p className="section-kicker">Kepada Yth.</p>
       <h1 id="invitation-title">{guestName}</h1>
       <p>
-        we joyfully invite you to witness and celebrate as we unite in the
-        Sacrament of Holy Matrimony.
+        Dengan penuh sukacita, kami mengundang Anda untuk menyaksikan dan
+        merayakan hari ketika kami dipersatukan dalam Sakramen Perkawinan.
       </p>
     </header>
   );
@@ -181,7 +181,7 @@ function CoupleSection() {
       className="invitation-section couple-section"
       aria-labelledby="couple-title"
     >
-      <h2 id="couple-title" className="couple-section-title">
+      <h2 id="couple-title" className="couple-section-title" lang="en">
         Bride and Groom
       </h2>
       {/* Family names and titles confirmed by the owner against Figma. */}
@@ -235,12 +235,14 @@ function CoupleProfile({
   );
   const copy = (
     <div className="couple-copy">
-      <p className="couple-role">The {role}</p>
+      <p className="couple-role" lang="en">
+        The {role}
+      </p>
       <h3 id={titleId}>
         {name} <span className="couple-nickname">({nickname})</span>
       </h3>
       <p className="couple-family-label">
-        {role === "Bride" ? "Daughter of" : "Son of"}
+        {role === "Bride" ? "Putri dari" : "Putra dari"}
       </p>
       <p className="couple-family-names">
         {parents[0]}
@@ -271,11 +273,11 @@ function WeddingDateSection({ events }: { events: DisplayInvitationEvent[] }) {
   );
   if (dates.length === 0) return null;
   const date = new Date(Math.min(...dates));
-  const day = new Intl.DateTimeFormat("en-GB", {
+  const day = new Intl.DateTimeFormat("id-ID", {
     weekday: "long",
     timeZone: "Asia/Jakarta",
   }).format(date);
-  const label = new Intl.DateTimeFormat("en-GB", {
+  const label = new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -297,7 +299,7 @@ function WeddingDateSection({ events }: { events: DisplayInvitationEvent[] }) {
         className="decoration-calendar"
         sizes="59px"
       />
-      <p className="section-kicker">Wedding Date</p>
+      <p className="section-kicker">Tanggal Pernikahan</p>
       <div className="wedding-date-divider" aria-hidden="true" />
       <p className="wedding-date-day">{day}</p>
       <h2 id="wedding-date-title">{label}</h2>
@@ -316,7 +318,7 @@ function EventsSection({ events }: { events: DisplayInvitationEvent[] }) {
       className="invitation-section events-section"
       aria-labelledby="events-title"
     >
-      <h2 id="events-title">Wedding Events</h2>
+      <h2 id="events-title">Rangkaian Acara</h2>
       <div className="event-list">
         {events.map((event, index) => (
           <EventSection
@@ -360,7 +362,7 @@ function EventSection({
         <h3 id={titleId}>{event.name}</h3>
         {event.startsAt ? (
           <p>
-            {new Intl.DateTimeFormat("en-GB", {
+            {new Intl.DateTimeFormat("id-ID", {
               day: "2-digit",
               month: "long",
               year: "numeric",
@@ -380,7 +382,7 @@ function EventSection({
               target="_blank"
               rel="noopener noreferrer"
             >
-              View in Google Maps
+              Buka di Google Maps
             </a>
           ) : null}
           <EventCalendar event={event} />
@@ -451,8 +453,10 @@ function DressCodeSection() {
         className="decoration-dress-right"
         sizes="(min-width: 412px) 64px, 16vw"
       />
-      <h2 id="dress-code-title">Dress Code</h2>
-      <p>Formal / Modern / National / Batik</p>
+      <h2 id="dress-code-title" lang="en">
+        Dress Code
+      </h2>
+      <p>Busana formal, modern, nasional, atau batik</p>
       <span className="figma-dress-palette" aria-hidden="true">
         <Image
           src={figmaAssets.long_DressCodeColors}
@@ -463,7 +467,7 @@ function DressCodeSection() {
       </span>
       <ul
         className="dress-swatch-list visually-hidden"
-        aria-label="Dress code color references"
+        aria-label="Referensi warna busana"
       >
         {dressCodeSwatches.map((swatch) => (
           <li key={swatch.color}>
@@ -501,14 +505,16 @@ function RsvpInformationSection({
       />
       <div className="rsvp-section-copy">
         <h2 id="rsvp-title" tabIndex={-1}>
-          RSVP &amp; Dietary Information
+          RSVP dan Kebutuhan Makanan
         </h2>
         <p className="figma-rsvp-intro">
-          To help us make proper arrangements with our venue and caterers, we
-          kindly ask that you confirm your attendance.
+          Mohon konfirmasi kehadiran Anda agar kami dapat menyiapkan tempat dan
+          hidangan dengan baik.
         </p>
         {deadlineLabel ? (
-          <p className="deadline-copy">Kindly reply by {deadlineLabel}.</p>
+          <p className="deadline-copy">
+            Mohon berikan jawaban paling lambat {deadlineLabel}.
+          </p>
         ) : null}
       </div>
       {children}
@@ -540,7 +546,7 @@ function GallerySection() {
       aria-labelledby="gallery-title"
       data-invitation-reveal
     >
-      <h2 id="gallery-title">Pre-wedding Gallery</h2>
+      <h2 id="gallery-title">Galeri Pranikah</h2>
       <InvitationGallery />
       {/* Scripture belongs with the gallery in the updated baseline, not under
           an invented combined "scripture and words" heading. */}
@@ -550,7 +556,7 @@ function GallerySection() {
           className="decoration-gallery"
           sizes="(min-width: 412px) 102px, 25vw"
         />
-        <blockquote>
+        <blockquote lang="en">
           <p>We love because he first loved us.</p>
           <cite>1 John 4:19</cite>
         </blockquote>
@@ -573,7 +579,7 @@ function McCandlessQuoteSection() {
         sizes="100vw"
         loading="lazy"
       />
-      <blockquote>
+      <blockquote lang="en">
         <p>Happiness is only real when shared</p>
         <cite>Christopher McCandless</cite>
       </blockquote>
@@ -601,6 +607,7 @@ function ClosingSection() {
   return (
     <footer
       className="invitation-section invitation-footer"
+      lang="en"
       data-invitation-reveal
     >
       <Decoration
@@ -618,7 +625,7 @@ function ClosingSection() {
   );
 }
 
-const deadlineFormatter = new Intl.DateTimeFormat("en-GB", {
+const deadlineFormatter = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
   day: "numeric",
   month: "long",
@@ -643,9 +650,9 @@ function formatDeadlineLabel(value: string | null): string | null {
     parts.month +
     " " +
     parts.year +
-    " at " +
+    " pukul " +
     parts.hour +
-    ":" +
+    "." +
     parts.minute +
     " WIB"
   );

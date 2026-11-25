@@ -233,7 +233,7 @@ test("freeze recovery is not required for an initial CSRF rejection", async ({
 async function openInvitation(page: Page, credential: string) {
   await page.goto(`${origins.invitation}/i/${credential}`);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
@@ -346,18 +346,22 @@ test("OWNER freezes catering counts and the mobile guest revises RSVP after the 
     const guest = await mobile.newPage();
     await openInvitation(guest, accepted.publicCredential);
     await expect(
-      guest.getByText("Kindly reply by 2 January 2026 at 00:30 WIB."),
+      guest.getByText(
+        "Mohon berikan jawaban paling lambat 2 Januari 2026 pukul 00.30 WIB.",
+      ),
     ).toBeVisible();
-    await guest.getByRole("button", { name: "Edit RSVP", exact: true }).click();
+    await guest.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
     await guest
-      .getByRole("button", { name: "Change attendance details", exact: true })
+      .getByRole("button", { name: "Ubah Rincian Kehadiran", exact: true })
       .click();
-    await guest.getByRole("radio", { name: "Regretfully Decline" }).check();
     await guest
-      .getByRole("button", { name: "Save Changes", exact: true })
+      .getByRole("radio", { name: "Mohon maaf, tidak dapat hadir" })
+      .check();
+    await guest
+      .getByRole("button", { name: "Simpan Perubahan", exact: true })
       .click();
     await expect(
-      guest.getByRole("heading", { name: "Unable to Attend", exact: true }),
+      guest.getByRole("heading", { name: "Tidak Hadir", exact: true }),
     ).toBeVisible();
     expect(
       await fixture.prisma.rSVP.findUniqueOrThrow({
@@ -376,14 +380,16 @@ test("OWNER freezes catering counts and the mobile guest revises RSVP after the 
     const firstReply = await secondTimezone.newPage();
     await openInvitation(firstReply, pending.publicCredential);
     await expect(
-      firstReply.getByText("Kindly reply by 2 January 2026 at 00:30 WIB."),
+      firstReply.getByText(
+        "Mohon berikan jawaban paling lambat 2 Januari 2026 pukul 00.30 WIB.",
+      ),
     ).toBeVisible();
     await expect(
-      firstReply.getByRole("button", { name: "Submit RSVP", exact: true }),
+      firstReply.getByRole("button", { name: "Kirim RSVP", exact: true }),
     ).toBeDisabled();
     await expect(
       firstReply.getByText(
-        "The reply deadline has passed. Contact the couple if you need help.",
+        "Batas waktu RSVP telah lewat. Hubungi kedua mempelai jika Anda memerlukan bantuan.",
       ),
     ).toBeVisible();
     expect(

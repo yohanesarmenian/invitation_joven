@@ -161,14 +161,14 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
   try {
     await guest.goto(publicUrl);
     await guest
-      .getByRole("button", { name: "Open invitation", exact: true })
+      .getByRole("button", { name: "Buka Undangan", exact: true })
       .click();
     await expect(guest.locator(".invitation-opening-flow")).toHaveAttribute(
       "data-stage",
       "content",
     );
     await expect(guest.locator("#invitation-title")).toHaveText(names[0]!);
-    await expect(guest.getByRole("form", { name: "Your RSVP" })).toBeVisible();
+    await expect(guest.getByRole("form", { name: "RSVP Anda" })).toBeVisible();
     await expect(
       guest.getByRole("checkbox", { name: fixture.event.name, exact: true }),
     ).toBeVisible();
@@ -176,13 +176,13 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
       await fits(guest, width);
       await guest
         .getByRole("button", {
-          name: /^(Submit RSVP|Save Changes)$/,
+          name: /^(Kirim RSVP|Simpan Perubahan)$/,
           exact: true,
         })
         .scrollIntoViewIfNeeded();
       await expect(
         guest.getByRole("button", {
-          name: /^(Submit RSVP|Save Changes)$/,
+          name: /^(Kirim RSVP|Simpan Perubahan)$/,
           exact: true,
         }),
       ).toBeInViewport();
@@ -190,14 +190,16 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
         path: resolve(evidence, `isolated-public-${width}.png`),
       });
     }
-    await guest.getByRole("radio", { name: "Joyfully Accept" }).check();
     await guest
-      .getByRole("radio", { name: "I’ll attend on my own", exact: true })
+      .getByRole("radio", { name: "Dengan senang hati hadir" })
+      .check();
+    await guest
+      .getByRole("radio", { name: "Saya hadir sendiri", exact: true })
       .check();
     await guest.getByRole("radio", { name: names[0]!, exact: true }).check();
     await guest
       .getByRole("button", {
-        name: /^(Submit RSVP|Save Changes)$/,
+        name: /^(Kirim RSVP|Simpan Perubahan)$/,
         exact: true,
       })
       .click();
@@ -211,14 +213,14 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
     expect(stored.eventSelections[0]!.eventId).toBe(fixture.event.id);
     await guest.reload();
     await guest
-      .getByRole("button", { name: "Open invitation", exact: true })
+      .getByRole("button", { name: "Buka Undangan", exact: true })
       .click();
     await expect(guest.locator(".invitation-opening-flow")).toHaveAttribute(
       "data-stage",
       "content",
     );
     await expect(
-      guest.getByRole("radio", { name: "Joyfully Accept" }),
+      guest.getByRole("radio", { name: "Dengan senang hati hadir" }),
     ).toBeChecked();
     await expect(
       guest.getByRole("checkbox", { name: names[0]!, exact: true }),

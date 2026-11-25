@@ -12,7 +12,7 @@ describe("invitation cover markup", () => {
 
     expect(html).toContain("<button");
     expect(html).toContain('type="button"');
-    expect(html).toContain('aria-label="Open invitation"');
+    expect(html).toContain('aria-label="Buka Undangan"');
     expect(html).toContain("invitation-envelope");
     expect(html.match(/<button\b/g)).toHaveLength(1);
     expect(html).not.toContain("disabled");
@@ -36,9 +36,9 @@ describe("invitation cover markup", () => {
   });
 
   it.each([
-    { ready: false, message: "Loading invitation…" },
-    { preparing: true, message: "Preparing your invitation…" },
-    { opening: true, message: "Opening invitation…" },
+    { ready: false, message: "Memuat undangan…" },
+    { preparing: true, message: "Menyiapkan undangan Anda…" },
+    { opening: true, message: "Membuka undangan…" },
   ])(
     "disables the envelope and politely reports $message",
     ({ message, ...props }) => {
@@ -66,15 +66,15 @@ describe("invitation cover markup", () => {
       'class="invitation-hero-monogram" aria-hidden="true">Y<span>&amp;</span>A',
     );
     expect(html).toContain("invitation-hero-media");
-    expect(html).toContain('href="#rsvp-title">View RSVP</a>');
+    expect(html).toContain('href="#rsvp-title">Lihat RSVP</a>');
     expect(html).not.toMatch(/<(?:button|form|input|select|textarea)\b/);
     expect(html).not.toMatch(/(?:Open|View) invitation/i);
   });
 
   it.each([
-    ["confirm", "rsvp-title", "Confirm Attendance"],
-    ["response", "rsvp-response-title", "View RSVP Response"],
-    ["qr", "checkin-pass-title", "View Check-in QR"],
+    ["confirm", "rsvp-title", "Konfirmasi Kehadiran"],
+    ["response", "rsvp-response-title", "Lihat Jawaban RSVP"],
+    ["qr", "checkin-pass-title", "Lihat QR Check-in"],
   ] as const)(
     "renders the %s action with a fixed fragment",
     (rsvpAction, target, label) => {

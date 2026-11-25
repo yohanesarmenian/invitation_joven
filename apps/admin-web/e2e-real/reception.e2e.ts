@@ -259,11 +259,11 @@ test("Guest Manager scans a real guest QR with the existing decoder and cannot a
   try {
     await guest.goto(`${origins.invitation}/i/${household.publicCredential}`);
     await guest
-      .getByRole("button", { name: "Open invitation", exact: true })
+      .getByRole("button", { name: "Buka Undangan", exact: true })
       .click();
     await expect(guest.locator(".checkin-code")).toBeVisible();
     const svg = await guest
-      .getByRole("img", { name: "Household check-in pass QR code" })
+      .getByRole("img", { name: "Kode QR untuk check-in rombongan Anda" })
       .evaluate((node) => node.outerHTML);
     await installSyntheticCamera(page, svg);
     await login(page);

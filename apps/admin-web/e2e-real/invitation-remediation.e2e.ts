@@ -4,12 +4,12 @@ import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture"
 import { runnerOrigins } from "./origins";
 
 const origins = runnerOrigins();
-const savedMessage = "Thank you for your message";
+const savedMessage = "Terima kasih atas ucapan Anda";
 
 async function openInvitation(page: Page, credential: string) {
   await page.goto(`${origins.invitation}/i/${credential}`);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
@@ -34,9 +34,9 @@ test("guest message receipt survives a lost response, returning to the hero and 
       name: savedMessage,
       exact: true,
     });
-    const message = page.getByRole("textbox", { name: /Your message/ });
+    const message = page.getByRole("textbox", { name: /Ucapan Anda/ });
     const send = page.getByRole("button", {
-      name: "Send Message",
+      name: "Kirim Ucapan",
       exact: true,
     });
     const section = page.locator(".guest-message-section");
@@ -77,7 +77,7 @@ test("guest message receipt survives a lost response, returning to the hero and 
     }
     await page.setViewportSize({ width: 320, height: 900 });
     await expect(
-      section.getByRole("heading", { name: /Leave a Message/ }),
+      section.getByRole("heading", { name: /Tulis Ucapan/ }),
     ).toBeVisible();
     const content = "Synthetic first message\nExact second line";
     await message.fill(content);
@@ -94,7 +94,7 @@ test("guest message receipt survives a lost response, returning to the hero and 
       button.click();
     });
     await expect(section.getByRole("alert")).toContainText(
-      "We couldn’t confirm the save yet",
+      "Kami belum dapat memastikan apakah ucapan Anda tersimpan",
     );
     await expect(message).toHaveValue(content);
     expect(lost).toBe(1);
@@ -129,18 +129,20 @@ test("guest message receipt survives a lost response, returning to the hero and 
       ).status(),
     ).toBe(404);
     await page.unroute(pattern);
-    await page.getByRole("button", { name: "Retry same message" }).click();
+    await page
+      .getByRole("button", { name: "Kirim Ulang Ucapan yang Sama" })
+      .click();
     await expect(heading).toBeVisible();
     expect(
       await fixture.prisma.guestMessage.count({
         where: { invitationId: guest.id },
       }),
     ).toBe(1);
-    await page.getByRole("button", { name: "Back to Invitation" }).click();
+    await page.getByRole("button", { name: "Kembali ke Undangan" }).click();
     await expect(page.locator("#invitation-hero-title")).toBeFocused();
     await section.scrollIntoViewIfNeeded();
     await expect(section).toContainText(
-      "Your message was saved for the bride and groom.",
+      "Ucapan Anda telah tersimpan untuk kedua mempelai.",
     );
     await expect(message).toHaveCount(0);
     await openInvitation(page, guest.publicCredential);
@@ -167,10 +169,10 @@ test("guest message receipt survives a lost response, returning to the hero and 
         path: testInfo.outputPath(`saved-message-${width}.png`),
       });
     }
-    const author = section.getByRole("textbox", { name: /Your name/ });
+    const author = section.getByRole("textbox", { name: /Nama Anda/ });
     const secondDraft = "Synthetic deliberate second message";
     const focusedAtMount = await page
-      .getByRole("button", { name: "Write another message" })
+      .getByRole("button", { name: "Tulis Ucapan Lain" })
       .evaluate((button: HTMLButtonElement) => {
         const editor = button.closest(".guest-message-form");
         if (!editor) throw new Error("Missing guest message editor");
@@ -193,7 +195,7 @@ test("guest message receipt survives a lost response, returning to the hero and 
     await expect(message).toBeFocused();
     await expect(message).toHaveValue(secondDraft);
     await expect(
-      section.getByText(`${secondDraft.length} / 1000 characters`, {
+      section.getByText(`${secondDraft.length} / 1.000 karakter`, {
         exact: false,
       }),
     ).toBeVisible();
@@ -204,7 +206,7 @@ test("guest message receipt survives a lost response, returning to the hero and 
     try {
       await send.click();
       await expect(section.getByRole("alert")).toContainText(
-        "This invitation is currently unavailable.",
+        "Undangan sedang tidak tersedia",
       );
       await expect(message).toHaveValue(secondDraft);
       expect(
@@ -218,7 +220,7 @@ test("guest message receipt survives a lost response, returning to the hero and 
         data: { status: "ACTIVE" },
       });
     }
-    await page.getByRole("button", { name: "Send Message Again" }).click();
+    await page.getByRole("button", { name: "Coba Kirim Ucapan Lagi" }).click();
     await expect(heading).toBeVisible();
     const messages = await fixture.prisma.guestMessage.findMany({
       where: { invitationId: guest.id },
@@ -381,23 +383,25 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
       exact: true,
     });
     const withPlusOne = guest.getByRole("radio", {
-      name: "I’ll bring a plus one",
+      name: "Saya hadir bersama pendamping",
       exact: true,
     });
     const alone = guest.getByRole("radio", {
-      name: "I’ll attend on my own",
+      name: "Saya hadir sendiri",
       exact: true,
     });
     const bothSessions = guest.getByRole("radio", {
       name: /Pemberkatan & Resepsi|Resepsi & Pemberkatan/,
       exact: true,
     });
-    await guest.getByRole("radio", { name: "Joyfully Accept" }).check();
+    await guest
+      .getByRole("radio", { name: "Dengan senang hati hadir" })
+      .check();
     await bothSessions.check();
     await alone.check();
     await namedB.check();
     await guest
-      .getByRole("button", { name: "Submit RSVP", exact: true })
+      .getByRole("button", { name: "Kirim RSVP", exact: true })
       .click();
     await expect(
       guest.getByText("Synthetic Named B × 1", { exact: true }),
@@ -418,17 +422,21 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
         })),
       ),
     });
-    const edit = () => guest.getByRole("button", { name: "Edit RSVP" }).click();
+    const edit = () => guest.getByRole("button", { name: "Ubah RSVP" }).click();
     const save = () =>
-      guest.getByRole("button", { name: "Save Changes", exact: true }).click();
-    const dietary = guest.getByLabel("Dietary requirements (optional)");
+      guest
+        .getByRole("button", { name: "Simpan Perubahan", exact: true })
+        .click();
+    const dietary = guest.getByLabel(
+      "Kebutuhan dan preferensi makanan (opsional)",
+    );
     await edit();
     await expect(namedA).not.toBeChecked();
     await expect(namedB).toBeChecked();
     await withPlusOne.check();
     await save();
     await expect(
-      guest.getByText("Expected guests: 2", { exact: true }),
+      guest.getByText("Jumlah tamu yang akan hadir: 2", { exact: true }),
     ).toBeVisible();
     const withCompanion = await readRsvp();
     expect(
@@ -450,13 +458,13 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     await expect(bothSessions).toBeChecked();
     await save();
     await expect(
-      guest.getByText("Expected guests: 1", { exact: true }),
+      guest.getByText("Jumlah tamu yang akan hadir: 1", { exact: true }),
     ).toBeVisible();
     await edit();
     await dietary.fill("Synthetic no peanuts");
     await save();
     await expect(
-      guest.getByText("Dietary requirements: Synthetic no peanuts", {
+      guest.getByText("Catatan makanan: Synthetic no peanuts", {
         exact: true,
       }),
     ).toBeVisible();
@@ -511,7 +519,7 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
       guest.getByText("Synthetic Named B × 1", { exact: true }),
     ).toBeVisible();
     await expect(
-      guest.getByText("Dietary requirements: Synthetic no peanuts", {
+      guest.getByText("Catatan makanan: Synthetic no peanuts", {
         exact: true,
       }),
     ).toBeVisible();
@@ -535,10 +543,10 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
       receptionGuest.getByRole("heading", { name: ceremonyName, exact: true }),
     ).toHaveCount(0);
     await receptionGuest
-      .getByRole("radio", { name: "Joyfully Accept" })
+      .getByRole("radio", { name: "Dengan senang hati hadir" })
       .check();
     await expect(
-      receptionGuest.getByText("is selected for this invitation."),
+      receptionGuest.getByText("Sesi untuk undangan ini:"),
     ).toContainText("Resepsi");
     await expect(
       receptionGuest.getByRole("radio", {
@@ -548,7 +556,7 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     ).toHaveCount(0);
     await expect(
       receptionGuest.getByRole("radio", {
-        name: "I’ll bring a plus one",
+        name: "Saya hadir bersama pendamping",
       }),
     ).toHaveCount(0);
     const receptionInvitee = await fixture.prisma.invitee.findFirstOrThrow({

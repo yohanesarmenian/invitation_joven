@@ -6,17 +6,17 @@ test("venue content on the guest route follows publish state and exact event eli
   page,
 }, testInfo) => {
   await page.goto(guestUrl);
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
   );
   if (testInfo.config.metadata.venuePublished === true) {
     await expect(
-      page.getByRole("region", { name: "Parking Guide", exact: true }),
+      page.getByRole("region", { name: "Panduan Parkir", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Event Rundown", exact: true }),
+      page.getByRole("region", { name: "Susunan Acara", exact: true }),
     ).toBeVisible();
     await expect(page.getByText("11.30 WIB", { exact: true })).toBeVisible();
     await expect(
@@ -47,10 +47,10 @@ test("venue content on the guest route follows publish state and exact event eli
     }
   } else {
     await expect(
-      page.getByRole("region", { name: "Parking Guide", exact: true }),
+      page.getByRole("region", { name: "Panduan Parkir", exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("region", { name: "Event Rundown", exact: true }),
+      page.getByRole("region", { name: "Susunan Acara", exact: true }),
     ).toHaveCount(0);
     expect(await page.content()).not.toContain("[CONTOH]");
   }
@@ -91,10 +91,10 @@ test("development preview is explicit, synthetic and cannot grant an event", asy
     .getByRole("link", { name: "No eligible event", exact: true })
     .click();
   await expect(
-    page.getByRole("region", { name: "Parking Guide", exact: true }),
+    page.getByRole("region", { name: "Panduan Parkir", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("region", { name: "Event Rundown", exact: true }),
+    page.getByRole("region", { name: "Susunan Acara", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByRole("status")).toHaveText(
     "No venue content for the selected event.",
