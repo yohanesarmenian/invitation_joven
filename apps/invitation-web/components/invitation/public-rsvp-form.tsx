@@ -25,6 +25,7 @@ import {
 import { RsvpResultNotice } from "./rsvp-result-notice";
 import { GuestCheckinPass } from "./guest-checkin-pass";
 import {
+  CHECKIN_PASS_HEADING_ID,
   RsvpHeroActionUpdate,
   RSVP_RESPONSE_HEADING_ID,
   type RsvpHeroAction,
@@ -83,8 +84,12 @@ export function PublicRsvpForm({
   const [passNeedsReload, setPassNeedsReload] = useState(false);
   const [draft, setDraft] = useState(() => createRsvpDraft(canonical));
   const [loaded, setLoaded] = useState(initialResult.status === "success");
-  const [operation, setOperation] = useState<"submit" | "reload" | null>(null);
-  const [feedback, setFeedback] = useState<"saved" | "reloaded" | null>(null);
+  const [operation, setOperation] = useState<
+    "submit" | "reload" | "verify-pass" | null
+  >(null);
+  const [feedback, setFeedback] = useState<
+    "saved" | "reloaded" | "pass-checked" | null
+  >(null);
   const [validation, setValidation] = useState<string | null>(null);
   const [failure, setFailure] = useState<{
     error: RsvpFailure;
@@ -101,6 +106,7 @@ export function PublicRsvpForm({
   const inFlight = useRef(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
+  const passStatusRef = useRef<HTMLParagraphElement>(null);
   const attendanceRef = useRef<HTMLFieldSetElement>(null);
   const attendeesRef = useRef<HTMLFieldSetElement>(null);
   const eventsRef = useRef<HTMLFieldSetElement>(null);
@@ -112,6 +118,7 @@ export function PublicRsvpForm({
   const partyReady = sessionReady && !partyIssue(draft, invitation);
   const savedDraft = canonical && restoreSavedDraft(invitation, canonical);
   const pending = operation !== null;
+  const checkingPass = operation === "verify-pass";
   const terminal =
     lock === "closed" ||
     lock === "unavailable" ||
@@ -152,6 +159,8 @@ export function PublicRsvpForm({
         ? rsvpLoadFailureNotice(failure.error, loaded)
         : rsvpFailureNotice(failure.error)
       : null;
+  const passUnverified = passNeedsReload || notice?.recovery === "reload";
+  const canVerifyPass = deadlineRejected && passNeedsReload;
   const submitBlocked =
     pending ||
     terminal ||
@@ -165,7 +174,13 @@ export function PublicRsvpForm({
       : null;
 
   useEffect(() => {
-    if (failure || validation) errorRef.current?.focus();
+    if (feedback === "pass-checked") {
+      (
+        document.getElementById(CHECKIN_PASS_HEADING_ID) ??
+        passStatusRef.current ??
+        document.getElementById(RSVP_RESPONSE_HEADING_ID)
+      )?.focus();
+    } else if (failure || validation) errorRef.current?.focus();
     else if (feedback === "reloaded" || feedback === "saved")
       statusRef.current?.focus();
   }, [failure, validation, feedback]);
@@ -239,6 +254,27 @@ export function PublicRsvpForm({
     }
   }
 
+  async function revalidatePass() {
+    const latest = await reloadAction().catch(() => null);
+    if (latest?.status !== "success") return false;
+    setCanonical(latest.data);
+    setPassNeedsReload(false);
+    return true;
+  }
+
+  async function verifyPass() {
+    if (inFlight.current || !canVerifyPass) return;
+    inFlight.current = true;
+    setOperation("verify-pass");
+    try {
+      // Keep the rejected edit and its lock, even if the read advertises canEdit.
+      if (await revalidatePass()) setFeedback("pass-checked");
+    } finally {
+      inFlight.current = false;
+      setOperation(null);
+    }
+  }
+
   function review() {
     const section = notice?.section;
     const target =
@@ -289,11 +325,7 @@ export function PublicRsvpForm({
           // Deadline rejection can precede the version check. Refresh the pass
           // without reopening editing or discarding the rejected draft.
           setPassNeedsReload(true);
-          const latest = await reloadAction().catch(() => null);
-          if (latest?.status === "success") {
-            setCanonical(latest.data);
-            setPassNeedsReload(false);
-          }
+          await revalidatePass();
         }
       } else {
         setCanonical((current) =>
@@ -343,7 +375,7 @@ export function PublicRsvpForm({
           <h3>{savedNotice.title}</h3>
           <p>{savedNotice.message}</p>
         </>
-      ) : pending ? (
+      ) : pending && !checkingPass ? (
         operation === "reload" ? (
           "Memuat jawaban RSVP terbaru…"
         ) : (
@@ -378,7 +410,7 @@ export function PublicRsvpForm({
       <section
         className="public-rsvp-form rsvp-confirmation"
         aria-label="Konfirmasi RSVP Anda"
-        aria-busy={pending}
+        aria-busy={pending && !checkingPass}
       >
         {errorNotice}
         {statusNotice}
@@ -396,12 +428,32 @@ export function PublicRsvpForm({
             <SavedAttendance invitation={invitation} rsvp={canonical} />
             {activePass ? (
               <GuestCheckinPass pass={activePass} />
-            ) : !pending ? (
-              <p role="status">
-                {notice?.recovery === "reload"
-                  ? "Status QR check-in belum terverifikasi. Muat ulang RSVP sebelum menggunakan QR."
-                  : "QR check-in saat ini tidak tersedia. Petugas penerima tamu dapat membantu Anda."}
-              </p>
+            ) : !pending || checkingPass ? (
+              <>
+                <p
+                  id={`${id}-pass-status`}
+                  role="status"
+                  ref={passStatusRef}
+                  tabIndex={-1}
+                >
+                  {checkingPass
+                    ? "Memeriksa status QR check-in…"
+                    : passUnverified
+                      ? "Status QR check-in belum terverifikasi. Silakan periksa kembali."
+                      : "QR check-in saat ini tidak tersedia. Petugas penerima tamu dapat membantu Anda."}
+                </p>
+                {canVerifyPass ? (
+                  <button
+                    type="button"
+                    className="rsvp-notice-action"
+                    aria-describedby={`${id}-pass-status`}
+                    aria-disabled={checkingPass}
+                    onClick={() => void verifyPass()}
+                  >
+                    Periksa Ulang QR
+                  </button>
+                ) : null}
+              </>
             ) : null}
           </>
         ) : (

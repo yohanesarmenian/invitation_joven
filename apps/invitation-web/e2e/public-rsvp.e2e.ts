@@ -394,15 +394,17 @@ for (const width of [320, 375, 412, 768, 1280]) {
       .getByRole("radio", { name: "Holy Matrimony Test", exact: true })
       .check();
     await dietary.fill("");
-    await expect(
-      page.locator(".public-rsvp-form").getByRole("status"),
-    ).not.toContainText("Konfirmasi kehadiran Anda telah tersimpan.");
+    const successNotice = page.locator(
+      ".public-rsvp-form .rsvp-notice-success",
+    );
+    await expect(successNotice).toHaveCount(0);
     await page
       .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
       .click();
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toContainText("Konfirmasi kehadiran Anda telah tersimpan.");
+    await expect(successNotice).toBeVisible();
     const update = (await submissions(request))[1]!;
     expect(update.expectedVersion).toBe(42);
     expect(update.dietaryNotes).toBeNull();
@@ -441,12 +443,14 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await page
       .getByRole("radio", { name: "Mohon maaf, tidak dapat hadir" })
       .check();
+    await expect(successNotice).toHaveCount(0);
     await page
       .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
       .click();
     await expect(
       page.locator(".public-rsvp-form").getByRole("status"),
     ).toContainText("Jawaban Anda telah tersimpan sebagai tidak hadir.");
+    await expect(successNotice).toBeVisible();
     expect((await submissions(request))[2]).toEqual({
       expectedVersion: 43,
       status: "DECLINED",
@@ -667,30 +671,35 @@ for (const width of [320, 375, 412, 1280]) {
   });
 }
 
-for (const outcome of ["revoked", "replaced", "read failed"] as const) {
-  test(`deadline rejection never restores an old QR when revalidation shows ${outcome}`, async ({
+for (const [outcome, recovery] of [
+  ["revoked", null],
+  ["replaced", null],
+  ["read failed", "unavailable"],
+  ["read failed", "replacement"],
+] as const) {
+  test(`deadline rejection never restores an old QR when revalidation shows ${outcome}${recovery ? `, then recovery finds ${recovery}` : ""}`, async ({
     page,
     request,
   }) => {
+    const replacement = {
+      status: "ACTIVE",
+      issuedAt: "2026-09-30T00:00:00Z",
+      qrPayload: secondPass,
+    };
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await configure(request, { rsvp: accepted });
     await open(page);
     await expectPass(page, firstPass);
     await editSaved(page);
     const before = await request.get(`${MOCK}/__rsvp-state`);
     const { reads } = await before.json();
+    const readFailure = { status: 503, code: "UNEXPECTED" };
     await configure(request, {
       failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PATCH" },
       ...(outcome === "revoked" && { checkinPass: null }),
-      ...(outcome === "replaced" && {
-        checkinPass: {
-          status: "ACTIVE",
-          issuedAt: "2026-09-30T00:00:00Z",
-          qrPayload: secondPass,
-        },
-      }),
-      ...(outcome === "read failed" && {
-        readFailure: { status: 503, code: "UNEXPECTED" },
-      }),
+      ...(outcome === "replaced" && { checkinPass: replacement }),
+      ...(recovery && { readFailure }),
     });
     await page
       .getByRole("button", { name: "Simpan Perubahan", exact: true })
@@ -701,19 +710,154 @@ for (const outcome of ["revoked", "replaced", "read failed"] as const) {
     await expect(heroAction(page, "Lihat QR Check-in")).toHaveCount(0);
     await page.getByRole("button", { name: "Batal", exact: true }).click();
     await expect(alert).toContainText("RSVP sudah ditutup");
-    await expect(page.getByRole("button", { name: "Ubah RSVP" })).toHaveCount(
-      0,
-    );
-    await expectPass(page, outcome === "replaced" ? secondPass : null);
-    await expect(
-      heroAction(
+    const confirmation = page.getByRole("region", {
+      name: "Konfirmasi RSVP Anda",
+      exact: true,
+    });
+    const verify = confirmation.getByRole("button", {
+      name: "Periksa Ulang QR",
+      exact: true,
+    });
+    const unverified = confirmation
+      .getByRole("status")
+      .filter({ hasText: "Status QR check-in belum terverifikasi." });
+    const unavailable = confirmation
+      .getByRole("status")
+      .filter({ hasText: "QR check-in saat ini tidak tersedia." });
+    const editButton = page.getByRole("button", {
+      name: "Ubah RSVP",
+      exact: true,
+    });
+    const expectLocked = async () => {
+      await expect(alert).toContainText("RSVP sudah ditutup");
+      await expect(editButton).toHaveCount(0);
+      await expect(page.getByRole("form", { name: "RSVP Anda" })).toHaveCount(
+        0,
+      );
+    };
+    const expectNavigation = async (hasQr: boolean) => {
+      await browsePastHero(page);
+      await expectStickyAction(
         page,
-        outcome === "replaced" ? "Lihat QR Check-in" : "Lihat RSVP",
-      ),
-    ).toBeVisible();
-    const after = await request.get(`${MOCK}/__rsvp-state`);
-    expect(await after.json()).toMatchObject({ reads: reads + 1 });
-    expect(await submissions(request)).toHaveLength(1);
+        hasQr ? "Lihat QR Check-in" : "Lihat RSVP",
+        hasQr ? "checkin-pass-title" : "rsvp-title",
+      );
+    };
+
+    await expectLocked();
+    await expectPass(page, outcome === "replaced" ? secondPass : null);
+    await expectNavigation(outcome === "replaced");
+    await expectRsvpTraffic(request, reads + 1, 1);
+    expect(await submissions(request)).toEqual([
+      {
+        expectedVersion: accepted.version,
+        dietaryNotes: accepted.dietaryNotes,
+      },
+    ]);
+
+    if (!recovery) {
+      await expect(verify).toHaveCount(0);
+      await expect(unverified).toHaveCount(0);
+      await expect(unavailable).toHaveCount(outcome === "revoked" ? 1 : 0);
+      return;
+    }
+
+    await expect(unverified).toBeVisible();
+    await expect(unavailable).toHaveCount(0);
+    await expect(verify).toBeEnabled();
+    await expect(verify).toHaveAccessibleDescription(
+      "Status QR check-in belum terverifikasi. Silakan periksa kembali.",
+    );
+
+    // Hold the server-action response after the API read completes, so the
+    // browser stays pending while further activations are attempted.
+    let release!: () => void;
+    let markReadComplete!: () => void;
+    const responseHeld = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const readComplete = new Promise<void>((resolve) => {
+      markReadComplete = resolve;
+    });
+    const isInvitation = (url: URL) => url.pathname === PATH;
+    let actionRequests = 0;
+    await page.route(isInvitation, async (route) => {
+      if (
+        route.request().method() !== "POST" ||
+        !route.request().headers()["next-action"]
+      ) {
+        await route.continue();
+        return;
+      }
+      actionRequests++;
+      const response = await route.fetch({ maxRetries: 0 });
+      markReadComplete();
+      await responseHeld;
+      await route.fulfill({ response });
+    });
+    try {
+      await verify.scrollIntoViewIfNeeded();
+      await expect(verify).toBeInViewport({ ratio: 1 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(321);
+      await verify.focus();
+      await page.keyboard.press("Enter");
+      await expect(verify).toBeDisabled();
+      await expect(verify).toHaveAccessibleDescription(
+        "Memeriksa status QR check-in…",
+      );
+      await expect(verify).toBeFocused();
+      await readComplete;
+      await verify.evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
+      await expectPass(page, null);
+      await expect(confirmation).not.toContainText(firstPass);
+      await expect(confirmation).not.toContainText(secondPass);
+      await expect(heroAction(page, "Lihat RSVP")).toHaveAttribute(
+        "href",
+        "#rsvp-title",
+      );
+      await expectLocked();
+      await expectRsvpTraffic(request, reads + 2, 1);
+    } finally {
+      release();
+      await page.unrouteAll({ behavior: "wait" });
+    }
+    await expect(verify).toBeEnabled();
+    await expect(verify).toBeFocused();
+    await expect(unverified).toBeVisible();
+    await expect(unavailable).toHaveCount(0);
+    await expectPass(page, null);
+    await expectLocked();
+    await expectNavigation(false);
+    await expectRsvpTraffic(request, reads + 2, 1);
+    expect(actionRequests).toBe(1);
+
+    // The fixture advertises canEdit: true here. A fresh pass read cannot
+    // clear the lock from the failed write.
+    const hasQr = recovery === "replacement";
+    await configure(request, { checkinPass: hasQr ? replacement : null });
+    await verify.click();
+    await expect(verify).toHaveCount(0);
+    await expect(unverified).toHaveCount(0);
+    if (hasQr) {
+      await expect(
+        confirmation.getByRole("heading", {
+          name: "QR Check-in Anda",
+          exact: true,
+        }),
+      ).toBeFocused();
+    } else {
+      await expect(unavailable).toBeFocused();
+    }
+    await expectPass(page, hasQr ? secondPass : null);
+    await expect(confirmation).not.toContainText(firstPass);
+    await expectLocked();
+    await expectNavigation(hasQr);
+    await expectRsvpTraffic(request, reads + 3, 1);
   });
 }
 
