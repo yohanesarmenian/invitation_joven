@@ -788,69 +788,186 @@ describe("admin invitee and eligibility HTTP integration", () => {
     const second = await createEvent({ displayOrder: 2 });
     const third = await createEvent({ displayOrder: 3 });
     const inactive = await createEvent({ displayOrder: 4, isActive: false });
-    const inactiveExisting = await createEvent({ displayOrder: 5, isActive: false });
+    const inactiveExisting = await createEvent({
+      displayOrder: 5,
+      isActive: false,
+    });
     const { invitation } = await createInvitation(credentialService, {
       eventIds: [first.id, inactiveExisting.id],
     });
 
-    const replace = await app.getHttpAdapter().getInstance().inject({
-      headers: ownerHeaders(session),
-      method: "PUT",
-      payload: { eventIds: [second.id, third.id, inactiveExisting.id] },
-      url: `/api/admin/invitations/${invitation.id}/events`,
-    });
-    const repeat = await app.getHttpAdapter().getInstance().inject({
-      headers: ownerHeaders(session),
-      method: "PUT",
-      payload: { eventIds: [second.id, third.id, inactiveExisting.id] },
-      url: `/api/admin/invitations/${invitation.id}/events`,
-    });
-    const duplicate = await app.getHttpAdapter().getInstance().inject({
-      headers: ownerHeaders(session),
-      method: "PUT",
-      payload: { eventIds: [second.id, second.id] },
-      url: `/api/admin/invitations/${invitation.id}/events`,
-    });
-    const missing = await app.getHttpAdapter().getInstance().inject({
-      headers: ownerHeaders(session),
-      method: "PUT",
-      payload: { eventIds: [randomUUID()] },
-      url: `/api/admin/invitations/${invitation.id}/events`,
-    });
-    const inactiveNew = await app.getHttpAdapter().getInstance().inject({
-      headers: ownerHeaders(session),
-      method: "PUT",
-      payload: { eventIds: [inactive.id] },
-      url: `/api/admin/invitations/${invitation.id}/events`,
-    });
-    const archivedInvitation = await createInvitation(credentialService, {
-      status: InvitationStatus.ARCHIVED,
-    });
-    const archived = await app.getHttpAdapter().getInstance().inject({
-      headers: ownerHeaders(session),
-      method: "PUT",
-      payload: { eventIds: [first.id] },
-      url: `/api/admin/invitations/${archivedInvitation.invitation.id}/events`,
-    });
-    const notFound = await app.getHttpAdapter().getInstance().inject({
-      headers: ownerHeaders(session),
-      method: "PUT",
-      payload: { eventIds: [first.id] },
-      url: `/api/admin/invitations/${randomUUID()}/events`,
-    });
-
-    expect(replace.statusCode).toBe(200);
-    expect(replace.json().eligibility.map((item: { event: { id: string } }) => item.event.id)).toEqual([
+    const http = app.getHttpAdapter().getInstance();
+    const url = `/api/admin/invitations/${invitation.id}/events`;
+    const replaceEvents = (eventIds: string[]) =>
+      http.inject({
+        headers: ownerHeaders(session),
+        method: "PUT",
+        payload: { eventIds },
+        url,
+      });
+    const tooMany = await replaceEvents([
       second.id,
       third.id,
       inactiveExisting.id,
     ]);
+    expect(tooMany.statusCode).toBe(400);
+    expect(tooMany.json().error.code).toBe("VALIDATION_ERROR");
+    expect(
+      (
+        await prisma.invitationEvent.findMany({
+          where: { invitationId: invitation.id },
+        })
+      )
+        .map(({ eventId }) => eventId)
+        .sort(),
+    ).toEqual([first.id, inactiveExisting.id].sort());
+    const replace = await replaceEvents([second.id, inactiveExisting.id]);
+    const repeat = await replaceEvents([
+      inactiveExisting.id.toUpperCase(),
+      second.id,
+    ]);
+    const duplicate = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: ownerHeaders(session),
+        method: "PUT",
+        payload: { eventIds: [second.id, second.id] },
+        url: `/api/admin/invitations/${invitation.id}/events`,
+      });
+    const missing = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: ownerHeaders(session),
+        method: "PUT",
+        payload: { eventIds: [randomUUID()] },
+        url: `/api/admin/invitations/${invitation.id}/events`,
+      });
+    const inactiveNew = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: ownerHeaders(session),
+        method: "PUT",
+        payload: { eventIds: [inactive.id] },
+        url: `/api/admin/invitations/${invitation.id}/events`,
+      });
+    const archivedInvitation = await createInvitation(credentialService, {
+      status: InvitationStatus.ARCHIVED,
+    });
+    const archived = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: ownerHeaders(session),
+        method: "PUT",
+        payload: { eventIds: [first.id] },
+        url: `/api/admin/invitations/${archivedInvitation.invitation.id}/events`,
+      });
+    const notFound = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: ownerHeaders(session),
+        method: "PUT",
+        payload: { eventIds: [first.id] },
+        url: `/api/admin/invitations/${randomUUID()}/events`,
+      });
+
+    expect(replace.statusCode).toBe(200);
+    expect(
+      replace
+        .json()
+        .eligibility.map((item: { event: { id: string } }) => item.event.id),
+    ).toEqual([second.id, inactiveExisting.id]);
     expect(repeat.statusCode).toBe(200);
     expect(duplicate.statusCode).toBe(400);
     expect(missing.statusCode).toBe(400);
     expect(inactiveNew.statusCode).toBe(400);
     expect(archived.statusCode).toBe(409);
     expect(notFound.statusCode).toBe(404);
+  });
+
+  it("corrects legacy eligibility without rewriting RSVP or credentials, and still permits explicit revocation", async () => {
+    const session = await createOwnerAndSession();
+    const [first, second, third] = await Promise.all(
+      [1, 2, 3].map((displayOrder) => createEvent({ displayOrder })),
+    );
+    const eventIds = [first!.id, second!.id, third!.id];
+    const { invitation } = await createInvitation(credentialService, {
+      eventIds,
+    });
+    const invitee = await createInvitee({
+      displayOrder: 0,
+      invitationId: invitation.id,
+    });
+    const rsvp = await createAcceptedRsvp({
+      eventId: first!.id,
+      invitationId: invitation.id,
+      inviteeId: invitee.id,
+    });
+    const http = app.getHttpAdapter().getInstance();
+    const detail = `/api/admin/invitations/${invitation.id}`;
+    const before = await http.inject({
+      headers: ownerHeaders(session),
+      method: "GET",
+      url: detail,
+    });
+    expect(before.statusCode).toBe(200);
+    expect(before.json().invitation.eligibility).toHaveLength(3);
+
+    const replace = (ids: string[]) =>
+      http.inject({
+        headers: ownerHeaders(session),
+        method: "PUT",
+        payload: { eventIds: ids },
+        url: detail + "/events",
+      });
+    expect((await replace([])).statusCode).toBe(409);
+    const corrected = await replace([first!.id, second!.id]);
+    expect(corrected.statusCode).toBe(200);
+    expect(
+      corrected
+        .json()
+        .eligibility.map((row: { event: { id: string } }) => row.event.id),
+    ).toEqual([first!.id, second!.id]);
+    const saved = await prisma.rSVP.findUniqueOrThrow({
+      where: { id: rsvp.id },
+      include: { eventSelections: true, checkinPasses: true },
+    });
+    expect(saved).toMatchObject({
+      status: rsvp.status,
+      version: rsvp.version,
+      eventSelections: rsvp.eventSelections,
+      checkinPasses: rsvp.checkinPasses,
+    });
+    expect(
+      await prisma.invitation.findUniqueOrThrow({
+        where: { id: invitation.id },
+      }),
+    ).toMatchObject({
+      publicTokenHash: invitation.publicTokenHash,
+      publicTokenVersion: invitation.publicTokenVersion,
+    });
+
+    const unreferenced = await createInvitation(credentialService, {
+      eventIds: [first!.id],
+    });
+    const revoke = () =>
+      http.inject({
+        headers: ownerHeaders(session),
+        method: "PUT",
+        payload: { eventIds: [] },
+        url: `/api/admin/invitations/${unreferenced.invitation.id}/events`,
+      });
+    expect((await revoke()).json()).toEqual({ eligibility: [] });
+    expect((await revoke()).statusCode).toBe(200);
+    expect(
+      await prisma.invitationEvent.count({
+        where: { invitationId: unreferenced.invitation.id },
+      }),
+    ).toBe(0);
   });
 
   it("rejects referenced eligibility removal atomically", async () => {

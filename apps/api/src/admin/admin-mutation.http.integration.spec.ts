@@ -435,12 +435,77 @@ describe("admin invitation mutations HTTP integration", () => {
     expect(responseKeys(body)).not.toContain("qrPayload");
   });
 
+  it("creates one- or two-session invitations from a larger catalog that guests can accept", async () => {
+    const session = await createOwnerAndSession();
+    const ceremony = await createEvent({ displayOrder: 1 });
+    const reception = await createEvent({ displayOrder: 2 });
+    await createEvent({ displayOrder: 3 });
+    const http = app.getHttpAdapter().getInstance();
+
+    for (const ids of [
+      [ceremony.id],
+      [reception.id],
+      [ceremony.id, reception.id],
+    ]) {
+      const created = await http.inject({
+        headers: ownerHeaders(session),
+        method: "POST",
+        payload: { ...validCreateBody(ids), rsvpDeadlineAt: null },
+        url: "/api/admin/invitations",
+      });
+      expect(created.statusCode).toBe(201);
+      const body = created.json();
+      const url = `/api/public/invitations/${credentialFromPublicUrl(body.publicUrl)}`;
+      const invitation = await http.inject({ method: "GET", url });
+      expect(invitation.statusCode).toBe(200);
+      expect(
+        invitation.json().invitation.events.map(({ id }: { id: string }) => id),
+      ).toEqual(ids);
+      const accepted = await http.inject({
+        method: "PUT",
+        payload: {
+          status: "ACCEPTED",
+          expectedVersion: null,
+          partyMode: "ALONE",
+          attendees: [
+            {
+              type: "NAMED_INVITEE",
+              inviteeId: body.invitation.invitees[0].id,
+              quantity: 1,
+            },
+          ],
+          eventSelections: ids.map((eventId) => ({
+            eventId,
+            attending: true,
+            expectedAttendeeCount: 1,
+          })),
+        },
+        url: url + "/rsvp",
+      });
+      expect(accepted.statusCode).toBe(200);
+      expect(
+        await prisma.rSVP.count({
+          where: { invitationId: body.invitation.id },
+        }),
+      ).toBe(1);
+    }
+  });
+
   it("rejects invalid create input without partial households", async () => {
     const session = await createOwnerAndSession();
     const active = await createEvent({ displayOrder: 1 });
     const inactive = await createEvent({ displayOrder: 2, isActive: false });
+    const second = await createEvent({ displayOrder: 3 });
+    const third = await createEvent({ displayOrder: 4 });
     const cases = [
+      ["no sessions", { eventIds: [] }],
+      ["three active sessions", { eventIds: [active.id, second.id, third.id] }],
+      ["invalid event ID", { eventIds: ["not-a-uuid"] }],
       ["duplicate eventIds", { eventIds: [active.id, active.id] }],
+      [
+        "case-equivalent eventIds",
+        { eventIds: [active.id, active.id.toUpperCase()] },
+      ],
       ["missing event", { eventIds: [randomUUID()] }],
       ["inactive event", { eventIds: [inactive.id] }],
       [
@@ -453,12 +518,15 @@ describe("admin invitation mutations HTTP integration", () => {
 
     for (const [label, override] of cases) {
       const before = await prisma.invitation.count();
-      const response = await app.getHttpAdapter().getInstance().inject({
-        headers: ownerHeaders(session),
-        method: "POST",
-        payload: { ...validCreateBody([active.id]), ...override },
-        url: "/api/admin/invitations",
-      });
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: ownerHeaders(session),
+          method: "POST",
+          payload: { ...validCreateBody([active.id]), ...override },
+          url: "/api/admin/invitations",
+        });
 
       expect(response.statusCode, label).toBe(400);
       expect(response.json()).toMatchObject({
@@ -467,6 +535,8 @@ describe("admin invitation mutations HTTP integration", () => {
       expect(await prisma.invitation.count(), label).toBe(before);
       expect(await prisma.invitee.count(), label).toBe(0);
       expect(await prisma.invitationEvent.count(), label).toBe(0);
+      expect(await prisma.rSVP.count(), label).toBe(0);
+      expect(await prisma.checkinPass.count(), label).toBe(0);
     }
   });
 

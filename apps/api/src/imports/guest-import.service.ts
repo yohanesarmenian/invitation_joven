@@ -1,3 +1,7 @@
+import {
+  isSupportedInvitationSessionCount,
+  MAX_INVITATION_SESSIONS,
+} from "../invitations/eligibility-policy.js";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { TextDecoder } from "node:util";
@@ -1103,7 +1107,10 @@ export class GuestImportService {
       stalePreview();
     }
 
-    const normalized = normalizeAdminCreateInvitationInput(value);
+    const normalized = normalizeAdminCreateInvitationInput(
+      value,
+      "stored-import-preview",
+    );
 
     return {
       ...normalized,
@@ -1147,6 +1154,15 @@ export class GuestImportService {
     selectedRows: readonly StoredPreviewRow[],
     acknowledgedWarningRowNumbers: readonly number[],
   ): Promise<Array<{ input: NormalizedCreateInput; rowNumber: number }>> {
+    if (
+      selectedRows.some(
+        (row) =>
+          !isSupportedInvitationSessionCount(row.eventSlugs.length) ||
+          row.input?.eventIds.length !== row.eventSlugs.length,
+      )
+    ) {
+      stalePreview();
+    }
     const selectedSlugs = [
       ...new Set(selectedRows.flatMap((row) => row.eventSlugs)),
     ];
@@ -1309,6 +1325,21 @@ export class GuestImportService {
         eventIds.push(event.id);
         selectedEventSlugs.push(slug);
       }
+    }
+
+    if (
+      !isSupportedInvitationSessionCount(eventIds.length) &&
+      !row.errors.some((error) => error.field === "eventIds")
+    ) {
+      row.errors.push(
+        issue(
+          row.rowNumber,
+          null,
+          "eventIds",
+          "INVALID_VALUE",
+          `Set 1 or ${MAX_INVITATION_SESSIONS} active event columns to true. Set the rest to false or leave them blank.`,
+        ),
+      );
     }
 
     if (

@@ -371,6 +371,196 @@ describe("POST /api/admin/imports/guest/validate", () => {
     expect(missingCsrf.statusCode).toBe(403);
   });
 
+  it.each(["csv", "xlsx"])(
+    "checks session limits per %s row and commits only eligible selections",
+    async (format) => {
+      const session = await createOwnerAndSession();
+      await createEvent({ displayOrder: 2, slug: "reception" });
+      await createEvent({ displayOrder: 3, slug: "third-session" });
+      const headers =
+        "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony,event:reception,event:third-session";
+      const matrix = [
+        [true, false, false],
+        [false, true, true],
+        [false, false, false],
+        [true, true, true],
+      ];
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Invitations");
+      sheet.addRow(headers.split(","));
+      for (const [index, events] of matrix.entries()) {
+        sheet.addRow([
+          `Session limit ${index}`,
+          "",
+          false,
+          0,
+          "",
+          "",
+          JSON.stringify([{ fullName: "Named Guest", category: "ADULT" }]),
+          ...events,
+        ]);
+      }
+      const file =
+        format === "xlsx"
+          ? Buffer.from(await workbook.xlsx.writeBuffer())
+          : csv([
+              headers,
+              ...matrix.map((events, index) =>
+                validCsvRow(`Session limit ${index}`, events.join(",")),
+              ),
+            ]);
+      const preview = await upload(
+        app,
+        session,
+        file,
+        `session-limits.${format}`,
+      );
+      expect(preview.statusCode).toBe(201);
+      const body = preview.json();
+      expect(body.summary).toMatchObject({
+        totalRows: 4,
+        validRows: 2,
+        errorRows: 2,
+      });
+      expect(body.rows[0].parsed.eligibleEventSlugs).toEqual(["ceremony"]);
+      expect(body.rows[1].parsed.eligibleEventSlugs).toEqual([
+        "reception",
+        "third-session",
+      ]);
+      for (const [index, rowNumber] of [
+        [2, 4],
+        [3, 5],
+      ] as const) {
+        expect(body.rows[index]).toMatchObject({
+          rowNumber,
+          status: "ERROR",
+          errors: [
+            {
+              rowNumber,
+              field: "eventIds",
+              code: "INVALID_VALUE",
+              message: expect.stringContaining(
+                "Set 1 or 2 active event columns",
+              ),
+            },
+          ],
+        });
+        expect(body.rows[index].parsed).toBeUndefined();
+      }
+      const command = {
+        previewId: body.previewId,
+        acknowledgedWarningRowNumbers: [],
+      };
+      const before = await counts();
+      expect(
+        (
+          await commitImport(app, session, {
+            ...command,
+            includeRowNumbers: [2, 5],
+          })
+        ).statusCode,
+      ).toBe(400);
+      expect(await counts()).toEqual(before);
+      const committed = await commitImport(app, session, {
+        ...command,
+        includeRowNumbers: [2, 3],
+      });
+      expect(committed.statusCode).toBe(200);
+      expect(await counts()).toMatchObject({
+        invitations: before.invitations + 2,
+        invitationEvents: before.invitationEvents + 3,
+        rsvps: before.rsvps,
+      });
+    },
+  );
+
+  it("rejects an old pending three-session preview atomically and reads a prior committed receipt", async () => {
+    const session = await createOwnerAndSession();
+    const reception = await createEvent({ displayOrder: 2, slug: "reception" });
+    const third = await createEvent({ displayOrder: 3, slug: "third-session" });
+    const ceremony = await prisma.event.findUniqueOrThrow({
+      where: { slug: "ceremony" },
+    });
+    const legacyRow = {
+      rowNumber: 3,
+      status: "VALID",
+      eventSlugs: [ceremony.slug, reception.slug, third.slug],
+      errors: [],
+      warnings: [],
+      input: {
+        eventIds: [ceremony.id, reception.id, third.id],
+        displayName: "Legacy preview family",
+        allowPlusOne: false,
+        greetingName: null,
+        maxAdditionalChildren: 0,
+        rsvpDeadlineAt: null,
+        notes: null,
+        invitees: [{ fullName: "Named Guest", category: "ADULT", label: null }],
+      },
+    };
+
+    const pending = await upload(
+      app,
+      session,
+      validCsvFile("New preview family"),
+    );
+    const pendingId: string = pending.json().previewId;
+    const patchRows = async (previewId: string, replace = false) => {
+      const { normalizedRows } =
+        await prisma.guestImportPreview.findUniqueOrThrow({
+          where: { id: previewId },
+        });
+      if (!Array.isArray(normalizedRows))
+        throw new Error("Expected persisted preview rows");
+      await prisma.guestImportPreview.update({
+        where: { id: previewId },
+        data: {
+          normalizedRows: replace
+            ? [{ ...legacyRow, rowNumber: 2 }]
+            : [...normalizedRows, legacyRow],
+        },
+      });
+    };
+    await patchRows(pendingId);
+    const before = await counts();
+    const invalid = await commitImport(app, session, {
+      previewId: pendingId,
+      includeRowNumbers: [2, 3],
+      acknowledgedWarningRowNumbers: [],
+    });
+    expect(invalid.statusCode).toBe(409);
+    expect(invalid.json().error.code).toBe("IMPORT_PREVIEW_STALE");
+    expect(await counts()).toEqual(before);
+    const validSubset = await commitImport(app, session, {
+      previewId: pendingId,
+      includeRowNumbers: [2],
+      acknowledgedWarningRowNumbers: [],
+    });
+    expect(validSubset.statusCode).toBe(200);
+    expect(await counts()).toMatchObject({
+      invitations: before.invitations + 1,
+    });
+
+    const committed = await upload(
+      app,
+      session,
+      validCsvFile("Already imported family"),
+    );
+    const command = {
+      previewId: committed.json().previewId,
+      includeRowNumbers: [2],
+      acknowledgedWarningRowNumbers: [],
+    };
+    const receipt = await commitImport(app, session, command);
+    expect(receipt.statusCode).toBe(200);
+    await patchRows(command.previewId, true);
+    const after = await counts();
+    const replay = await commitImport(app, session, command);
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(receipt.json());
+    expect(await counts()).toEqual(after);
+  });
+
   it("persists a valid CSV preview without creating business data", async () => {
     const session = await createOwnerAndSession();
     const before = await counts();

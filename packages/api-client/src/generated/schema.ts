@@ -1253,6 +1253,7 @@ export interface components {
             /** Format: date-time */
             rsvpDeadlineAt: string | null;
             notes: string | null;
+            /** @description One or two active wedding sessions. */
             eventIds: string[];
             invitees: components["schemas"]["CreateAdminInvitationInviteeDto"][];
         };
@@ -1377,6 +1378,7 @@ export interface components {
             label?: string | null;
         };
         ReplaceAdminInvitationEventsRequestDto: {
+            /** @description Complete eligibility set. An empty set explicitly revokes all eligibility where permitted. */
             eventIds: string[];
         };
         ReplaceAdminInvitationEventsResponseDto: {
@@ -1511,6 +1513,8 @@ export interface components {
             displayOrder: number;
             /** Format: date-time */
             startsAt?: string | null;
+            /** Format: date-time */
+            endsAt?: string | null;
             venueName?: string | null;
             address?: string | null;
         };

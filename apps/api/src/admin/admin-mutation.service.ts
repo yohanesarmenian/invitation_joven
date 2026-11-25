@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { lockEvents } from "../events/event-lock.js";
+import {
+  isSupportedInvitationSessionCount,
+  MAX_INVITATION_SESSIONS,
+} from "../invitations/eligibility-policy.js";
 import { Inject, Injectable } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
 import {
@@ -250,8 +254,16 @@ function normalizeRequiredDate(value: unknown): Date {
   return parsed;
 }
 
-function normalizeEventIds(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length === 0) {
+function normalizeEventIds(
+  value: unknown,
+  minimum: number,
+  maximum = MAX_INVITATION_SESSIONS,
+): string[] {
+  if (
+    !Array.isArray(value) ||
+    value.length < minimum ||
+    value.length > maximum
+  ) {
     validationError();
   }
 
@@ -259,30 +271,8 @@ function normalizeEventIds(value: unknown): string[] {
     if (typeof eventId !== "string") {
       validationError();
     }
-
     assertUuid(eventId);
-    return eventId;
-  });
-
-  if (new Set(eventIds).size !== eventIds.length) {
-    validationError();
-  }
-
-  return eventIds;
-}
-
-function normalizeReplacementEventIds(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    validationError();
-  }
-
-  const eventIds = value.map((eventId) => {
-    if (typeof eventId !== "string") {
-      validationError();
-    }
-
-    assertUuid(eventId);
-    return eventId;
+    return eventId.toLowerCase();
   });
 
   if (new Set(eventIds).size !== eventIds.length) {
@@ -488,6 +478,7 @@ function normalizeInvitees(value: unknown): NormalizedInviteeInput[] {
 
 export function normalizeAdminCreateInvitationInput(
   body: unknown,
+  source: "new-invitation" | "stored-import-preview" = "new-invitation",
 ): NormalizedCreateInput {
   if (!isPlainObject(body)) {
     validationError();
@@ -498,7 +489,13 @@ export function normalizeAdminCreateInvitationInput(
   return {
     allowPlusOne: normalizeBoolean(body.allowPlusOne),
     displayName: normalizeRequiredText(body.displayName),
-    eventIds: normalizeEventIds(body.eventIds),
+    // Older previews can be decoded for selected-row revalidation. They never
+    // reach graph creation without the current session limit being enforced.
+    eventIds: normalizeEventIds(
+      body.eventIds,
+      1,
+      source === "stored-import-preview" ? Number.POSITIVE_INFINITY : undefined,
+    ),
     greetingName: normalizeNullableText(body.greetingName),
     invitees: normalizeInvitees(body.invitees),
     maxAdditionalChildren: normalizeNonNegativeInteger(
@@ -644,7 +641,7 @@ function normalizeReplaceEventsInput(body: unknown): string[] {
     validationError();
   }
 
-  return normalizeReplacementEventIds(body.eventIds);
+  return normalizeEventIds(body.eventIds, 0);
 }
 
 function nextMonotonicTimestamp(current: Date): Date {
@@ -727,6 +724,11 @@ export async function createAdminInvitationGraph(
   credentialService: CredentialService,
   input: NormalizedCreateInput,
 ): Promise<CreatedAdminInvitationGraph> {
+  if (!isSupportedInvitationSessionCount(input.eventIds.length)) {
+    validationError();
+  }
+  await assertActiveEventIds(tx, input.eventIds);
+
   const id = randomUUID();
   const publicTokenVersion = 1;
   const publicCredential = credentialService.deriveCredential({
@@ -736,7 +738,6 @@ export async function createAdminInvitationGraph(
   });
   const publicTokenHash = credentialService.hashCredential(publicCredential);
 
-  await assertActiveEventIds(tx, input.eventIds);
   await tx.invitation.create({
     data: {
       allowPlusOne: input.allowPlusOne,
