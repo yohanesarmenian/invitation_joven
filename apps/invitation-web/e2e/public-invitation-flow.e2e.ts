@@ -42,7 +42,8 @@ test("one activation opens content and retrieves the invitation exactly once", a
   await page.goto(TEST_INVITATION_PATH);
 
   // Content is mounted behind the closed envelope and excluded from interaction.
-  const openButton = page.getByRole("button", { name: "Open invitation" });
+  const openButton = page.getByRole("button", { name: "Buka Undangan" });
+  await expect(page.locator("html")).toHaveAttribute("lang", "id");
   const flow = page.locator(".invitation-opening-flow");
   const content = page.locator(".invitation-opening-content");
   await expect(openButton).toBeVisible();
@@ -61,6 +62,9 @@ test("one activation opens content and retrieves the invitation exactly once", a
   await expect(content).not.toHaveAttribute("aria-hidden", "true");
   await expect(content).toBeFocused();
 
+  await expect(
+    page.getByText("The Wedding of", { exact: true }),
+  ).toHaveAttribute("lang", "en");
   // Content state: API-driven data from the single server-side retrieval.
   await expect(page.getByRole("heading", { name: "Test Guest" })).toBeVisible();
   await expect(
@@ -82,14 +86,14 @@ test("event map links point at the fixture URLs with safe target and rel", async
   page,
 }) => {
   await page.goto(TEST_INVITATION_PATH);
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
   );
 
   const churchLink = eventCard(page, "Holy Matrimony Test").getByRole("link", {
-    name: "View in Google Maps",
+    name: "Buka di Google Maps",
   });
   await expect(churchLink).toHaveAttribute(
     "href",
@@ -100,7 +104,7 @@ test("event map links point at the fixture URLs with safe target and rel", async
   await expect(churchLink).toHaveAttribute("rel", /noreferrer/);
 
   const receptionLink = eventCard(page, "Reception Test").getByRole("link", {
-    name: "View in Google Maps",
+    name: "Buka di Google Maps",
   });
   await expect(receptionLink).toHaveAttribute(
     "href",
@@ -116,7 +120,7 @@ test("reload resets to closed state and triggers one new server retrieval", asyn
   request,
 }) => {
   await page.goto(TEST_INVITATION_PATH);
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
@@ -129,7 +133,7 @@ test("reload resets to closed state and triggers one new server retrieval", asyn
   // A reload is a new server render: the flow restarts closed and the mock is
   // hit once more. One retrieval per server render is the real invariant.
   await expect(
-    page.getByRole("button", { name: "Open invitation" }),
+    page.getByRole("button", { name: "Buka Undangan" }),
   ).toBeVisible();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",

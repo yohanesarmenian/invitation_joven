@@ -12,13 +12,13 @@ const MOCK = MOCK_API_ORIGIN;
 const PATH = `/i/${"A".repeat(43)}`;
 const section = (page: Page) => page.locator(".guest-message-section");
 const form = (page: Page) =>
-  section(page).getByRole("form", { name: "Guest message" });
+  section(page).getByRole("form", { name: "Ucapan untuk mempelai" });
 const author = (page: Page) =>
-  section(page).getByRole("textbox", { name: "Your name (optional)" });
+  section(page).getByRole("textbox", { name: "Nama Anda (opsional)" });
 const message = (page: Page) =>
-  section(page).getByRole("textbox", { name: "Your message (required)" });
+  section(page).getByRole("textbox", { name: "Ucapan Anda (wajib)" });
 const send = (page: Page) =>
-  section(page).getByRole("button", { name: "Send Message", exact: true });
+  section(page).getByRole("button", { name: "Kirim Ucapan", exact: true });
 const errors = new WeakMap<Page, string[]>();
 const accepted = {
   status: "ACCEPTED",
@@ -45,7 +45,7 @@ async function state(
 }
 async function open(page: Page) {
   await page.goto(PATH);
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
@@ -54,17 +54,19 @@ async function open(page: Page) {
 }
 async function success(page: Page) {
   await expect(
-    section(page).getByRole("heading", { name: "Thank you for your message" }),
+    section(page).getByRole("heading", {
+      name: "Terima kasih atas ucapan Anda",
+    }),
   ).toBeFocused();
   await expect(section(page).getByRole("status")).toContainText(
-    "Your message was saved",
+    "Ucapan Anda telah tersimpan",
   );
   await expect(form(page)).toHaveCount(0);
   await expect(
     section(page).locator("input, textarea, ul, ol, time"),
   ).toHaveCount(0);
   await expect(
-    section(page).getByRole("button", { name: "Back to Invitation" }),
+    section(page).getByRole("button", { name: "Kembali ke Undangan" }),
   ).toBeVisible();
 }
 async function layout(page: Page, info: TestInfo, name: string) {
@@ -138,7 +140,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await expect(message(page)).toBeFocused();
     await expect(message(page)).toHaveAttribute("aria-invalid", "true");
     await expect(section(page).getByRole("alert")).toContainText(
-      "Please write a message",
+      "Silakan tulis ucapan",
     );
     expect((await state(request)).requests).toHaveLength(0);
     await layout(page, info, `message-error-${width}`);
@@ -148,10 +150,10 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await send(page).focus();
     await page.keyboard.press("Enter");
     await expect(
-      section(page).getByRole("button", { name: "Sending…", exact: true }),
+      section(page).getByRole("button", { name: "Mengirim…", exact: true }),
     ).toBeDisabled();
     await expect(section(page).getByRole("status")).toHaveText(
-      "Sending your message…",
+      "Mengirim ucapan Anda…",
     );
     await expect(message(page)).toHaveValue(
       "  Congratulations!\n\nGod bless you both!  ",
@@ -173,7 +175,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     ]);
     await layout(page, info, `message-sent-${width}`);
     const back = section(page).getByRole("button", {
-      name: "Back to Invitation",
+      name: "Kembali ke Undangan",
     });
     await back.focus();
     expect(
@@ -183,14 +185,14 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await expect(page.locator("#invitation-hero-title")).toBeFocused();
     await expect(form(page)).toHaveCount(0);
     await section(page)
-      .getByRole("button", { name: "Write another message" })
+      .getByRole("button", { name: "Tulis Ucapan Lain" })
       .click();
     await expect(author(page)).toBeFocused();
     await expect(author(page)).toHaveValue("");
     await expect(message(page)).toHaveValue("");
     await expect(
       section(page).getByRole("heading", {
-        name: "Thank you for your message",
+        name: "Terima kasih atas ucapan Anda",
       }),
     ).toHaveCount(0);
     await configure(request, {});
@@ -229,7 +231,7 @@ test("Unicode boundaries block invalid submissions and allow exact normalized li
   }
   await message(page).fill("  " + "💐".repeat(1000) + "  ");
   await expect(
-    section(page).getByText("1000 / 1000 characters", { exact: false }),
+    section(page).getByText("1.000 / 1.000 karakter", { exact: false }),
   ).toBeVisible();
   for (const value of ["x".repeat(101), "💐".repeat(101)]) {
     await author(page).fill(value);
@@ -250,8 +252,8 @@ test("Unicode boundaries block invalid submissions and allow exact normalized li
 });
 
 for (const [status, code, text] of [
-  [400, "VALIDATION_ERROR", "Please check your name and message"],
-  [404, "INVITATION_NOT_AVAILABLE", "This invitation is currently unavailable"],
+  [400, "VALIDATION_ERROR", "Periksa nama dan isi ucapan Anda"],
+  [404, "INVITATION_NOT_AVAILABLE", "Undangan sedang tidak tersedia"],
 ] as const) {
   test(`known ${status} failure preserves the draft until explicit retry`, async ({
     page,
@@ -268,7 +270,7 @@ for (const [status, code, text] of [
     await expect(message(page)).toHaveValue("Keep these wishes");
     await expect(
       section(page).getByRole("heading", {
-        name: "Thank you for your message",
+        name: "Terima kasih atas ucapan Anda",
       }),
     ).toHaveCount(0);
     // Allow a bounded observation interval to detect unintended automatic retry.
@@ -276,7 +278,7 @@ for (const [status, code, text] of [
     expect((await state(request)).requests).toHaveLength(1);
     await configure(request, {});
     await section(page)
-      .getByRole("button", { name: "Send Message Again" })
+      .getByRole("button", { name: "Coba Kirim Ucapan Lagi" })
       .click();
     await success(page);
     expect((await state(request)).requests).toHaveLength(2);
@@ -293,12 +295,12 @@ for (const mode of ["dropResponse", "malformed"]) {
     await message(page).fill("An uncertain wish");
     await send(page).click();
     await expect(section(page).getByRole("alert")).toContainText(
-      "We couldn’t confirm the save yet",
+      "Kami belum dapat memastikan apakah ucapan Anda tersimpan",
     );
     await expect(message(page)).toHaveValue("An uncertain wish");
     await expect(
       section(page).getByRole("heading", {
-        name: "Thank you for your message",
+        name: "Terima kasih atas ucapan Anda",
       }),
     ).toHaveCount(0);
     await page.waitForTimeout(300);
@@ -306,7 +308,7 @@ for (const mode of ["dropResponse", "malformed"]) {
     expect((await state(request)).commits).toBe(1);
     await configure(request, {});
     await section(page)
-      .getByRole("button", { name: "Retry same message" })
+      .getByRole("button", { name: "Kirim Ulang Ucapan yang Sama" })
       .click();
     await success(page);
     const after = await state(request);
@@ -353,7 +355,7 @@ for (const mode of ["accepted", "declined", "deadline"]) {
     if (mode === "accepted") {
       await expect(pass).toBeVisible();
       await rsvp
-        .getByRole("button", { name: "Edit RSVP", exact: true })
+        .getByRole("button", { name: "Ubah RSVP", exact: true })
         .click();
       await draft.fill("Unsaved RSVP draft");
       await expect(pass).toHaveCount(0);
@@ -362,10 +364,10 @@ for (const mode of ["accepted", "declined", "deadline"]) {
       await expect(
         rsvp
           .getByRole("status")
-          .filter({ hasText: "The RSVP edit window has closed" }),
+          .filter({ hasText: "Waktu untuk mengubah RSVP sudah berakhir" }),
       ).toBeVisible();
       await expect(
-        rsvp.getByRole("button", { name: "Edit RSVP", exact: true }),
+        rsvp.getByRole("button", { name: "Ubah RSVP", exact: true }),
       ).toHaveCount(0);
     }
     const before = await rsvp.innerHTML();
@@ -390,7 +392,7 @@ for (const mode of ["accepted", "declined", "deadline"]) {
     if (mode === "accepted") {
       await expect(draft).toHaveValue("Unsaved RSVP draft");
       await expect(pass).toHaveCount(0);
-      await rsvp.getByRole("button", { name: "Cancel", exact: true }).click();
+      await rsvp.getByRole("button", { name: "Batal", exact: true }).click();
       await expect(pass).toBeVisible();
     } else if (mode === "declined") {
       await expect(pass).toHaveCount(0);

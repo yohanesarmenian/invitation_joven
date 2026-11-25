@@ -231,8 +231,8 @@ describe("venue content validation and eligibility", () => {
       day: "09 Jan 2027",
       time: "11.30 WIB",
     });
-    expect(formatRundownInstant("2027-01-09T18:00:00Z")).toEqual({
-      day: "10 Jan 2027",
+    expect(formatRundownInstant("2027-12-09T18:00:00Z")).toEqual({
+      day: "10 Des 2027",
       time: "01.00 WIB",
     });
   });

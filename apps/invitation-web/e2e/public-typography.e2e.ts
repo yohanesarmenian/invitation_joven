@@ -10,7 +10,7 @@ test.beforeEach(async ({ request, page }) => {
 async function open(page: Page, credential: string) {
   await page.goto(`/i/${credential}`);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
@@ -157,7 +157,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await page.goto(`/i/${typographyFixtures[1]!.credential}`);
     await expect(page.locator("html")).toHaveCSS("font-size", "32px");
     const openButton = page.getByRole("button", {
-      name: "Open invitation",
+      name: "Buka Undangan",
       exact: true,
     });
     await expect(openButton).toBeEnabled();
@@ -188,13 +188,13 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await page.keyboard.press("Enter");
     await expect(page.locator(".invitation-opening-content")).toBeFocused();
     await expectReadableText(page);
-    const radio = page.getByRole("radio", { name: "Joyfully Accept" });
+    const radio = page.getByRole("radio", { name: "Dengan senang hati hadir" });
     await radio.focus();
     await page.keyboard.press("Space");
     await expect(radio).toBeChecked();
     await expect(radio).toBeFocused();
     const submit = page.getByRole("button", {
-      name: /^(Submit RSVP|Save Changes)$/,
+      name: /^(Kirim RSVP|Simpan Perubahan)$/,
       exact: true,
     });
     await submit.focus();
@@ -209,13 +209,13 @@ test("recoverable invitation errors use the same readable type and keyboard acti
 }) => {
   await page.goto(`/i/${"C".repeat(43)}`);
   await expect(
-    page.getByRole("heading", { name: "Unable to load the invitation" }),
+    page.getByRole("heading", { name: "Undangan belum bisa dimuat" }),
   ).toBeVisible();
   await expect(page.locator("#invitation-error-title")).toHaveCSS(
     "font-family",
     /Spectral/,
   );
-  const retry = page.getByRole("button", { name: "Try again", exact: true });
+  const retry = page.getByRole("button", { name: "Coba Lagi", exact: true });
   await expect(retry).toHaveCSS("font-family", /Albert Sans/);
   await retry.focus();
   await expect(retry).toBeFocused();

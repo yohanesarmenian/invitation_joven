@@ -106,17 +106,17 @@ describe("PublicInvitationLongPage", () => {
       "Example Guests",
       '<h3 id="bride-title">Angelina Desandra Adventa <span class="couple-nickname">(Venta)</span></h3>',
       '<h3 id="groom-title">Yohanes Armenian Putra <span class="couple-nickname">(Jo)</span></h3>',
-      "Saturday",
-      "09 January 2027",
-      "Wedding Events",
+      "Sabtu",
+      "09 Januari 2027",
+      "Rangkaian Acara",
       "Dress Code",
-      "RSVP &amp; Dietary Information",
-      "Kindly reply by 25 December 2026 at 07:00 WIB.",
+      "RSVP dan Kebutuhan Makanan",
+      "Mohon berikan jawaban paling lambat 25 Desember 2026 pukul 07.00 WIB.",
       "RSVP form",
-      "Pre-wedding Gallery",
+      "Galeri Pranikah",
       "1 John 4:19",
       "Happiness is only real when shared",
-      "Leave a Message",
+      "Tulis Ucapan",
       "See you at the Wedding!",
       "Handcrafted with love by Angelina &amp; Yohanes",
     ];
@@ -200,7 +200,7 @@ describe("PublicInvitationLongPage", () => {
       '<time dateTime="2027-01-08T18:30:00.000Z">01.30</time>',
     );
     expect(html).not.toContain(">18.30</time>");
-    expect(html).toContain('<h2 id="wedding-date-title">09 January 2027</h2>');
+    expect(html).toContain('<h2 id="wedding-date-title">09 Januari 2027</h2>');
   });
 
   it("uses the earliest eligible date from the API and hides the date/countdown when all dates are unknown", () => {
@@ -224,9 +224,9 @@ describe("PublicInvitationLongPage", () => {
         event,
       ],
     });
-    expect(html).toContain('<h2 id="wedding-date-title">11 February 2028</h2>');
-    expect(html).toContain('class="wedding-date-day">Friday</p>');
-    expect(html).not.toContain("09 January 2027");
+    expect(html).toContain('<h2 id="wedding-date-title">11 Februari 2028</h2>');
+    expect(html).toContain('class="wedding-date-day">Jumat</p>');
+    expect(html).not.toContain("09 Januari 2027");
     const unknown = renderInvitation({
       events: [{ ...event, startsAt: null }],
     });
@@ -255,7 +255,7 @@ describe("PublicInvitationLongPage", () => {
     expect(html).not.toContain("Invalid Date");
     expect(html).not.toContain("null");
     expect(html).not.toContain("undefined");
-    expect(html).not.toContain("View in Google Maps");
+    expect(html).not.toContain("Buka di Google Maps");
     expect(html).not.toContain("href=");
     expect(html).not.toContain("<time");
   });
@@ -266,7 +266,7 @@ describe("PublicInvitationLongPage", () => {
     expect(html).toContain('href="https://maps.example/reception"');
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
-    expect(html.match(/View in Google Maps/g)).toHaveLength(1);
+    expect(html.match(/Buka di Google Maps/g)).toHaveLength(1);
   });
 
   it("falls back from greetingName to displayName without placeholders or honorifics", () => {
@@ -293,9 +293,11 @@ describe("PublicInvitationLongPage", () => {
     const withoutDeadline = renderInvitation({ rsvpDeadlineAt: null });
 
     expect(withDeadline).toContain(
-      "Kindly reply by 25 December 2026 at 00:30 WIB.",
+      "Mohon berikan jawaban paling lambat 25 Desember 2026 pukul 00.30 WIB.",
     );
-    expect(withoutDeadline).not.toContain("Kindly reply by");
+    expect(withoutDeadline).not.toContain(
+      "Mohon berikan jawaban paling lambat",
+    );
     expect(withoutDeadline).not.toContain("25 December 2026");
   });
 
@@ -303,19 +305,19 @@ describe("PublicInvitationLongPage", () => {
     const html = renderInvitation();
 
     expect(html).toContain('data-rsvp-slot="true"');
-    expect(html).toContain('aria-label="Guest message"');
+    expect(html).toContain('aria-label="Ucapan untuk mempelai"');
     expect(html).toContain("<input");
     expect(html).not.toContain("<select");
     expect(html).toContain("<textarea");
-    expect(html).toContain("Your name");
-    expect(html).toContain("Your message");
+    expect(html).toContain("Nama Anda");
+    expect(html).toContain("Ucapan Anda");
     expect(html).not.toContain(
-      "Guest messages will be available in a later phase",
+      "Ucapan untuk mempelais will be available in a later phase",
     );
-    expect(html.indexOf('aria-label="Guest message"')).toBeGreaterThan(
-      html.indexOf("Leave a Message"),
+    expect(html.indexOf('aria-label="Ucapan untuk mempelai"')).toBeGreaterThan(
+      html.indexOf("Tulis Ucapan"),
     );
-    expect(html.indexOf('aria-label="Guest message"')).toBeLessThan(
+    expect(html.indexOf('aria-label="Ucapan untuk mempelai"')).toBeLessThan(
       html.indexOf("See you at the Wedding!"),
     );
     expect(html).not.toContain('type="checkbox"');
@@ -323,11 +325,11 @@ describe("PublicInvitationLongPage", () => {
     expect(html).not.toContain('role="checkbox"');
     expect(html).not.toContain('role="radio"');
     expect(html).not.toContain('role="textbox"');
-    expect(html).not.toContain("Joyfully Accept");
-    expect(html).not.toContain("Regretfully Decline");
-    expect(html).not.toContain("Named guests and companions");
+    expect(html).not.toContain("Dengan senang hati hadir");
+    expect(html).not.toContain("Mohon maaf, tidak dapat hadir");
+    expect(html).not.toContain("Tamu terdaftars and companions");
     expect(html).not.toContain("Send Confirmation");
-    expect(html).toContain("Send Message");
+    expect(html).toContain("Kirim Ucapan");
   });
 
   it("does not render credentials, raw IDs, RSVP version, or private fields", () => {
@@ -356,10 +358,10 @@ describe("PublicInvitationLongPage", () => {
 
     expect(html).toContain(weddingMedia.bride);
     expect(html).toContain(weddingMedia.groom);
-    expect(html).toContain("Daughter of");
+    expect(html).toContain("Putri dari");
     expect(html).toContain("Mr. Agus Witjaksono");
     expect(html).toContain("&amp; Mrs. Godeliva Yuniati");
-    expect(html).toContain("Son of");
+    expect(html).toContain("Putra dari");
     expect(html).toContain("Mr. Eddy Frist Simamora");
     expect(html).toContain("Mrs. Entin Kartini");
     expect(html.indexOf(weddingMedia.bride)).toBeLessThan(
@@ -451,7 +453,7 @@ describe("PublicInvitationLongPage", () => {
     expect(
       decorations.filter((image) => image.includes("Objects1.png")),
     ).toHaveLength(2);
-    expect(html).toContain('<h2 id="wedding-date-title">09 January 2027</h2>');
+    expect(html).toContain('<h2 id="wedding-date-title">09 Januari 2027</h2>');
     expect(html).toContain(
       '<p class="closing-copy">See you at the Wedding!</p>',
     );
@@ -487,10 +489,10 @@ describe("PublicInvitationLongPage", () => {
   it("keeps the wedding date above the events with a day and date hierarchy", () => {
     const html = renderInvitation();
 
-    expect(html).toContain('<p class="wedding-date-day">Saturday</p>');
-    expect(html).toContain('<h2 id="wedding-date-title">09 January 2027</h2>');
+    expect(html).toContain('<p class="wedding-date-day">Sabtu</p>');
+    expect(html).toContain('<h2 id="wedding-date-title">09 Januari 2027</h2>');
     expect(html.indexOf('id="wedding-date-title"')).toBeLessThan(
-      html.indexOf("Wedding Events"),
+      html.indexOf("Rangkaian Acara"),
     );
   });
 
@@ -500,7 +502,7 @@ describe("PublicInvitationLongPage", () => {
     const quoteIndex = html.indexOf("Happiness is only real when shared");
 
     expect(html).not.toContain("Scripture &amp; Words");
-    expect(scriptureIndex).toBeGreaterThan(html.indexOf("Pre-wedding Gallery"));
+    expect(scriptureIndex).toBeGreaterThan(html.indexOf("Galeri Pranikah"));
     expect(scriptureIndex).toBeLessThan(quoteIndex);
     expect(html).toContain("<cite>1 John 4:19</cite>");
     expect(html).toContain("<cite>Christopher McCandless</cite>");
@@ -508,6 +510,6 @@ describe("PublicInvitationLongPage", () => {
     // Separate <blockquote> elements, not one merged quote block.
     const between = html.slice(scriptureIndex, quoteIndex);
     expect(between).toContain("</blockquote>");
-    expect(between).toContain("<blockquote>");
+    expect(between).toContain('<blockquote lang="en">');
   });
 });

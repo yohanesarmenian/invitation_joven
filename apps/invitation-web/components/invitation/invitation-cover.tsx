@@ -21,11 +21,11 @@ export function ClosedEnvelopeCover({
 }) {
   const busy = !ready || opening || preparing;
   const status = !ready
-    ? "Loading invitation…"
+    ? "Memuat undangan…"
     : preparing
-      ? "Preparing your invitation…"
+      ? "Menyiapkan undangan Anda…"
       : opening
-        ? "Opening invitation…"
+        ? "Membuka undangan…"
         : "";
 
   return (
@@ -36,7 +36,7 @@ export function ClosedEnvelopeCover({
       <button
         type="button"
         className="invitation-envelope-button"
-        aria-label="Open invitation"
+        aria-label="Buka Undangan"
         onClick={onOpen}
         disabled={busy}
         aria-busy={busy || undefined}
@@ -61,14 +61,18 @@ export function ClosedEnvelopeCover({
             </span>
           </span>
         </span>
-        <span className="invitation-envelope-heading" aria-hidden="true">
+        <span
+          className="invitation-envelope-heading"
+          aria-hidden="true"
+          lang="en"
+        >
           A celebration of love
           <span>Jo &amp; Venta</span>
         </span>
         <span className="invitation-envelope-hint" aria-hidden="true">
-          Open invitation <span>↗</span>
+          Buka Undangan <span>↗</span>
         </span>
-        <span className="invitation-envelope-foot" aria-hidden="true">
+        <span className="invitation-envelope-foot" aria-hidden="true" lang="en">
           Together with our families
         </span>
       </button>
@@ -113,7 +117,9 @@ export function InvitationHero({
           Y<span>&amp;</span>A
         </span>
         <div className="invitation-hero-introduction">
-          <p className="invitation-hero-kicker">The Wedding of</p>
+          <p className="invitation-hero-kicker" lang="en">
+            The Wedding of
+          </p>
           <h1
             id="invitation-hero-title"
             className="invitation-hero-title"
@@ -121,7 +127,7 @@ export function InvitationHero({
           >
             <span>Jo</span> <i>&amp;</i> <span>Venta</span>
           </h1>
-          <p className="invitation-hero-message">
+          <p className="invitation-hero-message" lang="en">
             Some moments are meant
             <br />
             to be shared with you.
@@ -131,7 +137,9 @@ export function InvitationHero({
             className="invitation-hero-rsvp"
           />
         </div>
-        <p className="invitation-hero-foot">Together with our families</p>
+        <p className="invitation-hero-foot" lang="en">
+          Together with our families
+        </p>
       </div>
       <div className="invitation-hero-media" aria-hidden="true">
         {showFallback ? (
@@ -139,7 +147,7 @@ export function InvitationHero({
             <span className="invitation-hero-paper-monogram">
               Y<i>&amp;</i>A
             </span>
-            <span>One day. Our forever.</span>
+            <span lang="en">One day. Our forever.</span>
           </div>
         ) : (
           <Image

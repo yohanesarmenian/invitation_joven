@@ -33,7 +33,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(fixturePath);
     await page
-      .getByRole("button", { name: "Open invitation", exact: true })
+      .getByRole("button", { name: "Buka Undangan", exact: true })
       .click();
     await expectContent(page);
     for (const selector of [
@@ -57,14 +57,18 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await expect(
       page.locator(".wedding-date-section .section-kicker"),
     ).toHaveCSS("text-transform", "none");
-    const form = page.getByRole("form", { name: "Your RSVP" });
-    const accept = form.getByRole("radio", { name: "Joyfully Accept" });
-    const decline = form.getByRole("radio", { name: "Regretfully Decline" });
+    const form = page.getByRole("form", { name: "RSVP Anda" });
+    const accept = form.getByRole("radio", {
+      name: "Dengan senang hati hadir",
+    });
+    const decline = form.getByRole("radio", {
+      name: "Mohon maaf, tidak dapat hadir",
+    });
     await accept.check();
     await expect(accept).toBeChecked();
     await expect(decline).not.toBeChecked();
     await expect(
-      form.getByRole("group", { name: "Which sessions will you attend?" }),
+      form.getByRole("group", { name: "Sesi mana yang akan Anda hadiri?" }),
     ).toBeVisible();
     await expect(accept.locator("..")).toHaveCSS(
       "background-color",
@@ -76,17 +80,17 @@ for (const width of [320, 375, 412, 768, 1280]) {
     await page.keyboard.press("ArrowRight");
     await expect(decline).toBeChecked();
     await expect(
-      form.getByRole("group", { name: "Which sessions will you attend?" }),
+      form.getByRole("group", { name: "Sesi mana yang akan Anda hadiri?" }),
     ).toHaveCount(0);
     await accept.check();
     await form
       .getByRole("radio", { name: "Holy Matrimony Test", exact: true })
       .check();
     await form
-      .getByRole("radio", { name: "I’ll attend on my own", exact: true })
+      .getByRole("radio", { name: "Saya hadir sendiri", exact: true })
       .check();
     await expect(
-      form.getByRole("region", { name: "Review attendance" }),
+      form.getByRole("region", { name: "Ringkasan kehadiran" }),
     ).toContainText("Test Guest");
     for (const choice of await form
       .locator(".rsvp-attendance-options .rsvp-choice")
@@ -116,7 +120,7 @@ test("system motion is authoritative over legacy stored overrides and updates wi
     page.getByRole("button", { name: "Enable animations" }),
   ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expectContent(page);
   await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -144,7 +148,7 @@ for (const width of [375, 1280]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(fixturePath);
     const open = page.getByRole("button", {
-      name: "Open invitation",
+      name: "Buka Undangan",
       exact: true,
     });
     await expect(open).toBeEnabled();
@@ -226,7 +230,7 @@ test("authorized content is already mounted and inaccessible behind the prepared
     page.getByRole("button", { name: "View invitation", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Open invitation", exact: true }),
+    page.getByRole("button", { name: "Buka Undangan", exact: true }),
   ).toBeEnabled();
   await page.evaluate(() =>
     document
@@ -254,7 +258,7 @@ test("authorized content is already mounted and inaccessible behind the prepared
   await expect(page.locator(".gallery-frame")).toHaveCount(4);
   await expect(page.locator(".gallery-frame img")).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expectContent(page);
   await expect(page.locator(".gallery-frame img")).toHaveCount(4);
@@ -274,7 +278,7 @@ test("one Enter activation rejects repeats and transfers focus directly to conte
 }) => {
   await page.goto(fixturePath);
   const open = page.getByRole("button", {
-    name: "Open invitation",
+    name: "Buka Undangan",
     exact: true,
   });
   await expect(open).toBeEnabled();
@@ -298,7 +302,7 @@ test("paper folds reveal the prepared hero while forms stay inert", async ({
   await page.setViewportSize({ width: 412, height: 900 });
   await page.goto(fixturePath);
   const open = page.getByRole("button", {
-    name: "Open invitation",
+    name: "Buka Undangan",
     exact: true,
   });
   await expect(open).toBeEnabled();
@@ -342,7 +346,7 @@ test("missing transition-end events finish through the bounded completion fallba
   );
   await page.goto(fixturePath);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expectContent(page);
   await expect(page.locator(".invitation-opening-content")).toBeFocused();
@@ -353,7 +357,7 @@ test("changing reduced motion while opening immediately completes the same activ
 }) => {
   await page.goto(fixturePath);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expectContent(page);
@@ -366,7 +370,7 @@ test("reduced motion supports one Space activation with no opening delay", async
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(fixturePath);
   const open = page.getByRole("button", {
-    name: "Open invitation",
+    name: "Buka Undangan",
     exact: true,
   });
   await expect(open).toBeEnabled();
@@ -409,7 +413,7 @@ test("slow hero stays blocked until decoding succeeds without waiting for galler
     await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
     await started;
     const open = page.getByRole("button", {
-      name: "Open invitation",
+      name: "Buka Undangan",
       exact: true,
     });
     await expect(open).toBeDisabled();
@@ -452,7 +456,7 @@ test("failed hero uses the native paper fallback and still opens once", async ({
   );
   await expect(page.locator(".invitation-hero img")).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expectContent(page);
 });
@@ -476,7 +480,7 @@ test("never-settling hero releases readiness at the deadline with a stable fallb
   try {
     await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
     const open = page.getByRole("button", {
-      name: "Open invitation",
+      name: "Buka Undangan",
       exact: true,
     });
     await expect(open).toBeEnabled({
@@ -509,10 +513,10 @@ test("font readiness failure is bounded and does not trap guests", async ({
   );
   await page.goto(fixturePath);
   await expect(
-    page.getByRole("button", { name: "Open invitation", exact: true }),
+    page.getByRole("button", { name: "Buka Undangan", exact: true }),
   ).toBeEnabled({ timeout: invitationMotion.imageWait + 3000 });
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expectContent(page);
 });
@@ -533,7 +537,7 @@ test("server markup is closed and authorized content stays inert before hydratio
       "",
     );
     await expect(
-      page.getByRole("button", { name: "Open invitation", exact: true }),
+      page.getByRole("button", { name: "Buka Undangan", exact: true }),
     ).toBeDisabled();
     await expect(
       page.getByRole("heading", { name: "Test Guest", exact: true }),
@@ -568,7 +572,7 @@ test("delayed JavaScript hydrates the same concealed content without a second re
     await page.goto(fixturePath, { waitUntil: "commit" });
     const content = page.locator(".invitation-opening-content");
     const open = page.getByRole("button", {
-      name: "Open invitation",
+      name: "Buka Undangan",
       exact: true,
     });
     await expect(content).toHaveAttribute("inert", "");
@@ -616,7 +620,7 @@ for (const phase of ["preparing", "opening"] as const) {
     try {
       await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
       const open = page.getByRole("button", {
-        name: "Open invitation",
+        name: "Buka Undangan",
         exact: true,
       });
       if (phase === "preparing") await expect(open).toBeDisabled();
@@ -652,7 +656,7 @@ test("reload resets the envelope and back/forward preserves an accessible journe
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(fixturePath);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expectContent(page);
   await page.reload();
@@ -661,7 +665,7 @@ test("reload resets the envelope and back/forward preserves an accessible journe
     "closed",
   );
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expectContent(page);
   await page.goto("/");
@@ -673,7 +677,7 @@ test("reload resets the envelope and back/forward preserves an accessible journe
       .getAttribute("data-stage")) === "closed"
   ) {
     await page
-      .getByRole("button", { name: "Open invitation", exact: true })
+      .getByRole("button", { name: "Buka Undangan", exact: true })
       .click();
   }
   await expectContent(page);
@@ -689,7 +693,7 @@ test("responsive layout fills the viewport and keeps labels clear of photos", as
   for (const width of [320, 360, 375, 390, 412, 768, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(fixturePath, { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Open invitation" }).click();
+    await page.getByRole("button", { name: "Buka Undangan" }).click();
     await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
       "data-stage",
       "content",
@@ -781,7 +785,7 @@ test("cinematic photographs retain both faces across the five review viewports",
   for (const width of [320, 375, 412, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(fixturePath);
-    await page.getByRole("button", { name: "Open invitation" }).click();
+    await page.getByRole("button", { name: "Buka Undangan" }).click();
     await expectContent(page);
     for (const photograph of photographs) {
       const section = page.locator(photograph.selector);
@@ -837,18 +841,16 @@ test("missing reveal observer leaves invitation text, forms and gallery usable",
   });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(fixturePath);
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
   );
   await expect(page.locator(".couple-profile").first()).toBeVisible();
   await expect(page.locator(".public-rsvp-form")).toBeVisible();
-  await page
-    .getByRole("button", { name: "View pre-wedding photograph 2" })
-    .click();
+  await page.getByRole("button", { name: "Lihat foto pranikah 2" }).click();
   await expect(
-    page.getByRole("dialog", { name: "Pre-wedding photo viewer" }),
+    page.getByRole("dialog", { name: "Penampil foto pranikah" }),
   ).toBeVisible();
   await expect(page.locator(".gallery-dialog-image img")).toHaveAttribute(
     "src",
@@ -875,7 +877,7 @@ test("records owner-photo geometry and synthetic visual evidence through the ope
       path: path.join(directory, `runtime-envelope-${width}.png`),
     });
     await page.evaluate(() => performance.mark("design-open-start"));
-    await page.getByRole("button", { name: "Open invitation" }).click();
+    await page.getByRole("button", { name: "Buka Undangan" }).click();
     await page.locator(".invitation-hero img").evaluate(async (node) => {
       await (node as HTMLImageElement).decode();
     });

@@ -32,17 +32,17 @@ describe("PublicRsvpForm rendering", () => {
   it("renders an unanswered semantic form with native mutually exclusive radios", () => {
     const html = render();
     expect(html).toContain("<form");
-    expect(html).toContain('aria-label="Your RSVP"');
+    expect(html).toContain('aria-label="RSVP Anda"');
     expect(html.match(/type="radio"/g)).toHaveLength(2);
     expect(html).not.toContain('checked=""');
     expect(html).not.toContain("<textarea");
-    expect(html).toContain("Attendance Confirmation");
-    expect(html).not.toContain("Which sessions will you attend?");
-    expect(html).not.toContain("Who will attend with you?");
-    expect(html).not.toContain("Dietary Restrictions");
+    expect(html).toContain("Konfirmasi Kehadiran");
+    expect(html).not.toContain("Sesi mana yang akan Anda hadiri?");
+    expect(html).not.toContain("Siapa yang akan hadir?");
+    expect(html).not.toContain("Kebutuhan dan preferensi makanan");
     expect(html).not.toContain("guest-checkin-pass");
-    expect(html).toContain("Joyfully Accept");
-    expect(html).toContain("Regretfully Decline");
+    expect(html).toContain("Dengan senang hati hadir");
+    expect(html).toContain("Mohon maaf, tidak dapat hadir");
   });
   it("renders accepted confirmation and canonical pass without editable inputs", () => {
     const html = render({
@@ -58,20 +58,20 @@ describe("PublicRsvpForm rendering", () => {
     });
     for (const text of [
       "Alex Guest",
-      "Plus-one",
-      "Additional children",
+      "Pendamping tambahan",
+      "Anak tambahan",
       "Holy Matrimony",
       "Reception",
       "No seafood",
-      "Expected guests: 4",
+      "Jumlah tamu yang akan hadir: 4",
     ])
       expect(html).toContain(text);
     expect(html).not.toContain("<form");
     expect(html).not.toContain("Robin Guest");
     expect(html).not.toContain("<textarea");
-    expect(html).toContain("Edit RSVP");
-    expect(html).toContain("Attendance Confirmed");
-    expect(html).toContain("Your check-in pass");
+    expect(html).toContain("Ubah RSVP");
+    expect(html).toContain("Kehadiran Terkonfirmasi");
+    expect(html).toContain("QR Check-in Anda");
     expect(html.includes(activePass.qrPayload)).toBe(true);
     expect(html).not.toMatch(
       /guestNote|qrPayload|checkinPass|issuedAt|PENDING/,
@@ -93,8 +93,8 @@ describe("PublicRsvpForm rendering", () => {
         },
       },
     });
-    expect(html).not.toContain("Plus-one");
-    expect(html).not.toContain("Additional children");
+    expect(html).not.toContain("Pendamping tambahan");
+    expect(html).not.toContain("Anak tambahan");
   });
   it("renders saved decline without editable controls or an active pass", () => {
     const html = render({
@@ -108,8 +108,8 @@ describe("PublicRsvpForm rendering", () => {
         },
       },
     });
-    expect(html).toContain("Unable to Attend");
-    expect(html).toContain("Edit RSVP");
+    expect(html).toContain("Tidak Hadir");
+    expect(html).toContain("Ubah RSVP");
     expect(html).not.toContain("<form");
     expect(html).not.toContain("<textarea");
     expect(html).not.toContain("No seafood");
@@ -132,6 +132,6 @@ describe("PublicRsvpForm rendering", () => {
     expect(html).not.toContain("<form");
     expect(html).not.toContain("guest-checkin-pass");
     expect(html).not.toContain("INVITATION_NOT_AVAILABLE");
-    expect(html).toContain("Reload latest RSVP");
+    expect(html).toContain("Muat Ulang RSVP");
   });
 });

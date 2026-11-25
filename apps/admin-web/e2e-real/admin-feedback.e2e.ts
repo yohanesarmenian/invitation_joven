@@ -228,7 +228,7 @@ test("six viewport navigation and scrollable correction dialog use the real pers
       await guest.setViewportSize({ width, height: 900 });
       await guest.goto(`${origins.invitation}/i/${household.publicCredential}`);
       await guest
-        .getByRole("button", { name: "Open invitation", exact: true })
+        .getByRole("button", { name: "Buka Undangan", exact: true })
         .click();
       await expect(guest.locator(".invitation-opening-flow")).toHaveAttribute(
         "data-stage",
@@ -236,7 +236,7 @@ test("six viewport navigation and scrollable correction dialog use the real pers
       );
       await expect(
         guest.getByRole("heading", {
-          name: "Attendance Confirmed",
+          name: "Kehadiran Terkonfirmasi",
           exact: true,
         }),
       ).toBeVisible();
@@ -250,7 +250,9 @@ test("six viewport navigation and scrollable correction dialog use the real pers
         fullPage: true,
         mask: [
           guest.locator(".checkin-code"),
-          guest.getByRole("img", { name: "Household check-in pass QR code" }),
+          guest.getByRole("img", {
+            name: "Kode QR untuk check-in rombongan Anda",
+          }),
         ],
       });
     }

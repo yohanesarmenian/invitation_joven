@@ -4,9 +4,9 @@ import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture"
 import { runnerOrigins } from "./origins";
 
 const origins = runnerOrigins();
-const alone = "I’ll attend on my own";
-const family = "I’ll attend with family";
-const plusOne = "I’ll bring a plus one";
+const alone = "Saya hadir sendiri";
+const family = "Saya hadir bersama keluarga";
+const plusOne = "Saya hadir bersama pendamping";
 const ceremony = "Morning Gathering";
 const reception = "Evening Celebration";
 const both = `${reception} & ${ceremony}`;
@@ -98,7 +98,7 @@ async function conditionalFixture() {
 async function open(page: Page, credential: string) {
   await page.goto(`${origins.invitation}/i/${credential}`);
   await page
-    .getByRole("button", { name: "Open invitation", exact: true })
+    .getByRole("button", { name: "Buka Undangan", exact: true })
     .click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
@@ -112,25 +112,27 @@ function check(page: Page, name: string) {
   return page.getByRole("checkbox", { name, exact: true }).check();
 }
 function notes(page: Page) {
-  return page.getByRole("textbox", { name: "Dietary requirements (optional)" });
+  return page.getByRole("textbox", {
+    name: "Kebutuhan dan preferensi makanan (opsional)",
+  });
 }
 function save(page: Page, initial = false) {
   return page.getByRole("button", {
-    name: initial ? "Submit RSVP" : "Save Changes",
+    name: initial ? "Kirim RSVP" : "Simpan Perubahan",
     exact: true,
   });
 }
 async function waitSaved(page: Page, accepted = true) {
   await expect(
     page.getByRole("heading", {
-      name: accepted ? "Attendance Confirmed" : "Unable to Attend",
+      name: accepted ? "Kehadiran Terkonfirmasi" : "Tidak Hadir",
       exact: true,
     }),
   ).toBeVisible();
 }
 async function edit(page: Page) {
-  await page.getByRole("button", { name: "Edit RSVP", exact: true }).click();
-  await expect(page.getByRole("form", { name: "Your RSVP" })).toBeVisible();
+  await page.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
+  await expect(page.getByRole("form", { name: "RSVP Anda" })).toBeVisible();
 }
 const attending = (eventId: string, expectedAttendeeCount: number) => ({
   eventId,
@@ -175,13 +177,15 @@ test("conditional public RSVP round-trips identities, session counts, family, an
         include: { attendees: true, eventSelections: true },
       });
     await open(guest, household.publicCredential);
-    await expect(radio(guest, "Joyfully Accept")).not.toBeChecked();
-    await expect(radio(guest, "Regretfully Decline")).not.toBeChecked();
+    await expect(radio(guest, "Dengan senang hati hadir")).not.toBeChecked();
+    await expect(
+      radio(guest, "Mohon maaf, tidak dapat hadir"),
+    ).not.toBeChecked();
     await expect(radio(guest, both)).toHaveCount(0);
     await expect(radio(guest, family)).toHaveCount(0);
     await expect(notes(guest)).toHaveCount(0);
     expect((await read()).rsvp).toBeNull();
-    await radio(guest, "Joyfully Accept").focus();
+    await radio(guest, "Dengan senang hati hadir").focus();
     await guest.keyboard.press("Space");
     await expect(radio(guest, both)).toBeVisible();
     await expect(radio(guest, family)).toHaveCount(0);
@@ -192,7 +196,7 @@ test("conditional public RSVP round-trips identities, session counts, family, an
     await radio(guest, secondName).check();
     await expect(notes(guest)).toBeVisible();
     await expect(
-      guest.getByRole("region", { name: "Review attendance" }),
+      guest.getByRole("region", { name: "Ringkasan kehadiran" }),
     ).toContainText(secondName);
     expect(
       await guest.evaluate(
@@ -200,7 +204,7 @@ test("conditional public RSVP round-trips identities, session counts, family, an
       ),
     ).toBe(true);
     await guest
-      .getByRole("form", { name: "Your RSVP" })
+      .getByRole("form", { name: "RSVP Anda" })
       .screenshot({ path: info.outputPath("conditional-mobile.png") });
     await save(guest, true).evaluate((button: HTMLButtonElement) => {
       button.click();
@@ -256,15 +260,13 @@ test("conditional public RSVP round-trips identities, session counts, family, an
       .getByRole("checkbox", { name: firstName, exact: true })
       .uncheck();
     await expect(guest.getByRole("spinbutton")).toHaveCount(0);
-    await check(guest, "Include children");
+    await check(guest, "Sertakan anak");
     await check(guest, childName);
-    await guest
-      .getByRole("spinbutton", { name: /Additional children/ })
-      .fill("2");
+    await guest.getByRole("spinbutton", { name: /anak tambahan/i }).fill("2");
     await notes(guest).fill("Synthetic first dietary preference");
     await expect(
-      guest.getByRole("region", { name: "Review attendance" }),
-    ).toContainText("4 people expected at each selected session");
+      guest.getByRole("region", { name: "Ringkasan kehadiran" }),
+    ).toContainText("4 orang akan hadir di setiap sesi yang dipilih");
     await save(guest).click();
     await waitSaved(guest);
     const four = await read();
@@ -344,7 +346,7 @@ test("conditional public RSVP round-trips identities, session counts, family, an
       guest.getByRole("checkbox", { name: childName, exact: true }),
     ).toBeChecked();
     await expect(
-      guest.getByRole("spinbutton", { name: /Additional children/ }),
+      guest.getByRole("spinbutton", { name: /anak tambahan/i }),
     ).toHaveValue("2");
     await notes(guest).fill("Synthetic updated dietary preference");
     await save(guest).click();
@@ -367,7 +369,7 @@ test("conditional public RSVP round-trips identities, session counts, family, an
     await edit(guest);
     await radio(guest, plusOne).check();
     await expect(
-      guest.getByRole("checkbox", { name: "Include children" }),
+      guest.getByRole("checkbox", { name: "Sertakan anak" }),
     ).toHaveCount(0);
     await expect(guest.getByRole("spinbutton")).toHaveCount(0);
     await save(guest).click();
@@ -387,7 +389,7 @@ test("conditional public RSVP round-trips identities, session counts, family, an
       attendeeQuantityTotal: 1,
     });
     await edit(guest);
-    await radio(guest, "Regretfully Decline").check();
+    await radio(guest, "Mohon maaf, tidak dapat hadir").check();
     await expect(radio(guest, renamedBoth)).toHaveCount(0);
     await expect(notes(guest)).toHaveCount(0);
     await save(guest).click();
@@ -513,22 +515,18 @@ test("unsupported session catalogs block acceptance while preserving existing RS
 
     await open(page, saved.publicCredential);
     await edit(page);
-    await page
-      .getByRole("button", { name: "Change attendance details" })
-      .click();
-    await radio(page, "Joyfully Accept").check();
+    await page.getByRole("button", { name: "Ubah Rincian Kehadiran" }).click();
+    await radio(page, "Dengan senang hati hadir").check();
     await expect(
-      page.getByText(
-        /The wedding sessions for this invitation need to be checked/,
-      ),
+      page.getByText(/Sesi pernikahan untuk undangan ini perlu diperiksa/),
     ).toBeVisible();
     await expect(radio(page, family)).toHaveCount(0);
     await save(page).click();
     await expect(
-      page.getByRole("form", { name: "Your RSVP" }).getByRole("alert"),
-    ).toContainText("wedding sessions");
+      page.getByRole("form", { name: "RSVP Anda" }).getByRole("alert"),
+    ).toContainText("Silakan pilih sesi pernikahan yang akan Anda hadiri.");
     expect((await persisted()).version).toBe(2);
-    await radio(page, "Regretfully Decline").check();
+    await radio(page, "Mohon maaf, tidak dapat hadir").check();
     await save(page).click();
     await waitSaved(page, false);
     expect((await persisted()).status).toBe("DECLINED");
@@ -580,9 +578,9 @@ test("legacy counts and unnamed companions remain intact on diet edits until del
     expect((await canonicalBefore.json()).rsvp).not.toHaveProperty("partyMode");
     await page.setViewportSize({ width: 1280, height: 900 });
     await open(page, legacy.publicCredential);
-    await expect(page.getByText("Unnamed companions × 1")).toBeVisible();
-    await expect(page.getByText(`${ceremony}: 2 guests`)).toBeVisible();
-    await expect(page.getByText(`${reception}: 1 guests`)).toBeVisible();
+    await expect(page.getByText("Pendamping tanpa nama × 1")).toBeVisible();
+    await expect(page.getByText(`${ceremony}: 2 orang`)).toBeVisible();
+    await expect(page.getByText(`${reception}: 1 orang`)).toBeVisible();
     await edit(page);
     await expect(radio(page, family)).toHaveCount(0);
     await notes(page).fill("Synthetic legacy dietary change");
@@ -613,15 +611,13 @@ test("legacy counts and unnamed companions remain intact on diet edits until del
     await open(page, legacy.publicCredential);
     await edit(page);
     await expect(notes(page)).toHaveValue("Synthetic legacy dietary change");
-    await page
-      .getByRole("button", { name: "Change attendance details" })
-      .click();
+    await page.getByRole("button", { name: "Ubah Rincian Kehadiran" }).click();
     await expect(page.getByRole("note")).toContainText(
-      "same party will attend every selected session",
+      "Semua sesi yang dipilih akan dihadiri oleh rombongan yang sama",
     );
-    await expect(radio(page, "Joyfully Accept")).not.toBeChecked();
+    await expect(radio(page, "Dengan senang hati hadir")).not.toBeChecked();
     expect((await persisted()).version).toBe(2);
-    await radio(page, "Joyfully Accept").check();
+    await radio(page, "Dengan senang hati hadir").check();
     await radio(page, both).check();
     await radio(page, family).check();
     await check(page, firstName);
@@ -631,7 +627,7 @@ test("legacy counts and unnamed companions remain intact on diet edits until del
       ),
     ).toBe(true);
     await page
-      .getByRole("form", { name: "Your RSVP" })
+      .getByRole("form", { name: "RSVP Anda" })
       .screenshot({ path: info.outputPath("replacement-desktop.png") });
     await save(page).click();
     await waitSaved(page);
@@ -836,14 +832,14 @@ test("reception-only flow and real HTTP reject forged RSVP parties without writi
     ).toBe(0);
 
     await open(page, household.publicCredential);
-    await radio(page, "Joyfully Accept").check();
+    await radio(page, "Dengan senang hati hadir").check();
     await expect(radio(page, both)).toHaveCount(0);
     await expect(radio(page, ceremony)).toHaveCount(0);
-    await expect(
-      page.getByText("is selected for this invitation."),
-    ).toContainText(reception);
+    await expect(page.getByText("Sesi untuk undangan ini:")).toContainText(
+      reception,
+    );
     await expect(radio(page, plusOne)).toHaveCount(0);
-    await radio(page, "Regretfully Decline").check();
+    await radio(page, "Mohon maaf, tidak dapat hadir").check();
     await expect(notes(page)).toHaveCount(0);
     await save(page, true).click();
     await waitSaved(page, false);

@@ -40,12 +40,12 @@ describe("GuestCheckinPass", () => {
       createElement(GuestCheckinPass, { pass: activePass }),
     );
     const props = vi.mocked(QRCodeSVG).mock.calls[0]?.[0];
-    expect(html).toContain("Your check-in pass");
-    expect(html).toContain("Your acceptance is saved.");
-    expect(html).toContain("Check-in code");
+    expect(html).toContain("QR Check-in Anda");
+    expect(html).toContain("Jawaban RSVP Anda sudah tersimpan.");
+    expect(html).toContain("Kode check-in");
     expect(html).toContain("aria-labelledby=");
     expect(props?.role).toBe("img");
-    expect(props?.["aria-label"]).toBe("Household check-in pass QR code");
+    expect(props?.["aria-label"]).toBe("Kode QR untuk check-in rombongan Anda");
   });
 
   it("renders nothing without an active pass", () => {

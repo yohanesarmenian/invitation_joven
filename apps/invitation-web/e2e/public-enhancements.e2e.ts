@@ -4,7 +4,7 @@ test.use({ screenshot: "off", trace: "off" });
 test.beforeEach(async ({ page, request }) => {
   await request.post(`${MOCK_API_ORIGIN}/__reset`);
   await page.goto(`/i/${"A".repeat(43)}`);
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
@@ -17,7 +17,7 @@ test("calendar downloads the eligible event instant without invitation or QR cre
       .locator(".event-card")
       .filter({ hasText: "Holy Matrimony Test" }),
     downloadEvent = page.waitForEvent("download");
-  await event.getByRole("button", { name: "Add to calendar" }).click();
+  await event.getByRole("button", { name: "Tambahkan ke Kalender" }).click();
   const download = await downloadEvent,
     stream = await download.createReadStream();
   let content = "";
@@ -45,19 +45,21 @@ test("gallery contains keyboard focus, navigates photos and restores its trigger
   page,
 }) => {
   const trigger = page.getByRole("button", {
-    name: "View pre-wedding photograph 1",
+    name: "Lihat foto pranikah 1",
     exact: true,
   });
   await trigger.click();
-  const modal = page.getByRole("dialog", { name: "Pre-wedding photo viewer" });
+  const modal = page.getByRole("dialog", { name: "Penampil foto pranikah" });
   await expect(modal).toBeVisible();
   await expect(
-    modal.getByRole("button", { name: "Close photo viewer" }),
+    modal.getByRole("button", { name: "Tutup galeri foto" }),
   ).toBeFocused();
   await page.keyboard.press("Shift+Tab");
-  await expect(modal.getByRole("button", { name: "Next photo" })).toBeFocused();
+  await expect(
+    modal.getByRole("button", { name: "Foto Berikutnya" }),
+  ).toBeFocused();
   await page.keyboard.press("ArrowRight");
-  await expect(modal.getByText("Photo 2 of 4", { exact: true })).toBeVisible();
+  await expect(modal.getByText("Foto 2 dari 4", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(modal).not.toBeVisible();
   await expect(trigger).toBeFocused();
@@ -67,16 +69,18 @@ for (const width of [360, 390, 412])
     await page.setViewportSize({ width, height: 800 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await expect(
-      page.getByRole("region", { name: "Time until Holy Matrimony Test" }),
+      page.getByRole("region", {
+        name: "Hitung mundur menuju Holy Matrimony Test",
+      }),
     ).toBeVisible();
     await page
       .getByRole("button", {
-        name: "View pre-wedding photograph 4",
+        name: "Lihat foto pranikah 4",
         exact: true,
       })
       .click();
     const modal = page.getByRole("dialog", {
-      name: "Pre-wedding photo viewer",
+      name: "Penampil foto pranikah",
     });
     const box = await modal.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);

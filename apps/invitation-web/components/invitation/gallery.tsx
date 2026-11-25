@@ -66,7 +66,7 @@ export function InvitationGallery() {
             type="button"
             key={item.src}
             className={`gallery-frame ${item.variant}`}
-            aria-label={`View pre-wedding photograph ${index + 1}`}
+            aria-label={`Lihat foto pranikah ${index + 1}`}
             onClick={() => setSelected(index)}
           >
             {contentVisible && (
@@ -84,7 +84,7 @@ export function InvitationGallery() {
       <dialog
         ref={dialog}
         className="gallery-dialog"
-        aria-label="Pre-wedding photo viewer"
+        aria-label="Penampil foto pranikah"
         onClose={() => setSelected(null)}
         onCancel={() => setSelected(null)}
         onKeyDown={(event) => {
@@ -112,14 +112,14 @@ export function InvitationGallery() {
         }}
       >
         <button ref={close} type="button" onClick={() => setSelected(null)}>
-          Close photo viewer
+          Tutup galeri foto
         </button>
         {frame && (
           <div className="gallery-dialog-image">
             <Image
               key={frame.fullSrc}
               src={frame.fullSrc}
-              alt={`Jo and Venta, pre-wedding photograph ${selected! + 1}`}
+              alt={`Foto pranikah Jo dan Venta, foto ke-${selected! + 1}`}
               fill
               sizes="90vw"
               style={{ objectFit: "contain" }}
@@ -128,13 +128,13 @@ export function InvitationGallery() {
         )}
         <div className="gallery-dialog-actions">
           <button type="button" onClick={() => move(-1)}>
-            Previous photo
+            Foto Sebelumnya
           </button>
           <p aria-live="polite">
-            Photo {(selected ?? 0) + 1} of {frames.length}
+            Foto {(selected ?? 0) + 1} dari {frames.length}
           </p>
           <button type="button" onClick={() => move(1)}>
-            Next photo
+            Foto Berikutnya
           </button>
         </div>
       </dialog>

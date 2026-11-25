@@ -28,8 +28,8 @@ const LEAKED_INTERNAL_FIELDS = [
 // canonical response without going through the Next server.
 const REAL_API_BASE_URL = "http://127.0.0.1:4000";
 
-const PASS_REGION = "Your check-in pass";
-const QR_NAME = "Household check-in pass QR code";
+const PASS_REGION = "QR Check-in Anda";
+const QR_NAME = "Kode QR untuk check-in rombongan Anda";
 
 /**
  * Compares two secret values without ever placing them in an assertion
@@ -63,7 +63,7 @@ async function fetchCanonicalRsvp(
 
 async function openInvitation(page: Page, publicCredential: string) {
   await page.goto(`/i/${publicCredential}`);
-  await page.getByRole("button", { name: "Open invitation" }).click();
+  await page.getByRole("button", { name: "Buka Undangan" }).click();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
     "content",
@@ -73,22 +73,22 @@ async function openInvitation(page: Page, publicCredential: string) {
 }
 
 async function editSaved(page: Page) {
-  await page.getByRole("button", { name: "Edit RSVP", exact: true }).click();
+  await page.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Save Changes", exact: true }),
+    page.getByRole("button", { name: "Simpan Perubahan", exact: true }),
   ).toBeVisible();
 }
 async function acceptInBrowser(page: Page) {
   if (
-    await page.getByRole("button", { name: "Edit RSVP", exact: true }).count()
+    await page.getByRole("button", { name: "Ubah RSVP", exact: true }).count()
   )
     await editSaved(page);
-  await page.getByRole("radio", { name: "Joyfully Accept" }).check();
+  await page.getByRole("radio", { name: "Dengan senang hati hadir" }).check();
   await page
-    .getByRole("radio", { name: "I’ll attend on my own", exact: true })
+    .getByRole("radio", { name: "Saya hadir sendiri", exact: true })
     .check();
   await page
-    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
     .click();
 }
 
@@ -185,7 +185,7 @@ test("real backend: one retrieval per server render, client stages stay local", 
 
   // Closed state: the invitation was retrieved server-side exactly once for
   // this render, which is what bumps open_count.
-  const openButton = page.getByRole("button", { name: "Open invitation" });
+  const openButton = page.getByRole("button", { name: "Buka Undangan" });
   await expect(openButton).toBeVisible();
   await expect(page.locator(".invitation-opening-flow")).toHaveAttribute(
     "data-stage",
@@ -270,7 +270,9 @@ test("real backend: an accepted RSVP renders the canonical qrPayload and keeps i
 
   await acceptInBrowser(page);
   await expect(
-    page.getByRole("status").filter({ hasText: "Thank you for your RSVP" }),
+    page
+      .getByRole("status")
+      .filter({ hasText: "Terima kasih atas konfirmasi Anda" }),
   ).toBeVisible();
 
   // Rendered from the client-side submit result, with no manual reload.
@@ -301,13 +303,15 @@ test("real backend: an accepted RSVP renders the canonical qrPayload and keeps i
   await editSaved(page);
   // An accepted update must retain the same pass and the same credential.
   await page
-    .getByLabel(/Dietary requirements/)
+    .getByLabel(/Kebutuhan dan preferensi makanan/)
     .fill("Smoke smoke-free household");
   await page
-    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
     .click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Thank you for your RSVP" }),
+    page
+      .getByRole("status")
+      .filter({ hasText: "Terima kasih atas konfirmasi Anda" }),
   ).toBeVisible();
 
   const updated = await expectPassVisible(page);
@@ -343,14 +347,16 @@ test("real backend: decline removes the pass and reaccept issues a different cre
 
   await editSaved(page);
   // Decline.
-  await page.getByRole("radio", { name: "Regretfully Decline" }).check();
   await page
-    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .getByRole("radio", { name: "Mohon maaf, tidak dapat hadir" })
+    .check();
+  await page
+    .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
     .click();
   await expect(
     page
       .getByRole("status")
-      .filter({ hasText: "Thank you for letting us know" }),
+      .filter({ hasText: "Terima kasih telah memberi kabar" }),
   ).toBeVisible();
   await expectPassAbsent(page, firstPayload);
 
@@ -372,15 +378,17 @@ test("real backend: decline removes the pass and reaccept issues a different cre
 
   await editSaved(page);
   // Reaccept: a new pass with a new credential; the revoked one stays revoked.
-  await page.getByRole("radio", { name: "Joyfully Accept" }).check();
+  await page.getByRole("radio", { name: "Dengan senang hati hadir" }).check();
   await page
-    .getByRole("radio", { name: "I’ll attend on my own", exact: true })
+    .getByRole("radio", { name: "Saya hadir sendiri", exact: true })
     .check();
   await page
-    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
     .click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Thank you for your RSVP" }),
+    page
+      .getByRole("status")
+      .filter({ hasText: "Terima kasih atas konfirmasi Anda" }),
   ).toBeVisible();
 
   const secondPayload = await expectPassVisible(page);
@@ -452,10 +460,10 @@ test("real backend: a stale version conflict suspends the pass until the latest 
 
   // The browser still holds version 1, so this submit is stale.
   await page
-    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
     .click();
 
-  const conflict = page.getByRole("button", { name: "Reload latest RSVP" });
+  const conflict = page.getByRole("button", { name: "Muat Ulang RSVP" });
 
   await expect(conflict).toBeVisible();
 
@@ -466,7 +474,7 @@ test("real backend: a stale version conflict suspends the pass until the latest 
   await expect(
     page
       .getByRole("status")
-      .filter({ hasText: "The latest RSVP has been loaded" }),
+      .filter({ hasText: "Jawaban RSVP terbaru sudah dimuat" }),
   ).toBeVisible();
 
   // The latest canonical state is DECLINED, so no pass returns.
@@ -506,7 +514,7 @@ test("real backend: a past deadline keeps the active pass and blocks further mut
     expect(sameSecret(reloaded, payload)).toBe(true);
 
     await expect(
-      page.getByRole("button", { name: "Edit RSVP", exact: true }),
+      page.getByRole("button", { name: "Ubah RSVP", exact: true }),
     ).toHaveCount(0);
     const denied = await fetch(
       `${REAL_API_BASE_URL}/api/public/invitations/${state.publicCredential}/rsvp`,
@@ -528,7 +536,7 @@ test("real backend: a past deadline keeps the active pass and blocks further mut
     await expect(
       page
         .getByRole("status")
-        .filter({ hasText: "The reply deadline has passed" }),
+        .filter({ hasText: "Waktu untuk mengubah RSVP sudah berakhir" }),
     ).toBeVisible();
 
     const after = passState();
@@ -562,7 +570,7 @@ test("real backend: an unavailable invitation never renders a pass", async ({
   await page.goto(`/i/${unknown}`);
 
   await expect(
-    page.getByRole("heading", { name: "Invitation unavailable" }),
+    page.getByRole("heading", { name: "Undangan tidak tersedia" }),
   ).toBeVisible();
   await expectPassAbsent(page, null);
 });
@@ -651,21 +659,23 @@ test("real backend: the guest QR is locally rendered, square, and quiet-zoned", 
   // rather than presenting the credential as unlabelled text.
   await expect(page.getByRole("region", { name: PASS_REGION })).toHaveCount(1);
   await expect(page.getByRole("img", { name: QR_NAME })).toHaveCount(1);
-  await expect(page.getByLabel("Check-in code")).toHaveCount(1);
+  await expect(page.getByLabel("Kode check-in")).toHaveCount(1);
 
   const labelledBy = await code.getAttribute("aria-labelledby");
   const labelText = await page.locator(`#${labelledBy}`).innerText();
 
-  expect(labelText.trim()).toBe("Check-in code");
+  expect(labelText.trim()).toBe("Kode check-in");
 
   // The accepted state is conveyed in text, not by the QR image alone.
   await expect(
-    passRegion(page).getByText("Your acceptance is saved.", { exact: false }),
+    passRegion(page).getByText("Jawaban RSVP Anda sudah tersimpan.", {
+      exact: false,
+    }),
   ).toBeVisible();
 
   await editSaved(page);
   // The RSVP controls stay keyboard operable with the pass present.
-  await page.getByRole("radio", { name: "Joyfully Accept" }).focus();
+  await page.getByRole("radio", { name: "Dengan senang hati hadir" }).focus();
   await page.keyboard.press("Tab");
 
   const focused = await page.evaluate(
@@ -703,7 +713,7 @@ test("real backend: the guest pass fits every supported viewport without overflo
     await expect(region.getByRole("img", { name: QR_NAME })).toBeVisible();
     await expect(passCode(page)).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Edit RSVP", exact: true }),
+      page.getByRole("button", { name: "Ubah RSVP", exact: true }),
     ).toBeEnabled();
 
     const overflow = await page.evaluate(
@@ -812,9 +822,9 @@ test("real backend: the guest credential stays out of URLs, requests, and the co
 // assertion message. DB-side content equality is proven with SHA-256 digests.
 // ---------------------------------------------------------------------------
 
-const GUEST_MESSAGE_HEADING = "Leave a Message for the Bride & Groom";
-const GUEST_MESSAGE_SUCCESS = "Thank you for your message";
-const GUEST_MESSAGE_FORM = "Guest message";
+const GUEST_MESSAGE_HEADING = "Tulis Ucapan untuk Kedua Mempelai";
+const GUEST_MESSAGE_SUCCESS = "Terima kasih atas ucapan Anda";
+const GUEST_MESSAGE_FORM = "Ucapan untuk mempelai";
 
 const AUTHOR_WITH_PADDING = "  Smoke Author  ";
 const AUTHOR_NORMALIZED = "Smoke Author";
@@ -854,7 +864,7 @@ function guestMessageAlert(page: Page) {
 }
 
 function sendButton(page: Page) {
-  return page.getByRole("button", { name: /^Send Message/ });
+  return page.getByRole("button", { name: /^Kirim Ucapan/ });
 }
 
 async function openMessageForm(page: Page, publicCredential: string) {
@@ -872,10 +882,10 @@ async function fillMessage(
   message: string,
 ): Promise<void> {
   if (authorName !== null) {
-    await page.getByLabel(/Your name/).fill(authorName);
+    await page.getByLabel(/Nama Anda/).fill(authorName);
   }
 
-  await page.getByLabel(/Your message/).fill(message);
+  await page.getByLabel(/Ucapan Anda/).fill(message);
 }
 
 /**
@@ -903,7 +913,7 @@ test("real backend: the message section renders a real form and no placeholder",
   await openMessageForm(page, state.publicCredential);
 
   await expect(guestMessageForm(page).locator("textarea")).toHaveCount(1);
-  await expect(page.getByLabel(/Your name/)).toBeVisible();
+  await expect(page.getByLabel(/Nama Anda/)).toBeVisible();
   await expect(sendButton(page)).toBeEnabled();
   await expect(
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
@@ -935,9 +945,7 @@ test("real backend: a named multiline message is persisted and confirmed in the 
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      "Thank you for your message. The bride and groom look forward to reading all your warm wishes after the celebration.",
-    ),
+    page.getByText("Ucapan Anda telah tersimpan untuk kedua mempelai."),
   ).toBeVisible();
 
   // No route change: the confirmation is an in-place state on the same page.
@@ -995,16 +1003,19 @@ test("real backend: Back to Invitation keeps the saved receipt and a deliberate 
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Back to Invitation" }).click();
+  await page
+    .getByRole("region", { name: GUEST_MESSAGE_SUCCESS })
+    .getByRole("button", { name: "Kembali ke Undangan", exact: true })
+    .click();
 
   await expect(page.locator("#invitation-hero-title")).toBeFocused();
   await expect(guestMessageForm(page)).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Write another message" }).click();
-  await expect(page.getByLabel(/Your name/)).toHaveValue("");
-  await expect(page.getByLabel(/Your message/)).toHaveValue("");
+  await page.getByRole("button", { name: "Tulis Ucapan Lain" }).click();
+  await expect(page.getByLabel(/Nama Anda/)).toHaveValue("");
+  await expect(page.getByLabel(/Ucapan Anda/)).toHaveValue("");
   await expect(sendButton(page)).toBeEnabled();
   expect(new URL(page.url()).pathname).toBe(`/i/${state.publicCredential}`);
 
@@ -1041,7 +1052,7 @@ test("real backend: client validation blocks invalid content before any request"
   await sendButton(page).click();
   await expect(
     guestMessageAlert(page).filter({
-      hasText: "Please write a message for the bride and groom.",
+      hasText: "Silakan tulis ucapan untuk kedua mempelai.",
     }),
   ).toBeVisible();
   expect(requests).toBe(0);
@@ -1049,13 +1060,13 @@ test("real backend: client validation blocks invalid content before any request"
   // One code point over the message cap.
   await fillMessage(page, AUTHOR_NORMALIZED, EMOJI.repeat(1001));
   await sendButton(page).click();
-  await expect(page.getByText(/keep your message to 1000/)).toBeVisible();
+  await expect(page.getByText(/lebih dari 1\.000 karakter/)).toBeVisible();
   expect(requests).toBe(0);
 
   // One code point over the author-name cap.
   await fillMessage(page, EMOJI.repeat(101), MESSAGE_NORMALIZED);
   await sendButton(page).click();
-  await expect(page.getByText(/keep your name to 100/)).toBeVisible();
+  await expect(page.getByText(/lebih dari 100 karakter/)).toBeVisible();
   expect(requests).toBe(0);
 
   expect(messageState().messageCount).toBe(0);
@@ -1103,7 +1114,7 @@ test("real backend: a pending submission is not duplicated by repeated clicks", 
   await sendButton(page).click();
 
   // The pending state is real, and the control is disabled during it.
-  await expect(page.getByRole("button", { name: /^Sending/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Mengirim/ })).toBeDisabled();
   expect(requests).toBe(1);
 
   await expect(
@@ -1130,15 +1141,15 @@ test("real backend: a rejected submission keeps the draft and retries explicitly
     await sendButton(page).click();
 
     await expect(
-      page.getByText("This invitation is currently unavailable."),
+      page.getByText("Undangan sedang tidak tersedia"),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
     ).toHaveCount(0);
 
     // The draft survives the failure; nothing was silently retried.
-    await expect(page.getByLabel(/Your name/)).toHaveValue(AUTHOR_NORMALIZED);
-    await expect(page.getByLabel(/Your message/)).toHaveValue(
+    await expect(page.getByLabel(/Nama Anda/)).toHaveValue(AUTHOR_NORMALIZED);
+    await expect(page.getByLabel(/Ucapan Anda/)).toHaveValue(
       MESSAGE_NORMALIZED,
     );
     expect(messageState().messageCount).toBe(0);
@@ -1147,7 +1158,7 @@ test("real backend: a rejected submission keeps the draft and retries explicitly
   }
 
   // The explicit retry is a new user action and succeeds.
-  await page.getByRole("button", { name: "Send Message Again" }).click();
+  await page.getByRole("button", { name: "Coba Kirim Ucapan Lagi" }).click();
 
   await expect(
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
@@ -1189,20 +1200,25 @@ test("real backend: a response lost after a committed write never claims success
   await sendButton(page).click();
 
   await expect(
-    page.getByText("We couldn’t confirm the save yet.", { exact: false }),
+    page.getByText(
+      "Kami belum dapat memastikan apakah ucapan Anda tersimpan.",
+      { exact: false },
+    ),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
   ).toHaveCount(0);
 
   // Draft preserved, no automatic retry, and the result is genuinely unknown.
-  await expect(page.getByLabel(/Your message/)).toHaveValue(MESSAGE_NORMALIZED);
+  await expect(page.getByLabel(/Ucapan Anda/)).toHaveValue(MESSAGE_NORMALIZED);
   expect(requests).toBe(1);
 
   // The write committed. Recover with the same submission ID.
   expect(messageState().messageCount).toBe(1);
   await page.unroute("**/*");
-  await page.getByRole("button", { name: "Retry same message" }).click();
+  await page
+    .getByRole("button", { name: "Kirim Ulang Ucapan yang Sama" })
+    .click();
   await expect(
     page.getByRole("heading", { name: GUEST_MESSAGE_SUCCESS }),
   ).toBeVisible();
@@ -1217,14 +1233,16 @@ test("real backend: guest messages stay available after a decline and past the R
   resetRsvpAndMessages();
 
   await openMessageForm(page, state.publicCredential);
-  await page.getByRole("radio", { name: "Regretfully Decline" }).check();
   await page
-    .getByRole("button", { name: /^(Submit RSVP|Save Changes)$/ })
+    .getByRole("radio", { name: "Mohon maaf, tidak dapat hadir" })
+    .check();
+  await page
+    .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
     .click();
   await expect(
     page
       .getByRole("status")
-      .filter({ hasText: "Thank you for letting us know" }),
+      .filter({ hasText: "Terima kasih telah memberi kabar" }),
   ).toBeVisible();
 
   expect(passState().rsvpStatus).toBe("DECLINED");
@@ -1244,7 +1262,9 @@ test("real backend: guest messages stay available after a decline and past the R
   // leg is measuring.
   await acceptInBrowser(page);
   await expect(
-    page.getByRole("status").filter({ hasText: "Thank you for your RSVP" }),
+    page
+      .getByRole("status")
+      .filter({ hasText: "Terima kasih atas konfirmasi Anda" }),
   ).toBeVisible();
 
   runFixtureCli<{ status: string }>("set-deadline", ["past"]);
@@ -1253,7 +1273,7 @@ test("real backend: guest messages stay available after a decline and past the R
     // A fresh load past the cutoff. The RSVP controls are still closed...
     await openMessageForm(page, state.publicCredential);
     await expect(
-      page.getByRole("button", { name: "Edit RSVP", exact: true }),
+      page.getByRole("button", { name: "Ubah RSVP", exact: true }),
     ).toHaveCount(0);
     const denied = await fetch(
       `${REAL_API_BASE_URL}/api/public/invitations/${state.publicCredential}/rsvp`,
@@ -1274,7 +1294,7 @@ test("real backend: guest messages stay available after a decline and past the R
     await expect(
       page
         .getByRole("status")
-        .filter({ hasText: "The reply deadline has passed" }),
+        .filter({ hasText: "Waktu untuk mengubah RSVP sudah berakhir" }),
     ).toBeVisible();
 
     // ...and the guest message path is not.
@@ -1465,7 +1485,7 @@ test("real backend: the message form and confirmation fit every supported viewpo
     await expect(
       page.getByRole("heading", { name: GUEST_MESSAGE_HEADING }),
     ).toBeVisible();
-    await expect(page.getByLabel(/Your name/)).toBeVisible();
+    await expect(page.getByLabel(/Nama Anda/)).toBeVisible();
     await expect(guestMessageForm(page).locator("textarea")).toBeVisible();
     await expect(sendButton(page)).toBeEnabled();
 
@@ -1475,7 +1495,7 @@ test("real backend: the message form and confirmation fit every supported viewpo
       ),
     ).toBeLessThanOrEqual(1);
 
-    const field = await page.getByLabel(/Your message/).boundingBox();
+    const field = await page.getByLabel(/Ucapan Anda/).boundingBox();
 
     expect(field).not.toBeNull();
     expect(field!.x).toBeGreaterThanOrEqual(0);
@@ -1497,7 +1517,9 @@ test("real backend: the message form and confirmation fit every supported viewpo
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(321);
   await expect(
-    page.getByRole("button", { name: "Back to Invitation" }),
+    page
+      .getByRole("region", { name: GUEST_MESSAGE_SUCCESS })
+      .getByRole("button", { name: "Kembali ke Undangan", exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -1516,18 +1538,18 @@ test("real backend: the message form is labelled, associated, and keyboard opera
   resetMessages();
   await openMessageForm(page, state.publicCredential);
 
-  const message = page.getByLabel(/Your message/);
+  const message = page.getByLabel(/Ucapan Anda/);
 
   // Real labels, and the required/optional semantics are in the accessible name.
-  await expect(page.getByLabel(/Your name \(optional\)/)).toBeVisible();
-  await expect(page.getByLabel(/Your message \(required\)/)).toBeVisible();
+  await expect(page.getByLabel(/Nama Anda \(opsional\)/)).toBeVisible();
+  await expect(page.getByLabel(/Ucapan Anda \(wajib\)/)).toBeVisible();
   await expect(message).toHaveAttribute("required", "");
 
   // Limits are associated with the field, not decorative.
   const describedBy = await message.getAttribute("aria-describedby");
 
   await expect(page.locator(`#${describedBy!.split(" ")[0]}`)).toContainText(
-    "1000",
+    "1.000 karakter",
   );
 
   // The textarea accepts keyboard input.
@@ -1542,7 +1564,7 @@ test("real backend: the message form is labelled, associated, and keyboard opera
   await expect(message).toHaveAttribute("aria-invalid", "true");
   await expect(
     guestMessageAlert(page).filter({
-      hasText: "Please write a message for the bride and groom.",
+      hasText: "Silakan tulis ucapan untuk kedua mempelai.",
     }),
   ).toBeVisible();
 
@@ -1556,7 +1578,10 @@ test("real backend: the message form is labelled, associated, and keyboard opera
   await expect(success).toBeFocused();
 
   // Back to Invitation is keyboard reachable and returns focus to the hero.
-  await page.getByRole("button", { name: "Back to Invitation" }).focus();
+  await page
+    .getByRole("region", { name: GUEST_MESSAGE_SUCCESS })
+    .getByRole("button", { name: "Kembali ke Undangan", exact: true })
+    .focus();
   await page.keyboard.press("Enter");
 
   await expect(guestMessageForm(page)).toHaveCount(0);

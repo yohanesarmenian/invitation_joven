@@ -12,12 +12,12 @@ export function VenueInformation({ content }: { content: VenueContent }) {
           className="invitation-section venue-information"
           aria-labelledby="parking-title"
         >
-          <h2 id="parking-title">Parking Guide</h2>
+          <h2 id="parking-title">Panduan Parkir</h2>
           {content.parking.map((guide) => (
             <section
               className="venue-content-card"
               key={guide.eventId}
-              aria-label={`Parking for ${guide.eventName}`}
+              aria-label={`Parkir untuk ${guide.eventName}`}
             >
               <p className="section-kicker">{guide.eventName}</p>
               <h3>{guide.title}</h3>
@@ -32,7 +32,7 @@ export function VenueInformation({ content }: { content: VenueContent }) {
                   href={guide.mapImage.src}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`Open parking map for ${guide.eventName}`}
+                  aria-label={`Buka peta parkir untuk ${guide.eventName}`}
                 >
                   <Image
                     src={guide.mapImage.src}
@@ -51,7 +51,7 @@ export function VenueInformation({ content }: { content: VenueContent }) {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Open parking guide (PDF)
+                    Buka Panduan Parkir (PDF)
                   </a>
                 ) : null}
                 {guide.googleMapsUrl ? (
@@ -61,7 +61,7 @@ export function VenueInformation({ content }: { content: VenueContent }) {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Parking location in Google Maps
+                    Lokasi Parkir di Google Maps
                   </a>
                 ) : null}
               </div>
@@ -74,12 +74,12 @@ export function VenueInformation({ content }: { content: VenueContent }) {
           className="invitation-section venue-information"
           aria-labelledby="rundown-title"
         >
-          <h2 id="rundown-title">Event Rundown</h2>
+          <h2 id="rundown-title">Susunan Acara</h2>
           {content.rundown.map((schedule) => (
             <section
               className="venue-content-card"
               key={schedule.eventId}
-              aria-label={`Rundown for ${schedule.eventName}`}
+              aria-label={`Susunan acara untuk ${schedule.eventName}`}
             >
               <p className="section-kicker">{schedule.eventName}</p>
               <h3>{schedule.title}</h3>

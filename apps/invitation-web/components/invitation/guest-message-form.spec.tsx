@@ -14,14 +14,14 @@ describe("GuestMessageForm and its validation", () => {
     const html = renderToStaticMarkup(
       createElement(GuestMessageForm, { submitAction: action }),
     );
-    expect(html).toContain('aria-label="Guest message"');
-    expect(html).toContain("Your name");
-    expect(html).toContain("(optional)");
-    expect(html).toContain("Your message");
-    expect(html).toContain("(required)");
+    expect(html).toContain('aria-label="Ucapan untuk mempelai"');
+    expect(html).toContain("Nama Anda");
+    expect(html).toContain("(opsional)");
+    expect(html).toContain("Ucapan Anda");
+    expect(html).toContain("(wajib)");
     expect(html).toContain('rows="6" required=""');
-    expect(html).toContain("Send Message");
-    expect(html).toContain("0 / 1000 characters");
+    expect(html).toContain("Kirim Ucapan");
+    expect(html).toContain("0 / 1.000 karakter");
     expect(html).not.toMatch(/maxLength|later phase|<ul|<ol|type="hidden"/);
     expect(action).not.toHaveBeenCalled();
   });
@@ -86,7 +86,7 @@ describe("GuestMessageForm and its validation", () => {
   });
   it("explains uncertainty and directs guests to retry the same submission", () => {
     expect(guestMessageFailureText("uncertain")).toContain(
-      "Retry this same submission",
+      "kirim ulang ucapan yang sama",
     );
     expect(guestMessageFailureText("unavailable")).not.toMatch(
       /archived|credential|unknown/,

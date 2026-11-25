@@ -8,10 +8,10 @@ import {
 } from "./invitation-opening-context";
 
 const rsvpActions = {
-  rsvp: { label: "View RSVP", target: "rsvp-title" },
-  confirm: { label: "Confirm Attendance", target: "rsvp-title" },
-  response: { label: "View RSVP Response", target: RSVP_RESPONSE_HEADING_ID },
-  qr: { label: "View Check-in QR", target: CHECKIN_PASS_HEADING_ID },
+  rsvp: { label: "Lihat RSVP", target: "rsvp-title" },
+  confirm: { label: "Konfirmasi Kehadiran", target: "rsvp-title" },
+  response: { label: "Lihat Jawaban RSVP", target: RSVP_RESPONSE_HEADING_ID },
+  qr: { label: "Lihat QR Check-in", target: CHECKIN_PASS_HEADING_ID },
 } satisfies Record<RsvpHeroAction, { label: string; target: string }>;
 
 export function InvitationRsvpAction({

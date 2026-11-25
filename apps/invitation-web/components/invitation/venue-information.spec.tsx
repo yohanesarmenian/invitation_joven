@@ -28,8 +28,8 @@ describe("venue information rendering", () => {
     );
     expect(html).toContain('alt="Entrance and guest parking"');
     expect(html).toContain('loading="lazy"');
-    expect(html).toContain('aria-label="Open parking map for Reception"');
-    expect(html).toContain("Open parking guide (PDF)");
+    expect(html).toContain('aria-label="Buka peta parkir untuk Reception"');
+    expect(html).toContain("Buka Panduan Parkir (PDF)");
     expect(html).toContain('rel="noopener noreferrer"');
   });
   it("omits empty sections and actions", () => {
@@ -73,8 +73,8 @@ describe("venue information rendering", () => {
         },
       }),
     );
-    expect(html).toContain('aria-label="Parking for Reception"');
-    expect(html).toContain('aria-label="Rundown for Reception"');
+    expect(html).toContain('aria-label="Parkir untuk Reception"');
+    expect(html).toContain('aria-label="Susunan acara untuk Reception"');
     expect(html).toContain("11.30 WIB");
     expect(html).toContain('dateTime="2027-01-09T04:30:00Z"');
     expect(html).toContain("&lt;script&gt;");

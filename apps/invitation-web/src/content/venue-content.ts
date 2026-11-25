@@ -233,13 +233,13 @@ export function venuePreviewEnabled(env: {
 }) {
   return env.NODE_ENV === "development" && env.VENUE_CONTENT_PREVIEW === "1";
 }
-const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+const timeFormatter = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
   hour: "2-digit",
   minute: "2-digit",
   hourCycle: "h23",
 });
-const dayFormatter = new Intl.DateTimeFormat("en-GB", {
+const dayFormatter = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
   day: "2-digit",
   month: "short",

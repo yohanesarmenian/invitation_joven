@@ -18,10 +18,10 @@ describe("RSVP result notices", () => {
       expect(notice.tone).toBe("success");
       expect(notice.message).toContain(
         status === "ACCEPTED"
-          ? "acceptance has been saved"
-          : "saved as not attending",
+          ? "Konfirmasi kehadiran Anda telah tersimpan"
+          : "tersimpan sebagai tidak hadir",
       );
-      expect(notice.message).toContain("before the reply deadline");
+      expect(notice.message).toContain("sebelum batas waktu RSVP");
       expect(notice.message).not.toMatch(/QR|pass|ticket|check-in/i);
     },
   );
@@ -29,25 +29,25 @@ describe("RSVP result notices", () => {
     const notice = rsvpFailureNotice(api(409, "RSVP_VERSION_CONFLICT"));
     expect(notice.recovery).toBe("reload");
     expect(notice.tone).toBe("conflict");
-    expect(notice.message).toContain("Your changes are still here");
-    expect(notice.message).toContain("will replace them");
+    expect(notice.message).toContain("Draf perubahan Anda masih tersedia");
+    expect(notice.message).toContain("draf akan diganti");
   });
   it("closes RSVP without a retry or hardcoded deadline", () => {
     const notice = rsvpFailureNotice(api(422, "RSVP_DEADLINE_PASSED"));
-    expect(notice.title).toBe("RSVP is closed");
+    expect(notice.title).toBe("RSVP sudah ditutup");
     expect(notice.recovery).toBe("none");
     expect(notice.message).not.toMatch(/2026|2027|December|override|contact/);
   });
   it.each([
-    ["EVENT_NOT_ALLOWED", "no longer available", "events"],
-    ["EVENT_NOT_SELECTED", "at least one event", "events"],
+    ["EVENT_NOT_ALLOWED", "sudah tidak tersedia", "events"],
+    ["EVENT_NOT_SELECTED", "setidaknya satu sesi", "events"],
+    ["PLUS_ONE_NOT_ALLOWED", "tidak mencakup pendamping tambahan", "attendees"],
     [
-      "PLUS_ONE_NOT_ALLOWED",
-      "does not currently include a plus one",
+      "ADDITIONAL_CHILD_LIMIT_EXCEEDED",
+      "melebihi batas undangan ini",
       "attendees",
     ],
-    ["ADDITIONAL_CHILD_LIMIT_EXCEEDED", "exceeds this invitation", "attendees"],
-    ["RSVP_ATTENDEE_INVALID", "invalid or no longer current", "attendees"],
+    ["RSVP_ATTENDEE_INVALID", "tidak valid atau sudah berubah", "attendees"],
   ])(
     "maps %s to a correction in the existing section",
     (code, message, section) => {
@@ -66,7 +66,7 @@ describe("RSVP result notices", () => {
   });
   it("keeps unavailable copy non-enumerating", () => {
     const notice = rsvpFailureNotice(api(404, "INVITATION_NOT_AVAILABLE"));
-    expect(notice.message).toBe("This invitation is no longer available.");
+    expect(notice.message).toBe("Undangan ini sudah tidak tersedia.");
     expect(notice.recovery).toBe("none");
     expect(JSON.stringify(notice)).not.toMatch(
       /archived|expired|token|credential|hash/,
@@ -84,7 +84,7 @@ describe("RSVP result notices", () => {
     const notice = rsvpFailureNotice(failure);
     expect(notice.tone).toBe("error");
     if (failure.httpStatus !== 400)
-      expect(notice.title).toBe("We couldn’t confirm the save");
+      expect(notice.title).toBe("Penyimpanan RSVP belum terverifikasi");
     expect(notice.recovery).toBe(
       failure.httpStatus === 400 ? "correct" : "reload",
     );
@@ -93,26 +93,26 @@ describe("RSVP result notices", () => {
   it("preserves a failed conflict reload's replacement warning", () => {
     const notice = rsvpLoadFailureNotice(api(503, "UNEXPECTED"), true);
     expect(notice.recovery).toBe("reload");
-    expect(notice.message).toContain("Your changes are still here");
-    expect(notice.message).toContain("before submitting");
+    expect(notice.message).toContain("Draf perubahan Anda masih tersedia");
+    expect(notice.message).toContain("sebelum mengirim jawaban");
   });
   it("offers a safe initial GET retry", () => {
     const notice = rsvpLoadFailureNotice(
       { kind: "network", httpStatus: null, code: null },
       false,
     );
-    expect(notice.title).toContain("couldn’t be loaded");
+    expect(notice.title).toContain("belum bisa dimuat");
     expect(notice.recovery).toBe("reload");
   });
   it("keeps terminal load messages specific", () => {
     expect(
       rsvpLoadFailureNotice(api(404, "INVITATION_NOT_AVAILABLE"), false),
     ).toMatchObject({
-      message: "This invitation is no longer available.",
+      message: "Undangan ini sudah tidak tersedia.",
       recovery: "reload",
     });
     expect(
       rsvpLoadFailureNotice(api(422, "RSVP_DEADLINE_PASSED"), true),
-    ).toMatchObject({ title: "RSVP is closed", recovery: "none" });
+    ).toMatchObject({ title: "RSVP sudah ditutup", recovery: "none" });
   });
 });

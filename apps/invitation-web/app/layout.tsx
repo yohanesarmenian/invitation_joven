@@ -5,8 +5,8 @@ import "../components/invitation/romantic-invitation-theme.css";
 import "../components/invitation/editorial-envelope.css";
 
 export const metadata: Metadata = {
-  title: "Wedding Invitation",
-  description: "Public wedding invitation application foundation.",
+  title: "Undangan Pernikahan",
+  description: "Undangan pernikahan Yohanes dan Angelina.",
 };
 
 export default function RootLayout({
@@ -15,7 +15,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="id">
       <body>{children}</body>
     </html>
   );

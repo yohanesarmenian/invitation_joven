@@ -24,12 +24,12 @@ export function prepareGuestMessage(
   | { status: "invalid"; authorName?: string; message?: string } {
   const authorError =
     messageCharacterCount(authorName) > 100
-      ? "Please keep your name to 100 characters or fewer."
+      ? "Nama tidak boleh lebih dari 100 karakter."
       : undefined;
   const messageError = !message.trim()
-    ? "Please write a message for the bride and groom."
+    ? "Silakan tulis ucapan untuk kedua mempelai."
     : messageCharacterCount(message) > 1000
-      ? "Please keep your message to 1000 characters or fewer."
+      ? "Ucapan tidak boleh lebih dari 1.000 karakter."
       : undefined;
   if (authorError || messageError)
     return {
@@ -48,10 +48,10 @@ export function guestMessageFailureText(
 ): string {
   switch (kind) {
     case "validation":
-      return "Your message couldn’t be sent. Please check your name and message, then try again.";
+      return "Ucapan belum terkirim. Periksa nama dan isi ucapan Anda, lalu coba lagi.";
     case "unavailable":
-      return "This invitation is currently unavailable. Your message couldn’t be sent. Please try again later.";
+      return "Undangan sedang tidak tersedia sehingga ucapan belum terkirim. Silakan coba lagi nanti.";
     case "uncertain":
-      return "We couldn’t confirm the save yet. Your draft is still here. Retry this same submission to check or complete the save.";
+      return "Kami belum dapat memastikan apakah ucapan Anda tersimpan. Draf masih tersedia. Periksa ucapan atau kirim ulang ucapan yang sama.";
   }
 }

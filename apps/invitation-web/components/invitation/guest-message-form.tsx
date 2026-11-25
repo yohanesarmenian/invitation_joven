@@ -184,8 +184,8 @@ export function GuestMessageForm({
     <div className="guest-message-form">
       <h2 id="message-title" ref={successRef} tabIndex={-1}>
         {state === "success"
-          ? "Thank you for your message"
-          : "Leave a Message for the Bride & Groom"}
+          ? "Terima kasih atas ucapan Anda"
+          : "Tulis Ucapan untuk Kedua Mempelai"}
       </h2>
       <div role="status" aria-atomic="true">
         {state === "success" ? (
@@ -197,7 +197,7 @@ export function GuestMessageForm({
               width={67}
               height={44}
             />
-            <p>Your message was saved for the bride and groom.</p>
+            <p>Ucapan Anda telah tersimpan untuk kedua mempelai.</p>
             <button
               type="button"
               onClick={() => {
@@ -206,7 +206,7 @@ export function GuestMessageForm({
                 hero?.scrollIntoView({ block: "center" });
               }}
             >
-              Back to Invitation
+              Kembali ke Undangan
             </button>
             <button
               type="button"
@@ -215,28 +215,28 @@ export function GuestMessageForm({
                 setState("idle");
               }}
             >
-              Write another message
+              Tulis Ucapan Lain
             </button>
           </div>
         ) : pending ? (
-          "Sending your message…"
+          "Mengirim ucapan Anda…"
         ) : state === "checking" ? (
-          "Checking your saved message…"
+          "Memeriksa ucapan Anda…"
         ) : state === "unverified" ? (
           <div>
             <p>
-              We couldn’t check your saved message. Please check again before
-              writing another.
+              Kami belum dapat memeriksa apakah ucapan Anda tersimpan. Silakan
+              periksa kembali sebelum menulis ucapan lain.
             </p>
             <button type="button" onClick={() => void checkReceipt()}>
-              Check again
+              Periksa Lagi
             </button>
           </div>
         ) : null}
       </div>
       {(state === "idle" || pending) && (
         <form
-          aria-label="Guest message"
+          aria-label="Ucapan untuk mempelai"
           aria-busy={pending}
           aria-describedby={failure ? `${id}-error` : undefined}
           onSubmit={submit}
@@ -254,9 +254,9 @@ export function GuestMessageForm({
             </p>
           ) : null}
           <fieldset disabled={pending}>
-            <legend className="visually-hidden">Leave a message</legend>
+            <legend className="visually-hidden">Tulis ucapan</legend>
             <label htmlFor={`${id}-author`}>
-              Your name <span>(optional)</span>
+              Nama Anda <span>(opsional)</span>
             </label>
             <input
               id={`${id}-author`}
@@ -275,7 +275,7 @@ export function GuestMessageForm({
               }}
             />
             <p id={`${id}-author-limit`} className="guest-message-limit">
-              Up to 100 characters, excluding outer spaces.
+              Maksimal 100 karakter, di luar spasi pada awal dan akhir.
             </p>
             {validation?.authorName ? (
               <p
@@ -287,7 +287,7 @@ export function GuestMessageForm({
               </p>
             ) : null}
             <label htmlFor={`${id}-message`}>
-              Your message <span>(required)</span>
+              Ucapan Anda <span>(wajib)</span>
             </label>
             <textarea
               id={`${id}-message`}
@@ -306,8 +306,8 @@ export function GuestMessageForm({
               }}
             />
             <p id={`${id}-message-limit`} className="guest-message-limit">
-              {messageCharacterCount(message)} / 1000 characters, excluding
-              outer spaces.
+              {messageCharacterCount(message).toLocaleString("id-ID")} / 1.000
+              karakter, di luar spasi pada awal dan akhir.
             </p>
             {validation?.message ? (
               <p
@@ -320,16 +320,16 @@ export function GuestMessageForm({
             ) : null}
             <button type="submit" disabled={pending}>
               {pending
-                ? "Sending…"
+                ? "Mengirim…"
                 : failure?.kind === "uncertain"
-                  ? "Retry same message"
+                  ? "Kirim Ulang Ucapan yang Sama"
                   : failure
-                    ? "Send Message Again"
-                    : "Send Message"}
+                    ? "Coba Kirim Ucapan Lagi"
+                    : "Kirim Ucapan"}
             </button>
             {failure?.kind === "uncertain" && receiptAction && (
               <button type="button" onClick={() => void checkReceipt()}>
-                Check saved message
+                Periksa Ucapan
               </button>
             )}
           </fieldset>
