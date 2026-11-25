@@ -394,9 +394,7 @@ for (const width of [320, 375, 412, 768, 1280]) {
       .getByRole("radio", { name: "Holy Matrimony Test", exact: true })
       .check();
     await dietary.fill("");
-    const successNotice = page.locator(
-      ".public-rsvp-form .rsvp-notice-success",
-    );
+    const successNotice = page.locator("[data-rsvp-mutation-success]");
     await expect(successNotice).toHaveCount(0);
     await page
       .getByRole("button", { name: /^(Kirim RSVP|Simpan Perubahan)$/ })
@@ -808,6 +806,9 @@ for (const [outcome, recovery] of [
         "Memeriksa status QR check-in…",
       );
       await expect(verify).toBeFocused();
+      await expect(
+        confirmation.locator("[data-rsvp-mutation-success]"),
+      ).toHaveCount(0);
       await readComplete;
       await verify.evaluate((button: HTMLButtonElement) => {
         button.click();
@@ -861,6 +862,164 @@ for (const [outcome, recovery] of [
   });
 }
 
+for (const [path, outcome] of [
+  ["automatic", "invitation unavailable"],
+  ["manual", "invitation unavailable"],
+  ["manual", "other 404"],
+  ["manual", "transport failure"],
+  ["manual", "declined"],
+  ["manual", "no RSVP"],
+] as const) {
+  test(`deadline QR recovery handles ${path} ${outcome}`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await configure(request, { rsvp: accepted });
+    await open(page);
+    await expectPass(page, firstPass);
+    await editSaved(page);
+    const unavailableRead = { status: 404, code: "INVITATION_NOT_AVAILABLE" };
+    await configure(request, {
+      failure: { status: 422, code: "RSVP_DEADLINE_PASSED", method: "PATCH" },
+      readFailure:
+        path === "automatic"
+          ? unavailableRead
+          : { status: 503, code: "UNEXPECTED" },
+    });
+    await page
+      .getByRole("button", { name: "Simpan Perubahan", exact: true })
+      .click();
+
+    const section = page.locator(".rsvp-information-section");
+    const alert = section.getByRole("alert");
+    const verify = section.getByRole("button", {
+      name: "Periksa Ulang QR",
+      exact: true,
+    });
+    const confirmation = section.getByRole("region", {
+      name: "Konfirmasi RSVP Anda",
+    });
+    const editor = section.getByRole("form", { name: "RSVP Anda" });
+    const successNotice = section.locator("[data-rsvp-mutation-success]");
+    const unverified = section
+      .getByRole("status")
+      .filter({ hasText: "Status QR check-in belum terverifikasi" });
+    const absent = section
+      .getByRole("status")
+      .filter({ hasText: "QR check-in saat ini tidak tersedia." });
+
+    if (path === "manual") {
+      await expect(alert).toContainText("RSVP sudah ditutup");
+      await page.getByRole("button", { name: "Batal", exact: true }).click();
+      await expect(unverified).toBeVisible();
+      await expectRsvpTraffic(request, 3, 1);
+      const declined = {
+        status: "DECLINED",
+        version: accepted.version + 1,
+        dietaryNotes: null,
+        attendeeQuantityTotal: 0,
+        attendees: [],
+        eventSelections: [],
+      };
+      await configure(request, {
+        ...(outcome === "invitation unavailable" && {
+          readFailure: unavailableRead,
+        }),
+        ...(outcome === "other 404" && {
+          readFailure: { status: 404, code: "UNEXPECTED" },
+        }),
+        ...(outcome === "transport failure" && { dropReadResponse: true }),
+        ...(outcome === "declined" && { rsvp: declined }),
+        ...(outcome === "no RSVP" && { rsvp: null, checkinPass: null }),
+      });
+      await verify.focus();
+      await page.keyboard.press("Enter");
+    }
+
+    if (outcome === "invitation unavailable") {
+      await expect(alert).toContainText("Undangan tidak tersedia");
+      await expect(alert).toBeFocused();
+      await expect(confirmation).toHaveCount(0);
+      await expect(editor).toHaveCount(0);
+      await expect(verify).toHaveCount(0);
+      await expect(
+        section.getByRole("button", { name: "Muat Ulang RSVP", exact: true }),
+      ).toHaveCount(0);
+      await expect(unverified).toHaveCount(0);
+      await expect(
+        section.getByText("No seafood", { exact: false }),
+      ).toHaveCount(0);
+    } else if (outcome === "declined") {
+      await expect(
+        confirmation.getByRole("heading", { name: "Tidak Hadir", exact: true }),
+      ).toBeFocused();
+      await expect(alert).toContainText("RSVP sudah ditutup");
+      await expect(verify).toHaveCount(0);
+      await expect(unverified).toHaveCount(0);
+      await expect(editor).toHaveCount(0);
+    } else if (outcome === "no RSVP") {
+      await expect(confirmation).toHaveCount(0);
+      await expect(alert).toContainText("RSVP sudah ditutup");
+      await expect(alert).toBeFocused();
+      await expect(
+        editor.getByRole("button", { name: "Kirim RSVP", exact: true }),
+      ).toBeDisabled();
+      await expect(verify).toHaveCount(0);
+    } else {
+      await expect
+        .poll(async () => {
+          const response = await request.get(`${MOCK}/__rsvp-state`);
+          return (await response.json()).reads;
+        })
+        .toBe(4);
+      await expect(verify).toBeEnabled();
+      await expect(unverified).toBeVisible();
+      await expect(verify).toBeFocused();
+      await expect(alert).toContainText("RSVP sudah ditutup");
+      await expect(absent).toHaveCount(0);
+      await expectPass(page, null);
+      await expectRsvpTraffic(request, 4, 1);
+      await configure(request, { checkinPass: null });
+      await page.keyboard.press("Enter");
+      await expect(absent).toBeFocused();
+      await expect(verify).toHaveCount(0);
+    }
+    await expectPass(page, null);
+    expect((await section.innerText()).includes(firstPass)).toBe(false);
+    await expect(successNotice).toHaveCount(0);
+    await expect(
+      section.getByRole("button", { name: "Ubah RSVP", exact: true }),
+    ).toHaveCount(0);
+    await browsePastHero(page);
+    await expectStickyAction(page, "Lihat RSVP", "rsvp-title");
+    await expect(page.locator("#rsvp-title")).toBeAttached();
+    const reads =
+      path === "automatic"
+        ? 3
+        : outcome === "other 404" || outcome === "transport failure"
+          ? 5
+          : 4;
+    await expectRsvpTraffic(request, reads, 1);
+  });
+}
+
+test("ordinary reload feedback has no mutation-success marker", async ({
+  page,
+  request,
+}) => {
+  await configure(request, { rsvp: accepted });
+  await open(page);
+  const status = page.locator(".public-rsvp-form").getByRole("status");
+  const successNotice = page.locator("[data-rsvp-mutation-success]");
+  await expect(successNotice).toHaveCount(0);
+  await editSaved(page);
+  await expect(status).toContainText("Jawaban RSVP terbaru sudah dimuat.");
+  await expect(successNotice).toHaveCount(0);
+  await expectRsvpTraffic(request, 2);
+});
+
 test("temporary server failure suspends the QR and requires reload before an explicit new edit", async ({
   page,
   request,
@@ -880,6 +1039,7 @@ test("temporary server failure suspends the QR and requires reload before an exp
   await expect(
     page.locator(".public-rsvp-form").getByRole("alert"),
   ).toContainText("belum dapat memastikan apakah");
+  await expect(page.locator("[data-rsvp-mutation-success]")).toHaveCount(0);
   await expectPass(page, null);
   await expect(
     page.getByRole("button", { name: "Simpan Perubahan", exact: true }),
@@ -919,6 +1079,7 @@ test("a lost save response recovers the committed result through GET without ano
   await expect(
     page.locator(".public-rsvp-form").getByRole("alert"),
   ).toContainText("belum dapat memastikan apakah");
+  await expect(page.locator("[data-rsvp-mutation-success]")).toHaveCount(0);
   await expectPass(page, null);
   await expect(
     page.getByRole("button", { name: "Simpan Perubahan", exact: true }),
@@ -1089,6 +1250,7 @@ test("pending state disables submission and prevents duplicate requests", async 
   await expect(
     page.getByRole("button", { name: "Menyimpan…", exact: true }),
   ).toBeDisabled();
+  await expect(page.locator("[data-rsvp-mutation-success]")).toHaveCount(0);
   await expect(
     page.getByRole("radio", { name: "Dengan senang hati hadir" }),
   ).toBeDisabled();
@@ -1382,6 +1544,7 @@ test("an uncertain first acceptance never invents a pass before explicit recover
   await expect(
     page.locator(".public-rsvp-form").getByRole("alert"),
   ).toContainText("belum dapat memastikan apakah");
+  await expect(page.locator("[data-rsvp-mutation-success]")).toHaveCount(0);
   await expectPass(page, null);
   await expect(heroAction(page, "Lihat RSVP")).toBeVisible();
   await configure(request, {});

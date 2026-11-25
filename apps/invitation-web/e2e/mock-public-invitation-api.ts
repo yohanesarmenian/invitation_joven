@@ -140,6 +140,7 @@ let rsvpFailure: {
   code: string;
   method: "GET" | "PUT" | "PATCH";
 } | null = null;
+let dropRsvpReadResponse = false;
 let rsvpReadFailure: Pick<
   NonNullable<typeof rsvpFailure>,
   "status" | "code"
@@ -196,6 +197,7 @@ const server = createServer(async (request, response) => {
     rsvpDelayMs = 0;
     rsvpFailure = null;
     rsvpReadFailure = null;
+    dropRsvpReadResponse = false;
     nextRsvpVersion = null;
     rsvpReadCount = 0;
     dropRsvpResponse = false;
@@ -349,6 +351,7 @@ const server = createServer(async (request, response) => {
       delayMs?: number;
       failure?: typeof rsvpFailure;
       readFailure?: typeof rsvpReadFailure;
+      dropReadResponse?: boolean;
       nextVersion?: number;
       dropResponse?: boolean;
       deadline?: string | null;
@@ -362,6 +365,7 @@ const server = createServer(async (request, response) => {
     rsvpDelayMs = fixture.delayMs ?? 0;
     rsvpFailure = fixture.failure ?? null;
     rsvpReadFailure = fixture.readFailure ?? null;
+    dropRsvpReadResponse = fixture.dropReadResponse ?? false;
     nextRsvpVersion = fixture.nextVersion ?? null;
     dropRsvpResponse = fixture.dropResponse ?? false;
     if (fixture.deadline !== undefined) rsvpDeadlineAt = fixture.deadline;
@@ -384,6 +388,10 @@ const server = createServer(async (request, response) => {
   ) {
     if (request.method === "GET") {
       rsvpReadCount += 1;
+      if (dropRsvpReadResponse) {
+        response.destroy();
+        return;
+      }
       const failure =
         rsvpReadFailure ?? (rsvpFailure?.method === "GET" ? rsvpFailure : null);
       if (failure) {

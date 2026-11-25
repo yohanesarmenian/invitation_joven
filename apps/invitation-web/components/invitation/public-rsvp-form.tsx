@@ -64,6 +64,14 @@ function isDeadlineRejection(error: RsvpFailure) {
   );
 }
 
+function isInvitationUnavailable(error: RsvpFailure) {
+  return (
+    error.kind === "api" &&
+    error.httpStatus === 404 &&
+    error.code === "INVITATION_NOT_AVAILABLE"
+  );
+}
+
 export function PublicRsvpForm({
   invitation,
   initialResult,
@@ -93,7 +101,7 @@ export function PublicRsvpForm({
   const [validation, setValidation] = useState<string | null>(null);
   const [failure, setFailure] = useState<{
     error: RsvpFailure;
-    source: "submit" | "reload";
+    source: "submit" | "reload" | "pass-unavailable";
   } | null>(
     initialResult.status === "error"
       ? { error: initialResult.error, source: "reload" }
@@ -117,6 +125,7 @@ export function PublicRsvpForm({
   const sessionReady = accepted && session !== undefined;
   const partyReady = sessionReady && !partyIssue(draft, invitation);
   const savedDraft = canonical && restoreSavedDraft(invitation, canonical);
+  const invitationUnavailable = failure?.source === "pass-unavailable";
   const pending = operation !== null;
   const checkingPass = operation === "verify-pass";
   const terminal =
@@ -178,7 +187,8 @@ export function PublicRsvpForm({
       (
         document.getElementById(CHECKIN_PASS_HEADING_ID) ??
         passStatusRef.current ??
-        document.getElementById(RSVP_RESPONSE_HEADING_ID)
+        document.getElementById(RSVP_RESPONSE_HEADING_ID) ??
+        errorRef.current
       )?.focus();
     } else if (failure || validation) errorRef.current?.focus();
     else if (feedback === "reloaded" || feedback === "saved")
@@ -204,7 +214,7 @@ export function PublicRsvpForm({
       (error.httpStatus === 409 &&
         (error.code === "RSVP_VERSION_CONFLICT" ||
           error.code === "RSVP_LOCKED_AFTER_CHECKIN")) ||
-      (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
+      isInvitationUnavailable(error)
     )
       setPassNeedsReload(true);
     if (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT")
@@ -214,8 +224,7 @@ export function PublicRsvpForm({
       (error.httpStatus === 409 && error.code === "RSVP_LOCKED_AFTER_CHECKIN")
     )
       setLock("closed");
-    if (error.httpStatus === 404 && error.code === "INVITATION_NOT_AVAILABLE")
-      setLock("unavailable");
+    if (isInvitationUnavailable(error)) setLock("unavailable");
   }
 
   async function reload(forEditing = false) {
@@ -256,10 +265,20 @@ export function PublicRsvpForm({
 
   async function revalidatePass() {
     const latest = await reloadAction().catch(() => null);
-    if (latest?.status !== "success") return false;
-    setCanonical(latest.data);
-    setPassNeedsReload(false);
-    return true;
+    if (latest?.status === "success") {
+      setCanonical(latest.data);
+      setPassNeedsReload(false);
+      return true;
+    }
+    if (latest?.status === "error" && isInvitationUnavailable(latest.error)) {
+      // The invitation itself is unavailable. Keep the deadline lock and
+      // use the domain notice without offering generic RSVP reload.
+      setCanonical(null);
+      setEditing(false);
+      setPassNeedsReload(false);
+      setFailure({ error: latest.error, source: "pass-unavailable" });
+    }
+    return false;
   }
 
   async function verifyPass() {
@@ -364,6 +383,7 @@ export function PublicRsvpForm({
       aria-atomic="true"
       ref={statusRef}
       tabIndex={-1}
+      data-rsvp-mutation-success={savedNotice ? "" : undefined}
       className={
         savedNotice || feedback === "reloaded"
           ? "rsvp-notice rsvp-notice-success"
@@ -387,7 +407,7 @@ export function PublicRsvpForm({
     </div>
   );
 
-  if (!loaded) {
+  if (!loaded || invitationUnavailable) {
     return (
       <div className="public-rsvp-form" aria-busy={pending}>
         {errorNotice}
