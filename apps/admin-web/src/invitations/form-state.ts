@@ -2,6 +2,8 @@ import type {
   AdminEventsResponse,
   CreateAdminInvitationRequest,
 } from "@wedding-invitation/api-client/src/index";
+import { MAX_ELIGIBLE_SESSIONS } from "./session-selection";
+
 export type CreateFields = Omit<
   CreateAdminInvitationRequest,
   "rsvpDeadlineAt" | "maxAdditionalChildren"
@@ -48,6 +50,8 @@ export function prepareInvitation(
     )
   )
     errors.eventIds = "Select at least one active event.";
+  else if (fields.eventIds.length > MAX_ELIGIBLE_SESSIONS)
+    errors.eventIds = `Select no more than ${MAX_ELIGIBLE_SESSIONS} wedding sessions.`;
   if (!fields.invitees.length) errors.invitees = "Add at least one invitee.";
   fields.invitees.forEach((invitee, index) => {
     if (!invitee.fullName.trim())

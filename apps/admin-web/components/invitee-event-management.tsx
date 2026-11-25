@@ -1,5 +1,7 @@
 "use client";
 import { ActionFeedback } from "./action-feedback";
+import { WeddingSessionOption } from "./wedding-session-option";
+import { MAX_ELIGIBLE_SESSIONS } from "../src/invitations/session-selection";
 import {
   useMemo,
   useRef,
@@ -96,8 +98,8 @@ function eventOptions(
 ): EventOption[] {
   const merged = new Map<string, EventOption>();
   for (const event of [
-    ...events,
     ...invitation.eligibility.map((e) => e.event),
+    ...events,
   ])
     merged.set(event.id, event);
   return [...merged.values()].sort(
@@ -131,12 +133,13 @@ export function InviteeEventManagement({
     [events, invitation],
   );
   const initialEventIds = useMemo(
-    () => invitation.eligibility.map(({ event }) => event.id),
+    () => new Set(invitation.eligibility.map(({ event }) => event.id)),
     [invitation],
   );
   const [selectedEvents, setSelectedEvents] = useState(
     () => new Set(initialEventIds),
   );
+  const overLimit = selectedEvents.size > MAX_ELIGIBLE_SESSIONS;
   // Server HTML must not offer actions before their event handlers attach.
   const hydrated = useSyncExternalStore(
     subscribeToReadiness,
@@ -268,6 +271,7 @@ export function InviteeEventManagement({
   }
   function toggleEvent(eventId: string, checked: boolean) {
     setSelectedEvents((current) => {
+      if (checked && current.size >= MAX_ELIGIBLE_SESSIONS) return current;
       const next = new Set(current);
       if (checked) next.add(eventId);
       else next.delete(eventId);
@@ -275,7 +279,7 @@ export function InviteeEventManagement({
     });
   }
   async function saveEvents() {
-    if (busy.current || locked) return;
+    if (busy.current || locked || overLimit) return;
     const selected = options
       .filter((event) => selectedEvents.has(event.id))
       .map((event) => event.id);
@@ -379,45 +383,64 @@ export function InviteeEventManagement({
           </table>
         </div>
       </section>
-      <section className="detail-section">
+      <section
+        className="detail-section"
+        aria-labelledby="eligible-events-title"
+      >
         <div className="section-heading">
-          <h2>Eligible events</h2>
-          <p>Save sends the complete selected event set.</p>
+          <h2 id="eligible-events-title">Eligible events</h2>
+          <p id="edit-session-limit">
+            Save replaces the current set with the checked sessions. Choose no
+            more than two. Sessions referenced by an RSVP cannot be removed.
+          </p>
         </div>
-        <div className="event-management-list">
+        {initialEventIds.size > MAX_ELIGIBLE_SESSIONS && (
+          <p className="wedding-session-warning">
+            This invitation currently has more than two sessions. Guests cannot
+            accept its RSVP until eligibility is corrected. Review the selection
+            before saving. No session is removed automatically.
+          </p>
+        )}
+        <p className="wedding-session-count" role="status">
+          {initialEventIds.size} currently eligible · {selectedEvents.size}{" "}
+          selected for this update
+        </p>
+        <div
+          className="wedding-session-grid"
+          role="group"
+          aria-label="Proposed eligible sessions"
+        >
           {options.map((event) => {
             const checked = selectedEvents.has(event.id);
-            const disabled = locked || (!event.isActive && !checked);
             return (
-              <label className="checkbox-label" key={event.id}>
-                <input
-                  checked={checked}
-                  disabled={disabled || pending === "events"}
-                  onChange={(change) =>
-                    toggleEvent(event.id, change.target.checked)
-                  }
-                  type="checkbox"
-                />
-                <span>
-                  {event.name}
-                  <span className="event-state">
-                    {event.isActive
-                      ? "Active event"
-                      : checked
-                        ? "Inactive, currently eligible"
-                        : "Inactive"}
-                  </span>
-                </span>
-              </label>
+              <WeddingSessionOption
+                key={event.id}
+                session={event}
+                checked={checked}
+                current={initialEventIds.has(event.id)}
+                describedBy="edit-session-limit"
+                disabled={
+                  locked ||
+                  pending !== null ||
+                  (!event.isActive && !initialEventIds.has(event.id)) ||
+                  (!checked && selectedEvents.size >= MAX_ELIGIBLE_SESSIONS)
+                }
+                onChange={(select) => toggleEvent(event.id, select)}
+              />
             );
           })}
         </div>
+        {selectedEvents.size === 0 && (
+          <p className="wedding-session-warning">
+            Saving with no sessions removes all eligibility where permitted.
+          </p>
+        )}
         <p role="status" aria-live="polite">
           {pending === "events" ? "Saving event eligibility..." : ""}
         </p>
         <div className="form-actions">
           <button
-            disabled={locked || pending !== null}
+            disabled={locked || pending !== null || overLimit}
             onClick={saveEvents}
             type="button"
           >

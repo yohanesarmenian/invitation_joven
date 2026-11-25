@@ -129,6 +129,7 @@ export async function getEvents(): Promise<ReadResult<AdminEventsResponse>> {
                 isActive,
                 displayOrder,
                 startsAt,
+                endsAt,
                 venueName,
                 address,
               }) => ({
@@ -138,6 +139,7 @@ export async function getEvents(): Promise<ReadResult<AdminEventsResponse>> {
                 isActive,
                 displayOrder,
                 ...(startsAt !== undefined ? { startsAt } : {}),
+                ...(endsAt !== undefined ? { endsAt } : {}),
                 ...(venueName !== undefined ? { venueName } : {}),
                 ...(address !== undefined ? { address } : {}),
               }),

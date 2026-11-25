@@ -131,6 +131,10 @@ export function InvitationDetail({
         />
       </section>
       <InviteeEventManagement
+        key={`${invitation.id}:${invitation.eligibility
+          .map(({ event }) => event.id)
+          .sort()
+          .join(",")}`}
         csrfToken={csrfToken}
         events={events}
         invitation={invitation}

@@ -1200,11 +1200,6 @@ button:disabled {
   color: var(--admin-navy);
   font: inherit;
 }
-.event-management-list {
-  display: grid;
-  gap: 0.4rem;
-  margin: 0 0 1rem;
-}
 .event-state {
   display: block;
   color: #536078;

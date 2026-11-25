@@ -23,6 +23,11 @@ import {
 } from "../src/invitations/create-workflow";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 import { InvitationShareLink } from "./invitation-share-link";
+import { MAX_ELIGIBLE_SESSIONS } from "../src/invitations/session-selection";
+import {
+  WeddingSessionDetails,
+  WeddingSessionOption,
+} from "./wedding-session-option";
 
 const STORAGE_UNAVAILABLE =
   "Browser submission protection is unavailable. Enable session storage for this site and reload before creating an invitation.";
@@ -310,56 +315,56 @@ export function CreateInvitationForm({
         <section className="create-event-summary" aria-label="Wedding event">
           <h2>Your wedding event</h2>
           <p>
-            <strong>{event!.name}</strong> is included automatically.
+            <strong>{event.name}</strong> is included automatically.
           </p>
-          {event!.startsAt && (
-            <p>
-              {new Intl.DateTimeFormat("en-GB", {
-                dateStyle: "long",
-                timeStyle: "short",
-                timeZone: "Asia/Jakarta",
-              }).format(new Date(event!.startsAt))}{" "}
-              WIB
-            </p>
-          )}
-          {event!.venueName && <p>{event!.venueName}</p>}
-          {(!event!.startsAt || !event!.venueName || !event!.address) && (
-            <p className="hint">
-              Some wedding time or location details are not configured. Ask the
-              operator to review this existing event before sharing invitations.
-              No event details are changed here.
-            </p>
-          )}
+          <WeddingSessionDetails session={event} />
+          {!event.address && <p className="hint">Address not set</p>}
         </section>
       ) : (
         <fieldset
           className="create-event-summary"
           disabled={pending || locked || checking}
+          aria-describedby="create-session-limit"
         >
           <legend>Wedding sessions</legend>
-          <p className="hint">
-            Select each session this invitation can attend.
+          <p className="hint" id="create-session-limit">
+            Select one or two sessions this invitation can attend. To choose
+            another at the limit, deselect a session first.
+          </p>
+          <p className="wedding-session-count" role="status">
+            {selectedSessions.length} of {MAX_ELIGIBLE_SESSIONS} selected
           </p>
           {error("eventIds")}
-          {sessions.map(({ id, name }) => (
-            <label key={id} className="checkbox-label">
-              <input
-                type="checkbox"
-                {...errorProps("eventIds")}
-                checked={fields.eventIds.includes(id)}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setFields((previous) => ({
-                    ...previous,
-                    eventIds: checked
-                      ? [...previous.eventIds, id]
-                      : previous.eventIds.filter((selected) => selected !== id),
-                  }));
-                }}
-              />
-              {name}
-            </label>
-          ))}
+          <div className="wedding-session-grid">
+            {sessions.map((session) => {
+              const checked = fields.eventIds.includes(session.id);
+              return (
+                <WeddingSessionOption
+                  key={session.id}
+                  session={session}
+                  checked={checked}
+                  disabled={
+                    !checked && selectedSessions.length >= MAX_ELIGIBLE_SESSIONS
+                  }
+                  describedBy={`create-session-limit${errors.eventIds ? " eventIds-error" : ""}`}
+                  invalid={Boolean(errors.eventIds)}
+                  onChange={(select) => {
+                    if (
+                      select &&
+                      fields.eventIds.length >= MAX_ELIGIBLE_SESSIONS
+                    )
+                      return;
+                    field(
+                      "eventIds",
+                      select
+                        ? [...fields.eventIds, session.id]
+                        : fields.eventIds.filter((id) => id !== session.id),
+                    );
+                  }}
+                />
+              );
+            })}
+          </div>
         </fieldset>
       )}
 
@@ -672,8 +677,18 @@ export function CreateInvitationForm({
               <div>
                 <dt>Wedding sessions</dt>
                 <dd>
-                  {selectedSessions.map(({ name }) => name).join(", ") ||
-                    "Choose at least one session"}
+                  {selectedSessions.length ? (
+                    <ul className="wedding-session-review">
+                      {selectedSessions.map((session) => (
+                        <li key={session.id}>
+                          <strong>{session.name}</strong>
+                          <WeddingSessionDetails session={session} />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    "Choose at least one session"
+                  )}
                 </dd>
               </div>
               <div>

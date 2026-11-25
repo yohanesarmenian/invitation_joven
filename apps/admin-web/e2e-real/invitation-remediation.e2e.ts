@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
 import { runnerOrigins } from "./origins";
 
@@ -240,11 +246,35 @@ test("guest message receipt survives a lost response, returning to the hero and 
   }
 });
 
+async function captureSessionPicker(
+  page: Page,
+  picker: Locator,
+  tag: string,
+  testInfo: TestInfo,
+) {
+  for (const width of [320, 375, 384, 412, 768, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width + 1);
+    for (const card of await picker.locator(".wedding-session-option").all()) {
+      const box = await card.boundingBox();
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+    }
+    if ([320, 768, 1280].includes(width)) {
+      await picker.screenshot({
+        path: testInfo.outputPath(`${tag}-sessions-${width}.png`),
+      });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+}
+
 test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and dietary edits", async ({
   page,
   browser,
   request,
-}) => {
+}, testInfo) => {
   const fixture = await createWorkflowFixture();
   const ceremonySlug = `ceremony-${randomUUID()}`;
   const unrelatedSlug = `unrelated-${randomUUID()}`;
@@ -254,6 +284,9 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
   });
   try {
     const receptionOnly = await fixture.household("Synthetic reception only", {
+      pending: true,
+    });
+    const ceremonyOnly = await fixture.household("Synthetic ceremony only", {
       pending: true,
     });
     const receptionName = "Resepsi";
@@ -280,6 +313,26 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     await expect(page.getByText("Event saved successfully.")).toBeVisible();
     const ceremony = await fixture.prisma.event.findUniqueOrThrow({
       where: { slug: ceremonySlug },
+    });
+    const ceremonyMap =
+      "https://www.google.com/maps/search/?api=1&query=Synthetic+North";
+    const receptionMap =
+      "https://www.google.com/maps/search/?api=1&query=Synthetic+South";
+    await fixture.prisma.event.update({
+      where: { id: ceremony.id },
+      data: {
+        startsAt: new Date("2027-01-02T03:00:00Z"),
+        endsAt: new Date("2027-01-02T05:00:00Z"),
+        googleMapsUrl: ceremonyMap,
+      },
+    });
+    await fixture.prisma.event.update({
+      where: { id: fixture.event.id },
+      data: { googleMapsUrl: receptionMap },
+    });
+    await fixture.prisma.invitationEvent.updateMany({
+      where: { invitationId: ceremonyOnly.id },
+      data: { eventId: ceremony.id },
     });
     await page.reload();
     await eventPicker.selectOption(ceremony.id);
@@ -318,8 +371,38 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     });
     await expect(ceremonyOption).not.toBeChecked();
     await expect(receptionOption).not.toBeChecked();
-    await ceremonyOption.check();
+    const sessionPicker = page.getByRole("group", { name: "Wedding sessions" });
+    const third = sessionPicker.getByRole("checkbox", {
+      name: unrelated.name,
+      exact: true,
+    });
+    await expect(
+      sessionPicker.getByText("Start date and time not set"),
+    ).toBeVisible();
+    await expect(sessionPicker.getByText("Venue not set")).toBeVisible();
+    await expect(
+      sessionPicker.getByText(/2 January 2027.*10:00.*12:00 WIB/),
+    ).toBeVisible();
+    await expect(ceremonyOption).toBeEnabled();
+    await ceremonyOption.focus();
+    await page.keyboard.press("Space");
+    await expect(ceremonyOption).toBeChecked();
     await receptionOption.check();
+    await expect(third).toBeDisabled();
+    await expect(sessionPicker.getByRole("status")).toHaveText(
+      "2 of 2 selected",
+    );
+    await receptionOption.uncheck();
+    await third.check();
+    await expect(receptionOption).toBeDisabled();
+    await third.uncheck();
+    await receptionOption.check();
+    const review = page.getByRole("region", { name: "Review invitation" });
+    await expect(review).toContainText(ceremonyName);
+    await expect(review).toContainText(receptionName);
+    await expect(review).not.toContainText(unrelated.name);
+
+    await captureSessionPicker(page, sessionPicker, "create", testInfo);
     await page.locator("#invitee-0").fill("Synthetic Named A");
     await page.getByRole("button", { name: /Add.*guest/i }).click();
     await page.locator("#invitee-1").fill("Synthetic Named B");
@@ -374,6 +457,31 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     await expect(guest.getByText(unrelated.name, { exact: true })).toHaveCount(
       0,
     );
+    const maps = guest.getByRole("link", {
+      name: "Buka di Google Maps",
+      exact: true,
+    });
+    await expect(maps).toHaveCount(2);
+    expect(
+      await maps.evaluateAll((links) =>
+        links.map((link) => link.getAttribute("href")).sort(),
+      ),
+    ).toEqual([ceremonyMap, receptionMap].sort());
+    const ceremonyGuest = await guestContext.newPage();
+    await openInvitation(ceremonyGuest, ceremonyOnly.publicCredential);
+    await expect(
+      ceremonyGuest.getByRole("heading", { name: ceremonyName, exact: true }),
+    ).toBeVisible();
+    await expect(
+      ceremonyGuest.getByRole("heading", { name: receptionName, exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      ceremonyGuest.getByRole("link", {
+        name: "Buka di Google Maps",
+        exact: true,
+      }),
+    ).toHaveAttribute("href", ceremonyMap);
+
     const namedA = guest.getByRole("radio", {
       name: "Synthetic Named A",
       exact: true,
@@ -542,6 +650,12 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     await expect(
       receptionGuest.getByRole("heading", { name: ceremonyName, exact: true }),
     ).toHaveCount(0);
+    await expect(
+      receptionGuest.getByRole("link", {
+        name: "Buka di Google Maps",
+        exact: true,
+      }),
+    ).toHaveAttribute("href", receptionMap);
     await receptionGuest
       .getByRole("radio", { name: "Dengan senang hati hadir" })
       .check();
@@ -618,6 +732,59 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     await expect(
       page.getByRole("checkbox", { name: /Pemberkatan/ }),
     ).toBeChecked();
+
+    await fixture.prisma.invitationEvent.create({
+      data: { invitationId: receptionOnly.id, eventId: unrelated.id },
+    });
+    await page.reload();
+    const eligibility = page.getByRole("region", { name: "Eligible events" });
+    const proposedSessions = eligibility.getByRole("group", {
+      name: "Proposed eligible sessions",
+    });
+    const legacyThird = proposedSessions.getByRole("checkbox", {
+      name: unrelated.name,
+      exact: true,
+    });
+    const saveEligibility = page.getByRole("button", {
+      name: "Save event eligibility",
+      exact: true,
+    });
+    await expect(legacyThird).toBeChecked();
+    await expect(saveEligibility).toBeDisabled();
+    await expect(
+      page.getByText("This invitation currently has more than two sessions.", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await captureSessionPicker(page, eligibility, "legacy-edit", testInfo);
+
+    let writes = 0;
+    await page.route("**/api/admin/invitations/*/events", async (route) => {
+      writes++;
+      const committed = await route.fetch();
+      expect(committed.status()).toBe(200);
+      await route.abort("failed");
+    });
+    await legacyThird.uncheck();
+    await expect(saveEligibility).toBeEnabled();
+    await saveEligibility.click();
+    await expect(
+      page.getByText("The result could not be confirmed.", { exact: false }),
+    ).toBeVisible();
+    await expect(saveEligibility).toBeDisabled();
+    await eligibility
+      .getByRole("link", { name: "Reload latest detail", exact: true })
+      .click();
+    await expect(legacyThird).not.toBeChecked();
+    await expect(
+      page.getByText("This invitation currently has more than two sessions.", {
+        exact: false,
+      }),
+    ).toHaveCount(0);
+    expect(writes).toBe(1);
+    expect(
+      (await beforeEligibility()).map(({ eventId }) => eventId).sort(),
+    ).toEqual([...eventIds].sort());
   } finally {
     await guestContext.close();
     const created = await fixture.prisma.invitation.findMany({

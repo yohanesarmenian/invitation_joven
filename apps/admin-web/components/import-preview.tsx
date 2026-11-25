@@ -116,8 +116,12 @@ export function ImportPreview({
                         {issue.column
                           ? ` · Column: ${issue.column}`
                           : " · Whole row"}
-                        {issue.field ? ` · Field: ${issue.field}` : ""}:{" "}
-                        {issue.message}
+                        {issue.field === "eventIds"
+                          ? " · Wedding sessions"
+                          : issue.field
+                            ? ` · Field: ${issue.field}`
+                            : ""}
+                        : {issue.message}
                       </li>
                     ))}
                   </ul>
