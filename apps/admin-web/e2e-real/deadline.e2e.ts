@@ -200,6 +200,8 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
     const children = page.getByLabel("Maximum additional children (required)", {
       exact: true,
     });
+    // Parsing can finish while the streamed input still has a hidden ancestor.
+    await expect(children).toBeVisible();
     await children.focus();
     await expect(children).toBeFocused();
     await page.keyboard.press("Tab");
