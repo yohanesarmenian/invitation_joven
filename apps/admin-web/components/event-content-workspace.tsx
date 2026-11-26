@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminEventsResponse } from "@wedding-invitation/api-client/src/index";
 import * as api from "../src/event-content/client";
+import { eventHref, replaceEventSelection } from "../src/events/selection";
+import { useEditorNavigation } from "../src/events/use-editor-navigation";
 import { VenueInformation } from "../../invitation-web/components/invitation/venue-information";
 import { venueFromApi } from "../../invitation-web/src/content/venue-api";
 import {
@@ -44,16 +46,24 @@ function serializeDraft({
   };
 }
 
-export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
+export function EventContentWorkspace({
+  csrfToken,
+  initialSelection,
+}: {
+  csrfToken: string;
+  initialSelection: string | null;
+}) {
   const router = useRouter();
   const [catalog, setCatalog] = useState<AdminEventsResponse["events"]>([]);
   const [eventId, setEventId] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [retryTarget, setRetryTarget] = useState("");
   const [snapshot, setSnapshot] = useState<api.State | null>(null);
   const [body, setBody] = useState<Draft>(empty);
   const [csrf, setCsrf] = useState(csrfToken);
   const [busy, setBusy] = useState(false),
     [blocked, setBlocked] = useState(false);
-  const [message, setMessage] = useState("Choose an event to begin."),
+  const [message, setMessage] = useState("Loading events…"),
     [confirm, setConfirm] = useState<Confirm>(null);
   const [tone, setTone] = useState<FeedbackTone>("info");
   const [preview, setPreview] = useState<"draft" | "published" | null>(null);
@@ -105,6 +115,8 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       stopped.current = true;
       setSnapshot(null);
       setBody(empty);
+      setCatalog([]);
+      setEventId("");
       router.replace("/login?session=ended");
       return;
     }
@@ -127,12 +139,30 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       generation.current++;
     };
     void api.events().then((result) => {
-      if (!active) return;
-      if (result.kind === "ok") setCatalog(result.data.events);
-      else {
-        setTone("error");
-        setMessage("Unable to load events. Reload this page.");
+      if (!active || stopped.current) return;
+      if (result.kind === "ok") {
+        setCatalog(result.data.events);
+        if (
+          initialSelection &&
+          result.data.events.some((event) => event.id === initialSelection)
+        ) {
+          void load(initialSelection);
+        } else {
+          setTone(initialSelection ? "error" : "info");
+          setMessage(
+            initialSelection
+              ? "Requested event is invalid or no longer available. Choose an event to continue."
+              : result.data.events.length
+                ? "Choose an event to begin."
+                : "No events yet. Configure a session in Events first.",
+          );
+        }
+      } else {
+        notice(result);
+        if (result.kind !== "error" || result.code !== "UNAUTHENTICATED")
+          setMessage("Unable to load events. Reload this page.");
       }
+      setCatalogLoading(false);
     });
     const clear = () => {
       stopped.current = true;
@@ -140,6 +170,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       setSnapshot(null);
       setCatalog([]);
       setEventId("");
+      setRetryTarget("");
       setBody(empty);
       setFile(null);
       setPreview(null);
@@ -153,17 +184,22 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       invalidate();
       window.removeEventListener("admin:signout", clear);
     };
+    // This document owns its initial selection and its session-bound catalog.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (!stopped.current && (dirty || busy || blocked)) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, busy, blocked]);
+  useEditorNavigation(
+    () => ({
+      pending: !stopped.current && lock.current,
+      blocked: !stopped.current && blocked,
+      dirty: !stopped.current && hasDraft(),
+    }),
+    () => {
+      setTone("warning");
+      setMessage(
+        "Finish the current action or reload saved state before leaving this editor.",
+      );
+    },
+  );
   useEffect(() => {
     const node = dialog.current;
     if (confirm && node) {
@@ -171,45 +207,6 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       return () => node.close();
     }
   }, [confirm]);
-  useEffect(() => {
-    const protect = (event: MouseEvent) => {
-      if (
-        stopped.current ||
-        (!dirty && !busy && !blocked) ||
-        event.button !== 0 ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey ||
-        event.altKey
-      )
-        return;
-      const anchor =
-        event.target instanceof Element ? event.target.closest("a") : null;
-      if (
-        !anchor ||
-        anchor.target === "_blank" ||
-        anchor.origin !== location.origin ||
-        anchor.pathname === location.pathname
-      )
-        return;
-      if (
-        busy ||
-        blocked ||
-        !window.confirm("Leave this page and discard unsaved material changes?")
-      ) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        if (busy || blocked) {
-          setTone("warning");
-          setMessage(
-            "Finish the current action or reload saved state before leaving this editor.",
-          );
-        }
-      }
-    };
-    document.addEventListener("click", protect, true);
-    return () => document.removeEventListener("click", protect, true);
-  }, [dirty, busy, blocked]);
   async function load(target: string) {
     if (lock.current || stopped.current) return;
     lock.current = true;
@@ -223,6 +220,8 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     if (current === generation.current && !stopped.current) {
       if (result.kind === "ok" && result.data.eventId === target) {
         setEventId(target);
+        setRetryTarget("");
+        replaceEventSelection("/event-content", target);
         setSnapshot(result.data);
         loadDraft(result.data.draft);
         setBlocked(false);
@@ -230,7 +229,14 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
         setMessage("Saved state loaded.");
         setFile(null);
         if (uploadInput.current) uploadInput.current.value = "";
-      } else notice(result);
+      } else {
+        if (!snapshot) setRetryTarget(target);
+        notice(
+          result.kind === "ok"
+            ? { kind: "error", code: "UNAVAILABLE" }
+            : result,
+        );
+      }
     }
     lock.current = false;
     setBusy(false);
@@ -254,6 +260,11 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     return items.every((item, index) => item === rundown.items[index])
       ? body
       : { ...body, rundown: { ...rundown, items } };
+  }
+  function hasDraft() {
+    return (
+      dirty || file !== null || (snapshot !== null && readDraftTimes() !== body)
+    );
   }
   async function mutate(
     call: (currentContent: api.Body) => Promise<api.Result<api.State>>,
@@ -306,6 +317,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
     setBusy(false);
   }
   function change(next: Draft) {
+    if (lock.current || blocked || stopped.current) return;
     setBody(next);
     setTone("info");
     setMessage("Unsaved material changes.");
@@ -332,9 +344,15 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
       <select
         id="materials-event"
         value={eventId}
-        disabled={busy || dirty || blocked}
+        disabled={catalogLoading || busy || dirty || blocked || file !== null}
         onChange={(e) => {
-          if (e.target.value) void load(e.target.value);
+          if (
+            !hasDraft() &&
+            !blocked &&
+            e.target.value &&
+            e.target.value !== eventId
+          )
+            void load(e.target.value);
         }}
       >
         <option value="">Choose event</option>
@@ -345,17 +363,27 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
           </option>
         ))}
       </select>
-      {eventId ? (
+      {eventId || retryTarget ? (
         <button
           type="button"
           disabled={busy}
           onClick={() => {
-            if (!dirty && !blocked) void load(eventId);
+            if (!hasDraft() && !blocked) void load(retryTarget || eventId);
             else setConfirm({ deleteId: "reload" });
           }}
         >
           Reload saved state
         </button>
+      ) : null}
+      {eventId && !disabled ? (
+        <p>
+          {catalog.find((event) => event.id === eventId)?.isActive === false
+            ? "Inactive event. "
+            : null}
+          <a href={eventHref("/events", eventId)}>
+            Back to event configuration
+          </a>
+        </p>
       ) : null}
       <ActionFeedback tone={tone}>{message}</ActionFeedback>
       {dirty ? (
@@ -690,7 +718,10 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                 ref={uploadInput}
                 type="file"
                 accept=".png,.jpg,.jpeg,.webp,.pdf"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  if (!lock.current && !blocked && !stopped.current)
+                    setFile(e.target.files?.[0] ?? null);
+                }}
               />
             </label>
             <button
@@ -798,7 +829,7 @@ export function EventContentWorkspace({ csrfToken }: { csrfToken: string }) {
                 typeof confirm === "object" &&
                 confirm.deleteId === "reload"
               ) {
-                void load(eventId);
+                void load(retryTarget || eventId);
                 return;
               }
               if (!snapshot) return;

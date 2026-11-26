@@ -516,6 +516,13 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
   await page.getByRole("button", { name: "Confirm action" }).click();
   await expect(page.getByText(/Validation rejected/)).toBeVisible();
   await page.getByRole("button", { name: "Reload saved state" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Confirm action" })
+    .click();
+  await expect(
+    page.getByText("Saved state loaded.", { exact: true }),
+  ).toBeVisible();
   await expect(first).toHaveValue("");
   await expect(second).toHaveValue("");
   await expect(page.getByLabel("Start (WIB) 3", { exact: true })).toHaveValue(

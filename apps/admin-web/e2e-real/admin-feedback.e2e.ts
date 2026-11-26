@@ -108,7 +108,7 @@ test("changed event time saves the selected minute and a rejected server write p
       })
     ).endsAt?.toISOString(),
   ).toBe("2027-01-02T13:15:00.000Z");
-  await page.getByLabel("Event to edit").selectOption("");
+  await page.getByRole("button", { name: "New event", exact: true }).click();
   await page
     .getByLabel("Event name", { exact: true })
     .fill("Conflicting review event");
@@ -365,7 +365,7 @@ test("Event edits distinguish invalid native dates from deliberate clears", asyn
     await expect(start).toHaveValue("2027-01-02T17:15");
     await expect(end).toHaveValue("2027-01-02T20:15");
     await expect(save).toBeDisabled();
-    await page.getByLabel("Event to edit").selectOption("");
+    await page.getByRole("button", { name: "New event", exact: true }).click();
     await expect(start).toHaveValue("");
     await expect(end).toHaveValue("");
     await page.getByLabel("Event to edit").selectOption(event.id);
@@ -400,6 +400,7 @@ test("Event creation shows confirmed success and a pending save stays disabled u
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(new URL("/", origins.admin).href);
   await page.goto("/events");
+  await page.getByRole("button", { name: "New event", exact: true }).click();
   await page
     .getByLabel("Event name", { exact: true })
     .fill("Local feedback creation");

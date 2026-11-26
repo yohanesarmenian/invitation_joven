@@ -7,6 +7,9 @@ import { currentSession } from "../auth/browser-client";
 import { errorCode } from "../auth/auth-state";
 export type EventFields = ApiComponents["schemas"]["EventFieldsDto"];
 export type ManagedEvent = ApiComponents["schemas"]["ManagedEventDto"];
+export type ManagedEventOverview =
+  ApiComponents["schemas"]["ManagedEventOverviewDto"];
+export type EventOverview = ApiComponents["schemas"]["EventOverviewDto"];
 export type Result<T> =
   | { kind: "ok"; data: T }
   | { kind: "error"; code: string; csrfToken?: string }
@@ -82,8 +85,31 @@ export const list = () =>
       client().GET("/api/admin/event-management", {
         signal: AbortSignal.timeout(20_000),
       }),
-    (v): v is { items: ManagedEvent[] } =>
-      object(v) && Array.isArray(v.items) && v.items.every(isManagedEvent),
+    (v): v is { items: ManagedEventOverview[] } =>
+      object(v) &&
+      Array.isArray(v.items) &&
+      v.items.every((item: unknown) => {
+        if (!object(item)) return false;
+        const overview = item.overview;
+        return (
+          isManagedEvent(item) &&
+          object(overview) &&
+          [
+            overview.activeEligibleHouseholds,
+            overview.acceptedHouseholds,
+            overview.confirmedPeople,
+          ].every(integer) &&
+          [overview.parking, overview.rundown].every((state) =>
+            [
+              "missing",
+              "draft",
+              "published",
+              "changed",
+              "unavailable",
+            ].includes(typeof state === "string" ? state : ""),
+          )
+        );
+      }),
   );
 export const save = (
   body: EventFields,

@@ -30,18 +30,21 @@ const changeRequiredAuth = {
   ...staffAuth,
   user: { ...staffAuth.user, mustChangePassword: true },
 };
+const eventPageParams = { searchParams: Promise.resolve({}) };
 beforeEach(() => session.mockReset());
 it("renders event-material controls only for an OWNER session", async () => {
   session.mockResolvedValue({ kind: "authenticated", auth });
-  const html = renderToStaticMarkup(await EventContentPage());
+  const html = renderToStaticMarkup(await EventContentPage(eventPageParams));
   expect(html).toContain("Event materials");
   expect(html).toContain("Event materials editor");
 });
 it("denies staff and unauthenticated access before event-material content renders", async () => {
   session.mockResolvedValue({ kind: "authenticated", auth: staffAuth });
-  await expect(EventContentPage()).rejects.toThrow("redirect:/checkin");
+  await expect(EventContentPage(eventPageParams)).rejects.toThrow(
+    "redirect:/checkin",
+  );
   session.mockResolvedValue({ kind: "unauthenticated" });
-  await expect(EventContentPage()).rejects.toThrow(
+  await expect(EventContentPage(eventPageParams)).rejects.toThrow(
     "redirect:/login?session=ended",
   );
 });

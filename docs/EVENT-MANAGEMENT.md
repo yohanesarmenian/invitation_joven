@@ -14,17 +14,17 @@ Description tersimpan dalam konfigurasi OWNER, belum menjadi bagian proyeksi und
 
 ## Aturan perlindungan
 
-| Kondisi                                                                              | Perubahan yang diizinkan                                                                                            | Perubahan yang ditolak                        |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Belum ada link undangan/RSVP/check-in                                                | Semua field                                                                                                         | Slug/order duplikat atau input tidak valid    |
-| Sudah ada salah satu referensi, termasuk undangan archived dan pilihan RSVP declined | Nama, description, venue, alamat, Maps, urutan, jadwal sebelum check-in; legacy inactive dapat diaktifkan lewat API | Mengganti slug, menonaktifkan acara aktif     |
-| Sudah ada check-in                                                                   | Koreksi deskripsi/nama/tempat/Maps/urutan                                                                           | Mengubah start/end, slug, menonaktifkan acara |
+| Kondisi                                                                              | Perubahan yang diizinkan                                                                                                    | Perubahan yang ditolak                        |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Belum ada link undangan/RSVP/check-in                                                | Semua field                                                                                                                 | Slug/order duplikat atau input tidak valid    |
+| Sudah ada salah satu referensi, termasuk undangan archived dan pilihan RSVP declined | Nama, description, venue, alamat, Maps, urutan, jadwal sebelum check-in; acara inactive yang dipertahankan dapat diaktifkan | Mengganti slug, menonaktifkan acara aktif     |
+| Sudah ada check-in                                                                   | Koreksi deskripsi/nama/tempat/Maps/urutan                                                                                   | Mengubah start/end, slug, menonaktifkan acara |
 
 Tidak ada endpoint atau tombol delete. Identitas Event UUID tetap. Penyimpanan tidak mereset RSVP, pass, QR, pesan, invitation eligibility atau catatan check-in. Event version berbeda dari EventContent version.
 
 ## Kontrak dan transaksi
 
-- `GET /api/admin/event-management` → `{ items: ManagedEventDto[] }`, urut `displayOrder ASC, id ASC`.
+- `GET /api/admin/event-management` → `{ items: ManagedEventOverviewDto[] }`, urut `displayOrder ASC, id ASC`. Setiap item menambahkan `overview` pada `ManagedEventDto`.
 - `POST /api/admin/event-management` → `ManagedEventDto`, HTTP 200.
 - `PUT /api/admin/event-management/{eventId}` → `ManagedEventDto`, HTTP 200; replacement penuh dengan `expectedVersion >= 1`.
 
@@ -54,3 +54,15 @@ Jalankan berurutan setelah `pnpm local:down`: `pnpm local:build`, lalu `pnpm loc
 Kasus utama: auth/CSRF, CRUD yang diizinkan, nullable fields, invalid payload atomik, uniqueness, dua editor bersamaan, referensi archived, schedule setelah check-in, PostgreSQL lock wait yang diamati melalui `pg_blocking_pids`, create invitation melawan deactivate, management melawan commit link, confirmation staff melawan event lock; browser create/edit/WIB/date/countdown/calendar, stale draft, respons simpan hilang tanpa replay, staff denial dan mobile overflow.
 
 Detail hasil aktual dicatat di `EVENT-MANAGEMENT-VERIFICATION.md`. Pengujian Android fisik, target produksi/HTTPS, materi final dan OWNER daily nyata tetap belum diselesaikan oleh slice ini.
+
+## Event overview and connected workspaces
+
+Use `/events?eventId=<uuid>` to open a saved session directly. The catalog includes active and inactive sessions and allows creating a new session explicitly. An invalid or unknown selection leaves the editor unselected. Schedule summaries show full start and end dates in Asia/Jakarta, including across midnight.
+
+Configuration readiness describes saved values. An end time, Google Maps link, parking guide and rundown are optional. Missing values prompt configuration without changing activation rules. See [Event Materials](EVENT-CONTENT-ADMIN.md) for the publication lifecycle. Changes to a saved schedule may warrant a rundown review. Event saves leave the rundown and all material versions intact.
+
+The invitation shortcut applies `status=ACTIVE&eligibility=includes&eventId=<uuid>`. The RSVP shortcut uses the existing `eventId` reference filter. That filter includes any saved selection for the session, including non-attending selections, and has a broader scope than the attending RSVP totals.
+
+The overview counts active eligible households, active households with an accepted attending RSVP selection, and the sum of those selections’ expected attendee counts. Check-in records shown in the editor count records, including historical references. Session totals overlap when one household has multiple sessions. They describe saved RSVP attendance, independent of walk-ins, reception adjustments, catering and actual arrivals.
+
+Unsaved input requires explicit discard confirmation when switching or leaving. Normal navigation is blocked during save and while recovery is required. After an uncertain create, reload saved events and inspect the matching unique slug if present. A matching slug identifies a saved row for review without attesting which request created it.

@@ -2,6 +2,10 @@
 
 Owner-authorized scope: manage parking/rundown per existing Event, upload/replace/remove supporting images/PDFs, persist drafts, preview, explicitly publish or hide. This is a bounded content feature for this personal wedding, not a page builder or Event catalog editor.
 
+Open `/event-content?eventId=<uuid>` to select the exact catalog Event, including inactive Events. Without a selection, the editor waits for the OWNER to choose one. An invalid, repeated or unknown ID shows a selection error. The back link returns to the same UUID in Events. Dirty input, in-flight work and uncertain-outcome recovery retain their existing protections.
+
+The Events catalog shows each material separately from its saved draft and published snapshot. A published section marked **draft differs** continues to use the published copy for eligible guests until explicit publication. Hiding removes publication while retaining draft. Events displays unavailable status when saved state cannot be interpreted. The overview reads no asset bytes.
+
 ## REA evidence and original decisions
 
 The saved REA investigation observed rundown on the public preview (E3/E7) and records vendor documentation describing content management and event/session-specific presentation. No authenticated editor, upload validation, storage, or publication workflow was tested. The draft/published snapshot model, PostgreSQL storage, concurrency policy and authorization below are original implementation decisions, not assertions about Katsudoto internals. No vendor code, media or design assets are reused. Evidence: `D:/Projects/rea/.cache/katsudoto/analysis.md` and `evidence-projections.json`.

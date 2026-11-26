@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
+import { runnerOrigins } from "./origins";
+const origins = runnerOrigins();
 let fixture: Awaited<ReturnType<typeof createWorkflowFixture>>;
 const created: string[] = [];
-test.beforeAll(async () => {
+test.beforeEach(async () => {
   fixture = await createWorkflowFixture();
 });
-test.afterAll(async () => {
-  await fixture?.prisma.event.deleteMany({ where: { id: { in: created } } });
+test.afterEach(async () => {
+  await fixture?.prisma.event.deleteMany({
+    where: { id: { in: created.splice(0) } },
+  });
   await fixture?.cleanup();
 });
 async function login(page: Page, staff = false) {
@@ -17,7 +21,9 @@ async function login(page: Page, staff = false) {
     .fill(staff ? fixture.staff.email : fixture.owner.email);
   await page.getByLabel("Password", { exact: true }).fill(fixture.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).not.toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(
+    new URL(staff ? "/checkin" : "/", origins.admin).href,
+  );
 }
 async function editor(page: Page) {
   await login(page);
@@ -43,6 +49,7 @@ test("OWNER creates an event and edits linked details; guest date, countdown, ca
       .getByRole("status"),
   ).toHaveText("Saved events loaded.");
   const slug = `browser-${randomUUID()}`;
+  await page.getByRole("button", { name: "New event", exact: true }).click();
   await page
     .getByLabel("Event name", { exact: true })
     .fill("Synthetic additional event");
@@ -53,7 +60,7 @@ test("OWNER creates an event and edits linked details; guest date, countdown, ca
     page
       .getByRole("region", { name: "Event management editor", exact: true })
       .getByRole("status"),
-  ).toHaveText("Event saved.");
+  ).toHaveText("Event saved successfully.");
   const extra = await fixture.prisma.event.findUniqueOrThrow({
     where: { slug },
   });
@@ -86,7 +93,7 @@ test("OWNER creates an event and edits linked details; guest date, countdown, ca
     page
       .getByRole("region", { name: "Event management editor", exact: true })
       .getByRole("status"),
-  ).toHaveText("Event saved.");
+  ).toHaveText("Event saved successfully.");
   expect(
     (
       await fixture.prisma.event.findUniqueOrThrow({
@@ -174,7 +181,7 @@ test("two OWNER editors preserve stale draft and require explicit saved-state re
       page
         .getByRole("region", { name: "Event management editor", exact: true })
         .getByRole("status"),
-    ).toHaveText("Event saved.");
+    ).toHaveText("Event saved successfully.");
     await second
       .getByLabel("Venue name", { exact: true })
       .fill("Preserved editor two draft");
@@ -184,7 +191,7 @@ test("two OWNER editors preserve stale draft and require explicit saved-state re
     await expect(
       second
         .getByRole("region", { name: "Event management editor", exact: true })
-        .getByRole("status"),
+        .getByRole("alert"),
     ).toContainText("Another editor changed this event");
     await expect(second.getByLabel("Venue name", { exact: true })).toHaveValue(
       "Preserved editor two draft",
@@ -291,4 +298,315 @@ test("staff cannot open the OWNER editor or its API; schedule locks after staff 
   } finally {
     await context.close();
   }
+});
+test("event overview uses saved readiness and round-trips between exact session workspaces", async ({
+  page,
+}, testInfo) => {
+  const second = await fixture.prisma.event.create({
+    data: {
+      name: "Synthetic ceremony " + "LongWeddingSessionName".repeat(6),
+      slug: `catalog-${randomUUID()}`,
+      displayOrder: 2_000_000_010,
+      startsAt: new Date("2028-02-10T16:30:00Z"),
+      endsAt: new Date("2028-02-10T18:30:00Z"),
+      address: "Synthetic address " + "LongVenueAddress".repeat(8),
+      isActive: false,
+    },
+  });
+  created.push(second.id);
+  const third = await fixture.prisma.event.create({
+    data: {
+      name: "Third synthetic session",
+      slug: `catalog-${randomUUID()}`,
+      displayOrder: 2_000_000_011,
+      venueName: "Another synthetic venue",
+    },
+  });
+  created.push(third.id);
+  const household = await fixture.household("Synthetic A3 confirmed household");
+  await login(page);
+  let assetReads = 0;
+  page.on("request", (request) => {
+    if (
+      request.url().includes("/event-content/") &&
+      request.url().includes("/assets")
+    )
+      assetReads++;
+  });
+  await page.goto(`/events?eventId=${fixture.event.id}`);
+  const firstCard = page.getByRole("listitem").filter({
+    has: page.getByRole("heading", { name: fixture.event.name, exact: true }),
+  });
+  const secondCard = page.getByRole("listitem").filter({
+    has: page.getByRole("heading", { name: second.name, exact: true }),
+  });
+  const picker = page.getByLabel("Event to edit", { exact: true });
+  const navigation = page.getByRole("navigation", {
+    name: "Selected event workflows",
+  });
+  await expect(picker).toHaveValue(fixture.event.id);
+  await expect(firstCard).toContainText("RSVP confirmed people");
+  await expect(firstCard.locator("dd").filter({ hasText: /^1$/ })).toHaveCount(
+    3,
+  );
+  await expect(secondCard).toContainText("Inactive");
+  await expect(secondCard).toContainText("23:30");
+  await expect(secondCard).toContainText("01:30");
+  await expect(page.getByRole("heading", { name: third.name })).toBeVisible();
+  await expect(
+    page.getByRole("listitem").filter({
+      has: page.getByRole("heading", { name: third.name, exact: true }),
+    }),
+  ).toContainText("Another synthetic venue");
+  for (const width of [320, 375, 412, 768, 1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    if (width === 320 || width === 1280)
+      await page.screenshot({
+        path: testInfo.outputPath(`events-after-${width}.png`),
+        fullPage: true,
+      });
+  }
+  await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  await page.setViewportSize({ width: 412, height: 900 });
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(412);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  expect(assetReads).toBe(0);
+  await navigation
+    .getByRole("link", { name: "View active eligible households" })
+    .click();
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/invitations\\?status=ACTIVE&eligibility=includes&eventId=${fixture.event.id}$`,
+    ),
+  );
+  await expect(page.getByText(household.name, { exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(picker).toHaveValue(fixture.event.id);
+  await navigation
+    .getByRole("link", { name: "View RSVP responses referencing this event" })
+    .click();
+  await expect(page).toHaveURL(
+    new RegExp(`/rsvps\\?eventId=${fixture.event.id}$`),
+  );
+  await expect(page.getByText(household.name, { exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(picker).toHaveValue(fixture.event.id);
+  await page
+    .getByLabel("Venue name", { exact: true })
+    .fill("Keep this local draft");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await picker.selectOption(second.id);
+  await expect(picker).toHaveValue(fixture.event.id);
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await navigation
+    .getByRole("link", { name: "Manage event materials" })
+    .click({ noWaitAfter: true });
+  await expect(page.getByLabel("Venue name", { exact: true })).toHaveValue(
+    "Keep this local draft",
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await picker.selectOption(second.id);
+  await expect(
+    page.getByRole("region", { name: "Configuration readiness" }),
+  ).toContainText("Venue · Missing");
+  const materialAction = navigation.getByRole("link", {
+    name: "Manage event materials",
+  });
+  await materialAction.focus();
+  await expect(materialAction).toBeFocused();
+  await materialAction.press("Enter");
+  const materialPicker = page.getByLabel("Event", { exact: true });
+  await expect(materialPicker).toHaveValue(second.id);
+  await page.reload();
+  await expect(materialPicker).toHaveValue(second.id);
+  const back = page.getByRole("link", { name: "Back to event configuration" });
+  await page.getByLabel("Include parking guide", { exact: true }).check();
+  await expect(materialPicker).toBeDisabled();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await back.click({ noWaitAfter: true });
+  await expect(
+    page.getByLabel("Include parking guide", { exact: true }),
+  ).toBeChecked();
+  await page.getByLabel("Include parking guide", { exact: true }).uncheck();
+  await back.click();
+  await expect(picker).toHaveValue(second.id);
+  await page.goBack();
+  await expect(materialPicker).toHaveValue(second.id);
+  await page.goForward();
+  await expect(picker).toHaveValue(second.id);
+  await page.goto("/event-content?eventId=invalid");
+  await expect(
+    page.getByText("Requested event is invalid or no longer available.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await expect(materialPicker).toHaveValue("");
+  await page.goto(`/events?eventId=${randomUUID()}`);
+  await expect(
+    page.getByText("Requested event is invalid or no longer available.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Event name", { exact: true })).toHaveCount(0);
+});
+test("an uncertain create stays locked and reload selects the saved slug without replay", async ({
+  page,
+}) => {
+  await editor(page);
+  await page.getByRole("button", { name: "New event", exact: true }).click();
+  const slug = `uncertain-create-${randomUUID()}`;
+  await page
+    .getByLabel("Event name", { exact: true })
+    .fill("Synthetic uncertain create");
+  await page.getByLabel("Slug", { exact: true }).fill(slug);
+  const committed = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let writes = 0;
+  await page.route("**/api/admin/event-management", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    writes++;
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    created.push((await response.json()).id);
+    committed.resolve();
+    await release.promise;
+    await route.abort("failed");
+  });
+  await page.getByRole("button", { name: "Save event", exact: true }).click();
+  try {
+    await committed.promise;
+    await expect(page.getByLabel("Event name", { exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "New event", exact: true }),
+    ).toBeDisabled();
+    await page
+      .getByRole("link", { name: "Event materials", exact: true })
+      .click();
+    await expect(page).toHaveURL(new URL("/events", origins.admin).href);
+  } finally {
+    release.resolve();
+  }
+  await expect(
+    page.getByText("Save outcome is unknown.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Save event", exact: true }),
+  ).toBeDisabled();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Reload saved events", exact: true })
+    .click();
+  await expect(page.getByLabel("Event to edit", { exact: true })).toHaveValue(
+    created[0]!,
+  );
+  await expect(
+    page.getByText("An event with that slug exists.", { exact: false }),
+  ).toBeVisible();
+  expect(writes).toBe(1);
+  expect(await fixture.prisma.event.count({ where: { slug } })).toBe(1);
+});
+test("unhydrated and delayed editors cannot submit or switch the requested event", async ({
+  page,
+}) => {
+  await login(page);
+  const scripts = /\/_next\/static\/[^?]+\.js(?:\?|$)/;
+  const hydration = Promise.withResolvers<void>();
+  const intercepted = Promise.withResolvers<void>();
+  const holdScript = async (route: Route) => {
+    intercepted.resolve();
+    await hydration.promise;
+    await route.continue();
+  };
+  await page.route(scripts, holdScript);
+  try {
+    await page.goto(`/events?eventId=${fixture.event.id}`, {
+      waitUntil: "commit",
+    });
+    await intercepted.promise;
+    await expect(
+      page.getByRole("button", { name: "New event", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Reload saved events", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Save event", exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    hydration.resolve();
+    await page.waitForLoadState("load");
+    await page.unroute(scripts, holdScript);
+  }
+  await expect(page.getByLabel("Event to edit", { exact: true })).toHaveValue(
+    fixture.event.id,
+  );
+  const responseGate = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<void>();
+  await page.route(
+    `**/api/admin/event-content/${fixture.event.id}`,
+    async (route) => {
+      const response = await route.fetch();
+      started.resolve();
+      await responseGate.promise;
+      await route.fulfill({ response });
+    },
+  );
+  await page.getByRole("link", { name: "Manage event materials" }).click();
+  const picker = page.getByLabel("Event", { exact: true });
+  try {
+    await started.promise;
+    await expect(picker).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Save draft", exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    responseGate.resolve();
+  }
+  await expect(picker).toHaveValue(fixture.event.id);
+  await expect(
+    page.getByRole("link", { name: "Back to event configuration" }),
+  ).toHaveAttribute("href", `/events?eventId=${fixture.event.id}`);
+});
+
+test("empty and unavailable catalogs remain distinguishable", async ({
+  page,
+}) => {
+  await login(page);
+  const catalog = "**/api/admin/event-management";
+  await page.route(catalog, (route) => route.fulfill({ json: { items: [] } }));
+  await page.goto("/events");
+  await expect(
+    page.getByText("No saved events.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "New event", exact: true }),
+  ).toBeEnabled();
+  await page.unroute(catalog);
+  await page.route(catalog, (route) =>
+    route.fulfill({ status: 503, json: {} }),
+  );
+  await page.reload();
+  await expect(
+    page
+      .getByRole("region", { name: "Event management editor" })
+      .getByRole("alert"),
+  ).toContainText("Saved state could not be loaded.");
+  await expect(
+    page.getByText("No saved events.", { exact: false }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "New event", exact: true }),
+  ).toBeDisabled();
+  await page.unroute(catalog);
+  await page
+    .getByRole("button", { name: "Reload saved events", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: fixture.event.name, exact: true }),
+  ).toBeVisible();
 });

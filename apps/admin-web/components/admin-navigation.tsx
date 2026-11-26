@@ -95,6 +95,8 @@ export function AdminNavigation() {
   const current = destinations.find((item) =>
     isCurrentSection(pathname, item.href),
   )?.label;
+  const eventEditor = (href: string) =>
+    href === "/events" || href === "/event-content";
   return (
     <div
       className="navigation"
@@ -129,35 +131,41 @@ export function AdminNavigation() {
           <div className="navigation-group" key={group.label}>
             <p className="navigation-group-label">{group.label}</p>
             <ul>
-              {group.items.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    prefetch={false}
-                    aria-current={
-                      isCurrentSection(pathname, item.href) ? "page" : undefined
-                    }
-                    onClick={() => {
-                      setExpanded(false);
-                      trigger.current?.focus();
-                    }}
-                  >
-                    <svg
-                      className="navigation-icon"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
+              {group.items.map((item) => {
+                const RouteLink =
+                  eventEditor(pathname) || eventEditor(item.href) ? "a" : Link;
+                return (
+                  <li key={item.href}>
+                    <RouteLink
+                      href={item.href}
+                      {...(RouteLink === Link ? { prefetch: false } : {})}
+                      aria-current={
+                        isCurrentSection(pathname, item.href)
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={() => {
+                        setExpanded(false);
+                        trigger.current?.focus();
+                      }}
                     >
-                      <path d={item.icon} />
-                    </svg>
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+                      <svg
+                        className="navigation-icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d={item.icon} />
+                      </svg>
+                      {item.label}
+                    </RouteLink>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
