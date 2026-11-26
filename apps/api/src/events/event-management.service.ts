@@ -26,6 +26,26 @@ const include = {
 } satisfies Prisma.EventInclude;
 type Row = Prisma.EventGetPayload<{ include: typeof include }>;
 type Content = { draft: Prisma.JsonValue; published: Prisma.JsonValue };
+const plannedInvitation = {
+  status: "ACTIVE",
+  walkinRegistration: { is: null },
+} satisfies Prisma.InvitationWhereInput;
+
+function rundownForComparison(
+  rundown: ReturnType<typeof parseVenueBody>["rundown"],
+) {
+  return (
+    rundown && {
+      ...rundown,
+      items: rundown.items.map((item) => ({
+        ...item,
+        // parseVenueBody already validated nonempty times. An incomplete draft
+        // still compares differently from any published instant.
+        startsAt: item.startsAt === "" ? "" : Date.parse(item.startsAt),
+      })),
+    }
+  );
+}
 
 function materialOverview(
   row: Content | undefined,
@@ -36,7 +56,14 @@ function materialOverview(
       row?.published == null ? null : parseVenueBody(row.published, true);
     const state = (key: "parking" | "rundown") =>
       published?.[key]
-        ? isDeepStrictEqual(draft[key], published[key])
+        ? (
+            key === "rundown"
+              ? isDeepStrictEqual(
+                  rundownForComparison(draft.rundown),
+                  rundownForComparison(published.rundown),
+                )
+              : isDeepStrictEqual(draft.parking, published.parking)
+          )
           ? "published"
           : "changed"
         : draft[key]
@@ -89,14 +116,14 @@ export class EventManagementService {
           }),
           tx.invitationEvent.groupBy({
             by: ["eventId"],
-            where: { invitation: { status: "ACTIVE" } },
+            where: { invitation: plannedInvitation },
             _count: { _all: true },
           }),
           tx.rSVPEventSelection.groupBy({
             by: ["eventId"],
             where: {
               attending: true,
-              rsvp: { status: "ACCEPTED", invitation: { status: "ACTIVE" } },
+              rsvp: { status: "ACCEPTED", invitation: plannedInvitation },
             },
             _count: { _all: true },
             _sum: { expectedAttendeeCount: true },

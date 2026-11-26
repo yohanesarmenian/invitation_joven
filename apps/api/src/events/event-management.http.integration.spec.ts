@@ -417,6 +417,47 @@ describe("OWNER event management with real PostgreSQL", () => {
     await read("published", "draft");
     version = await publication("publish", version);
     await read("published", "published");
+    for (const startsAt of [
+      "2028-01-10T01:30:00Z",
+      "2028-01-10T02:30:00+01:00",
+    ]) {
+      version = await draft(version, {
+        parking,
+        rundown: { ...rundown, items: [{ ...rundown.items[0], startsAt }] },
+      });
+      await read("published", "published");
+    }
+    for (const change of [
+      { startsAt: "2028-01-10T01:31:00Z" },
+      { startsAt: "" },
+      { title: "Changed activity title" },
+      { description: "Changed activity description" },
+    ]) {
+      version = await draft(version, {
+        parking,
+        rundown: { ...rundown, items: [{ ...rundown.items[0], ...change }] },
+      });
+      await read("published", "changed");
+    }
+    version = await draft(version, {
+      parking: { ...parking, instructions: ["Use a different entrance"] },
+      rundown,
+    });
+    await read("changed", "published");
+    const second = { ...rundown.items[0]!, title: "Second activity" };
+    const sameTimeItems = [rundown.items[0]!, second];
+    version = await draft(version, {
+      parking,
+      rundown: { ...rundown, items: sameTimeItems },
+    });
+    version = await publication("publish", version);
+    version = await draft(version, {
+      parking,
+      rundown: { ...rundown, items: [...sameTimeItems].reverse() },
+    });
+    await read("published", "changed");
+    version = await draft(version, { parking, rundown });
+    version = await publication("publish", version);
     version = await draft(version, { parking: null, rundown });
     await read("changed", "published");
     await publication("hide", version);
