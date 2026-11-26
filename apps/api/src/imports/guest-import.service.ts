@@ -5,7 +5,12 @@ import {
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { TextDecoder } from "node:util";
-import { ConflictException, Inject, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+} from "@nestjs/common";
 import { parse as parseCsvSync } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import { Prisma } from "../generated/prisma/client.js";
@@ -22,6 +27,7 @@ import {
   type NormalizedCreateInput,
 } from "../admin/admin-mutation.service.js";
 import { PrismaService } from "../database/prisma.service.js";
+import { lockEvents } from "../events/event-lock.js";
 import { CredentialService } from "../security/credential.service.js";
 import type {
   GuestImportCommitResponseDto,
@@ -1107,15 +1113,20 @@ export class GuestImportService {
       stalePreview();
     }
 
-    const normalized = normalizeAdminCreateInvitationInput(
-      value,
-      "stored-import-preview",
-    );
+    try {
+      const normalized = normalizeAdminCreateInvitationInput(
+        value,
+        "stored-import-preview",
+      );
 
-    return {
-      ...normalized,
-      rsvpDeadlineAt: normalized.rsvpDeadlineAt?.toISOString() ?? null,
-    };
+      return {
+        ...normalized,
+        rsvpDeadlineAt: normalized.rsvpDeadlineAt?.toISOString() ?? null,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) stalePreview();
+      throw error;
+    }
   }
 
   private selectRows(
@@ -1163,18 +1174,15 @@ export class GuestImportService {
     ) {
       stalePreview();
     }
-    const selectedSlugs = [
-      ...new Set(selectedRows.flatMap((row) => row.eventSlugs)),
+    const selectedEventIds = [
+      ...new Set(selectedRows.flatMap((row) => row.input?.eventIds ?? [])),
     ];
-    if (selectedSlugs.length > 0) {
-      await tx.$queryRaw`SELECT id FROM events WHERE slug IN (${Prisma.join(selectedSlugs)}) ORDER BY id FOR SHARE`;
-    }
+    await lockEvents(tx, selectedEventIds);
     const events = await tx.event.findMany({
-      orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
       select: { id: true, isActive: true, slug: true },
-      where: { slug: { in: selectedSlugs } },
+      where: { id: { in: selectedEventIds } },
     });
-    const eventsBySlug = new Map(events.map((event) => [event.slug, event]));
+    const eventsById = new Map(events.map((event) => [event.id, event]));
     const acknowledgedRows = new Set(acknowledgedWarningRowNumbers);
     const allValidKeys = allRows
       .map((row) => row.input?.displayName)
@@ -1198,15 +1206,14 @@ export class GuestImportService {
         stalePreview();
       }
 
-      const eventIds = row.eventSlugs.map((slug) => {
-        const event = eventsBySlug.get(slug);
-
-        if (event === undefined || !event.isActive) {
+      // Preview writes both arrays in header order. Reordering pairs is harmless,
+      // but swapping slugs between the same UUIDs changes the approved selection.
+      for (const [index, eventId] of row.input.eventIds.entries()) {
+        const event = eventsById.get(eventId);
+        if (!event?.isActive || event.slug !== row.eventSlugs[index]) {
           stalePreview();
         }
-
-        return event.id;
-      });
+      }
 
       const key = duplicateKey(row.input.displayName);
       const hasDuplicateWarning = row.warnings.some(
@@ -1226,7 +1233,6 @@ export class GuestImportService {
         return {
           input: normalizeAdminCreateInvitationInput({
             ...row.input,
-            eventIds,
             rsvpDeadlineAt: row.input.rsvpDeadlineAt,
           }),
           rowNumber: row.rowNumber,

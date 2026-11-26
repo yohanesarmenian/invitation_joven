@@ -7,6 +7,7 @@ import {
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import ExcelJS from "exceljs";
+import { Client } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppModule } from "../app.module.js";
 import { configureApp } from "../app.setup.js";
@@ -316,6 +317,100 @@ async function counts() {
   };
 }
 
+function twoSessionCsv() {
+  return csv([
+    "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony,event:reception",
+    validCsvRow("Two-session household", "true,true"),
+  ]);
+}
+
+async function waitForEventLock(clause: "FOR UPDATE" | "FOR SHARE") {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const [activity] = await prisma.$queryRaw<Array<{ waiting: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_stat_activity
+        WHERE datname = current_database()
+          AND wait_event_type = 'Lock'
+          AND cardinality(pg_blocking_pids(pid)) > 0
+          AND query LIKE '%FROM events%'
+          AND query LIKE ${`%${clause}%`}
+      ) AS waiting
+    `;
+    if (activity?.waiting) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`Expected PostgreSQL to queue the Event ${clause} lock`);
+}
+
+function manageEvent(
+  app: NestFastifyApplication,
+  session: OwnerSession,
+  fields: { slug: string; displayOrder: number },
+  existing?: { id: string; version: number },
+) {
+  return app.inject({
+    method: existing ? "PUT" : "POST",
+    url: existing
+      ? `/api/admin/event-management/${existing.id}`
+      : "/api/admin/event-management",
+    headers: ownerHeaders(session),
+    payload: {
+      ...fields,
+      name: "Synthetic import session",
+      description: null,
+      startsAt: null,
+      endsAt: null,
+      venueName: null,
+      address: null,
+      googleMapsUrl: null,
+      isActive: true,
+      ...(existing && { expectedVersion: existing.version }),
+    },
+  });
+}
+
+async function expectStaleCommit(
+  app: NestFastifyApplication,
+  session: OwnerSession,
+  body: { previewId: string; includeRowNumbers: number[] },
+) {
+  const before = await counts();
+  const response = await commitImport(app, session, {
+    ...body,
+    acknowledgedWarningRowNumbers: [],
+  });
+  await expectStaleResponse(body.previewId, before, response);
+}
+
+async function expectStaleResponse(
+  previewId: string,
+  before: Awaited<ReturnType<typeof counts>>,
+  response: Awaited<ReturnType<typeof commitImport>>,
+) {
+  expect({
+    status: response.statusCode,
+    code: response.json().error?.code,
+    counts: await counts(),
+    preview: await prisma.guestImportPreview.findUniqueOrThrow({
+      where: { id: previewId },
+      select: {
+        status: true,
+        committedBatchId: true,
+        commitFingerprint: true,
+      },
+    }),
+  }).toEqual({
+    status: 409,
+    code: "IMPORT_PREVIEW_STALE",
+    counts: before,
+    preview: {
+      status: GuestImportPreviewStatus.PENDING,
+      committedBatchId: null,
+      commitFingerprint: null,
+    },
+  });
+}
+
 describe("POST /api/admin/imports/guest/validate", () => {
   let app: NestFastifyApplication;
 
@@ -523,14 +618,10 @@ describe("POST /api/admin/imports/guest/validate", () => {
     };
     await patchRows(pendingId);
     const before = await counts();
-    const invalid = await commitImport(app, session, {
+    await expectStaleCommit(app, session, {
       previewId: pendingId,
       includeRowNumbers: [2, 3],
-      acknowledgedWarningRowNumbers: [],
     });
-    expect(invalid.statusCode).toBe(409);
-    expect(invalid.json().error.code).toBe("IMPORT_PREVIEW_STALE");
-    expect(await counts()).toEqual(before);
     const validSubset = await commitImport(app, session, {
       previewId: pendingId,
       includeRowNumbers: [2],
@@ -1148,8 +1239,7 @@ describe("POST /api/admin/imports/guest/validate", () => {
       where: { slug: "ceremony" },
     });
     const beforeEventDrift = await counts();
-    const eventDrift = await commitImport(app, session, {
-      acknowledgedWarningRowNumbers: [],
+    await expectStaleCommit(app, session, {
       includeRowNumbers: [2],
       previewId: eventDriftPreview.json().previewId,
     });
@@ -1171,8 +1261,6 @@ describe("POST /api/admin/imports/guest/validate", () => {
       previewId: duplicateDriftPreview.json().previewId,
     });
 
-    expect(eventDrift.statusCode).toBe(409);
-    expect(eventDrift.json().error.code).toBe("IMPORT_PREVIEW_STALE");
     expect(await counts()).toMatchObject({
       guestImportBatches: beforeDuplicateDrift.guestImportBatches,
       invitationEvents: beforeDuplicateDrift.invitationEvents,
@@ -1182,6 +1270,362 @@ describe("POST /api/admin/imports/guest/validate", () => {
     expect(beforeDuplicateDrift.invitations).toBe(beforeEventDrift.invitations + 1);
     expect(duplicateDrift.statusCode).toBe(409);
     expect(duplicateDrift.json().error.code).toBe("IMPORT_PREVIEW_STALE");
+  });
+
+  it.each(["renamed", "replaced"] as const)(
+    "rejects a one-session preview after the Event slug is %s",
+    async (change) => {
+      const session = await createOwnerAndSession();
+      const original = await prisma.event.findUniqueOrThrow({
+        where: { slug: "ceremony" },
+      });
+      const file = validCsvFile("Identity drift household");
+      const preview = await upload(app, session, file);
+      expect(preview.statusCode).toBe(201);
+      const previewId: string = preview.json().previewId;
+      expect(
+        (
+          await prisma.guestImportPreview.findUniqueOrThrow({
+            where: { id: previewId },
+          })
+        ).normalizedRows,
+      ).toMatchObject([
+        { eventSlugs: ["ceremony"], input: { eventIds: [original.id] } },
+      ]);
+
+      expect(
+        (
+          await manageEvent(
+            app,
+            session,
+            { slug: "ceremony-moved", displayOrder: 1 },
+            original,
+          )
+        ).statusCode,
+      ).toBe(200);
+      let replacementId: string | undefined;
+      if (change === "replaced") {
+        const replacement = await manageEvent(app, session, {
+          slug: "ceremony",
+          displayOrder: 2,
+        });
+        expect(replacement.statusCode).toBe(200);
+        replacementId = replacement.json().id;
+        expect(typeof replacementId).toBe("string");
+        expect(replacementId).not.toBe(original.id);
+      }
+
+      await expectStaleCommit(app, session, {
+        previewId,
+        includeRowNumbers: [2],
+      });
+
+      if (replacementId) {
+        const fresh = await upload(app, session, file);
+        expect(fresh.statusCode).toBe(201);
+        const committed = await commitImport(app, session, {
+          previewId: fresh.json().previewId,
+          includeRowNumbers: [2],
+          acknowledgedWarningRowNumbers: [],
+        });
+        expect(committed.statusCode).toBe(200);
+        expect(
+          await prisma.invitationEvent.findMany({ select: { eventId: true } }),
+        ).toEqual([{ eventId: replacementId }]);
+      }
+    },
+  );
+
+  it("rejects a selected batch when a two-session row drifts and permits the unaffected subset", async () => {
+    const session = await createOwnerAndSession();
+    const original = await prisma.event.findUniqueOrThrow({
+      where: { slug: "ceremony" },
+    });
+    const reception = await createEvent({ slug: "reception", displayOrder: 2 });
+    const preview = await upload(
+      app,
+      session,
+      csv([
+        "displayName,greetingName,allowPlusOne,maxAdditionalChildren,rsvpDeadlineLocal,notes,invitees,event:ceremony,event:reception",
+        validCsvRow("Unchanged household", "false,true"),
+        validCsvRow("Drifted household", "true,true"),
+      ]),
+    );
+    expect(preview.statusCode).toBe(201);
+    const previewId: string = preview.json().previewId;
+
+    expect(
+      (
+        await manageEvent(
+          app,
+          session,
+          { slug: "ceremony-moved", displayOrder: 1 },
+          original,
+        )
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (await manageEvent(app, session, { slug: "ceremony", displayOrder: 3 }))
+        .statusCode,
+    ).toBe(200);
+
+    await expectStaleCommit(app, session, {
+      previewId,
+      includeRowNumbers: [2, 3],
+    });
+    const beforeSubset = await counts();
+    const subset = await commitImport(app, session, {
+      previewId,
+      includeRowNumbers: [2],
+      acknowledgedWarningRowNumbers: [],
+    });
+    expect(subset.statusCode).toBe(200);
+    expect(await counts()).toEqual({
+      ...beforeSubset,
+      invitations: beforeSubset.invitations + 1,
+      invitees: beforeSubset.invitees + 2,
+      invitationEvents: beforeSubset.invitationEvents + 1,
+      guestImportBatches: beforeSubset.guestImportBatches + 1,
+    });
+    expect(
+      await prisma.invitationEvent.findMany({
+        select: {
+          eventId: true,
+          invitation: { select: { displayName: true } },
+        },
+      }),
+    ).toEqual([
+      {
+        eventId: reception.id,
+        invitation: { displayName: "Unchanged household" },
+      },
+    ]);
+  });
+
+  it("rejects exchanged slugs even when the two Event UUIDs have not changed", async () => {
+    const session = await createOwnerAndSession();
+    const ceremony = await prisma.event.findUniqueOrThrow({
+      where: { slug: "ceremony" },
+    });
+    const reception = await createEvent({ slug: "reception", displayOrder: 2 });
+    const preview = await upload(app, session, twoSessionCsv());
+    expect(preview.statusCode).toBe(201);
+    const previewId: string = preview.json().previewId;
+
+    const moved = await manageEvent(
+      app,
+      session,
+      { slug: "ceremony-moved", displayOrder: 1 },
+      ceremony,
+    );
+    expect(moved.statusCode).toBe(200);
+    expect(
+      (
+        await manageEvent(
+          app,
+          session,
+          { slug: "ceremony", displayOrder: 2 },
+          reception,
+        )
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await manageEvent(
+          app,
+          session,
+          { slug: "reception", displayOrder: 1 },
+          {
+            id: ceremony.id,
+            version: moved.json().version,
+          },
+        )
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      await prisma.event.findUnique({
+        where: { slug: "ceremony" },
+        select: { id: true },
+      }),
+    ).toEqual({ id: reception.id });
+    expect(
+      await prisma.event.findUnique({
+        where: { slug: "reception" },
+        select: { id: true },
+      }),
+    ).toEqual({ id: ceremony.id });
+
+    await expectStaleCommit(app, session, {
+      previewId,
+      includeRowNumbers: [2],
+    });
+  });
+
+  it.each([
+    "reordered pairs",
+    "case-insensitive duplicate",
+    "mismatched pairs",
+    "unknown UUID",
+  ] as const)(
+    "validates stored %s against the current Event identities",
+    async (variant) => {
+      const session = await createOwnerAndSession();
+      const ceremony = await prisma.event.findUniqueOrThrow({
+        where: { slug: "ceremony" },
+      });
+      const reception = await createEvent({
+        slug: "reception",
+        displayOrder: 2,
+      });
+      const preview = await upload(app, session, twoSessionCsv());
+      expect(preview.statusCode).toBe(201);
+      const previewId: string = preview.json().previewId;
+      const { normalizedRows } =
+        await prisma.guestImportPreview.findUniqueOrThrow({
+          where: { id: previewId },
+        });
+      const [row] = normalizedRows as Array<{
+        eventSlugs: string[];
+        input: { eventIds: string[] };
+      }>;
+      if (!row) throw new Error("Expected a persisted preview row");
+      expect(row.eventSlugs).toEqual([ceremony.slug, reception.slug]);
+      expect(row.input.eventIds).toEqual([ceremony.id, reception.id]);
+
+      const [eventSlugs, eventIds] = (
+        {
+          "reordered pairs": [
+            [reception.slug, ceremony.slug],
+            [reception.id.toUpperCase(), ceremony.id],
+          ],
+          "case-insensitive duplicate": [
+            row.eventSlugs,
+            [ceremony.id, ceremony.id.toUpperCase()],
+          ],
+          "mismatched pairs": [row.eventSlugs, [reception.id, ceremony.id]],
+          "unknown UUID": [row.eventSlugs, [ceremony.id, randomUUID()]],
+        } satisfies Record<typeof variant, [string[], string[]]>
+      )[variant];
+      await prisma.guestImportPreview.update({
+        where: { id: previewId },
+        data: {
+          normalizedRows: [
+            { ...row, eventSlugs, input: { ...row.input, eventIds } },
+          ],
+        },
+      });
+
+      if (variant === "reordered pairs") {
+        const result = await commitImport(app, session, {
+          previewId,
+          includeRowNumbers: [2],
+          acknowledgedWarningRowNumbers: [],
+        });
+        expect(result.statusCode).toBe(200);
+        const assignments = await prisma.invitationEvent.findMany({
+          select: { eventId: true },
+        });
+        expect(assignments.map(({ eventId }) => eventId).sort()).toEqual(
+          [ceremony.id, reception.id].sort(),
+        );
+      } else {
+        await expectStaleCommit(app, session, {
+          previewId,
+          includeRowNumbers: [2],
+        });
+      }
+    },
+  );
+
+  it("replays the original committed receipt after historical Event identity drift", async () => {
+    const session = await createOwnerAndSession();
+    const preview = await upload(
+      app,
+      session,
+      validCsvFile("Historical receipt household"),
+    );
+    expect(preview.statusCode).toBe(201);
+    const command = {
+      previewId: preview.json().previewId as string,
+      includeRowNumbers: [2],
+      acknowledgedWarningRowNumbers: [],
+    };
+    const first = await commitImport(app, session, command);
+    expect(first.statusCode).toBe(200);
+
+    // Model historical data drift. Event Management disallows this rename
+    // after the first import has created an eligibility reference.
+    const original = await prisma.event.update({
+      where: { slug: "ceremony" },
+      data: { slug: "ceremony-moved", isActive: false },
+    });
+    expect(
+      (await manageEvent(app, session, { slug: "ceremony", displayOrder: 2 }))
+        .statusCode,
+    ).toBe(200);
+
+    const beforeReplay = await counts();
+    const replay = await commitImport(app, session, command);
+    const different = await commitImport(app, session, {
+      ...command,
+      includeRowNumbers: [3],
+    });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(first.json());
+    expect(different.statusCode).toBe(409);
+    expect(different.json().error.code).toBe(
+      "IMPORT_PREVIEW_ALREADY_COMMITTED",
+    );
+    expect(await counts()).toEqual(beforeReplay);
+    expect(
+      await prisma.invitationEvent.findMany({ select: { eventId: true } }),
+    ).toEqual([{ eventId: original.id }]);
+  });
+
+  it("waits for concurrent Event Management under row locks and rechecks the approved slug", async () => {
+    const session = await createOwnerAndSession();
+    const ceremony = await prisma.event.findUniqueOrThrow({
+      where: { slug: "ceremony" },
+    });
+    const preview = await upload(
+      app,
+      session,
+      validCsvFile("Concurrent event configuration"),
+    );
+    expect(preview.statusCode).toBe(201);
+    const previewId: string = preview.json().previewId;
+    const gate = new Client({ connectionString: getDatabaseUrl() });
+    await gate.connect();
+    let rename: ReturnType<typeof manageEvent> | undefined;
+    let commit: ReturnType<typeof commitImport> | undefined;
+    const before = await counts();
+    try {
+      await gate.query("BEGIN");
+      await gate.query("SELECT id FROM events WHERE id = $1 FOR UPDATE", [
+        ceremony.id,
+      ]);
+      rename = manageEvent(
+        app,
+        session,
+        { slug: "ceremony-moved", displayOrder: 1 },
+        ceremony,
+      );
+      await waitForEventLock("FOR UPDATE");
+      commit = commitImport(app, session, {
+        previewId,
+        includeRowNumbers: [2],
+        acknowledgedWarningRowNumbers: [],
+      });
+      await waitForEventLock("FOR SHARE");
+      await gate.query("COMMIT");
+
+      expect((await rename).statusCode).toBe(200);
+      await expectStaleResponse(previewId, before, await commit);
+    } finally {
+      await gate.query("ROLLBACK");
+      await gate.end();
+      await Promise.allSettled([rename, commit]);
+    }
   });
 
   it("serializes concurrent commits for the same preview without duplicate invitation writes", async () => {
