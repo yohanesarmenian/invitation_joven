@@ -140,6 +140,34 @@ describe("OpenAPI contract", () => {
     const adminDashboardPath = document.paths["/api/admin/dashboard"];
     const adminEventsPath = document.paths["/api/admin/events"];
     const adminInvitationsPath = document.paths["/api/admin/invitations"];
+    const invitationFilters = adminInvitationsPath?.get?.parameters ?? [];
+    expect(
+      invitationFilters.filter(
+        (parameter) => "name" in parameter && parameter.name === "eligibility",
+      ),
+    ).toEqual([
+      {
+        in: "query",
+        name: "eligibility",
+        required: false,
+        schema: {
+          type: "string",
+          enum: ["includes", "exact", "none", "legacy"],
+        },
+      },
+    ]);
+    expect(
+      invitationFilters.filter(
+        (parameter) => "name" in parameter && parameter.name === "opening",
+      ),
+    ).toEqual([
+      {
+        in: "query",
+        name: "opening",
+        required: false,
+        schema: { type: "string", enum: ["opened", "unopened"] },
+      },
+    ]);
     const adminInvitationDetailPath =
       document.paths["/api/admin/invitations/{invitationId}"];
     const adminInvitationPublicUrlPath =
@@ -899,13 +927,37 @@ describe("OpenAPI contract", () => {
     });
     expect(
       Object.keys(adminInvitationRsvpSummarySchema!.properties).sort(),
-    ).toEqual(["lastUpdatedAt", "status", "submittedAt", "version"]);
-    expect(adminInvitationRsvpSummarySchema!.required.sort()).toEqual([
+    ).toEqual([
+      "attendingEvents",
       "lastUpdatedAt",
       "status",
       "submittedAt",
       "version",
     ]);
+    expect([...adminInvitationRsvpSummarySchema!.required].sort()).toEqual([
+      "attendingEvents",
+      "lastUpdatedAt",
+      "status",
+      "submittedAt",
+      "version",
+    ]);
+    expect(
+      adminInvitationRsvpSummarySchema!.properties.attendingEvents,
+    ).toEqual({
+      type: "array",
+      items: { $ref: "#/components/schemas/AdminEventDto" },
+    });
+    expect(schemas.AdminEventDto).toEqual({
+      type: "object",
+      properties: {
+        id: { type: "string", format: "uuid" },
+        slug: { type: "string" },
+        name: { type: "string" },
+        isActive: { type: "boolean" },
+        displayOrder: { type: "number" },
+      },
+      required: ["id", "slug", "name", "isActive", "displayOrder"],
+    });
     for (const field of [
       "attendeeQuantityTotal",
       "attendees",

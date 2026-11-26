@@ -8,7 +8,6 @@ import {
   type SearchParams,
 } from "../../../src/invitations/query";
 import { InvitationResults } from "../../../components/invitation-list";
-import { InvitationFilters } from "../../../components/invitation-filters";
 export default async function InvitationsPage({
   searchParams,
 }: {
@@ -29,7 +28,9 @@ export default async function InvitationsPage({
         <div>
           <p className="eyebrow">Guest management</p>
           <h1>Invitations</h1>
-          <p>Manage your guest list and follow RSVP activity.</p>
+          <p>
+            Find households, review session eligibility and share invitations.
+          </p>
         </div>
         <div className="invitation-actions">
           <Link
@@ -63,10 +64,6 @@ export default async function InvitationsPage({
               Invitation created.
             </p>
           )}
-          <InvitationFilters
-            key={"filters-" + queryString(query)}
-            query={query}
-          />
           <Suspense
             key={"results-" + queryString(query)}
             fallback={<p role="status">Loading invitations…</p>}

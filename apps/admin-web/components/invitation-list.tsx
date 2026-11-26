@@ -4,6 +4,11 @@ import type { AdminInvitationListResponse } from "@wedding-invitation/api-client
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 import { getInvitations } from "../src/invitations/server-invitations";
 import { listHref, type InvitationQuery } from "../src/invitations/query";
+import { MAX_ELIGIBLE_SESSIONS } from "../src/invitations/session-selection";
+import { InvitationRowSharing } from "./invitation-row-sharing";
+import { InvitationFilters } from "./invitation-filters";
+import { InvitationSessionLabels } from "./invitation-session-labels";
+import { InvitationResultsHeading } from "./invitation-results-heading";
 
 export function InvitationReadError({
   forbidden,
@@ -47,6 +52,73 @@ function DateValue({ value, empty }: { value: string | null; empty: string }) {
     <span>{empty}</span>
   );
 }
+function InvitationOverview({
+  overview,
+}: {
+  overview: AdminInvitationListResponse["overview"];
+}) {
+  return (
+    <section
+      className="invitation-overview"
+      aria-labelledby="invitation-overview-heading"
+    >
+      <h2 id="invitation-overview-heading">Active invitation overview</h2>
+      <p className="hint">All active households, across filters and pages.</p>
+      <dl className="invitation-overview-metrics">
+        <div>
+          <dt>Households</dt>
+          <dd>{overview.households}</dd>
+        </div>
+        <div>
+          <dt>Named guests</dt>
+          <dd>{overview.namedGuests}</dd>
+        </div>
+        <div>
+          <dt>Opened</dt>
+          <dd>{overview.opened}</dd>
+        </div>
+        <div>
+          <dt>Unopened</dt>
+          <dd>{overview.unopened}</dd>
+        </div>
+        <div>
+          <dt>Accepted</dt>
+          <dd>{overview.rsvp.accepted}</dd>
+        </div>
+        <div>
+          <dt>Pending</dt>
+          <dd>{overview.rsvp.pending}</dd>
+        </div>
+        <div>
+          <dt>Declined</dt>
+          <dd>{overview.rsvp.declined}</dd>
+        </div>
+      </dl>
+      <h3>Eligible households by session</h3>
+      <p className="hint">
+        A household can count in several sessions. Eligibility is permission to
+        attend. Opening activity measures recorded link opens; delivery status
+        is unavailable.
+      </p>
+      {overview.events.length > 0 ? (
+        <ul className="invitation-overview-sessions">
+          {overview.events.map((event) => (
+            <li key={event.id}>
+              <span>
+                {event.name}
+                {!event.isActive && " · Inactive"}
+              </span>
+              <strong>{event.eligibleHouseholds}</strong>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No wedding sessions in the catalog.</p>
+      )}
+    </section>
+  );
+}
+
 export function InvitationList({
   data,
   query,
@@ -55,11 +127,17 @@ export function InvitationList({
   query: InvitationQuery;
 }) {
   const { items, page } = data;
-  const filtered = Boolean(query.search || query.status || query.rsvpStatus);
+  const filtered = Boolean(
+    query.search ||
+    query.status ||
+    query.rsvpStatus ||
+    query.eligibility ||
+    query.opening,
+  );
   return (
     <section aria-label="Invitation results" className="invitation-results">
       <div className="results-heading">
-        <h2>Invitations</h2>
+        <InvitationResultsHeading />
         <p>
           {page.totalItems}{" "}
           {page.totalItems === 1 ? "invitation" : "invitations"}
@@ -128,19 +206,19 @@ export function InvitationList({
                     Status
                   </th>
                   <th scope="col" role="columnheader">
+                    Eligible sessions
+                  </th>
+                  <th scope="col" role="columnheader">
                     RSVP
                   </th>
                   <th scope="col" role="columnheader">
-                    Invitees
+                    Named guests
                   </th>
                   <th scope="col" role="columnheader">
-                    Opens
+                    Opening activity
                   </th>
                   <th scope="col" role="columnheader">
-                    Last opened
-                  </th>
-                  <th scope="col" role="columnheader">
-                    RSVP deadline
+                    Sharing
                   </th>
                 </tr>
               </thead>
@@ -182,6 +260,35 @@ export function InvitationList({
                     </td>
                     <td
                       role="cell"
+                      className="invitation-eligibility-cell"
+                      data-label="Eligible sessions"
+                    >
+                      <InvitationSessionLabels
+                        sessions={item.eligibleEvents}
+                        empty="No eligible sessions"
+                      />
+                      {(!item.eligibleEvents.length ||
+                        item.eligibleEvents.length > MAX_ELIGIBLE_SESSIONS) && (
+                        <div className="invitation-eligibility-warning">
+                          {item.eligibleEvents.length >
+                            MAX_ELIGIBLE_SESSIONS && (
+                            <span>
+                              Legacy eligibility exceeds two sessions.
+                            </span>
+                          )}
+                          <Link
+                            href={`/invitations/${item.id}#eligible-events-title`}
+                            prefetch={false}
+                          >
+                            {item.status === "ACTIVE"
+                              ? "Review eligibility"
+                              : "View eligibility"}
+                          </Link>
+                        </div>
+                      )}
+                    </td>
+                    <td
+                      role="cell"
                       className="invitation-rsvp-cell"
                       data-label="RSVP"
                     >
@@ -199,33 +306,55 @@ export function InvitationList({
                     <td
                       role="cell"
                       className="invitation-invitees-cell"
-                      data-label="Invitees"
+                      data-label="Named guests"
                     >
                       {item.inviteeCount}
                     </td>
                     <td
                       role="cell"
-                      className="invitation-opens-cell"
-                      data-label="Opens"
+                      className="invitation-activity-cell"
+                      data-label="Opening activity"
                     >
-                      {item.openCount}
+                      <span>
+                        {item.openCount === 0
+                          ? "Not opened"
+                          : `${item.openCount} ${item.openCount === 1 ? "open" : "opens"}`}
+                      </span>
+                      <details className="invitation-row-history">
+                        <summary>History and deadline</summary>
+                        <dl>
+                          <dt>Last opened</dt>
+                          <dd>
+                            <DateValue
+                              value={item.lastOpenedAt}
+                              empty="Not opened"
+                            />
+                          </dd>
+                          <dt>RSVP deadline</dt>
+                          <dd>
+                            <DateValue
+                              value={item.rsvpDeadlineAt}
+                              empty="Wedding default"
+                            />
+                          </dd>
+                        </dl>
+                      </details>
                     </td>
                     <td
                       role="cell"
-                      className="invitation-opened-cell"
-                      data-label="Last opened"
+                      data-label="Sharing"
+                      className="invitation-sharing-cell"
                     >
-                      <DateValue value={item.lastOpenedAt} empty="Not opened" />
-                    </td>
-                    <td
-                      role="cell"
-                      className="invitation-deadline-cell"
-                      data-label="RSVP deadline"
-                    >
-                      <DateValue
-                        value={item.rsvpDeadlineAt}
-                        empty="Wedding default"
-                      />
+                      {item.status !== "ACTIVE" ? (
+                        <span>Unavailable for archived invitations</span>
+                      ) : data.publicInvitationOrigin ? (
+                        <InvitationRowSharing
+                          invitationId={item.id}
+                          publicInvitationOrigin={data.publicInvitationOrigin}
+                        />
+                      ) : (
+                        <span>Sharing unavailable</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -269,5 +398,18 @@ export async function InvitationResults({ query }: { query: InvitationQuery }) {
         href={listHref(query, query.page)}
       />
     );
-  return <InvitationList data={result.data} query={query} />;
+  return (
+    <>
+      <InvitationOverview overview={result.data.overview} />
+      <InvitationFilters
+        query={query}
+        events={result.data.overview.events.map(({ id, name, isActive }) => ({
+          id,
+          name,
+          isActive,
+        }))}
+      />
+      <InvitationList data={result.data} query={query} />
+    </>
+  );
 }

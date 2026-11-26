@@ -192,9 +192,12 @@ export async function archiveInvitation(
 
 export async function loadPublicUrl(
   invitationId: string,
+  signal?: AbortSignal,
 ): Promise<PublicUrlResult> {
   try {
-    const { data, response } = await client().GET(publicUrlPath(invitationId));
+    const { data, response } = await client().GET(publicUrlPath(invitationId), {
+      signal,
+    });
     if (response.status === 200)
       return isPublicUrl(data)
         ? { kind: "loaded", data }

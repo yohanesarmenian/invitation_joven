@@ -11,6 +11,7 @@ vi.mock("../src/invitations/server-invitations", () => ({
   getInvitationDetail: read,
 }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/invitations",
   useRouter: () => ({ push: vi.fn() }),
   redirect: (path: string) => {
     throw new Error(`redirect:${path}`);
@@ -66,7 +67,7 @@ it("maps distinct fields with Jakarta dates and no raw IDs or credentials", () =
     "Active",
     "Accepted",
     ">3<",
-    ">7<",
+    ">7 opens<",
     "02 Oct 2026, 00:30",
     "25 Dec 2026, 23:59",
   ])
@@ -90,8 +91,11 @@ it("keeps one semantic table and one detail link per invitation for responsive r
   expect(html).toContain(
     '<th scope="row" role="rowheader" class="invitation-identity">',
   );
-  expect(html.match(/<a\b/g)).toHaveLength(list.items.length);
-  expect(html).toContain(`href="/invitations/${list.items[0]!.id}"`);
+  const identities = html.match(/<th scope="row"[\s\S]*?<\/th>/g) ?? [];
+  expect(identities).toHaveLength(list.items.length);
+  expect(identities[0]?.match(/<a\b/g)).toHaveLength(1);
+  expect(identities[0]).toContain(`href="/invitations/${list.items[0]!.id}"`);
+  expect(html).toContain(`href="/invitations/${list.items[0]!.id}#sharing"`);
   expect(html).toContain(
     '<span class="invitation-name">Sample household</span>',
   );
@@ -103,10 +107,10 @@ it("keeps one semantic table and one detail link per invitation for responsive r
   for (const label of [
     "Status",
     "RSVP",
-    "Invitees",
-    "Opens",
-    "Last opened",
-    "RSVP deadline",
+    "Named guests",
+    "Eligible sessions",
+    "Opening activity",
+    "Sharing",
   ])
     expect(html).toContain(`data-label="${label}"`);
   expect(html).not.toContain("scroll the table horizontally");
@@ -142,8 +146,10 @@ it.each([
     expect(html).toContain(
       `data-rsvp-status="${rsvpStatus}">${rsvpLabel}</span>`,
     );
-    expect(html).toContain('data-label="Invitees">0</td>');
-    expect(html).toContain('data-label="Opens">0</td>');
+    expect(html).toContain('data-label="Named guests">0</td>');
+    expect(html).toContain(
+      'data-label="Opening activity"><span>Not opened</span>',
+    );
     expect(html).toContain("Not opened");
     expect(html).toContain("Wedding default");
     expect(html).not.toContain('class="greeting-name"');
@@ -201,7 +207,7 @@ it.each([
             ? parseInvitationQuery({ search: "Sample", page: "2" })!
             : query
         }
-        data={{ items: [], page: { ...list.page, totalItems } }}
+        data={{ ...list, items: [], page: { ...list.page, totalItems } }}
       />,
     );
     expect(html).toContain(`<h3>${heading}</h3>`);

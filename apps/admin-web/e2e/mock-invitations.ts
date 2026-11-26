@@ -30,7 +30,17 @@ function rowsFor(email: string) {
     status: index % 2 ? ("ARCHIVED" as const) : ("ACTIVE" as const),
     rsvpStatus: (["PENDING", "ACCEPTED", "DECLINED"] as const)[index % 3]!,
     inviteeCount: index + 1,
-    openCount: index + 3,
+    openCount: index % 4 === 3 ? 0 : index + 3,
+    eligibleEvents:
+      index === 0
+        ? [events[0]!, events[1]!]
+        : [
+            [events[0]!],
+            [events[1]!],
+            [events[0]!, events[1]!],
+            [],
+            [...events],
+          ][index % 5]!,
   }));
   const rows = [...(created.get(email) ?? []), ...baseRows];
   for (const row of rows) {
@@ -45,12 +55,20 @@ function rowsFor(email: string) {
         openCount: row.openCount,
         lastOpenedAt: row.lastOpenedAt,
         rsvpDeadlineAt: row.rsvpDeadlineAt,
+        eligibility: row.eligibleEvents.map((event) => ({ event })),
         archivedAt: row.archivedAt,
       });
       publicVersions.set(key, 1);
     }
   }
-  return rows;
+  return rows.map((row) => {
+    const current = details.get(stateKey(email, row.id))!;
+    return {
+      ...row,
+      status: current.status,
+      eligibleEvents: current.eligibility.map(({ event }) => event),
+    };
+  });
 }
 function syncRow(email: string, next: Detail) {
   const update = (row: Row): Row =>
@@ -61,6 +79,7 @@ function syncRow(email: string, next: Detail) {
           greetingName: next.greetingName,
           status: next.status,
           openCount: next.openCount,
+          eligibleEvents: next.eligibility.map(({ event }) => event),
           inviteeCount: next.invitees.length,
           lastOpenedAt: next.lastOpenedAt,
           rsvpDeadlineAt: next.rsvpDeadlineAt,
@@ -172,7 +191,12 @@ export async function mockInvitations(
         return true;
       }
       if (!action) {
-        response.end(JSON.stringify({ invitation: current }));
+        response.end(
+          JSON.stringify({
+            invitation: current,
+            publicInvitationOrigin: "http://localhost:3000",
+          }),
+        );
         return true;
       }
       if (action === "public-url") {
@@ -193,6 +217,41 @@ export async function mockInvitations(
     let rows: Row[] = session.email.startsWith("list-empty")
       ? []
       : rowsFor(session.email);
+    const active = rows.filter((row) => row.status === "ACTIVE");
+    const overview = {
+      households: active.length,
+      namedGuests: active.reduce((total, row) => total + row.inviteeCount, 0),
+      opened: active.filter((row) => row.openCount > 0).length,
+      unopened: active.filter((row) => row.openCount === 0).length,
+      rsvp: {
+        pending: active.filter((row) => row.rsvpStatus === "PENDING").length,
+        accepted: active.filter((row) => row.rsvpStatus === "ACCEPTED").length,
+        declined: active.filter((row) => row.rsvpStatus === "DECLINED").length,
+      },
+      events: session.email.startsWith("list-empty")
+        ? []
+        : events.map((event) => ({
+            ...event,
+            eligibleHouseholds: active.filter((row) =>
+              row.eligibleEvents.some(({ id }) => id === event.id),
+            ).length,
+          })),
+    };
+    const eligibility = url.searchParams.get("eligibility");
+    const selectedEvents = [
+      url.searchParams.get("eventId"),
+      url.searchParams.get("secondEventId"),
+    ].filter(Boolean);
+    const opening = url.searchParams.get("opening");
+    rows = rows.filter((row) => {
+      const ids = row.eligibleEvents.map(({ id }) => id);
+      if (eligibility === "none" && ids.length) return false;
+      if (eligibility === "legacy" && ids.length <= 2) return false;
+      if (eligibility === "exact" && selectedEvents.length !== ids.length)
+        return false;
+      if (selectedEvents.some((id) => !ids.includes(id!))) return false;
+      return !opening || (opening === "opened") === row.openCount > 0;
+    });
     for (const field of ["status", "rsvpStatus"] as const) {
       const value = url.searchParams.get(field);
       if (value) rows = rows.filter((row) => row[field] === value);
@@ -214,6 +273,8 @@ export async function mockInvitations(
     response.end(
       JSON.stringify({
         items: rows.slice((page - 1) * pageSize, page * pageSize),
+        publicInvitationOrigin: "http://localhost:3000",
+        overview,
         page: {
           number: page,
           pageSize,
@@ -247,6 +308,9 @@ export async function mockInvitations(
       displayName: body.displayName,
       greetingName: body.greetingName,
       inviteeCount: body.invitees.length,
+      eligibleEvents: events.filter((event) =>
+        body.eventIds.includes(event.id),
+      ),
       openCount: 0,
       rsvpStatus: "PENDING" as const,
       lastOpenedAt: null,

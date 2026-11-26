@@ -16,6 +16,7 @@ export default defineConfig({
     "**/deadline.e2e.ts",
     "**/catering-rsvp.e2e.ts",
     "**/invitation-remediation.e2e.ts",
+    "**/invitation-management.e2e.ts",
     "**/conditional-rsvp.e2e.ts",
   ],
   workers: 1,

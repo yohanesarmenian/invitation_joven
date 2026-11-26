@@ -806,9 +806,13 @@ Query:
 - `search`: matches `Invitation.displayName`, `Invitation.greetingName`, or a related `Invitee.fullName`.
 - `sortBy`: `createdAt` | `updatedAt` | `displayName` | `status` | `lastOpenedAt`. Default `createdAt`.
 - `sortOrder`: `asc` | `desc`. Default `desc`.
-- `page`, `pageSize`: shared pagination.
+- `page`, `pageSize`: shared pagination. Sorting uses invitation ID ascending as the final tie-breaker.
+- `eligibility` omitted: any eligibility. `includes` requires one or two event UUIDs and matches households eligible for every selected session, including households with additional sessions. `exact` requires the same UUID input and matches households with precisely that set. `none` matches zero sessions. `legacy` matches more than two.
+- `eventId` is required with `includes` and `exact`. `secondEventId` is optional. Both IDs are case-insensitive UUIDs, and a second ID must be distinct. Omit both IDs for `none`, `legacy`, or an omitted eligibility mode. A valid unknown UUID returns zero matches. Inactive Event UUIDs match saved eligibility normally.
+- `opening`: `opened` means `openCount > 0`, `unopened` means `openCount = 0`, and omission means either. Opening measures recorded public link access. Delivery and readership are unavailable.
+- Unknown keys, repeated parameters, malformed IDs, unsupported or empty new filter values, and conflicting eligibility parameters return `400 VALIDATION_ERROR`. All effective filters apply before pagination to both rows and `page.totalItems`.
 
-Item:
+Response:
 
 ```json
 {
@@ -820,6 +824,15 @@ Item:
       "status": "ACTIVE",
       "rsvpStatus": "ACCEPTED",
       "inviteeCount": 3,
+      "eligibleEvents": [
+        {
+          "id": "31820f68-9031-4e66-aadd-541c2fc75a26",
+          "slug": "ceremony",
+          "name": "Ceremony",
+          "isActive": true,
+          "displayOrder": 1
+        }
+      ],
       "openCount": 4,
       "lastOpenedAt": "2026-09-29T10:15:00.000Z",
       "rsvpDeadlineAt": "2026-12-25T16:59:59.000Z",
@@ -828,11 +841,33 @@ Item:
       "archivedAt": null
     }
   ],
-  "page": { "number": 1, "pageSize": 25, "totalItems": 1, "totalPages": 1 }
+  "page": { "number": 1, "pageSize": 25, "totalItems": 1, "totalPages": 1 },
+  "publicInvitationOrigin": "https://invite.example.com",
+  "overview": {
+    "households": 1,
+    "namedGuests": 3,
+    "opened": 1,
+    "unopened": 0,
+    "rsvp": { "accepted": 1, "pending": 0, "declined": 0 },
+    "events": [
+      {
+        "id": "31820f68-9031-4e66-aadd-541c2fc75a26",
+        "slug": "ceremony",
+        "name": "Ceremony",
+        "isActive": true,
+        "displayOrder": 1,
+        "eligibleHouseholds": 1
+      }
+    ]
+  }
 }
 ```
 
-`rsvpStatus` is the persisted RSVP status, or `PENDING` when no RSVP row exists.
+`rsvpStatus` is the persisted RSVP status, or `PENDING` when no RSVP row exists. `eligibleEvents` includes every saved relation ordered by Event display order then UUID, including inactive sessions, legacy sets, or an empty array.
+
+`overview` is the unfiltered **active invitation** scope from the same repeatable-read snapshot as the list and page count. `namedGuests` counts stored named invitees for active households independently from RSVP and allowances. Opening and RSVP totals count households. Each catalog Event includes the count of active households eligible for that Event, including retained inactive links and legacy eligibility. A household can contribute to several event counts, and events without eligibility have zero. Eligibility counts measure invitations, while the saved RSVP summarizes attendance separately.
+
+`publicInvitationOrigin` provides the configured bare public origin for client-side verification of an explicitly fetched link. It is nullable when sharing configuration is unavailable. It contains no invitation path or credential.
 
 Not in the list item: the public credential, public URL, `publicTokenHash`, `publicTokenVersion`, `notes`, invitee arrays, messages, `qrPayload`, pass credentials, and a guest-message count. The list is a summary; use the detail endpoint for relations.
 
@@ -898,13 +933,15 @@ Create retry doctrine — **create is not idempotent** and no idempotency key is
 
 Authentication: OWNER.
 
+When configured, the response also includes the bare `publicInvitationOrigin` for the same explicit sharing verification used by the list.
+
 Response fields: `id`, `displayName`, `greetingName`, `status`, `allowPlusOne`, `maxAdditionalChildren`, `rsvpDeadlineAt`, `notes`, `publicTokenVersion`, `openCount`, `firstOpenedAt`, `lastOpenedAt`, `createdAt`, `updatedAt`, `archivedAt`.
 
 Embedded relations:
 
 - `invitees` — full invitee DTOs (`id`, `fullName`, `category`, `label`, `displayOrder`, `updatedAt`).
 - `eligibility` — current `InvitationEvent` rows with safe `Event` metadata (`id`, `slug`, `name`, `isActive`, `displayOrder`).
-- RSVP summary/detail sufficient for the invitation detail page, including `status` and `version`.
+- RSVP summary includes `status`, `version`, and `attendingEvents`, the safe Event metadata for saved selections with `attending = true`, in Event display order and UUID order. Current eligibility is reported separately.
 - Message summary only: `total` and `hidden` counts.
 - Check-in pass **metadata history** when an RSVP exists: `status`, `issuedAt`, `revokedAt`, `revocationReason`, `expiresAt`. `credentialVersion` may be included as operational metadata.
 

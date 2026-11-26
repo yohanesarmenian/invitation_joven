@@ -7,6 +7,7 @@ import type {
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
 import type { FormErrors } from "../src/invitations/form-state";
 import { updateInvitation } from "../src/invitations/lifecycle";
+import { useHydrated } from "../src/invitations/use-hydrated";
 import {
   readWibMinuteAtSave,
   wibMinuteError,
@@ -60,6 +61,7 @@ export function EditInvitationForm({
   csrfToken: string;
   invitation: Invitation;
 }) {
+  const hydrated = useHydrated();
   const expectedUpdatedAt = useRef(invitation.updatedAt);
   const token = useRef(csrfToken);
   const busy = useRef(false);
@@ -225,6 +227,7 @@ export function EditInvitationForm({
             id="deadline"
             label="RSVP deadline"
             clearLabel="Clear RSVP deadline"
+            clearDisabled={!hydrated}
             original={invitation.rsvpDeadlineAt}
             edit={deadlineEdit}
             onEdit={setDeadlineEdit}

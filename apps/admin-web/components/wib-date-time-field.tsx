@@ -16,6 +16,7 @@ export function WibDateTimeField({
   edit,
   onEdit,
   disabled,
+  clearDisabled,
   error,
   help,
 }: {
@@ -26,6 +27,7 @@ export function WibDateTimeField({
   edit?: WibMinuteEdit;
   onEdit: (edit: WibMinuteEdit) => void;
   disabled?: boolean;
+  clearDisabled?: boolean;
   error?: string;
   help?: string;
 }) {
@@ -66,7 +68,7 @@ export function WibDateTimeField({
       )}
       <button
         type="button"
-        disabled={disabled}
+        disabled={disabled || clearDisabled}
         onClick={() => {
           // Reset incomplete segments even when the exposed value is already empty.
           if (input.current) input.current.value = "";

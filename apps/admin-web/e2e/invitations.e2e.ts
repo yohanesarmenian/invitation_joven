@@ -90,6 +90,295 @@ test("list fields, URL search/filter/sort/page state, refresh and back", async (
     page.getByLabel("Invitation status", { exact: true }),
   ).toHaveValue("");
 });
+test("sharing keeps delayed responses on their row and uses an honest clipboard fallback", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async () => {
+          throw new Error("Test clipboard unavailable");
+        },
+      },
+    });
+  });
+  await login(page, "sharing-owner@example.com");
+  await page.goto("/invitations");
+  const results = page.getByRole("region", { name: "Invitation results" });
+  const first = results.getByRole("row").filter({ hasText: "Household 01" });
+  const second = results.getByRole("row").filter({ hasText: "Household 03" });
+  const firstId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000001";
+  const secondId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000003";
+  const firstLink = `http://localhost:3000/i/${"a".repeat(43)}`;
+  const secondLink = `http://localhost:3000/i/${"b".repeat(43)}`;
+  const wrongOriginLink = `https://untrusted.example.invalid/i/${"c".repeat(43)}`;
+  const calls: string[] = [];
+  let releaseFirst: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  await page.route("**/api/admin/invitations/*/public-url", async (route) => {
+    const id = new URL(route.request().url()).pathname.split("/")[4]!;
+    calls.push(id);
+    if (id === firstId) await held;
+    await route.fulfill({
+      status: 200,
+      json: {
+        publicTokenVersion: 1,
+        publicUrl:
+          id === firstId
+            ? firstLink
+            : id === secondId
+              ? secondLink
+              : wrongOriginLink,
+      },
+    });
+  });
+  try {
+    await expect(
+      first.getByRole("button", { name: "Copy link" }),
+    ).toBeEnabled();
+    expect(calls).toEqual([]);
+    await first.getByRole("button", { name: "Copy link" }).press("Enter");
+    await expect(
+      first.getByRole("button", { name: "Prepare WhatsApp" }),
+    ).toBeDisabled();
+    await expect.poll(() => calls).toEqual([firstId]);
+    await second.getByRole("button", { name: "Copy link" }).click();
+    await expect(second).toContainText("Another link is being copied");
+    expect(calls).toEqual([firstId]);
+    await second.getByRole("button", { name: "Prepare WhatsApp" }).click();
+    const handoff = second.getByRole("button", { name: "Open WhatsApp" });
+    await expect(handoff).toBeVisible();
+    await expect(second).toContainText("Review the recipient");
+    await expect(
+      first.getByRole("button", { name: "Open WhatsApp" }),
+    ).toHaveCount(0);
+    releaseFirst();
+    await expect(first.getByLabel("Current link")).toHaveValue(firstLink);
+    await expect(
+      second.getByRole("button", { name: "Prepare WhatsApp" }),
+    ).toBeFocused();
+    await expect(first).toContainText("Clipboard unavailable");
+    await expect(first).not.toContainText("Invitation link copied.");
+    await expect(second.getByLabel("Current link")).toHaveCount(0);
+    expect(calls).toEqual([firstId, secondId]);
+    expect(page.url().includes("/i/")).toBe(false);
+    expect(
+      await page.evaluate(
+        () =>
+          ![
+            ...Object.values(localStorage),
+            ...Object.values(sessionStorage),
+          ].some((value) => value.includes("localhost:3000/i/")),
+      ),
+    ).toBe(true);
+    await first.getByRole("button", { name: "Dismiss prepared link" }).click();
+    await expect(first.getByLabel("Current link")).toHaveCount(0);
+    const third = results.getByRole("row").filter({ hasText: "Household 05" });
+    await third.getByRole("button", { name: "Prepare WhatsApp" }).click();
+    await expect(third.getByRole("alert")).toContainText(
+      "could not be verified",
+    );
+    await expect(
+      third.getByRole("button", { name: "Open WhatsApp" }),
+    ).toHaveCount(0);
+    expect((await page.content()).includes(wrongOriginLink)).toBe(false);
+
+    await page.context().route("https://wa.me/**", async (route) => {
+      expect(
+        new URL(route.request().url()).searchParams
+          .get("text")
+          ?.endsWith(secondLink),
+      ).toBe(true);
+      expect(route.request().headers().referer).toBeUndefined();
+      await route.fulfill({
+        status: 200,
+        contentType: "text/plain",
+        body: "Synthetic handoff",
+      });
+    });
+    await handoff.click();
+    await expect(page).toHaveURL(/^https:\/\/wa\.me\//);
+    await expect(page.getByText("Synthetic handoff")).toBeVisible();
+    expect(calls).toEqual([
+      firstId,
+      secondId,
+      "aaaaaaaa-aaaa-4aaa-8aaa-000000000005",
+      secondId,
+    ]);
+  } finally {
+    releaseFirst();
+  }
+});
+
+test("WhatsApp freshness rejects unexpected responses without opening an external page", async ({
+  page,
+  context,
+}) => {
+  await login(page, "sharing-check-owner@example.com");
+  await page.goto("/invitations");
+  const row = page.getByRole("row").filter({ hasText: "Household 01" });
+  const prepare = row.getByRole("button", { name: "Prepare WhatsApp" });
+  const handoff = row.getByRole("button", { name: "Open WhatsApp" });
+  const valid = `http://localhost:3000/i/${"a".repeat(43)}`;
+  const endpoint = "**/api/admin/invitations/*/public-url";
+  let external = 0;
+  await context.route("https://wa.me/**", async (route) => {
+    external += 1;
+    await route.abort();
+  });
+  const failures = [
+    { status: 403, message: "not authorized" },
+    { status: 404, message: "could not be found" },
+    {
+      status: 200,
+      publicUrl: "https://untrusted.example.invalid" + new URL(valid).pathname,
+      message: "could not be verified",
+    },
+    {
+      status: 200,
+      publicUrl: valid + "?unexpected=1",
+      message: "could not be verified",
+    },
+    { status: 500, message: "could not be verified" },
+    { status: null, message: "could not be verified" },
+  ];
+  for (const failure of failures) {
+    await page.route(
+      endpoint,
+      (route) =>
+        route.fulfill({ json: { publicTokenVersion: 1, publicUrl: valid } }),
+      { times: 1 },
+    );
+    await prepare.click();
+    await expect(handoff).toBeEnabled();
+    await page.route(
+      endpoint,
+      (route) =>
+        failure.status === null
+          ? route.abort("timedout")
+          : route.fulfill({
+              status: failure.status,
+              json: { publicTokenVersion: 1, publicUrl: failure.publicUrl },
+            }),
+      { times: 1 },
+    );
+    await handoff.click();
+    await expect(row.getByRole("alert")).toContainText(failure.message);
+    await expect(handoff).toHaveCount(0);
+    expect(external).toBe(0);
+  }
+});
+
+test("pending WhatsApp validation serializes row handoffs and cancels on navigation or sign-out", async ({
+  page,
+  context,
+}) => {
+  await login(page, "sharing-navigation-owner@example.com");
+  await page.goto("/invitations");
+  const first = page.getByRole("row").filter({ hasText: "Household 01" });
+  const second = page.getByRole("row").filter({ hasText: "Household 03" });
+  const firstLink = `http://localhost:3000/i/${"a".repeat(43)}`;
+  const endpoint = "**/api/admin/invitations/*/public-url";
+  let delayed: (() => Promise<void>) | undefined;
+  let currentCalls = 0;
+  let external = 0;
+  await context.route("https://wa.me/**", async (route) => {
+    external += 1;
+    await route.abort();
+  });
+  await page.route(endpoint, async (route) => {
+    currentCalls += 1;
+    await delayed?.();
+    await route
+      .fulfill({
+        json: { publicTokenVersion: 1, publicUrl: firstLink },
+      })
+      .catch(() => undefined);
+  });
+  for (const exit of ["navigate", "sign out"]) {
+    const prepare = (row: typeof first) =>
+      row.getByRole("button", { name: "Prepare WhatsApp" });
+    const open = (row: typeof first) =>
+      row.getByRole("button", { name: "Open WhatsApp" });
+    await prepare(first).click();
+    await expect(open(first)).toBeEnabled();
+    await prepare(second).click();
+    await expect(open(second)).toBeEnabled();
+    const received = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    delayed = () => {
+      received.resolve();
+      return release.promise;
+    };
+    const before = currentCalls;
+    try {
+      await open(first).evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
+      await received.promise;
+      await expect(open(first)).toBeDisabled();
+      await open(second).click();
+      await expect(second).toContainText(
+        "Another WhatsApp link is being checked",
+      );
+      expect(currentCalls - before).toBe(1);
+      if (exit === "navigate") {
+        await first.getByRole("link", { name: "Household 01" }).click();
+        await expect(
+          page.getByRole("heading", { name: "Invitation detail" }),
+        ).toBeVisible();
+      } else {
+        await page.getByRole("button", { name: "Sign out" }).click();
+        await expect(
+          page.getByLabel("Password", { exact: true }),
+        ).toBeVisible();
+      }
+    } finally {
+      release.resolve();
+      delayed = undefined;
+    }
+    expect(external).toBe(0);
+    if (exit === "navigate") {
+      await page.goBack();
+      await expect(open(first)).toHaveCount(0);
+      await expect(prepare(first)).toBeEnabled();
+    }
+  }
+});
+
+test("eligibility form rejects duplicate event selections and restores URL state on back", async ({
+  page,
+}) => {
+  await login(page, "filter-owner@example.com");
+  await page.goto("/invitations");
+  const apply = page.getByRole("button", { name: "Apply search and filters" });
+  await expect(apply).toBeEnabled();
+  await page.getByLabel("Match", { exact: true }).selectOption("exact");
+  await page.getByLabel("Session", { exact: true }).selectOption(events[0]!.id);
+  const second = page.getByLabel("Second session (optional)");
+  await second.selectOption(events[0]!.id);
+  await apply.click();
+  const error = page
+    .getByRole("form", { name: "Search and filter invitations" })
+    .getByRole("alert");
+  await expect(error).toContainText("Choose distinct sessions");
+  await expect(error).toBeFocused();
+  await second.selectOption(events[1]!.id);
+  await apply.click();
+  await expect(page).toHaveURL(/eligibility=exact/);
+  await expect(page.locator("#invitation-results-heading")).toBeFocused();
+  await expect(
+    page.getByRole("region", { name: "Invitation results" }),
+  ).toContainText("6 invitations matching");
+  await page.goBack();
+  await expect(page.getByLabel("Match", { exact: true })).toHaveValue("");
+  await page.goForward();
+  await expect(second).toHaveValue(events[1]!.id);
+});
+
 test("empty, no matches, beyond last and invalid URL are distinct", async ({
   page,
 }) => {
@@ -584,6 +873,55 @@ test("detail manages invitees and event eligibility with explicit conflict recov
     "SYNTHETIC_BACKEND_DIAGNOSTIC_NOT_FOR_DISPLAY",
   );
   await expect(page.locator("body")).not.toContainText("csrf");
+});
+
+test("detail anchors preserve pending eligibility recovery and the unsaved selection", async ({
+  page,
+}) => {
+  await login(page, "section-owner@example.com");
+  await page.goto("/invitations");
+  await page.getByRole("link", { name: "Household 01", exact: true }).click();
+  const sectionNav = page.getByRole("navigation", {
+    name: "Invitation detail sections",
+  });
+  const ceremony = page.getByRole("checkbox", { name: /Ceremony/ });
+  await expect(ceremony).toBeEnabled();
+  await ceremony.uncheck();
+
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writes: unknown[] = [];
+  await page.route("**/api/admin/invitations/*/events", async (route) => {
+    writes.push(route.request().postDataJSON());
+    await held;
+    await route.fulfill({
+      status: 503,
+      json: { error: { code: "INTERNAL_ERROR" } },
+    });
+  });
+  try {
+    await page.getByRole("button", { name: "Save event eligibility" }).click();
+    await expect(
+      page.getByRole("button", { name: "Saving..." }),
+    ).toBeDisabled();
+    await sectionNav.getByRole("link", { name: "Activity and RSVP" }).click();
+    await expect(page.locator("#invitation-activity")).toBeFocused();
+    release();
+    await sectionNav.getByRole("link", { name: "Guests and sessions" }).click();
+    await expect(ceremony).not.toBeChecked();
+    await expect(
+      page.getByRole("button", { name: "Save event eligibility" }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("link", { name: "Reload latest detail" }).first(),
+    ).toBeVisible();
+    expect(writes).toEqual([{ eventIds: [events[0]!.id] }]);
+    expect(new URL(page.url()).searchParams.has("eventsUpdated")).toBe(false);
+  } finally {
+    release();
+  }
 });
 
 test("edit sends expectedUpdatedAt, preserves conflict values, and refreshes after success", async ({

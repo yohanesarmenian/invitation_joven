@@ -50,6 +50,7 @@ export async function DetailContent({
       csrfToken={csrfToken}
       events={eventResult.data.events}
       invitation={result.data.invitation}
+      publicInvitationOrigin={result.data.publicInvitationOrigin ?? null}
     />
   );
 }

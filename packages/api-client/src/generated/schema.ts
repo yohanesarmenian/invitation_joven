@@ -198,7 +198,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List admin invitations */
+        /** List admin invitations and the active invitation overview */
         get: operations["AdminReadController_listInvitations"];
         put?: never;
         /** Create admin invitation */
@@ -1280,6 +1280,7 @@ export interface components {
             event: components["schemas"]["AdminEventDto"];
         };
         AdminInvitationRsvpSummaryDto: {
+            attendingEvents: components["schemas"]["AdminEventDto"][];
             /** @enum {string} */
             status: "PENDING" | "ACCEPTED" | "DECLINED";
             version: number;
@@ -1351,6 +1352,7 @@ export interface components {
             notes?: string | null;
         };
         AdminInvitationDetailResponseDto: {
+            publicInvitationOrigin?: string | null;
             invitation: components["schemas"]["AdminInvitationDetailDto"];
         };
         ArchiveAdminInvitationSummaryDto: {
@@ -1544,7 +1546,25 @@ export interface components {
             items: components["schemas"]["AdminRsvpListItemDto"][];
             page: components["schemas"]["AdminPageMetadataDto"];
         };
+        AdminInvitationEventCountDto: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            name: string;
+            isActive: boolean;
+            displayOrder: number;
+            eligibleHouseholds: number;
+        };
+        AdminInvitationOverviewDto: {
+            households: number;
+            namedGuests: number;
+            opened: number;
+            unopened: number;
+            rsvp: components["schemas"]["AdminDashboardRsvpMetricsDto"];
+            events: components["schemas"]["AdminInvitationEventCountDto"][];
+        };
         AdminInvitationListItemDto: {
+            eligibleEvents: components["schemas"]["AdminEventDto"][];
             /** Format: uuid */
             id: string;
             displayName: string;
@@ -1567,6 +1587,8 @@ export interface components {
             archivedAt: string | null;
         };
         AdminInvitationListResponseDto: {
+            publicInvitationOrigin: string | null;
+            overview: components["schemas"]["AdminInvitationOverviewDto"];
             items: components["schemas"]["AdminInvitationListItemDto"][];
             page: components["schemas"]["AdminPageMetadataDto"];
         };
@@ -2973,7 +2995,19 @@ export interface operations {
     };
     AdminReadController_listInvitations: {
         parameters: {
-            query?: never;
+            query?: {
+                opening?: "opened" | "unopened";
+                eligibility?: "includes" | "exact" | "none" | "legacy";
+                eventId?: string;
+                secondEventId?: string;
+                status?: string;
+                rsvpStatus?: string;
+                search?: string;
+                sortBy?: string;
+                sortOrder?: string;
+                page?: number;
+                pageSize?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
