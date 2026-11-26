@@ -1023,10 +1023,28 @@
         "operationId": "AdminReadController_listInvitations",
         "parameters": [
           {
+            "name": "opening",
             "required": false,
-            "name": "eligibility",
             "in": "query",
             "schema": {
+              "enum": [
+                "opened",
+                "unopened"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "eligibility",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "includes",
+                "exact",
+                "none",
+                "legacy"
+              ],
               "type": "string"
             }
           },
@@ -1045,14 +1063,6 @@
             "in": "query",
             "schema": {
               "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "required": false,
-            "name": "opening",
-            "in": "query",
-            "schema": {
               "type": "string"
             }
           },

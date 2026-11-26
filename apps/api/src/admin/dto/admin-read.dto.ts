@@ -154,7 +154,7 @@ export const adminEligibilityFilters = [
 export const adminOpeningFilters = ["opened", "unopened"] as const;
 
 export class AdminInvitationListQueryDto {
-  @ApiPropertyOptional({ enum: adminEligibilityFilters, type: String })
+  // These two enums are documented by the operation's explicit ApiQuery entries.
   eligibility?: (typeof adminEligibilityFilters)[number];
 
   @ApiPropertyOptional({ format: "uuid", type: String })
@@ -163,7 +163,6 @@ export class AdminInvitationListQueryDto {
   @ApiPropertyOptional({ format: "uuid", type: String })
   secondEventId?: string;
 
-  @ApiPropertyOptional({ enum: adminOpeningFilters, type: String })
   opening?: (typeof adminOpeningFilters)[number];
 
   @ApiPropertyOptional({ enum: adminInvitationStatuses, type: String })

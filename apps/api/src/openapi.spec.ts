@@ -140,6 +140,34 @@ describe("OpenAPI contract", () => {
     const adminDashboardPath = document.paths["/api/admin/dashboard"];
     const adminEventsPath = document.paths["/api/admin/events"];
     const adminInvitationsPath = document.paths["/api/admin/invitations"];
+    const invitationFilters = adminInvitationsPath?.get?.parameters ?? [];
+    expect(
+      invitationFilters.filter(
+        (parameter) => "name" in parameter && parameter.name === "eligibility",
+      ),
+    ).toEqual([
+      {
+        in: "query",
+        name: "eligibility",
+        required: false,
+        schema: {
+          type: "string",
+          enum: ["includes", "exact", "none", "legacy"],
+        },
+      },
+    ]);
+    expect(
+      invitationFilters.filter(
+        (parameter) => "name" in parameter && parameter.name === "opening",
+      ),
+    ).toEqual([
+      {
+        in: "query",
+        name: "opening",
+        required: false,
+        schema: { type: "string", enum: ["opened", "unopened"] },
+      },
+    ]);
     const adminInvitationDetailPath =
       document.paths["/api/admin/invitations/{invitationId}"];
     const adminInvitationPublicUrlPath =

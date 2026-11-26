@@ -12,6 +12,8 @@ import {
 import { ApiErrorEnvelopeDto } from "../common/api-error.dto.js";
 import { AdminReadService } from "./admin-read.service.js";
 import {
+  adminEligibilityFilters,
+  adminOpeningFilters,
   AdminDashboardResponseDto,
   AdminEventsResponseDto,
   AdminGuestMessageListQueryDto,
@@ -90,6 +92,12 @@ export class AdminReadController {
     summary: "List admin invitations and the active invitation overview",
   })
   @ApiQuery({ type: AdminInvitationListQueryDto })
+  @ApiQuery({
+    name: "eligibility",
+    enum: adminEligibilityFilters,
+    required: false,
+  })
+  @ApiQuery({ name: "opening", enum: adminOpeningFilters, required: false })
   @ApiOkResponse({ type: AdminInvitationListResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
   @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })

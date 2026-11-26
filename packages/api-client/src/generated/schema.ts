@@ -2996,10 +2996,10 @@ export interface operations {
     AdminReadController_listInvitations: {
         parameters: {
             query?: {
-                eligibility?: string;
+                opening?: "opened" | "unopened";
+                eligibility?: "includes" | "exact" | "none" | "legacy";
                 eventId?: string;
                 secondEventId?: string;
-                opening?: string;
                 status?: string;
                 rsvpStatus?: string;
                 search?: string;
