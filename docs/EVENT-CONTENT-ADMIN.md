@@ -4,7 +4,7 @@ Owner-authorized scope: manage parking/rundown per existing Event, upload/replac
 
 Open `/event-content?eventId=<uuid>` to select the exact catalog Event, including inactive Events. Without a selection, the editor waits for the OWNER to choose one. An invalid, repeated or unknown ID shows a selection error. The back link returns to the same UUID in Events. Dirty input, in-flight work and uncertain-outcome recovery retain their existing protections.
 
-The Events catalog shows each material separately from its saved draft and published snapshot. A published section marked **draft differs** continues to use the published copy for eligible guests until explicit publication. Hiding removes publication while retaining draft. Events displays unavailable status when saved state cannot be interpreted. The overview reads no asset bytes.
+The Events catalog shows each material separately from its saved draft and published snapshot. An active Event serves the published copy to eligible guests with valid invitation access until explicit publication, even when its draft differs. An inactive Event retains its saved publication and serves no materials to guests. Hiding removes publication while retaining draft. Events displays unavailable status when saved state cannot be interpreted. The overview reads no asset bytes.
 
 ## REA evidence and original decisions
 

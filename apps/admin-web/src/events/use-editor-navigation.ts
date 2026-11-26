@@ -25,7 +25,7 @@ export function useEditorNavigation(
         !(anchor instanceof HTMLAnchorElement) ||
         anchor.target ||
         anchor.origin !== location.origin ||
-        anchor.href === location.href ||
+        anchor.getAttribute("href")?.startsWith("#") ||
         event.button !== 0 ||
         event.ctrlKey ||
         event.metaKey ||

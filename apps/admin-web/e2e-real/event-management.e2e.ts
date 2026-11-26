@@ -377,7 +377,9 @@ test("event overview uses saved readiness and round-trips between exact session 
   await page.setViewportSize({ width: 1280, height: 900 });
   expect(assetReads).toBe(0);
   await navigation
-    .getByRole("link", { name: "View active eligible households" })
+    .getByRole("link", {
+      name: "View active eligible households, including walk-ins",
+    })
     .click();
   await expect(page).toHaveURL(
     new RegExp(
@@ -497,6 +499,27 @@ test("an uncertain create stays locked and reload selects the saved slug without
   await expect(
     page.getByRole("button", { name: "Save event", exact: true }),
   ).toBeDisabled();
+  const dialogs: string[] = [];
+  const dismiss = (dialog: import("@playwright/test").Dialog) => {
+    dialogs.push(dialog.type());
+    return dialog.dismiss();
+  };
+  page.on("dialog", dismiss);
+  await page
+    .getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("link", { name: "Events", exact: true })
+    .press("Enter");
+  await expect(
+    page.getByText(
+      "Finish the current action or reload saved events before leaving.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "New event", exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByLabel("Slug", { exact: true })).toHaveValue(slug);
+  expect(dialogs).toEqual([]);
+  page.off("dialog", dismiss);
   page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("button", { name: "Reload saved events", exact: true })
@@ -509,6 +532,136 @@ test("an uncertain create stays locked and reload selects the saved slug without
   ).toBeVisible();
   expect(writes).toBe(1);
   expect(await fixture.prisma.event.count({ where: { slug } })).toBe(1);
+});
+
+test("rejected sign-out keeps the Events draft and successful retry ends the session", async ({
+  page,
+}) => {
+  await editor(page);
+  const before = await fixture.prisma.event.findUniqueOrThrow({
+    where: { id: fixture.event.id },
+  });
+  const eventName = page.getByLabel("Event name", { exact: true });
+  const start = page.getByLabel("Start (WIB)", { exact: true });
+  await eventName.fill("Synthetic draft survives sign-out rejection");
+  await start.fill("2027-01-02T18:30");
+  let logoutRequests = 0;
+  const logoutPath = "**/api/admin/auth/logout";
+  await page.route(logoutPath, async (route) => {
+    logoutRequests++;
+    if (logoutRequests > 1) return route.continue();
+    const response = await route.fetch({
+      headers: {
+        ...route.request().headers(),
+        "x-csrf-token": "synthetic-invalid",
+      },
+    });
+    expect(response.status()).toBe(403);
+    expect((await response.json()).error.code).toBe("CSRF_INVALID");
+    await route.fulfill({ response });
+  });
+  const signOut = page.getByRole("button", { name: "Sign out", exact: true });
+  await signOut.click();
+  await expect(page.getByText(/Your session has been refreshed/)).toBeVisible();
+  expect((await page.request.get("/api/admin/auth/me")).status()).toBe(200);
+  await expect(eventName).toHaveValue(
+    "Synthetic draft survives sign-out rejection",
+  );
+  await expect(start).toHaveValue("2027-01-02T18:30");
+  await expect(page.getByLabel("Event to edit", { exact: true })).toHaveValue(
+    fixture.event.id,
+  );
+  await expect(
+    page.getByRole("button", { name: "Save event", exact: true }),
+  ).toBeEnabled();
+  await signOut.click();
+  await expect(page).toHaveURL(new URL("/login", origins.admin).href);
+  expect((await page.request.get("/api/admin/auth/me")).status()).toBe(401);
+  expect(logoutRequests).toBe(2);
+  expect(
+    await fixture.prisma.event.findUniqueOrThrow({
+      where: { id: fixture.event.id },
+    }),
+  ).toEqual(before);
+});
+
+test("published materials remain stored but hidden when an event is inactive", async ({
+  page,
+}) => {
+  const guest = await fixture.household("Synthetic publication household", {
+    pending: true,
+  });
+  const parking = {
+    title: "Synthetic parking",
+    instructions: ["Use the marked entrance"],
+    mapAssetId: null,
+    mapAlt: "",
+    pdfAssetId: null,
+    googleMapsUrl: null,
+  };
+  const rundown = {
+    title: "Synthetic programme",
+    items: [
+      { startsAt: "2027-01-02T10:00:00Z", title: "Arrival", description: "" },
+    ],
+  };
+  const draft = {
+    parking: { ...parking, title: "Unsaved to public" },
+    rundown,
+  };
+  await fixture.prisma.eventContent.create({
+    data: {
+      eventId: fixture.event.id,
+      draft,
+      published: { parking, rundown },
+      publishedAt: new Date(),
+    },
+  });
+  const publicPath = `${origins.api}/api/public/invitations/${guest.publicCredential}/venue-content`;
+  const publicRead = async () => {
+    const response = await page.request.get(publicPath);
+    expect(response.status()).toBe(200);
+    return response.json();
+  };
+  expect((await publicRead()).items).toMatchObject([
+    { content: { parking, rundown } },
+  ]);
+  await fixture.prisma.event.update({
+    where: { id: fixture.event.id },
+    data: { isActive: false },
+  });
+  expect((await publicRead()).items).toEqual([]);
+  await editor(page);
+  const readiness = page.getByRole("region", {
+    name: "Configuration readiness",
+  });
+  await expect(readiness).toContainText(
+    "Published snapshot retained · draft differs · hidden from guests",
+  );
+  await expect(readiness).toContainText(
+    "Guests cannot view materials for this inactive event.",
+  );
+  await page.getByRole("link", { name: "Manage event materials" }).click();
+  await expect(
+    page.getByText("Guests cannot view materials for this inactive event.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Back to event configuration" }).click();
+  await page.getByLabel("Active event", { exact: true }).check();
+  await page.getByRole("button", { name: "Save event", exact: true }).click();
+  await expect(readiness).toContainText(
+    "available to eligible guests with valid invitation access",
+  );
+  expect((await publicRead()).items).toMatchObject([
+    { content: { parking, rundown } },
+  ]);
+  const saved = await fixture.prisma.eventContent.findUniqueOrThrow({
+    where: { eventId: fixture.event.id },
+  });
+  expect(saved.published).toEqual({ parking, rundown });
+  expect(saved.draft).toEqual(draft);
+  expect(saved.version).toBe(1);
 });
 test("unhydrated and delayed editors cannot submit or switch the requested event", async ({
   page,

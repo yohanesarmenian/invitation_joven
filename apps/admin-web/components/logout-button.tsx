@@ -24,6 +24,9 @@ export function LogoutButton({ csrfToken }: { csrfToken: string }) {
     setMessage("");
     const result = await signOut(token);
     if (result.kind === "signed-out" || result.kind === "session-ended") {
+      // The earlier intent signal still clears credential-bearing views.
+      // Editors release their drafts only at this confirmed boundary.
+      window.dispatchEvent(new Event("admin:session-ended"));
       setToken("");
       window.location.replace(
         result.kind === "signed-out" ? "/login" : SESSION_ENDED_PATH,

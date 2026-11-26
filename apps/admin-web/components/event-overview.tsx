@@ -14,6 +14,21 @@ const materialLabels: Record<EventOverview["parking"], string> = {
   unavailable: "Unavailable",
 };
 
+function materialLabel(state: EventOverview["parking"], isActive: boolean) {
+  if (isActive) return materialLabels[state];
+  if (state === "published")
+    return "Published snapshot retained · hidden from guests";
+  if (state === "changed")
+    return "Published snapshot retained · draft differs · hidden from guests";
+  return materialLabels[state];
+}
+
+export function publishedMaterialVisibility(isActive: boolean) {
+  return isActive
+    ? "Published materials are available to eligible guests with valid invitation access."
+    : "The published snapshot is retained. Guests cannot view materials for this inactive event.";
+}
+
 export function EventFacts({
   event,
   overview,
@@ -65,24 +80,28 @@ export function EventFacts({
         <dd>{event.googleMapsUrl ? "Configured" : "Missing · optional"}</dd>
       </div>
       <div>
-        <dt>Active eligible households</dt>
+        <dt>Active eligible invited households</dt>
         <dd>{overview?.activeEligibleHouseholds ?? "Unavailable"}</dd>
       </div>
       <div>
-        <dt>RSVP accepted households</dt>
+        <dt>RSVP accepted invited households</dt>
         <dd>{overview?.acceptedHouseholds ?? "Unavailable"}</dd>
       </div>
       <div>
-        <dt>RSVP confirmed people</dt>
+        <dt>RSVP confirmed people (invited)</dt>
         <dd>{overview?.confirmedPeople ?? "Unavailable"}</dd>
       </div>
       <div>
         <dt>Parking</dt>
-        <dd>{materialLabels[overview?.parking ?? "unavailable"]}</dd>
+        <dd>
+          {materialLabel(overview?.parking ?? "unavailable", event.isActive)}
+        </dd>
       </div>
       <div>
         <dt>Rundown</dt>
-        <dd>{materialLabels[overview?.rundown ?? "unavailable"]}</dd>
+        <dd>
+          {materialLabel(overview?.rundown ?? "unavailable", event.isActive)}
+        </dd>
       </div>
     </dl>
   );
@@ -95,6 +114,9 @@ export function EventReadiness({
   event: ManagedEvent;
   overview?: EventOverview;
 }) {
+  const states = [overview?.parking, overview?.rundown];
+  const hasPublication =
+    states.includes("published") || states.includes("changed");
   return (
     <section aria-label="Configuration readiness">
       <h3>Configuration readiness</h3>
@@ -107,13 +129,20 @@ export function EventReadiness({
           Google Maps ·{" "}
           {event.googleMapsUrl ? "Configured" : "Missing · optional"}
         </li>
-        <li>Parking · {materialLabels[overview?.parking ?? "unavailable"]}</li>
-        <li>Rundown · {materialLabels[overview?.rundown ?? "unavailable"]}</li>
+        <li>
+          Parking ·{" "}
+          {materialLabel(overview?.parking ?? "unavailable", event.isActive)}
+        </li>
+        <li>
+          Rundown ·{" "}
+          {materialLabel(overview?.rundown ?? "unavailable", event.isActive)}
+        </li>
       </ul>
-      {overview?.parking === "changed" || overview?.rundown === "changed" ? (
-        <p>
-          Guests still see the published snapshot until you publish a new one.
-        </p>
+      {hasPublication ? (
+        <p>{publishedMaterialVisibility(event.isActive)}</p>
+      ) : null}
+      {states.includes("changed") ? (
+        <p>Draft changes require a new publication.</p>
       ) : null}
     </section>
   );

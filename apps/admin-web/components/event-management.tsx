@@ -194,7 +194,7 @@ export function EventManagement({
       setCreating(false);
       setBlocked(true);
     };
-    window.addEventListener("admin:signout", signout);
+    window.addEventListener("admin:session-ended", signout);
     void api.list().then((result) => {
       if (!active || stopped.current) return;
       if (result.kind === "ok") {
@@ -214,7 +214,7 @@ export function EventManagement({
     });
     return () => {
       active = false;
-      window.removeEventListener("admin:signout", signout);
+      window.removeEventListener("admin:session-ended", signout);
     };
     // Initial session-bound load only; later reloads are explicit actions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -339,8 +339,8 @@ export function EventManagement({
         ) : null}
         {items.length ? (
           <p>
-            Households can appear in more than one session. RSVP counts reflect
-            saved responses for each session.
+            Planning counts exclude walk-in registrations. Invited households
+            can appear in more than one session.
           </p>
         ) : null}
         <ul className="event-catalog">
@@ -417,7 +417,7 @@ export function EventManagement({
                 <a
                   href={`/invitations?status=ACTIVE&eligibility=includes&eventId=${saved.id}`}
                 >
-                  View active eligible households
+                  View active eligible households, including walk-ins
                 </a>
                 <a href={`/rsvps?eventId=${saved.id}`}>
                   View RSVP responses referencing this event

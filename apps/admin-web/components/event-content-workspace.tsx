@@ -14,6 +14,7 @@ import {
   type WibMinuteEdit,
 } from "../src/forms/wib-date-time";
 import { WibDateTimeField } from "./wib-date-time-field";
+import { publishedMaterialVisibility } from "./event-overview";
 
 type Rundown = NonNullable<api.Body["rundown"]>;
 type EditableItem = Rundown["items"][number] & { timeEdit?: WibMinuteEdit };
@@ -178,18 +179,18 @@ export function EventContentWorkspace({
       setBlocked(true);
       if (uploadInput.current) uploadInput.current.value = "";
     };
-    window.addEventListener("admin:signout", clear);
+    window.addEventListener("admin:session-ended", clear);
     return () => {
       active = false;
       invalidate();
-      window.removeEventListener("admin:signout", clear);
+      window.removeEventListener("admin:session-ended", clear);
     };
     // This document owns its initial selection and its session-bound catalog.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEditorNavigation(
     () => ({
-      pending: !stopped.current && lock.current,
+      pending: !stopped.current && (lock.current || busy),
       blocked: !stopped.current && blocked,
       dirty: !stopped.current && hasDraft(),
     }),
@@ -325,6 +326,7 @@ export function EventContentWorkspace({
     setConfirm(null);
   }
   const disabled = busy || blocked;
+  const selectedEvent = catalog.find((event) => event.id === eventId);
   const selectedPreview =
     preview === "published"
       ? snapshot?.published
@@ -377,9 +379,7 @@ export function EventContentWorkspace({
       ) : null}
       {eventId && !disabled ? (
         <p>
-          {catalog.find((event) => event.id === eventId)?.isActive === false
-            ? "Inactive event. "
-            : null}
+          {selectedEvent?.isActive === false ? "Inactive event. " : null}
           <a href={eventHref("/events", eventId)}>
             Back to event configuration
           </a>
@@ -396,10 +396,11 @@ export function EventContentWorkspace({
         <>
           <p>
             Version {snapshot.version} ·{" "}
-            {snapshot.published
-              ? "Published snapshot available"
-              : "Not published"}
+            {snapshot.published ? "Published snapshot stored" : "Not published"}
           </p>
+          {snapshot.published && selectedEvent ? (
+            <p>{publishedMaterialVisibility(selectedEvent.isActive)}</p>
+          ) : null}
           <fieldset disabled={disabled}>
             <legend>Parking</legend>
             <label>
