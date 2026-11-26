@@ -1,8 +1,8 @@
 import type { AdminInvitationListResponse } from "@wedding-invitation/api-client/src/index";
 
 type Item = AdminInvitationListResponse["items"][number];
-// OpenAPI currently omits GET query metadata. These bounded controls follow
-// API-CONTRACT.md and admin-read.service.ts / common/admin-query.ts.
+import { isUuid } from "./contract";
+
 export const sortFields = [
   "createdAt",
   "updatedAt",
@@ -18,6 +18,10 @@ export type InvitationQuery = {
   status?: Item["status"];
   rsvpStatus?: Item["rsvpStatus"];
   search?: string;
+  eligibility?: "includes" | "exact" | "none" | "legacy";
+  eventId?: string;
+  secondEventId?: string;
+  opening?: "opened" | "unopened";
 };
 export type SearchParams = Record<string, string | string[] | undefined>;
 export function parseInvitationQuery(
@@ -31,6 +35,10 @@ export function parseInvitationQuery(
     "status",
     "rsvpStatus",
     "search",
+    "eligibility",
+    "eventId",
+    "secondEventId",
+    "opening",
     "created",
   ];
   if (
@@ -78,6 +86,27 @@ export function parseInvitationQuery(
     typeof params.search === "string" ? params.search.trim() : undefined;
   if (search && [...search].length > 100) return null;
   if (params.created !== undefined && params.created !== "1") return null;
+  const { eligibility, opening, eventId, secondEventId } = params;
+  if (
+    eligibility !== undefined &&
+    eligibility !== "includes" &&
+    eligibility !== "exact" &&
+    eligibility !== "none" &&
+    eligibility !== "legacy"
+  )
+    return null;
+  if (opening !== undefined && opening !== "opened" && opening !== "unopened")
+    return null;
+  const needsEvent = eligibility === "includes" || eligibility === "exact";
+  if (
+    (needsEvent && !isUuid(eventId)) ||
+    (!needsEvent && (eventId !== undefined || secondEventId !== undefined)) ||
+    (secondEventId !== undefined && !isUuid(secondEventId)) ||
+    (typeof eventId === "string" &&
+      typeof secondEventId === "string" &&
+      eventId.toLowerCase() === secondEventId.toLowerCase())
+  )
+    return null;
   return {
     page,
     pageSize,
@@ -86,6 +115,13 @@ export function parseInvitationQuery(
     status,
     rsvpStatus,
     search: search || undefined,
+    eligibility,
+    eventId: typeof eventId === "string" ? eventId.toLowerCase() : undefined,
+    secondEventId:
+      typeof secondEventId === "string"
+        ? secondEventId.toLowerCase()
+        : undefined,
+    opening,
   };
 }
 export function queryString(query: InvitationQuery): string {

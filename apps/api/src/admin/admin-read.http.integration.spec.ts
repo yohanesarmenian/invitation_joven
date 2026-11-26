@@ -904,6 +904,253 @@ describe("admin read HTTP integration", () => {
     }
   });
 
+  it("filters across the whole wedding and keeps the active overview independent of pagination", async () => {
+    const session = await createOwnerAndSession();
+    const a = await createEvent({
+      displayOrder: 1,
+      name: "Blessing",
+      slug: "dynamic-a",
+    });
+    const b = await createEvent({
+      displayOrder: 2,
+      name: "Dinner",
+      slug: "dynamic-b",
+    });
+    const c = await createEvent({
+      displayOrder: 3,
+      name: "After party",
+      slug: "dynamic-c",
+    });
+    const d = await createEvent({
+      displayOrder: 4,
+      name: "Former session",
+      isActive: false,
+    });
+    const unused = await createEvent({
+      displayOrder: 5,
+      name: "No invitations yet",
+    });
+    async function household(
+      name: string,
+      eventIds: string[],
+      inviteeCount: number,
+      extra: Partial<Parameters<typeof createInvitation>[1]> = {},
+    ) {
+      return createInvitation(credentialService, {
+        displayName: name,
+        eventIds,
+        invitees: Array.from({ length: inviteeCount }, (_, index) => ({
+          fullName: `${name} named ${index + 1}`,
+        })),
+        ...extra,
+      });
+    }
+    await household("01 Ceremony only", [a.id], 2, {
+      openCount: 2,
+      rsvp: RSVPStatus.ACCEPTED,
+    });
+    await household("02 Both", [b.id, a.id], 3, { openCount: 1 });
+    await household("03 Legacy", [c.id, a.id, b.id], 2, {
+      openCount: 5,
+      rsvp: RSVPStatus.ACCEPTED,
+    });
+    await household("04 Archived", [a.id], 3, {
+      openCount: 4,
+      status: InvitationStatus.ARCHIVED,
+    });
+    await household("05 Reception only", [b.id], 1, {
+      rsvp: RSVPStatus.DECLINED,
+    });
+    await household("06 Alternate pair", [b.id, c.id], 1, {
+      rsvp: RSVPStatus.PENDING,
+    });
+    await household("07 Retained inactive", [d.id], 1, {
+      openCount: 1,
+      rsvp: RSVPStatus.DECLINED,
+    });
+    await household("08 No sessions", [], 1);
+    const outside = await household("09 Outside first page", [a.id], 1, {
+      invitees: [{ fullName: "Last Traveler" }],
+    });
+    const list = (query: string) =>
+      app.inject({
+        url: `/api/admin/invitations?sortBy=displayName&sortOrder=asc&${query}`,
+        headers: { cookie: session.cookie },
+      });
+    const expectedOverview = {
+      households: 8,
+      namedGuests: 12,
+      opened: 4,
+      unopened: 4,
+      rsvp: { accepted: 2, pending: 4, declined: 2 },
+      events: [a, b, c, d, unused].map((event, index) => ({
+        id: event.id,
+        slug: event.slug,
+        name: event.name,
+        isActive: event.isActive,
+        displayOrder: event.displayOrder,
+        eligibleHouseholds: [4, 4, 2, 1, 0][index],
+      })),
+    };
+    for (const [query, names] of [
+      [
+        `eligibility=includes&eventId=${a.id}`,
+        [
+          "01 Ceremony only",
+          "02 Both",
+          "03 Legacy",
+          "04 Archived",
+          "09 Outside first page",
+        ],
+      ],
+      [
+        `eligibility=exact&eventId=${a.id}`,
+        ["01 Ceremony only", "04 Archived", "09 Outside first page"],
+      ],
+      [
+        `eligibility=includes&eventId=${a.id}&secondEventId=${b.id}`,
+        ["02 Both", "03 Legacy"],
+      ],
+      [
+        `eligibility=exact&eventId=${b.id.toUpperCase()}&secondEventId=${a.id}`,
+        ["02 Both"],
+      ],
+      [
+        `eligibility=exact&eventId=${b.id}&secondEventId=${c.id}`,
+        ["06 Alternate pair"],
+      ],
+      [`eligibility=includes&eventId=${d.id}`, ["07 Retained inactive"]],
+      [`eligibility=exact&eventId=${randomUUID()}`, []],
+      ["eligibility=none", ["08 No sessions"]],
+      ["eligibility=legacy", ["03 Legacy"]],
+      [
+        "opening=opened&status=ACTIVE",
+        ["01 Ceremony only", "02 Both", "03 Legacy", "07 Retained inactive"],
+      ],
+      [
+        "opening=unopened&rsvpStatus=PENDING",
+        ["06 Alternate pair", "08 No sessions", "09 Outside first page"],
+      ],
+      [
+        `eligibility=exact&eventId=${a.id}&opening=unopened&rsvpStatus=PENDING&status=ACTIVE&search=Last%20Traveler`,
+        ["09 Outside first page"],
+      ],
+    ] as const) {
+      const response = await list(query);
+      expect(response.statusCode, query).toBe(200);
+      const body = response.json();
+      expect(body.page.totalItems, query).toBe(names.length);
+      expect(
+        body.items.map((row: { displayName: string }) => row.displayName),
+        query,
+      ).toEqual(names);
+      expect(body.overview).toEqual(expectedOverview);
+      expect(body.publicInvitationOrigin).toBe(PUBLIC_ORIGIN);
+      expect(response.body).not.toContain(outside.publicCredential);
+      const keys = responseKeys(body);
+      for (const key of [
+        "publicUrl",
+        "publicTokenHash",
+        "qrPayload",
+        "fullName",
+        "sessionToken",
+      ]) {
+        expect(keys).not.toContain(key);
+      }
+    }
+    const pageQueries = [1, 2, 3, 4].map((page) =>
+      list(`page=${page}&pageSize=2&eligibility=includes&eventId=${a.id}`),
+    );
+    const pages = (await Promise.all(pageQueries)).map((response) => {
+      expect(response.statusCode).toBe(200);
+      return response.json();
+    });
+    expect(pages.map((p) => p.page.totalItems)).toEqual([5, 5, 5, 5]);
+    expect(
+      pages.map((p) =>
+        p.items.map((row: { displayName: string }) => row.displayName),
+      ),
+    ).toEqual([
+      ["01 Ceremony only", "02 Both"],
+      ["03 Legacy", "04 Archived"],
+      ["09 Outside first page"],
+      [],
+    ]);
+    expect(
+      pages[1].items[0].eligibleEvents.map((event: { id: string }) => event.id),
+    ).toEqual([a.id, b.id, c.id]);
+    expect(pages[1].items[0].eligibleEvents).toHaveLength(3);
+    expect(pages[2].items[0]).toMatchObject({
+      id: outside.invitation.id,
+      rsvpStatus: "PENDING",
+    });
+
+    // All equal sort keys still need a deterministic order across pages.
+    await prisma.invitation.updateMany({
+      data: { createdAt: new Date("2027-01-02T10:00:00Z") },
+    });
+    const sortedIds = (
+      await prisma.invitation.findMany({
+        orderBy: { id: "asc" },
+        select: { id: true },
+      })
+    ).map(({ id }) => id);
+    const pagedIds: string[] = [];
+    for (const page of [1, 2, 3]) {
+      const response = await app.inject({
+        url: `/api/admin/invitations?page=${page}&pageSize=3`,
+        headers: { cookie: session.cookie },
+      });
+      expect(response.statusCode).toBe(200);
+      pagedIds.push(
+        ...response.json().items.map(({ id }: { id: string }) => id),
+      );
+    }
+    expect(pagedIds).toEqual(sortedIds);
+
+    for (const bad of [
+      "opening=never",
+      "opening=",
+      "opening=opened&opening=unopened",
+      "eligibility=",
+      "eligibility=includes",
+      "eligibility=none&eventId=",
+      "eligibility=exact&eventId=invalid",
+      "eligibility=exact&secondEventId=" + b.id,
+      `eligibility=exact&eventId=${a.id}&secondEventId=${a.id.toUpperCase()}`,
+      `eligibility=exact&eventId=${a.id}&eventId=${b.id}`,
+      `eventId=${a.id}`,
+      "unsupported=x",
+      "page=1&page=2",
+    ]) {
+      const response = await list(bad);
+      expect(response.statusCode, bad).toBe(400);
+      expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    }
+  });
+
+  it("returns a zero overview and an empty page for an empty wedding", async () => {
+    const session = await createOwnerAndSession();
+    const response = await app.inject({
+      url: "/api/admin/invitations?eligibility=legacy",
+      headers: { cookie: session.cookie },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      items: [],
+      publicInvitationOrigin: PUBLIC_ORIGIN,
+      page: { number: 1, pageSize: 25, totalItems: 0, totalPages: 0 },
+      overview: {
+        households: 0,
+        namedGuests: 0,
+        opened: 0,
+        unopened: 0,
+        events: [],
+        rsvp: { accepted: 0, declined: 0, pending: 0 },
+      },
+    });
+  });
+
   it("returns invitation detail with relations and excludes sensitive fields", async () => {
     const session = await createOwnerAndSession();
     const event = await createEvent({
@@ -1055,12 +1302,22 @@ describe("admin read HTTP integration", () => {
       slug: "ceremony-detail",
     });
     expect(body.invitation.rsvp).toEqual({
+      attendingEvents: [
+        {
+          id: event.id,
+          name: "Ceremony",
+          slug: "ceremony-detail",
+          displayOrder: 1,
+          isActive: true,
+        },
+      ],
       lastUpdatedAt: expect.any(String),
       status: "ACCEPTED",
       submittedAt: "2026-09-30T02:00:00.000Z",
       version: 1,
     });
     expect(Object.keys(body.invitation.rsvp).sort()).toEqual([
+      "attendingEvents",
       "lastUpdatedAt",
       "status",
       "submittedAt",

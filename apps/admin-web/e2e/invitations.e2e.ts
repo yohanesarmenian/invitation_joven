@@ -90,6 +90,155 @@ test("list fields, URL search/filter/sort/page state, refresh and back", async (
     page.getByLabel("Invitation status", { exact: true }),
   ).toHaveValue("");
 });
+test("sharing keeps delayed responses on their row and uses an honest clipboard fallback", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async () => {
+          throw new Error("Test clipboard unavailable");
+        },
+      },
+    });
+  });
+  await login(page, "sharing-owner@example.com");
+  await page.goto("/invitations");
+  const results = page.getByRole("region", { name: "Invitation results" });
+  const first = results.getByRole("row").filter({ hasText: "Household 01" });
+  const second = results.getByRole("row").filter({ hasText: "Household 03" });
+  const firstId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000001";
+  const secondId = "aaaaaaaa-aaaa-4aaa-8aaa-000000000003";
+  const firstLink = `http://localhost:3000/i/${"a".repeat(43)}`;
+  const secondLink = `http://localhost:3000/i/${"b".repeat(43)}`;
+  const wrongOriginLink = `https://untrusted.example.invalid/i/${"c".repeat(43)}`;
+  const calls: string[] = [];
+  let releaseFirst: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  await page.route("**/api/admin/invitations/*/public-url", async (route) => {
+    const id = new URL(route.request().url()).pathname.split("/")[4]!;
+    calls.push(id);
+    if (id === firstId) await held;
+    await route.fulfill({
+      status: 200,
+      json: {
+        publicTokenVersion: 1,
+        publicUrl:
+          id === firstId
+            ? firstLink
+            : id === secondId
+              ? secondLink
+              : wrongOriginLink,
+      },
+    });
+  });
+  try {
+    await expect(
+      first.getByRole("button", { name: "Copy link" }),
+    ).toBeEnabled();
+    expect(calls).toEqual([]);
+    await first.getByRole("button", { name: "Copy link" }).press("Enter");
+    await expect(
+      first.getByRole("button", { name: "Prepare WhatsApp" }),
+    ).toBeDisabled();
+    await expect.poll(() => calls).toEqual([firstId]);
+    await second.getByRole("button", { name: "Copy link" }).click();
+    await expect(second).toContainText("Another link is being copied");
+    expect(calls).toEqual([firstId]);
+    await second.getByRole("button", { name: "Prepare WhatsApp" }).click();
+    const handoff = second.getByRole("link", { name: "Open WhatsApp" });
+    await expect(handoff).toBeVisible();
+    expect(
+      new URL((await handoff.getAttribute("href"))!).searchParams
+        .get("text")
+        ?.endsWith(secondLink),
+    ).toBe(true);
+    await expect(second).toContainText("Review the recipient");
+    await expect(
+      first.getByRole("link", { name: "Open WhatsApp" }),
+    ).toHaveCount(0);
+    releaseFirst();
+    await expect(first.getByLabel("Current link")).toHaveValue(firstLink);
+    await expect(
+      second.getByRole("button", { name: "Prepare WhatsApp" }),
+    ).toBeFocused();
+    await expect(first).toContainText("Clipboard unavailable");
+    await expect(first).not.toContainText("Invitation link copied.");
+    await expect(second.getByLabel("Current link")).toHaveCount(0);
+    expect(calls).toEqual([firstId, secondId]);
+    expect(page.url().includes("/i/")).toBe(false);
+    expect(
+      await page.evaluate(
+        () =>
+          ![
+            ...Object.values(localStorage),
+            ...Object.values(sessionStorage),
+          ].some((value) => value.includes("localhost:3000/i/")),
+      ),
+    ).toBe(true);
+    await first.getByRole("button", { name: "Dismiss prepared link" }).click();
+    await expect(first.getByLabel("Current link")).toHaveCount(0);
+    const third = results.getByRole("row").filter({ hasText: "Household 05" });
+    await third.getByRole("button", { name: "Prepare WhatsApp" }).click();
+    await expect(third.getByRole("alert")).toContainText(
+      "could not be verified",
+    );
+    await expect(
+      third.getByRole("link", { name: "Open WhatsApp" }),
+    ).toHaveCount(0);
+    expect((await page.content()).includes(wrongOriginLink)).toBe(false);
+
+    await page.context().route("https://wa.me/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/plain",
+        body: "Synthetic handoff",
+      }),
+    );
+    const [popup] = await Promise.all([
+      page.waitForEvent("popup"),
+      handoff.click(),
+    ]);
+    expect(new URL(popup.url()).origin).toBe("https://wa.me");
+    await expect(popup.getByText("Synthetic handoff")).toBeVisible();
+    await popup.close();
+  } finally {
+    releaseFirst();
+  }
+});
+
+test("eligibility form rejects duplicate event selections and restores URL state on back", async ({
+  page,
+}) => {
+  await login(page, "filter-owner@example.com");
+  await page.goto("/invitations");
+  const apply = page.getByRole("button", { name: "Apply search and filters" });
+  await expect(apply).toBeEnabled();
+  await page.getByLabel("Match", { exact: true }).selectOption("exact");
+  await page.getByLabel("Session", { exact: true }).selectOption(events[0]!.id);
+  const second = page.getByLabel("Second session (optional)");
+  await second.selectOption(events[0]!.id);
+  await apply.click();
+  const error = page
+    .getByRole("form", { name: "Search and filter invitations" })
+    .getByRole("alert");
+  await expect(error).toContainText("Choose distinct sessions");
+  await expect(error).toBeFocused();
+  await second.selectOption(events[1]!.id);
+  await apply.click();
+  await expect(page).toHaveURL(/eligibility=exact/);
+  await expect(page.locator("#invitation-results-heading")).toBeFocused();
+  await expect(
+    page.getByRole("region", { name: "Invitation results" }),
+  ).toContainText("6 invitations matching");
+  await page.goBack();
+  await expect(page.getByLabel("Match", { exact: true })).toHaveValue("");
+  await page.goForward();
+  await expect(second).toHaveValue(events[1]!.id);
+});
+
 test("empty, no matches, beyond last and invalid URL are distinct", async ({
   page,
 }) => {
@@ -584,6 +733,55 @@ test("detail manages invitees and event eligibility with explicit conflict recov
     "SYNTHETIC_BACKEND_DIAGNOSTIC_NOT_FOR_DISPLAY",
   );
   await expect(page.locator("body")).not.toContainText("csrf");
+});
+
+test("detail anchors preserve pending eligibility recovery and the unsaved selection", async ({
+  page,
+}) => {
+  await login(page, "section-owner@example.com");
+  await page.goto("/invitations");
+  await page.getByRole("link", { name: "Household 01", exact: true }).click();
+  const sectionNav = page.getByRole("navigation", {
+    name: "Invitation detail sections",
+  });
+  const ceremony = page.getByRole("checkbox", { name: /Ceremony/ });
+  await expect(ceremony).toBeEnabled();
+  await ceremony.uncheck();
+
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writes: unknown[] = [];
+  await page.route("**/api/admin/invitations/*/events", async (route) => {
+    writes.push(route.request().postDataJSON());
+    await held;
+    await route.fulfill({
+      status: 503,
+      json: { error: { code: "INTERNAL_ERROR" } },
+    });
+  });
+  try {
+    await page.getByRole("button", { name: "Save event eligibility" }).click();
+    await expect(
+      page.getByRole("button", { name: "Saving..." }),
+    ).toBeDisabled();
+    await sectionNav.getByRole("link", { name: "Activity and RSVP" }).click();
+    await expect(page.locator("#invitation-activity")).toBeFocused();
+    release();
+    await sectionNav.getByRole("link", { name: "Guests and sessions" }).click();
+    await expect(ceremony).not.toBeChecked();
+    await expect(
+      page.getByRole("button", { name: "Save event eligibility" }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("link", { name: "Reload latest detail" }).first(),
+    ).toBeVisible();
+    expect(writes).toEqual([{ eventIds: [events[0]!.id] }]);
+    expect(new URL(page.url()).searchParams.has("eventsUpdated")).toBe(false);
+  } finally {
+    release();
+  }
 });
 
 test("edit sends expectedUpdatedAt, preserves conflict values, and refreshes after success", async ({

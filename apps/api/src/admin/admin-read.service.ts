@@ -11,7 +11,10 @@ import {
 } from "../common/admin-query.js";
 import { PrismaService } from "../database/prisma.service.js";
 import { CredentialService } from "../security/credential.service.js";
+import { MAX_INVITATION_SESSIONS } from "../invitations/eligibility-policy.js";
 import {
+  adminEligibilityFilters,
+  adminOpeningFilters,
   adminGuestMessageHiddenFilters,
   adminGuestMessageSortFields,
   adminInvitationSortFields,
@@ -26,6 +29,7 @@ import {
   type AdminGuestMessageSortField,
   type AdminInvitationDetailResponseDto,
   type AdminInvitationListResponseDto,
+  type AdminInvitationOverviewDto,
   type AdminInvitationPublicUrlResponseDto,
   type AdminInvitationStatus,
   type AdminRsvpDetailResponseDto,
@@ -111,6 +115,112 @@ const MESSAGE_LIST_QUERY_FIELDS = new Set([
 ]);
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+const invitationListQueryFields = new Set([
+  "page",
+  "pageSize",
+  "sortBy",
+  "sortOrder",
+  "status",
+  "rsvpStatus",
+  "search",
+  "eligibility",
+  "eventId",
+  "secondEventId",
+  "opening",
+]);
+const adminEventSelect = {
+  id: true,
+  slug: true,
+  name: true,
+  isActive: true,
+  displayOrder: true,
+} satisfies Prisma.EventSelect;
+const adminEventOrder = [
+  { displayOrder: "asc" },
+  { id: "asc" },
+] satisfies Prisma.EventOrderByWithRelationInput[];
+
+function parseInvitationActivity(query: QueryBag) {
+  for (const [key, value] of Object.entries(query)) {
+    if (!invitationListQueryFields.has(key) || typeof value !== "string")
+      validationError();
+  }
+
+  const eligibility = adminEligibilityFilters.find(
+    (value) => value === query.eligibility,
+  );
+  const opening = adminOpeningFilters.find((value) => value === query.opening);
+  const hasEvents = eligibility === "includes" || eligibility === "exact";
+  const eventId = parseOptionalUuid(query.eventId)?.toLowerCase();
+  const secondEventId = parseOptionalUuid(query.secondEventId)?.toLowerCase();
+  if (
+    (query.eligibility !== undefined && !eligibility) ||
+    (query.opening !== undefined && !opening) ||
+    (hasEvents && !eventId) ||
+    (!hasEvents &&
+      (query.eventId !== undefined || query.secondEventId !== undefined)) ||
+    (query.secondEventId !== undefined &&
+      (!secondEventId || eventId === secondEventId))
+  )
+    validationError();
+
+  return {
+    eligibility,
+    opening,
+    eventIds: [eventId, secondEventId].filter((id) => id !== undefined),
+  };
+}
+
+async function invitationOverview(
+  tx: Prisma.TransactionClient,
+): Promise<AdminInvitationOverviewDto> {
+  const [counts] = await tx.$queryRaw<
+    Array<{
+      households: number;
+      opened: number;
+      pending: number;
+      accepted: number;
+      declined: number;
+    }>
+  >`
+    SELECT COUNT(*)::int AS "households",
+      COUNT(*) FILTER (WHERE i.open_count > 0)::int AS "opened",
+      COUNT(*) FILTER (WHERE r.id IS NULL OR r.status = 'PENDING')::int AS "pending",
+      COUNT(*) FILTER (WHERE r.status = 'ACCEPTED')::int AS "accepted",
+      COUNT(*) FILTER (WHERE r.status = 'DECLINED')::int AS "declined"
+    FROM invitations i LEFT JOIN rsvps r ON r.invitation_id = i.id
+    WHERE i.status = 'ACTIVE'
+  `;
+  const namedGuests = await tx.invitee.count({
+    where: { invitation: { status: InvitationStatus.ACTIVE } },
+  });
+  const events = await tx.event.findMany({
+    orderBy: adminEventOrder,
+    select: {
+      ...adminEventSelect,
+      _count: {
+        select: {
+          invitationEvents: {
+            where: { invitation: { status: InvitationStatus.ACTIVE } },
+          },
+        },
+      },
+    },
+  });
+  const { households, opened, pending, accepted, declined } = counts!;
+  return {
+    households,
+    namedGuests,
+    opened,
+    unopened: households - opened,
+    rsvp: { pending, accepted, declined },
+    events: events.map(({ _count, ...event }) => ({
+      ...event,
+      eligibleHouseholds: _count.invitationEvents,
+    })),
+  };
+}
 
 function toIsoDate(value: Date | null): string | null {
   return value?.toISOString() ?? null;
@@ -646,38 +756,77 @@ export class AdminReadService {
     const search = parseAdminSearch(query);
     const status = parseStatusFilter(query.status);
     const rsvpStatus = parseRsvpStatusFilter(query.rsvpStatus);
-    const where = this.buildInvitationListWhere({ rsvpStatus, search, status });
+    const filters = parseInvitationActivity(query);
+    const baseWhere = this.buildInvitationListWhere({
+      rsvpStatus,
+      search,
+      status,
+    });
     const orderBy: Prisma.InvitationOrderByWithRelationInput[] = [
       { [INVITATION_SORT_MAP[sort.sortBy]]: sort.sortOrder },
       { id: "asc" },
     ];
-    const { invitations, totalItems } = await this.prisma.$transaction(
-      async (tx) => {
-        const totalItems = await tx.invitation.count({ where });
-        const invitations = await tx.invitation.findMany({
-          orderBy,
-          skip: page.skip,
-          take: page.pageSize,
-          where,
-          select: {
-            _count: { select: { invitees: true } },
-            archivedAt: true,
-            createdAt: true,
-            displayName: true,
-            greetingName: true,
-            id: true,
-            lastOpenedAt: true,
-            openCount: true,
-            rsvp: { select: { status: true } },
-            rsvpDeadlineAt: true,
-            status: true,
-            updatedAt: true,
-          },
-        });
+    const { invitations, totalItems, overview } =
+      await this.prisma.$transaction(
+        async (tx) => {
+          const where: Prisma.InvitationWhereInput = {
+            AND: [
+              baseWhere,
+              ...filters.eventIds.map((eventId) => ({
+                invitationEvents: { some: { eventId } },
+              })),
+            ],
+          };
+          if (filters.eligibility === "exact") {
+            where.invitationEvents = {
+              every: { eventId: { in: filters.eventIds } },
+            };
+          } else if (filters.eligibility === "none") {
+            where.invitationEvents = { none: {} };
+          } else if (filters.eligibility === "legacy") {
+            const legacy = await tx.invitationEvent.groupBy({
+              by: ["invitationId"],
+              having: { eventId: { _count: { gt: MAX_INVITATION_SESSIONS } } },
+            });
+            where.id = { in: legacy.map(({ invitationId }) => invitationId) };
+          }
+          if (filters.opening) {
+            where.openCount = filters.opening === "opened" ? { gt: 0 } : 0;
+          }
+          const totalItems = await tx.invitation.count({ where });
+          const invitations = await tx.invitation.findMany({
+            orderBy,
+            skip: page.skip,
+            take: page.pageSize,
+            where,
+            select: {
+              _count: { select: { invitees: true } },
+              archivedAt: true,
+              createdAt: true,
+              displayName: true,
+              greetingName: true,
+              id: true,
+              invitationEvents: {
+                orderBy: adminEventOrder.map((event) => ({ event })),
+                select: { event: { select: adminEventSelect } },
+              },
+              lastOpenedAt: true,
+              openCount: true,
+              rsvp: { select: { status: true } },
+              rsvpDeadlineAt: true,
+              status: true,
+              updatedAt: true,
+            },
+          });
 
-        return { invitations, totalItems };
-      },
-    );
+          return {
+            invitations,
+            totalItems,
+            overview: await invitationOverview(tx),
+          };
+        },
+        { isolationLevel: "RepeatableRead" },
+      );
 
     return {
       items: invitations.map((invitation) => ({
@@ -686,6 +835,7 @@ export class AdminReadService {
         displayName: invitation.displayName,
         greetingName: invitation.greetingName,
         id: invitation.id,
+        eligibleEvents: invitation.invitationEvents.map(({ event }) => event),
         inviteeCount: invitation._count.invitees,
         lastOpenedAt: toIsoDate(invitation.lastOpenedAt),
         openCount: invitation.openCount,
@@ -695,6 +845,8 @@ export class AdminReadService {
         updatedAt: toIsoDateRequired(invitation.updatedAt),
       })),
       page: buildAdminPageMetadata(page, totalItems),
+      overview,
+      publicInvitationOrigin: this.readPublicInvitationOrigin(),
     };
   }
 
@@ -759,6 +911,11 @@ export class AdminReadService {
             publicTokenVersion: true,
             rsvp: {
               select: {
+                eventSelections: {
+                  where: { attending: true },
+                  orderBy: adminEventOrder.map((event) => ({ event })),
+                  select: { event: { select: adminEventSelect } },
+                },
                 lastUpdatedAt: true,
                 status: true,
                 submittedAt: true,
@@ -785,6 +942,7 @@ export class AdminReadService {
     }
 
     return {
+      publicInvitationOrigin: this.readPublicInvitationOrigin(),
       invitation: {
         archivedAt: toIsoDate(invitation.archivedAt),
         allowPlusOne: invitation.allowPlusOne,
@@ -825,6 +983,9 @@ export class AdminReadService {
           invitation.rsvp === null
             ? null
             : {
+                attendingEvents: invitation.rsvp.eventSelections.map(
+                  ({ event }) => event,
+                ),
                 lastUpdatedAt: toIsoDateRequired(invitation.rsvp.lastUpdatedAt),
                 status: invitation.rsvp.status,
                 submittedAt: toIsoDate(invitation.rsvp.submittedAt),
@@ -873,6 +1034,15 @@ export class AdminReadService {
       publicTokenVersion: invitation.publicTokenVersion,
       publicUrl: this.publicBaseUrlService.buildInvitationUrl(credential),
     };
+  }
+
+  private readPublicInvitationOrigin(): string | null {
+    try {
+      return this.publicBaseUrlService.getBaseOrigin();
+    } catch {
+      // List and detail remain available if link sharing is misconfigured.
+      return null;
+    }
   }
 
   private buildInvitationListWhere(input: {

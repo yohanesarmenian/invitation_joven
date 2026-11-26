@@ -319,6 +319,15 @@ describe("generated API client", () => {
       },
     };
     const list: AdminInvitationListResponse = {
+      publicInvitationOrigin: "https://invite.example.com",
+      overview: {
+        households: 1,
+        namedGuests: 2,
+        opened: 0,
+        unopened: 1,
+        events: [],
+        rsvp: { pending: 1, accepted: 0, declined: 0 },
+      },
       items: [
         {
           archivedAt: null,
@@ -327,6 +336,7 @@ describe("generated API client", () => {
           greetingName: null,
           id: "11111111-1111-4111-8111-111111111111",
           inviteeCount: 2,
+          eligibleEvents: [],
           lastOpenedAt: null,
           openCount: 0,
           rsvpDeadlineAt: null,
@@ -382,6 +392,7 @@ describe("generated API client", () => {
       invitation: {
         ...detail.invitation,
         rsvp: {
+          attendingEvents: [],
           lastUpdatedAt: "2026-09-30T02:01:00.000Z",
           status: "ACCEPTED",
           submittedAt: "2026-09-30T02:00:00.000Z",
@@ -592,6 +603,7 @@ describe("generated API client", () => {
     expect(list.items[0]?.rsvpStatus).toBe("PENDING");
     expect(detail.invitation.notes).toBe("admin notes");
     expect(Object.keys(detailWithRsvp.invitation.rsvp ?? {}).sort()).toEqual([
+      "attendingEvents",
       "lastUpdatedAt",
       "status",
       "submittedAt",

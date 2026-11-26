@@ -45,21 +45,38 @@ export function withGuestDisplayName(fields: CreateFields): CreateFields {
   };
 }
 
+function allowedPublicProtocol(url: URL) {
+  return (
+    url.protocol === "https:" ||
+    (url.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))
+  );
+}
+
 // Only an authorized server response supplies the bearer link. Never put it in
 // router/query state, local/session storage, diagnostics, or an analytics event.
 export function safeInvitationUrl(value: unknown): value is string {
   if (typeof value !== "string") return false;
   try {
     const url = new URL(value);
-    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     return (
-      (url.protocol === "https:" || (loopback && url.protocol === "http:")) &&
+      allowedPublicProtocol(url) &&
       !url.username &&
       !url.password &&
       !url.search &&
       !url.hash &&
       /^\/i\/[A-Za-z0-9_-]{43}$/.test(url.pathname)
     );
+  } catch {
+    return false;
+  }
+}
+
+export function isInvitationOrigin(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return allowedPublicProtocol(url) && url.origin === value;
   } catch {
     return false;
   }

@@ -34,6 +34,7 @@ export const item: AdminInvitationListResponse["items"][number] = {
   status: "ACTIVE",
   rsvpStatus: "ACCEPTED",
   inviteeCount: 3,
+  eligibleEvents: [events[0]!, events[2]!],
   openCount: 7,
   lastOpenedAt: "2026-10-01T17:30:00.000Z",
   rsvpDeadlineAt: "2026-12-25T16:59:59.000Z",
@@ -42,7 +43,21 @@ export const item: AdminInvitationListResponse["items"][number] = {
   archivedAt: null,
 };
 export const list: AdminInvitationListResponse = {
+  publicInvitationOrigin: "http://localhost:3000",
   items: [item],
+  overview: {
+    households: 1,
+    namedGuests: 3,
+    opened: 1,
+    unopened: 0,
+    rsvp: { pending: 0, accepted: 1, declined: 0 },
+    events: events.map((event) => ({
+      ...event,
+      eligibleHouseholds: item.eligibleEvents.some(({ id }) => id === event.id)
+        ? 1
+        : 0,
+    })),
+  },
   page: { number: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
 };
 export const body: CreateAdminInvitationRequest = {
@@ -92,6 +107,7 @@ export const detail: AdminInvitationDetailResponse = {
     ],
     eligibility: [{ event: events[0]! }, { event: events[1]! }],
     rsvp: {
+      attendingEvents: [events[0]!],
       status: "ACCEPTED",
       version: 2,
       submittedAt: "2026-10-01T17:00:00.000Z",

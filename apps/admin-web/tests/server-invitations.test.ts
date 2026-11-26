@@ -46,10 +46,18 @@ it("forwards only normalized supported queries", async () => {
     search: "Twin",
     status: "ACTIVE",
     rsvpStatus: "PENDING",
+    eligibility: "exact",
+    eventId: events[0]!.id,
+    secondEventId: events[1]!.id,
+    opening: "unopened",
   });
   const url = new URL(fetchMock.mock.calls[0]![0].url);
   expect(url.searchParams.get("search")).toBe("Twin");
   expect(url.searchParams.get("rsvpStatus")).toBe("PENDING");
+  expect(url.searchParams.get("eligibility")).toBe("exact");
+  expect(url.searchParams.get("eventId")).toBe(events[0]!.id);
+  expect(url.searchParams.get("secondEventId")).toBe(events[1]!.id);
+  expect(url.searchParams.get("opening")).toBe("unopened");
   expect([...fetchMock.mock.calls[0]![0].headers.keys()]).toEqual([]);
 });
 it.each([getEvents, () => getInvitations(query)])(
@@ -75,6 +83,24 @@ it.each([
   { ...list, items: [{ ...list.items[0], status: ["ACTIVE"] }] },
   { ...list, items: [{ ...list.items[0], rsvpStatus: ["PENDING"] }] },
   { ...list, items: [{ ...list.items[0], openCount: -1 }] },
+  { ...list, overview: { ...list.overview, opened: 7 } },
+  {
+    ...list,
+    publicInvitationOrigin: "https://invite.example.invalid/i/example",
+  },
+  {
+    ...list,
+    overview: {
+      ...list.overview,
+      events: [{ ...events[0], eligibleHouseholds: 20 }],
+    },
+  },
+  {
+    ...list,
+    items: [
+      { ...list.items[0], eligibleEvents: [{ ...events[0], id: "bad" }] },
+    ],
+  },
   { ...list, items: [{ ...list.items[0], lastOpenedAt: "bad" }] },
 ])("rejects malformed list %#", async (value) => {
   fetchMock.mockResolvedValue(json(value));
@@ -83,6 +109,7 @@ it.each([
 it("accepts legitimate empty/out-of-range metadata without changing page", async () => {
   fetchMock.mockResolvedValue(
     json({
+      ...list,
       items: [],
       page: { number: 5, pageSize: 25, totalItems: 1, totalPages: 1 },
     }),
@@ -90,6 +117,7 @@ it("accepts legitimate empty/out-of-range metadata without changing page", async
   expect((await getInvitations({ ...query, page: 5 })).kind).toBe("ready");
   fetchMock.mockResolvedValue(
     json({
+      ...list,
       items: [],
       page: { number: 1, pageSize: 25, totalItems: 0, totalPages: 0 },
     }),

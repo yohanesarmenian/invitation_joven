@@ -145,7 +145,27 @@ export class AdminEventsResponseDto {
   events: AdminCatalogEventDto[];
 }
 
+export const adminEligibilityFilters = [
+  "includes",
+  "exact",
+  "none",
+  "legacy",
+] as const;
+export const adminOpeningFilters = ["opened", "unopened"] as const;
+
 export class AdminInvitationListQueryDto {
+  @ApiPropertyOptional({ enum: adminEligibilityFilters, type: String })
+  eligibility?: (typeof adminEligibilityFilters)[number];
+
+  @ApiPropertyOptional({ format: "uuid", type: String })
+  eventId?: string;
+
+  @ApiPropertyOptional({ format: "uuid", type: String })
+  secondEventId?: string;
+
+  @ApiPropertyOptional({ enum: adminOpeningFilters, type: String })
+  opening?: (typeof adminOpeningFilters)[number];
+
   @ApiPropertyOptional({ enum: adminInvitationStatuses, type: String })
   status?: AdminInvitationStatus;
 
@@ -169,6 +189,9 @@ export class AdminInvitationListQueryDto {
 }
 
 export class AdminInvitationListItemDto {
+  @ApiProperty({ type: () => [AdminEventDto] })
+  eligibleEvents: AdminEventDto[];
+
   @ApiProperty({ format: "uuid", type: String })
   id: string;
 
@@ -206,7 +229,38 @@ export class AdminInvitationListItemDto {
   archivedAt: string | null;
 }
 
+export class AdminInvitationEventCountDto extends AdminEventDto {
+  @ApiProperty({ minimum: 0, type: Number })
+  eligibleHouseholds: number;
+}
+
+export class AdminInvitationOverviewDto {
+  @ApiProperty({ minimum: 0, type: Number })
+  households: number;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  namedGuests: number;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  opened: number;
+
+  @ApiProperty({ minimum: 0, type: Number })
+  unopened: number;
+
+  @ApiProperty({ type: () => AdminDashboardRsvpMetricsDto })
+  rsvp: AdminDashboardRsvpMetricsDto;
+
+  @ApiProperty({ type: () => [AdminInvitationEventCountDto] })
+  events: AdminInvitationEventCountDto[];
+}
+
 export class AdminInvitationListResponseDto {
+  @ApiProperty({ type: String, nullable: true })
+  publicInvitationOrigin: string | null;
+
+  @ApiProperty({ type: () => AdminInvitationOverviewDto })
+  overview: AdminInvitationOverviewDto;
+
   @ApiProperty({ type: () => [AdminInvitationListItemDto] })
   items: AdminInvitationListItemDto[];
 
@@ -367,6 +421,9 @@ export class AdminInvitationEligibilityDto {
 }
 
 export class AdminInvitationRsvpSummaryDto {
+  @ApiProperty({ type: () => [AdminEventDto] })
+  attendingEvents: AdminEventDto[];
+
   @ApiProperty({ enum: adminRsvpStatuses, type: String })
   status: AdminRsvpStatus;
 
@@ -601,6 +658,9 @@ export class AdminInvitationDetailDto {
 }
 
 export class AdminInvitationDetailResponseDto {
+  @ApiPropertyOptional({ type: String, nullable: true })
+  publicInvitationOrigin?: string | null;
+
   @ApiProperty({ type: () => AdminInvitationDetailDto })
   invitation: AdminInvitationDetailDto;
 }

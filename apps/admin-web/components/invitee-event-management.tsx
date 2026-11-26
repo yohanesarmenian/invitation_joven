@@ -388,7 +388,9 @@ export function InviteeEventManagement({
         aria-labelledby="eligible-events-title"
       >
         <div className="section-heading">
-          <h2 id="eligible-events-title">Eligible events</h2>
+          <h2 id="eligible-events-title" tabIndex={-1}>
+            Eligible events
+          </h2>
           <p id="edit-session-limit">
             Save replaces the current set with the checked sessions. Choose no
             more than two. Sessions referenced by an RSVP cannot be removed.

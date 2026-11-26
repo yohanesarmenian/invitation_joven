@@ -6,6 +6,8 @@ import type {
   ReplaceAdminInvitationEventsResponse,
 } from "@wedding-invitation/api-client/src/index";
 
+import { isInvitationOrigin } from "./create-workflow";
+
 const object = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 const count = (v: unknown): v is number =>
@@ -67,7 +69,9 @@ export function isInviteeMutation(
     date(v.updatedAt)
   );
 }
-function isEvent(v: unknown) {
+export function isEvent(
+  v: unknown,
+): v is AdminEventsResponse["events"][number] {
   return (
     object(v) &&
     isUuid(v.id) &&
@@ -88,6 +92,8 @@ function isRsvp(v: unknown) {
         v.status === "ACCEPTED" ||
         v.status === "DECLINED") &&
       positiveCount(v.version) &&
+      Array.isArray(v.attendingEvents) &&
+      v.attendingEvents.every(isEvent) &&
       nullableDate(v.submittedAt) &&
       date(v.lastUpdatedAt))
   );
@@ -112,7 +118,14 @@ function isPass(v: unknown) {
 export function isInvitationDetail(
   v: unknown,
 ): v is AdminInvitationDetailResponse {
-  if (!object(v) || !object(v.invitation)) return false;
+  if (
+    !object(v) ||
+    !object(v.invitation) ||
+    (v.publicInvitationOrigin !== undefined &&
+      v.publicInvitationOrigin !== null &&
+      !isInvitationOrigin(v.publicInvitationOrigin))
+  )
+    return false;
   const i = v.invitation;
   return (
     isUuid(i.id) &&

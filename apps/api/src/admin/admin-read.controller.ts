@@ -5,6 +5,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
@@ -85,7 +86,10 @@ export class AdminReadController {
   }
 
   @Get("invitations")
-  @ApiOperation({ summary: "List admin invitations" })
+  @ApiOperation({
+    summary: "List admin invitations and the active invitation overview",
+  })
+  @ApiQuery({ type: AdminInvitationListQueryDto })
   @ApiOkResponse({ type: AdminInvitationListResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
   @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })

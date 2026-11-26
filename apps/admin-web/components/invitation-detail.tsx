@@ -7,6 +7,8 @@ import type {
 import { InviteeEventManagement } from "./invitee-event-management";
 import { InvitationActions } from "./invitation-actions";
 import { PersonalInviteMessage } from "./personal-invite-message";
+import { InvitationRowSharing } from "./invitation-row-sharing";
+import { InvitationSessionLabels } from "./invitation-session-labels";
 
 type Invitation = AdminInvitationDetailResponse["invitation"];
 type EventOption = AdminEventsResponse["events"][number];
@@ -54,17 +56,30 @@ export function InvitationDetail({
   csrfToken,
   events,
   invitation,
+  publicInvitationOrigin,
 }: {
   csrfToken: string;
   events: EventOption[];
   invitation: Invitation;
+  publicInvitationOrigin?: string | null;
 }) {
   return (
     <div className="invitation-detail">
-      <section className="detail-section">
+      <nav
+        className="invitation-section-nav"
+        aria-label="Invitation detail sections"
+      >
+        <a href="#invitation-overview">Overview</a>
+        <a href="#guest-management">Guests and sessions</a>
+        <a href="#invitation-activity">Activity and RSVP</a>
+        <a href="#sharing">Sharing</a>
+        <a href="#invitation-advanced">Advanced settings</a>
+      </nav>
+      <section className="detail-section" aria-labelledby="invitation-overview">
         <div className="section-heading">
-          <h2>Invitation identity</h2>
-          <p>Operational status and internal notes.</p>
+          <h2 id="invitation-overview" tabIndex={-1}>
+            Invitation identity
+          </h2>
         </div>
         <DefinitionList
           rows={[
@@ -79,6 +94,19 @@ export function InvitationDetail({
                 <span className="status-label">
                   {invitation.status === "ACTIVE" ? "Active" : "Archived"}
                 </span>
+              ),
+            },
+            {
+              label: "RSVP status",
+              value: invitation.rsvp?.status.toLowerCase() ?? "Pending",
+            },
+            {
+              label: "Eligible sessions",
+              value: (
+                <InvitationSessionLabels
+                  sessions={invitation.eligibility.map(({ event }) => event)}
+                  empty="No eligible sessions"
+                />
               ),
             },
             {
@@ -99,49 +127,28 @@ export function InvitationDetail({
           ]}
         />
       </section>
-      <section className="detail-section">
-        <div className="section-heading">
-          <h2>Invitation settings</h2>
-          <p>Guest rules and public-link version metadata.</p>
-        </div>
-        <DefinitionList
-          rows={[
-            {
-              label: "Allow plus-one",
-              value: <BoolValue value={invitation.allowPlusOne} />,
-            },
-            {
-              label: "Maximum additional children",
-              value: invitation.maxAdditionalChildren,
-            },
-            {
-              label: "RSVP deadline",
-              value: (
-                <DateValue
-                  value={invitation.rsvpDeadlineAt}
-                  empty="Wedding default (see Reports)"
-                />
-              ),
-            },
-            {
-              label: "Public token version",
-              value: invitation.publicTokenVersion,
-            },
-          ]}
+      <section
+        className="invitation-guest-group"
+        aria-labelledby="guest-management"
+      >
+        <h2 id="guest-management" tabIndex={-1}>
+          Guests and eligible sessions
+        </h2>
+        <InviteeEventManagement
+          key={`${invitation.id}:${invitation.eligibility
+            .map(({ event }) => event.id)
+            .sort()
+            .join(",")}`}
+          csrfToken={csrfToken}
+          events={events}
+          invitation={invitation}
         />
       </section>
-      <InviteeEventManagement
-        key={`${invitation.id}:${invitation.eligibility
-          .map(({ event }) => event.id)
-          .sort()
-          .join(",")}`}
-        csrfToken={csrfToken}
-        events={events}
-        invitation={invitation}
-      />
-      <section className="detail-section">
+      <section className="detail-section" aria-labelledby="invitation-activity">
         <div className="section-heading">
-          <h2>RSVP, messages, and activity</h2>
+          <h2 id="invitation-activity" tabIndex={-1}>
+            RSVP, messages, and activity
+          </h2>
           <p>Bounded summary only.</p>
         </div>
         <DefinitionList
@@ -151,6 +158,15 @@ export function InvitationDetail({
               value: invitation.rsvp
                 ? invitation.rsvp.status.toLowerCase()
                 : "No RSVP yet",
+            },
+            {
+              label: "Attending per saved RSVP",
+              value: (
+                <InvitationSessionLabels
+                  sessions={invitation.rsvp?.attendingEvents ?? []}
+                  empty="No sessions marked attending"
+                />
+              ),
             },
             {
               label: "RSVP submitted",
@@ -247,28 +263,84 @@ export function InvitationDetail({
           <p>No check-in pass history.</p>
         )}
       </section>
-      <InvitationActions
-        archivedAt={invitation.archivedAt}
-        csrfToken={csrfToken}
-        invitationId={invitation.id}
-        publicTokenVersion={invitation.publicTokenVersion}
-        status={invitation.status}
-      />
-      {invitation.status === "ACTIVE" && (
-        <PersonalInviteMessage
-          key={invitation.updatedAt}
+      <section
+        id="sharing"
+        tabIndex={-1}
+        className="detail-section"
+        aria-labelledby="invitation-sharing-heading"
+      >
+        <h2 id="invitation-sharing-heading">Sharing</h2>
+        {invitation.status === "ACTIVE" ? (
+          <>
+            {publicInvitationOrigin && (
+              <InvitationRowSharing
+                invitationId={invitation.id}
+                publicInvitationOrigin={publicInvitationOrigin}
+                showPersonalMessage={false}
+              />
+            )}
+            <PersonalInviteMessage
+              key={invitation.updatedAt}
+              invitationId={invitation.id}
+              context={{
+                greeting: invitation.greetingName ?? invitation.displayName,
+                deadline: invitation.rsvpDeadlineAt,
+                events: invitation.eligibility.map(
+                  (item) =>
+                    events.find((event) => event.id === item.event.id) ??
+                    item.event,
+                ),
+              }}
+            />
+          </>
+        ) : (
+          <p>Sharing is unavailable for this archived invitation.</p>
+        )}
+      </section>
+      <div
+        id="invitation-advanced"
+        tabIndex={-1}
+        className="invitation-guest-group"
+      >
+        <section className="detail-section">
+          <div className="section-heading">
+            <h2>Invitation settings</h2>
+            <p>Guest rules and public-link version metadata.</p>
+          </div>
+          <DefinitionList
+            rows={[
+              {
+                label: "Allow plus-one",
+                value: <BoolValue value={invitation.allowPlusOne} />,
+              },
+              {
+                label: "Maximum additional children",
+                value: invitation.maxAdditionalChildren,
+              },
+              {
+                label: "RSVP deadline",
+                value: (
+                  <DateValue
+                    value={invitation.rsvpDeadlineAt}
+                    empty="Wedding default (see Reports)"
+                  />
+                ),
+              },
+              {
+                label: "Public token version",
+                value: invitation.publicTokenVersion,
+              },
+            ]}
+          />
+        </section>
+        <InvitationActions
+          archivedAt={invitation.archivedAt}
+          csrfToken={csrfToken}
           invitationId={invitation.id}
-          context={{
-            greeting: invitation.greetingName ?? invitation.displayName,
-            deadline: invitation.rsvpDeadlineAt,
-            events: invitation.eligibility.map(
-              (item) =>
-                events.find((event) => event.id === item.event.id) ??
-                item.event,
-            ),
-          }}
+          publicTokenVersion={invitation.publicTokenVersion}
+          status={invitation.status}
         />
-      )}
+      </div>
       <div className="detail-actions">
         {invitation.status === "ACTIVE" && (
           <Link
