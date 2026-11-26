@@ -58,6 +58,10 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
   const input = page.getByLabel("RSVP deadline", { exact: true });
   const clear = page.getByRole("button", { name: "Clear RSVP deadline" });
   const save = page.getByRole("button", { name: "Save changes", exact: true });
+  const children = page.getByLabel("Maximum additional children (required)", {
+    exact: true,
+  });
+  const notes = page.getByLabel("Internal notes", { exact: true });
   const saved = () =>
     fixture.prisma.invitation.findUniqueOrThrow({
       where: { id: invitationId },
@@ -71,14 +75,21 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
     )
       writes++;
   });
-  await page.goto(path);
+  await editBeforeHydration(page, path, async () => {
+    await expect(input).toBeVisible();
+    await expect(input).toBeEditable();
+    await expect(clear).toBeDisabled();
+  });
   await expect(input).toHaveValue("2027-06-01T18:30");
   const beforeInvalid = await saved();
   await clear.click();
-  await input.press("1");
-  await page
-    .getByLabel("Internal notes", { exact: true })
-    .fill("Keep local notes through native validation");
+  await expect(input).toHaveValue("");
+  await children.focus();
+  await expect(children).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(input).toBeFocused();
+  await page.keyboard.press("1");
+  await notes.fill("Keep local notes through native validation");
   expect(
     await input.evaluate(
       (element: HTMLInputElement) =>
@@ -90,6 +101,7 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
   await expect(page.locator("#deadline-error")).toBeVisible();
   await expect(input).toHaveAttribute("aria-invalid", "true");
   await expect(input).toBeFocused();
+  await expect(notes).toHaveValue("Keep local notes through native validation");
   await expect(page).toHaveURL(new RegExp(`${path}$`));
   expect(writes).toBe(0);
   expect(await saved()).toEqual(beforeInvalid);
@@ -197,9 +209,6 @@ test("deadline invalid input never mutates PostgreSQL and untouched timestamps v
       .toBe("interactive");
     await expect(input).toHaveValue("2027-06-03T01:00");
     // Tab from the preceding field enters the first native date segment.
-    const children = page.getByLabel("Maximum additional children (required)", {
-      exact: true,
-    });
     // Parsing can finish while the streamed input still has a hidden ancestor.
     await expect(children).toBeVisible();
     await children.focus();
