@@ -4945,6 +4945,213 @@
           "checkins"
         ]
       },
+      "EventMaterialState": {
+        "type": "string",
+        "enum": [
+          "missing",
+          "draft",
+          "published",
+          "changed",
+          "unavailable"
+        ]
+      },
+      "EventOverviewDto": {
+        "type": "object",
+        "properties": {
+          "activeEligibleHouseholds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "acceptedHouseholds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "confirmedPeople": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "parking": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EventMaterialState"
+              }
+            ]
+          },
+          "rundown": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EventMaterialState"
+              }
+            ]
+          }
+        },
+        "required": [
+          "activeEligibleHouseholds",
+          "acceptedHouseholds",
+          "confirmedPeople",
+          "parking",
+          "rundown"
+        ]
+      },
+      "ManagedEventOverviewDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "venueName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "address": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "googleMapsUrl": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2048
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/EventUsageDto"
+          },
+          "overview": {
+            "$ref": "#/components/schemas/EventOverviewDto"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "startsAt",
+          "endsAt",
+          "venueName",
+          "address",
+          "googleMapsUrl",
+          "displayOrder",
+          "isActive",
+          "id",
+          "version",
+          "usage",
+          "overview"
+        ]
+      },
+      "ManagedEventsDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagedEventOverviewDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "EventFieldsDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "venueName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "address": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "googleMapsUrl": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2048
+          },
+          "displayOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "description",
+          "startsAt",
+          "endsAt",
+          "venueName",
+          "address",
+          "googleMapsUrl",
+          "displayOrder",
+          "isActive"
+        ]
+      },
       "ManagedEventDto": {
         "type": "object",
         "properties": {
@@ -5020,84 +5227,6 @@
           "id",
           "version",
           "usage"
-        ]
-      },
-      "ManagedEventsDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ManagedEventDto"
-            }
-          }
-        },
-        "required": [
-          "items"
-        ]
-      },
-      "EventFieldsDto": {
-        "type": "object",
-        "properties": {
-          "slug": {
-            "type": "string",
-            "maxLength": 80,
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 200
-          },
-          "description": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2000
-          },
-          "startsAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "endsAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "venueName": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 300
-          },
-          "address": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2000
-          },
-          "googleMapsUrl": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2048
-          },
-          "displayOrder": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 2147483647
-          },
-          "isActive": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "slug",
-          "name",
-          "description",
-          "startsAt",
-          "endsAt",
-          "venueName",
-          "address",
-          "googleMapsUrl",
-          "displayOrder",
-          "isActive"
         ]
       },
       "SaveEventDto": {
@@ -8453,6 +8582,9 @@
           "eventName": {
             "type": "string"
           },
+          "eventIsActive": {
+            "type": "boolean"
+          },
           "version": {
             "type": "number",
             "minimum": 0
@@ -8484,6 +8616,7 @@
         "required": [
           "eventId",
           "eventName",
+          "eventIsActive",
           "version",
           "draft",
           "published",

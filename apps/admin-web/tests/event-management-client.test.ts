@@ -25,6 +25,13 @@ const row = {
   version: 3,
   usage: { invitations: 0, rsvps: 0, checkins: 0 },
 };
+const overview = {
+  activeEligibleHouseholds: 2,
+  acceptedHouseholds: 1,
+  confirmedPeople: 3,
+  parking: "draft",
+  rundown: "unavailable",
+};
 const NativeRequest = globalThis.Request;
 beforeEach(() => {
   vi.stubGlobal(
@@ -82,11 +89,27 @@ describe("event management client recovery", () => {
         expect(await request.json()).toEqual({ ...fields, expectedVersion: 3 });
         return Response.json(row);
       }
-      return Response.json({ items: [row] });
+      return Response.json({ items: [{ ...row, overview }] });
     });
-    expect((await list()).kind).toBe("ok");
+    expect(await list()).toEqual({
+      kind: "ok",
+      data: { items: [{ ...row, overview }] },
+    });
     expect((await save(fields, "csrf", row)).kind).toBe("ok");
   });
+  it.each([
+    null,
+    { ...overview, confirmedPeople: -1 },
+    { ...overview, parking: "ready" },
+  ])(
+    "rejects an invalid overview without interpreting it as empty: %j",
+    async (invalid) => {
+      vi.stubGlobal("fetch", async () =>
+        Response.json({ items: [{ ...row, overview: invalid }] }),
+      );
+      expect(await list()).toEqual({ kind: "error", code: "UNAVAILABLE" });
+    },
+  );
   it("renders minute-only WIB while keeping canonical timestamps outside the input", () => {
     expect(toWib("2028-02-10T17:30:15.123Z")).toBe("2028-02-11T00:30");
     expect(new Date(fromWib("2028-02-11T00:30")!).toISOString()).toBe(

@@ -161,8 +161,17 @@ export async function createWorkflowFixture() {
     invitations.push(fixture);
     return fixture;
   }
-  async function cleanup() {
-    const ids = invitations.map((item) => item.id);
+  async function cleanup({
+    additionalInvitationIds = [],
+    additionalEventIds = [],
+  }: {
+    additionalInvitationIds?: string[];
+    additionalEventIds?: string[];
+  } = {}) {
+    const ids = [
+      ...invitations.map((item) => item.id),
+      ...additionalInvitationIds,
+    ];
     await prisma.checkinRecord.deleteMany({
       where: { invitationId: { in: ids } },
     });
@@ -178,7 +187,9 @@ export async function createWorkflowFixture() {
       where: { invitationId: { in: ids } },
     });
     await prisma.invitation.deleteMany({ where: { id: { in: ids } } });
-    await prisma.event.delete({ where: { id: event.id } });
+    await prisma.event.deleteMany({
+      where: { id: { in: [event.id, ...additionalEventIds] } },
+    });
     await prisma.adminSession.deleteMany({
       where: { adminUserId: { in: [owner.id, staff.id] } },
     });

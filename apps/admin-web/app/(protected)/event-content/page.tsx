@@ -3,7 +3,12 @@ import { getServerSession } from "../../../src/auth/server-session";
 import { SESSION_ENDED_PATH } from "../../../src/auth/auth-state";
 import { SessionUnavailable } from "../../../components/session-unavailable";
 import { EventContentWorkspace } from "../../../components/event-content-workspace";
-export default async function EventContentPage() {
+import { eventSelection } from "../../../src/events/selection";
+export default async function EventContentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ eventId?: string | string[] }>;
+}) {
   const session = await getServerSession();
   if (session.kind === "unauthenticated") redirect(SESSION_ENDED_PATH);
   if (session.kind !== "authenticated")
@@ -13,7 +18,10 @@ export default async function EventContentPage() {
   return (
     <>
       <h1>Event materials</h1>
-      <EventContentWorkspace csrfToken={session.auth.csrfToken} />
+      <EventContentWorkspace
+        csrfToken={session.auth.csrfToken}
+        initialSelection={eventSelection((await searchParams).eventId)}
+      />
     </>
   );
 }

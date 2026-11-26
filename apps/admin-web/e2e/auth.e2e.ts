@@ -316,9 +316,7 @@ test("forbidden logout stays in shell with authorization error", async ({
     page
       .getByRole("complementary", { name: "Admin workspace" })
       .getByRole("status"),
-  ).toHaveText(
-    "You are not authorized to perform this action.",
-  );
+  ).toHaveText("You are not authorized to perform this action.");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 });
 test("malformed me never renders protected shell", async ({ page }) => {
@@ -392,7 +390,7 @@ test("network logout failure keeps shell and requires an explicit retry", async 
       .getByRole("complementary", { name: "Admin workspace" })
       .getByRole("status"),
   ).toHaveText(
-    "Unable to sign out. Please try again.",
+    "Sign-out could not be confirmed. Select Sign out again to check your session.",
   );
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   expect(count).toBe(1);

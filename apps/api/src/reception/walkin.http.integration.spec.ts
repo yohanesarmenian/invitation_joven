@@ -14,6 +14,7 @@ import { AdminSessionTokenService } from "../auth/session-token.service.js";
 import { PrismaClient, type AdminRole } from "../generated/prisma/client.js";
 import { getDatabaseUrl } from "../database/database-url.js";
 import { CredentialService } from "../security/credential.service.js";
+import type { ManagedEventsDto } from "../events/event-management.dto.js";
 const db = new PrismaClient({ adapter: new PrismaPg(getDatabaseUrl()) });
 const origin = "http://localhost:3001";
 let app: NestFastifyApplication;
@@ -166,6 +167,140 @@ afterAll(async () => {
   await db.$disconnect();
 });
 describe("real PostgreSQL direct walkin and adjustment accounting", () => {
+  it("keeps walk-ins out of event planning while retaining onsite RSVP for invited households and historical usage", async () => {
+    const f = await fixture();
+    const owner = await actor("OWNER");
+    const invitedId = randomUUID();
+    const credentials = app.get(CredentialService);
+    const invited = await db.invitation.create({
+      data: {
+        id: invitedId,
+        displayName: "Invited synthetic household",
+        publicTokenHash: credentials.hashCredential(
+          credentials.deriveCredential({
+            namespace: "invitation",
+            stableId: invitedId,
+            version: 1,
+          }),
+        ),
+        invitationEvents: { create: { eventId: f.event.id } },
+        invitees: {
+          create: {
+            fullName: "Synthetic invited person",
+            displayOrder: 1,
+            category: "ADULT",
+          },
+        },
+      },
+      include: { invitees: true },
+    });
+    ids.push(invited.id);
+    const overview = async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/admin/event-management",
+        headers: owner.headers,
+      });
+      expect(response.statusCode).toBe(200);
+      return response
+        .json<ManagedEventsDto>()
+        .items.find((event) => event.id === f.event.id)!;
+    };
+    expect((await overview()).overview).toMatchObject({
+      activeEligibleHouseholds: 1,
+      acceptedHouseholds: 0,
+      confirmedPeople: 0,
+    });
+    const onsite = await post(
+      "arrivals",
+      {
+        operationId: randomUUID(),
+        invitationId: invited.id,
+        eventId: f.event.id,
+        attendeeCount: 1,
+        method: "MANUAL",
+        verificationMethod: "PHYSICAL_INVITATION",
+        onSite: {
+          status: "ACCEPTED",
+          expectedVersion: null,
+          attendees: [
+            {
+              type: "NAMED_INVITEE",
+              inviteeId: invited.invitees[0]!.id,
+              quantity: 1,
+            },
+          ],
+          eventSelections: [
+            { eventId: f.event.id, attending: true, expectedAttendeeCount: 1 },
+          ],
+          reason: "Synthetic invited household verified",
+        },
+      },
+      f.manager,
+    );
+    expect(onsite.statusCode).toBe(201);
+    const before = await overview();
+    expect(before.overview).toMatchObject({
+      activeEligibleHouseholds: 1,
+      acceptedHouseholds: 1,
+      confirmedPeople: 1,
+    });
+    const receipt = await register(f);
+    expect(
+      (await detail(receipt.invitationId, f.event.id, f.manager)).household,
+    ).toMatchObject({
+      source: "WALKIN",
+      expectedCount: 3,
+      arrivedCount: 2,
+    });
+    const after = await overview();
+    expect(after.overview).toEqual(before.overview);
+    expect(after.usage).toEqual({ invitations: 2, rsvps: 2, checkins: 2 });
+    expect((await adjust(f, receipt.invitationId, 1)).statusCode).toBe(201);
+    expect((await overview()).overview).toEqual(before.overview);
+    expect(
+      await db.walkinRegistration.count({
+        where: { invitationId: receipt.invitationId },
+      }),
+    ).toBe(1);
+    const saveEvent = (change: object) =>
+      app.inject({
+        method: "PUT",
+        url: `/api/admin/event-management/${f.event.id}`,
+        headers: owner.headers,
+        payload: {
+          expectedVersion: after.version,
+          slug: after.slug,
+          name: after.name,
+          description: after.description,
+          startsAt: after.startsAt,
+          endsAt: after.endsAt,
+          venueName: after.venueName,
+          address: after.address,
+          googleMapsUrl: after.googleMapsUrl,
+          displayOrder: after.displayOrder,
+          isActive: after.isActive,
+          ...change,
+        },
+      });
+    expect((await saveEvent({ isActive: false })).json().error.code).toBe(
+      "EVENT_IN_USE",
+    );
+    expect(
+      (await saveEvent({ startsAt: "2028-01-01T00:00:00Z" })).json().error.code,
+    ).toBe("EVENT_SCHEDULE_LOCKED");
+    expect((await overview()).version).toBe(after.version);
+    const archived = await app.inject({
+      method: "POST",
+      url: `/api/admin/invitations/${receipt.invitationId}/archive`,
+      headers: owner.headers,
+      payload: {},
+    });
+    expect(archived.statusCode).toBe(200);
+    expect(archived.json().invitation.status).toBe("ARCHIVED");
+    expect((await overview()).overview).toEqual(before.overview);
+    expect((await overview()).usage).toEqual(after.usage);
+  });
   it("registers one lead and explicit unnamed companions, atomically audited, then completes through Phase 4C", async () => {
     const f = await fixture(),
       receipt = await register(f);

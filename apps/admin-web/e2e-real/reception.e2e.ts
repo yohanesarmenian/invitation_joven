@@ -40,6 +40,11 @@ async function login(page: Page) {
   await page.getByLabel("Password", { exact: true }).fill(f.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(new URL("/reception", origins.admin).href);
+  const catalog = await page.request.get("/api/admin/checkin/events");
+  expect(catalog.status()).toBe(200);
+  expect(
+    (await catalog.json()).events.map((event: { id: string }) => event.id),
+  ).toEqual([f.event.id]);
   await expect(page.getByLabel("Wedding event")).toHaveValue(f.event.id);
 }
 async function find(page: Page, name: string) {

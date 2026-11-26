@@ -1,10 +1,16 @@
 import { Inject, Injectable, ConflictException } from "@nestjs/common";
+import { isDeepStrictEqual } from "node:util";
 import { PrismaService } from "../database/prisma.service.js";
 import { Prisma } from "../generated/prisma/client.js";
 import { notFound, validationError } from "../auth/auth-errors.js";
-import { UUID } from "../event-content/event-content.validation.js";
+import {
+  EMPTY_VENUE_CONTENT,
+  parseVenueBody,
+  UUID,
+} from "../event-content/event-content.validation.js";
 import { parseEvent } from "./event-management.validation.js";
 import type {
+  EventOverviewDto,
   ManagedEventDto,
   ManagedEventsDto,
 } from "./event-management.dto.js";
@@ -19,6 +25,56 @@ const include = {
   },
 } satisfies Prisma.EventInclude;
 type Row = Prisma.EventGetPayload<{ include: typeof include }>;
+type Content = { draft: Prisma.JsonValue; published: Prisma.JsonValue };
+const plannedInvitation = {
+  status: "ACTIVE",
+  walkinRegistration: { is: null },
+} satisfies Prisma.InvitationWhereInput;
+
+function rundownForComparison(
+  rundown: ReturnType<typeof parseVenueBody>["rundown"],
+) {
+  return (
+    rundown && {
+      ...rundown,
+      items: rundown.items.map((item) => ({
+        ...item,
+        // parseVenueBody already validated nonempty times. An incomplete draft
+        // still compares differently from any published instant.
+        startsAt: item.startsAt === "" ? "" : Date.parse(item.startsAt),
+      })),
+    }
+  );
+}
+
+function materialOverview(
+  row: Content | undefined,
+): Pick<EventOverviewDto, "parking" | "rundown"> {
+  try {
+    const draft = row ? parseVenueBody(row.draft) : EMPTY_VENUE_CONTENT;
+    const published =
+      row?.published == null ? null : parseVenueBody(row.published, true);
+    const state = (key: "parking" | "rundown") =>
+      published?.[key]
+        ? (
+            key === "rundown"
+              ? isDeepStrictEqual(
+                  rundownForComparison(draft.rundown),
+                  rundownForComparison(published.rundown),
+                )
+              : isDeepStrictEqual(draft.parking, published.parking)
+          )
+          ? "published"
+          : "changed"
+        : draft[key]
+          ? "draft"
+          : "missing";
+    return { parking: state("parking"), rundown: state("rundown") };
+  } catch {
+    // An unreadable saved snapshot is distinct from an absent section.
+    return { parking: "unavailable", rundown: "unavailable" };
+  }
+}
 function map(row: Row): ManagedEventDto {
   return {
     id: row.id,
@@ -51,14 +107,59 @@ function refuse(code: string): never {
 export class EventManagementService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
   async list(): Promise<ManagedEventsDto> {
-    return {
-      items: (
-        await this.prisma.event.findMany({
-          include,
-          orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
-        })
-      ).map(map),
-    };
+    return this.prisma.$transaction(
+      async (tx) => {
+        const [events, eligibility, attendance, materials] = await Promise.all([
+          tx.event.findMany({
+            include,
+            orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+          }),
+          tx.invitationEvent.groupBy({
+            by: ["eventId"],
+            where: { invitation: plannedInvitation },
+            _count: { _all: true },
+          }),
+          tx.rSVPEventSelection.groupBy({
+            by: ["eventId"],
+            where: {
+              attending: true,
+              rsvp: { status: "ACCEPTED", invitation: plannedInvitation },
+            },
+            _count: { _all: true },
+            _sum: { expectedAttendeeCount: true },
+          }),
+          tx.eventContent.findMany({
+            select: { eventId: true, draft: true, published: true },
+          }),
+        ]);
+        // Each household has at most one eligibility link and one RSVP
+        // selection per event. Neither count is a wedding-wide total.
+        const eligibleByEvent = new Map(
+          eligibility.map((row) => [row.eventId, row._count._all]),
+        );
+        const attendanceByEvent = new Map(
+          attendance.map((row) => [row.eventId, row]),
+        );
+        const materialsByEvent = new Map(
+          materials.map((row) => [row.eventId, row]),
+        );
+        return {
+          items: events.map((event) => {
+            const confirmed = attendanceByEvent.get(event.id);
+            return {
+              ...map(event),
+              overview: {
+                activeEligibleHouseholds: eligibleByEvent.get(event.id) ?? 0,
+                acceptedHouseholds: confirmed?._count._all ?? 0,
+                confirmedPeople: confirmed?._sum.expectedAttendeeCount ?? 0,
+                ...materialOverview(materialsByEvent.get(event.id)),
+              },
+            };
+          }),
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
   async create(body: unknown): Promise<ManagedEventDto> {
     const { fields } = parseEvent(body);

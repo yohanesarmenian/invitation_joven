@@ -57,6 +57,7 @@ export function isAdminVenueState(v: unknown): v is AdminVenueState {
     object(v) &&
     uuid(v.eventId) &&
     typeof v.eventName === "string" &&
+    typeof v.eventIsActive === "boolean" &&
     typeof v.version === "number" &&
     Number.isSafeInteger(v.version) &&
     v.version >= 0 &&

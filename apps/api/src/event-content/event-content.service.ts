@@ -48,7 +48,7 @@ export class EventContentService {
   private async state(tx: Tx, eventId: string): Promise<AdminEventContentDto> {
     const event = await tx.event.findUnique({
       where: { id: eventId },
-      select: { name: true },
+      select: { name: true, isActive: true },
     });
     if (!event) notFound();
     const row = await tx.eventContent.findUnique({ where: { eventId } });
@@ -64,6 +64,7 @@ export class EventContentService {
     return {
       eventId,
       eventName: event.name,
+      eventIsActive: event.isActive,
       version: row?.version ?? 0,
       draft,
       published: snapshot,

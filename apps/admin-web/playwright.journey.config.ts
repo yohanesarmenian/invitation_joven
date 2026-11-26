@@ -9,6 +9,7 @@ export default defineConfig({
   testMatch: [
     "**/checkin.e2e.ts",
     "**/event-content.e2e.ts",
+    "**/event-management.e2e.ts",
     "**/invitation-journey.e2e.ts",
     "**/reception.e2e.ts",
     "**/walkin.e2e.ts",

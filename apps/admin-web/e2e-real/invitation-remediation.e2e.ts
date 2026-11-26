@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   expect,
-  test,
+  test as base,
   type Locator,
   type Page,
   type TestInfo,
@@ -11,6 +11,42 @@ import { runnerOrigins } from "./origins";
 
 const origins = runnerOrigins();
 const savedMessage = "Terima kasih atas ucapan Anda";
+
+const test = base.extend<{
+  wedding: {
+    fixture: Awaited<ReturnType<typeof createWorkflowFixture>>;
+    ceremonySlug: string;
+    unrelatedSlug: string;
+    householdName: string;
+  };
+}>({
+  wedding: async ({}, runTest) => {
+    const fixture = await createWorkflowFixture();
+    const ceremonySlug = `ceremony-${randomUUID()}`;
+    const unrelatedSlug = `unrelated-${randomUUID()}`;
+    const householdName = `Synthetic two-session household ${randomUUID()}`;
+    try {
+      await runTest({ fixture, ceremonySlug, unrelatedSlug, householdName });
+    } finally {
+      // Playwright fixture teardown has its own budget after a test timeout.
+      // Resolve only this test's records, even if a create response was lost.
+      const [invitations, events] = await Promise.all([
+        fixture.prisma.invitation.findMany({
+          where: { displayName: householdName },
+          select: { id: true },
+        }),
+        fixture.prisma.event.findMany({
+          where: { slug: { in: [ceremonySlug, unrelatedSlug] } },
+          select: { id: true },
+        }),
+      ]);
+      await fixture.cleanup({
+        additionalInvitationIds: invitations.map(({ id }) => id),
+        additionalEventIds: events.map(({ id }) => id),
+      });
+    }
+  },
+});
 
 async function openInvitation(page: Page, credential: string) {
   await page.goto(`${origins.invitation}/i/${credential}`);
@@ -274,11 +310,8 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
   page,
   browser,
   request,
+  wedding: { fixture, ceremonySlug, unrelatedSlug, householdName },
 }, testInfo) => {
-  const fixture = await createWorkflowFixture();
-  const ceremonySlug = `ceremony-${randomUUID()}`;
-  const unrelatedSlug = `unrelated-${randomUUID()}`;
-  const householdName = `Synthetic two-session household ${randomUUID()}`;
   const guestContext = await browser.newContext({
     viewport: { width: 375, height: 900 },
   });
@@ -302,7 +335,7 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     await page.getByLabel("Event name").fill(receptionName);
     await page.getByRole("button", { name: "Save event" }).click();
     await expect(page.getByText("Event saved successfully.")).toBeVisible();
-    await eventPicker.selectOption("");
+    await page.getByRole("button", { name: "New event", exact: true }).click();
     await page.getByLabel("Event name").fill(ceremonyName);
     await page.getByLabel("Slug", { exact: true }).fill(ceremonySlug);
     await page.getByLabel("Venue name").fill("Synthetic ceremony venue");
@@ -371,7 +404,9 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     });
     await expect(ceremonyOption).not.toBeChecked();
     await expect(receptionOption).not.toBeChecked();
-    const sessionPicker = page.getByRole("group", { name: "Wedding sessions" });
+    const sessionPicker = page.getByRole("group", {
+      name: "Wedding sessions",
+    });
     const third = sessionPicker.getByRole("checkbox", {
       name: unrelated.name,
       exact: true,
@@ -473,7 +508,10 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
       ceremonyGuest.getByRole("heading", { name: ceremonyName, exact: true }),
     ).toBeVisible();
     await expect(
-      ceremonyGuest.getByRole("heading", { name: receptionName, exact: true }),
+      ceremonyGuest.getByRole("heading", {
+        name: receptionName,
+        exact: true,
+      }),
     ).toHaveCount(0);
     await expect(
       ceremonyGuest.getByRole("link", {
@@ -587,7 +625,10 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
       where: { invitationId: invitation.id },
       include: { attendees: true, eventSelections: true },
     });
-    expect(db).toMatchObject({ version: 4, dietaryNotes: latest.dietaryNotes });
+    expect(db).toMatchObject({
+      version: 4,
+      dietaryNotes: latest.dietaryNotes,
+    });
     expect(db.attendees).toHaveLength(1);
     expect(db.attendees[0]).toMatchObject({
       inviteeId: namedId,
@@ -648,7 +689,10 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     const receptionGuest = await guestContext.newPage();
     await openInvitation(receptionGuest, receptionOnly.publicCredential);
     await expect(
-      receptionGuest.getByRole("heading", { name: ceremonyName, exact: true }),
+      receptionGuest.getByRole("heading", {
+        name: ceremonyName,
+        exact: true,
+      }),
     ).toHaveCount(0);
     await expect(
       receptionGuest.getByRole("link", {
@@ -787,34 +831,5 @@ test("OWNER assigns wedding sessions and RSVP preserves named guests, counts and
     ).toEqual([...eventIds].sort());
   } finally {
     await guestContext.close();
-    const created = await fixture.prisma.invitation.findMany({
-      where: { displayName: householdName },
-      select: { id: true },
-    });
-    const ids = created.map(({ id }) => id);
-    await fixture.prisma.checkinPass.deleteMany({
-      where: { invitationId: { in: ids } },
-    });
-    await fixture.prisma.rSVP.deleteMany({
-      where: { invitationId: { in: ids } },
-    });
-    await fixture.prisma.invitee.deleteMany({
-      where: { invitationId: { in: ids } },
-    });
-    await fixture.prisma.invitationEvent.deleteMany({
-      where: { invitationId: { in: ids } },
-    });
-    await fixture.prisma.invitation.deleteMany({ where: { id: { in: ids } } });
-    const extra = await fixture.prisma.event.findMany({
-      where: { slug: { in: [ceremonySlug, unrelatedSlug] } },
-    });
-    // The fixture owns the pre-existing reception-only invite and its links.
-    await fixture.prisma.invitationEvent.deleteMany({
-      where: { eventId: { in: extra.map(({ id }) => id) } },
-    });
-    await fixture.prisma.event.deleteMany({
-      where: { slug: { in: [ceremonySlug, unrelatedSlug] } },
-    });
-    await fixture.cleanup();
   }
 });

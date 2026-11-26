@@ -1376,6 +1376,62 @@ button:disabled {
 .event-management-workspace select {
   min-width: 0;
 }
+.event-management-workspace h2 {
+  margin-block: 1rem 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.event-management-workspace h3 {
+  font-size: 1.0625rem;
+  font-weight: 650;
+}
+.event-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+  padding: 0;
+  list-style: none;
+}
+.event-catalog-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.event-content-workspace .event-catalog-card button {
+  align-self: flex-start;
+  margin-top: auto;
+}
+.event-facts {
+  display: grid;
+  gap: 0.65rem;
+  margin-block: 0.75rem 1rem;
+}
+.event-facts dt {
+  font-weight: 650;
+}
+.event-facts dd {
+  margin: 0;
+}
+.event-summary {
+  margin-block: 1rem;
+}
+.event-readiness {
+  padding-inline-start: 1.25rem;
+}
+.event-workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.event-workspace-actions a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: underline;
+}
+.event-management-workspace input {
+  min-width: 0;
+}
 .event-content-workspace fieldset {
   min-width: 0;
   margin: 1rem 0;

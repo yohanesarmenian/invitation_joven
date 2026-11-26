@@ -115,12 +115,13 @@ export async function signOut(csrfToken: string): Promise<LogoutResult> {
       message:
         response.status === 403
           ? FORBIDDEN
-          : "Unable to sign out. Please try again.",
+          : "Sign-out could not be confirmed. Select Sign out again to check your session.",
     };
   } catch {
     return {
       kind: "failure",
-      message: "Unable to sign out. Please try again.",
+      message:
+        "Sign-out could not be confirmed. Select Sign out again to check your session.",
     };
   }
 }

@@ -1148,6 +1148,51 @@ export interface components {
             rsvps: number;
             checkins: number;
         };
+        /** @enum {string} */
+        EventMaterialState: "missing" | "draft" | "published" | "changed" | "unavailable";
+        EventOverviewDto: {
+            activeEligibleHouseholds: number;
+            acceptedHouseholds: number;
+            confirmedPeople: number;
+            parking: components["schemas"]["EventMaterialState"];
+            rundown: components["schemas"]["EventMaterialState"];
+        };
+        ManagedEventOverviewDto: {
+            slug: string;
+            name: string;
+            description: string | null;
+            /** Format: date-time */
+            startsAt: string | null;
+            /** Format: date-time */
+            endsAt: string | null;
+            venueName: string | null;
+            address: string | null;
+            googleMapsUrl: string | null;
+            displayOrder: number;
+            isActive: boolean;
+            /** Format: uuid */
+            id: string;
+            version: number;
+            usage: components["schemas"]["EventUsageDto"];
+            overview: components["schemas"]["EventOverviewDto"];
+        };
+        ManagedEventsDto: {
+            items: components["schemas"]["ManagedEventOverviewDto"][];
+        };
+        EventFieldsDto: {
+            slug: string;
+            name: string;
+            description: string | null;
+            /** Format: date-time */
+            startsAt: string | null;
+            /** Format: date-time */
+            endsAt: string | null;
+            venueName: string | null;
+            address: string | null;
+            googleMapsUrl: string | null;
+            displayOrder: number;
+            isActive: boolean;
+        };
         ManagedEventDto: {
             slug: string;
             name: string;
@@ -1165,23 +1210,6 @@ export interface components {
             id: string;
             version: number;
             usage: components["schemas"]["EventUsageDto"];
-        };
-        ManagedEventsDto: {
-            items: components["schemas"]["ManagedEventDto"][];
-        };
-        EventFieldsDto: {
-            slug: string;
-            name: string;
-            description: string | null;
-            /** Format: date-time */
-            startsAt: string | null;
-            /** Format: date-time */
-            endsAt: string | null;
-            venueName: string | null;
-            address: string | null;
-            googleMapsUrl: string | null;
-            displayOrder: number;
-            isActive: boolean;
         };
         SaveEventDto: {
             slug: string;
@@ -2043,6 +2071,7 @@ export interface components {
             /** Format: uuid */
             eventId: string;
             eventName: string;
+            eventIsActive: boolean;
             version: number;
             draft: components["schemas"]["EventVenueBodyDto"];
             published: components["schemas"]["EventVenueBodyDto"] | null;

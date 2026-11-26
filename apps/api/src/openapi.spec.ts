@@ -52,6 +52,17 @@ describe("OpenAPI contract", () => {
     expect(document.components?.schemas?.ManagedEventDto).toHaveProperty(
       "properties.usage",
     );
+    expect(document.components?.schemas?.ManagedEventDto).not.toHaveProperty(
+      "properties.overview",
+    );
+    expect(document.components?.schemas?.ManagedEventsDto).toHaveProperty(
+      "properties.items.items.$ref",
+      "#/components/schemas/ManagedEventOverviewDto",
+    );
+    expect(document.components?.schemas?.EventMaterialState).toHaveProperty(
+      "enum",
+      ["missing", "draft", "published", "changed", "unavailable"],
+    );
   });
   it("documents typed OWNER content, multipart upload and public credential-bound media contracts", () => {
     const document = createOpenApiDocument(app);
@@ -80,9 +91,19 @@ describe("OpenAPI contract", () => {
     const upload =
       document.paths["/api/admin/event-content/{eventId}/assets"]?.post;
     expect(upload?.requestBody).toHaveProperty("content.multipart/form-data");
-    expect(document.components?.schemas?.AdminEventContentDto).toHaveProperty(
-      "properties.version",
+    const adminState = document.components?.schemas?.AdminEventContentDto;
+    expect(adminState).toHaveProperty("properties.version");
+    expect(adminState).toHaveProperty(
+      "properties.eventIsActive.type",
+      "boolean",
     );
+    expect(adminState).toHaveProperty(
+      "required",
+      expect.arrayContaining(["eventIsActive"]),
+    );
+    expect(
+      document.components?.schemas?.PublicEventContentItemDto,
+    ).not.toHaveProperty("properties.eventIsActive");
   });
   let app: NestFastifyApplication;
 

@@ -135,7 +135,7 @@ test("real draft/upload/preview/publish/hide survives reload and controls guest 
       .getByRole("alertdialog")
       .getByRole("button", { name: "Confirm action", exact: true })
       .click();
-    await expect(page.getByText(/Published snapshot available/)).toBeVisible();
+    await expect(page.getByText(/Published snapshot stored/)).toBeVisible();
     const state = await fixture.prisma.eventContent.findUniqueOrThrow({
       where: { eventId: fixture.event.id },
     });
@@ -231,6 +231,30 @@ test("lost save response blocks mutation until explicit authoritative reload, wi
   await expect(
     page.getByRole("button", { name: "Publish saved draft", exact: true }),
   ).toBeDisabled();
+  // Simulate the bare workspace URL while keeping the same recovering editor.
+  await page.evaluate(() =>
+    history.replaceState(history.state, "", "/event-content"),
+  );
+  let unloadPrompt = false;
+  const dismiss = (dialog: import("@playwright/test").Dialog) => {
+    unloadPrompt = true;
+    return dialog.dismiss();
+  };
+  page.on("dialog", dismiss);
+  await page
+    .getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("link", { name: "Event materials", exact: true })
+    .press("Enter");
+  await expect(
+    page.getByText(
+      /Finish the current action or reload saved state before leaving/,
+    ),
+  ).toBeVisible();
+  expect(unloadPrompt).toBe(false);
+  page.off("dialog", dismiss);
+  await expect(page.getByLabel("Parking title", { exact: true })).toHaveValue(
+    "Lost response draft",
+  );
   await page
     .getByRole("button", { name: "Reload saved state", exact: true })
     .click();
@@ -254,6 +278,97 @@ test("lost save response blocks mutation until explicit authoritative reload, wi
       })
     ).version,
   ).toBe((before?.version ?? 0) + 1);
+});
+
+test("failed sign-out preserves material drafts and selected files until the session ends", async ({
+  page,
+}) => {
+  await editor(page);
+  const before = await fixture.prisma.eventContent.findUnique({
+    where: { eventId: fixture.event.id },
+  });
+  await page.getByLabel("Include parking guide", { exact: true }).check();
+  const title = page.getByLabel("Parking title", { exact: true });
+  await title.fill("Synthetic unsaved parking");
+  await page.getByLabel("Upload file", { exact: true }).setInputFiles({
+    name: "synthetic.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4"),
+  });
+  let requests = 0;
+  await page.route("**/api/admin/auth/logout", async (route) => {
+    requests++;
+    if (requests === 1) return route.abort("failed");
+    if (requests === 2)
+      return route.fulfill({
+        status: 403,
+        json: { error: { code: "FORBIDDEN" } },
+      });
+    if (requests === 4) return route.continue();
+    const headers = {
+      ...route.request().headers(),
+      "x-csrf-token": "synthetic-invalid",
+    };
+    const response = await route.fetch({ headers });
+    expect(response.status()).toBe(403);
+    expect((await response.json()).error.code).toBe("CSRF_INVALID");
+    await route.fulfill({ response });
+  });
+  const signOut = page.getByRole("button", { name: "Sign out", exact: true });
+  for (const message of [
+    /Sign-out could not be confirmed/,
+    /You are not authorized to perform this action/,
+    /Your session has been refreshed/,
+  ]) {
+    await signOut.click();
+    await expect(page.getByText(message)).toBeVisible();
+    expect((await page.request.get("/api/admin/auth/me")).status()).toBe(200);
+    await expect(title).toHaveValue("Synthetic unsaved parking");
+    await expect(page.getByLabel("Event", { exact: true })).toHaveValue(
+      fixture.event.id,
+    );
+    expect(
+      await page
+        .getByLabel("Upload file", { exact: true })
+        .evaluate((input: HTMLInputElement) => input.files?.[0]?.name),
+    ).toBe("synthetic.pdf");
+  }
+  const readStarted = Promise.withResolvers<void>();
+  const releaseRead = Promise.withResolvers<void>();
+  await page.route(
+    `**/api/admin/event-content/${fixture.event.id}`,
+    async (route) => {
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      readStarted.resolve();
+      await releaseRead.promise;
+      // The confirmed logout may cancel this obsolete document's request.
+      await route.fulfill({ response }).catch(() => {});
+    },
+  );
+  await page
+    .getByRole("button", { name: "Reload saved state", exact: true })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Confirm action" })
+    .click();
+  try {
+    await readStarted.promise;
+    await expect(title).toBeDisabled();
+    await signOut.click();
+    await expect(page).toHaveURL(new URL("/login", origins.admin).href);
+  } finally {
+    releaseRead.resolve();
+  }
+  await expect(title).toHaveCount(0);
+  expect((await page.request.get("/api/admin/auth/me")).status()).toBe(401);
+  expect(requests).toBe(4);
+  expect(
+    await fixture.prisma.eventContent.findUnique({
+      where: { eventId: fixture.event.id },
+    }),
+  ).toEqual(before);
 });
 
 test("event material feedback stays informational while pending and reports rejected inputs as errors", async ({
@@ -516,6 +631,13 @@ test("Rundown date edits keep invalid input separate from empty draft times", as
   await page.getByRole("button", { name: "Confirm action" }).click();
   await expect(page.getByText(/Validation rejected/)).toBeVisible();
   await page.getByRole("button", { name: "Reload saved state" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Confirm action" })
+    .click();
+  await expect(
+    page.getByText("Saved state loaded.", { exact: true }),
+  ).toBeVisible();
   await expect(first).toHaveValue("");
   await expect(second).toHaveValue("");
   await expect(page.getByLabel("Start (WIB) 3", { exact: true })).toHaveValue(

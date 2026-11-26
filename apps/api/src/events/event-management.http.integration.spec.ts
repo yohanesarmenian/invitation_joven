@@ -13,7 +13,10 @@ import { PrismaService } from "../database/prisma.service.js";
 import { AdminPasswordService } from "../auth/password.service.js";
 import { AdminSessionTokenService } from "../auth/session-token.service.js";
 import { CredentialService } from "../security/credential.service.js";
-import type { EventFieldsDto } from "./event-management.dto.js";
+import type {
+  EventFieldsDto,
+  ManagedEventsDto,
+} from "./event-management.dto.js";
 
 const origin = "http://localhost:3001";
 const base = "/api/admin/event-management";
@@ -23,7 +26,9 @@ describe("OWNER event management with real PostgreSQL", () => {
     credentials: CredentialService,
     eventId: string,
     ownerId: string;
-  let owner: Record<string, string>, staff: Record<string, string>;
+  let owner: Record<string, string>,
+    staff: Record<string, string>,
+    guestManager: Record<string, string>;
   const events: string[] = [],
     users: string[] = [],
     invitations: string[] = [];
@@ -95,7 +100,7 @@ describe("OWNER event management with real PostgreSQL", () => {
     const passwordHash = await new AdminPasswordService().hashPassword(
       "synthetic event password",
     );
-    for (const role of ["OWNER", "CHECKIN_STAFF"] as const) {
+    for (const role of ["OWNER", "CHECKIN_STAFF", "GUEST_MANAGER"] as const) {
       const user = await prisma.adminUser.create({
         data: {
           email: `managed-${randomUUID()}@example.com`,
@@ -121,7 +126,8 @@ describe("OWNER event management with real PostgreSQL", () => {
       if (role === "OWNER") {
         owner = headers;
         ownerId = user.id;
-      } else staff = headers;
+      } else if (role === "CHECKIN_STAFF") staff = headers;
+      else guestManager = headers;
     }
   });
   beforeEach(async () => {
@@ -159,6 +165,10 @@ describe("OWNER event management with real PostgreSQL", () => {
     expect((await app.inject({ method: "GET", url: base })).statusCode).toBe(
       401,
     );
+    expect(
+      (await app.inject({ method: "GET", url: base, headers: guestManager }))
+        .statusCode,
+    ).toBe(403);
     for (const method of ["GET", "POST", "PUT"] as const)
       expect(
         (
@@ -180,6 +190,16 @@ describe("OWNER event management with real PostgreSQL", () => {
         })
       ).json().error.code,
     ).toBe("CSRF_INVALID");
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: base,
+          headers: { ...owner, origin: "http://localhost:3851" },
+          payload: original,
+        })
+      ).statusCode,
+    ).toBe(403);
     expect(
       (
         await app.inject({
@@ -226,6 +246,7 @@ describe("OWNER event management with real PostgreSQL", () => {
     const created = response.json();
     events.push(created.id);
     expect(created).toMatchObject({ ...body, version: 1 });
+    expect(created).not.toHaveProperty("overview");
     expect(
       (
         await save({
@@ -255,6 +276,197 @@ describe("OWNER event management with real PostgreSQL", () => {
       expect(result.statusCode).toBe(409);
       expect(result.json().error.code).toBe("EVENT_UNIQUE_CONFLICT");
     }
+  });
+  it("projects per-event active eligibility and saved attending RSVP counts without guest data", async () => {
+    const inactive = await prisma.event.create({
+      data: { ...fields(), isActive: false },
+    });
+    const unused = await prisma.event.create({ data: fields() });
+    events.push(inactive.id, unused.id);
+    const shared = await invite(true);
+    await prisma.invitationEvent.create({
+      data: { invitationId: shared.id, eventId: inactive.id },
+    });
+    const rsvp = await prisma.rSVP.findUniqueOrThrow({
+      where: { invitationId: shared.id },
+    });
+    await prisma.rSVPEventSelection.create({
+      data: {
+        rsvpId: rsvp.id,
+        eventId: inactive.id,
+        attending: true,
+        expectedAttendeeCount: 2,
+      },
+    });
+    const archived = await invite(true);
+    await prisma.invitation.update({
+      where: { id: archived.id },
+      data: { status: "ARCHIVED", archivedAt: new Date() },
+    });
+    await invite();
+    for (const status of ["PENDING", "DECLINED", "ACCEPTED"] as const) {
+      const household = await invite();
+      await prisma.rSVP.create({
+        data: {
+          invitationId: household.id,
+          status,
+          eventSelections: {
+            create: { eventId, attending: false, expectedAttendeeCount: 0 },
+          },
+        },
+      });
+    }
+    const result = await app.inject({
+      method: "GET",
+      url: base,
+      headers: owner,
+    });
+    expect(result.statusCode).toBe(200);
+    const { items } = result.json<ManagedEventsDto>();
+    expect(items.find((item) => item.id === eventId)).toMatchObject({
+      overview: {
+        activeEligibleHouseholds: 5,
+        acceptedHouseholds: 1,
+        confirmedPeople: 1,
+      },
+      usage: { invitations: 6, rsvps: 5, checkins: 0 },
+    });
+    expect(
+      items.find((item) => item.id === inactive.id)?.overview,
+    ).toMatchObject({
+      activeEligibleHouseholds: 1,
+      acceptedHouseholds: 1,
+      confirmedPeople: 2,
+    });
+    expect(items.find((item) => item.id === unused.id)?.overview).toEqual({
+      activeEligibleHouseholds: 0,
+      acceptedHouseholds: 0,
+      confirmedPeople: 0,
+      parking: "missing",
+      rundown: "missing",
+    });
+    expect(result.body).not.toContain("Synthetic event household");
+    expect(result.body).not.toContain(shared.token);
+  });
+  it("reads saved draft, publication, divergence, hide and unavailable materials without assets", async () => {
+    const materialsPath = `/api/admin/event-content/${eventId}`;
+    const parking = {
+      title: "Synthetic parking",
+      instructions: ["Use the marked entrance"],
+      mapAssetId: null,
+      mapAlt: "",
+      pdfAssetId: null,
+      googleMapsUrl: null,
+    };
+    const rundown = {
+      title: "Synthetic schedule",
+      items: [
+        {
+          startsAt: "2028-01-10T08:30:00+07:00",
+          title: "Arrival",
+          description: "",
+        },
+      ],
+    };
+    const read = async (parkingState: string, rundownState: string) => {
+      const result = await app.inject({
+        method: "GET",
+        url: base,
+        headers: owner,
+      });
+      expect(result.statusCode).toBe(200);
+      const item = result
+        .json<ManagedEventsDto>()
+        .items.find((row) => row.id === eventId);
+      expect(item?.overview).toMatchObject({
+        parking: parkingState,
+        rundown: rundownState,
+      });
+      expect(item).not.toHaveProperty("assets");
+      expect(result.body).not.toContain(parking.title);
+    };
+    const draft = async (expectedVersion: number, content: object) => {
+      const result = await app.inject({
+        method: "PUT",
+        url: materialsPath,
+        headers: owner,
+        payload: { expectedVersion, content },
+      });
+      expect(result.statusCode).toBe(200);
+      return result.json().version as number;
+    };
+    const publication = async (
+      action: "publish" | "hide",
+      expectedVersion: number,
+    ) => {
+      const result = await app.inject({
+        method: "POST",
+        url: `${materialsPath}/${action}`,
+        headers: owner,
+        payload: { expectedVersion },
+      });
+      expect(result.statusCode).toBe(200);
+      return result.json().version as number;
+    };
+    await read("missing", "missing");
+    let version = await draft(0, { parking, rundown: null });
+    await read("draft", "missing");
+    version = await publication("publish", version);
+    await read("published", "missing");
+    version = await draft(version, { parking, rundown });
+    await read("published", "draft");
+    version = await publication("publish", version);
+    await read("published", "published");
+    for (const startsAt of [
+      "2028-01-10T01:30:00Z",
+      "2028-01-10T02:30:00+01:00",
+    ]) {
+      version = await draft(version, {
+        parking,
+        rundown: { ...rundown, items: [{ ...rundown.items[0], startsAt }] },
+      });
+      await read("published", "published");
+    }
+    for (const change of [
+      { startsAt: "2028-01-10T01:31:00Z" },
+      { startsAt: "" },
+      { title: "Changed activity title" },
+      { description: "Changed activity description" },
+    ]) {
+      version = await draft(version, {
+        parking,
+        rundown: { ...rundown, items: [{ ...rundown.items[0], ...change }] },
+      });
+      await read("published", "changed");
+    }
+    version = await draft(version, {
+      parking: { ...parking, instructions: ["Use a different entrance"] },
+      rundown,
+    });
+    await read("changed", "published");
+    const second = { ...rundown.items[0]!, title: "Second activity" };
+    const sameTimeItems = [rundown.items[0]!, second];
+    version = await draft(version, {
+      parking,
+      rundown: { ...rundown, items: sameTimeItems },
+    });
+    version = await publication("publish", version);
+    version = await draft(version, {
+      parking,
+      rundown: { ...rundown, items: [...sameTimeItems].reverse() },
+    });
+    await read("published", "changed");
+    version = await draft(version, { parking, rundown });
+    version = await publication("publish", version);
+    version = await draft(version, { parking: null, rundown });
+    await read("changed", "published");
+    await publication("hide", version);
+    await read("missing", "draft");
+    await prisma.eventContent.update({
+      where: { eventId },
+      data: { draft: {} },
+    });
+    await read("unavailable", "unavailable");
   });
   it("rejects invalid dates, unsafe URLs, extra/missing fields and invalid integer bounds atomically", async () => {
     const before = await prisma.event.findUniqueOrThrow({
@@ -334,6 +546,48 @@ describe("OWNER event management with real PostgreSQL", () => {
     expect(persisted.name).toBe(
       results.find((r) => r.statusCode === 200)?.json().name,
     );
+  });
+  it("protects a declined RSVP reference and allows an inactive referenced event to be activated", async () => {
+    await prisma.event.update({
+      where: { id: eventId },
+      data: { isActive: false },
+    });
+    const household = await invite();
+    await prisma.invitationEvent.deleteMany({
+      where: { invitationId: household.id, eventId },
+    });
+    await prisma.rSVP.create({
+      data: {
+        invitationId: household.id,
+        status: "DECLINED",
+        eventSelections: {
+          create: { eventId, attending: false, expectedAttendeeCount: 0 },
+        },
+      },
+    });
+    const renamed = await save({
+      slug: `different-${randomUUID()}`,
+      isActive: false,
+    });
+    expect(renamed.statusCode).toBe(409);
+    expect(renamed.json().error.code).toBe("EVENT_IN_USE");
+    const activated = await save({ isActive: true });
+    expect(activated.statusCode).toBe(200);
+    expect(activated.json()).toMatchObject({
+      isActive: true,
+      version: 2,
+      usage: { invitations: 0, rsvps: 1, checkins: 0 },
+    });
+    expect((await save({ isActive: false }, 2)).json().error.code).toBe(
+      "EVENT_IN_USE",
+    );
+    expect(
+      await prisma.event.findUniqueOrThrow({ where: { id: eventId } }),
+    ).toMatchObject({
+      slug: original.slug,
+      isActive: true,
+      version: 2,
+    });
   });
   it("protects linked/archive history and check-in schedule while preserving RSVP/pass data", async () => {
     const guest = await invite(true);

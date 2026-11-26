@@ -184,7 +184,11 @@ describe("OWNER event content, assets and publication with PostgreSQL", () => {
       payload: { expectedVersion: 0, content: content() },
     });
     expect(response.statusCode).toBe(200);
-    expect(response.json().version).toBe(1);
+    expect(response.json()).toMatchObject({
+      eventId,
+      eventIsActive: true,
+      version: 1,
+    });
     expect(
       (await prisma.eventContent.findUniqueOrThrow({ where: { eventId } }))
         .draft,
@@ -201,7 +205,11 @@ describe("OWNER event content, assets and publication with PostgreSQL", () => {
       payload: { expectedVersion: 1 },
     });
     expect(response.statusCode).toBe(200);
-    expect(response.json().version).toBe(2);
+    expect(response.json()).toMatchObject({
+      eventId,
+      eventIsActive: true,
+      version: 2,
+    });
     response = await app.inject({
       method: "PUT",
       url: path(),
@@ -221,7 +229,11 @@ describe("OWNER event content, assets and publication with PostgreSQL", () => {
       headers: owner,
       payload: { expectedVersion: 3 },
     });
-    expect(response.json().published).toBeNull();
+    expect(response.json()).toMatchObject({
+      eventId,
+      eventIsActive: true,
+      published: null,
+    });
     expect(response.json().draft.parking.title).toBe("Edited draft");
     expect(
       (
@@ -232,6 +244,50 @@ describe("OWNER event content, assets and publication with PostgreSQL", () => {
       (await prisma.invitation.findUniqueOrThrow({ where: { id: guest.id } }))
         .openCount,
     ).toBe(0);
+  });
+  it("returns authoritative Event metadata even when no materials exist or the Event is inactive", async () => {
+    const original = await app.inject({
+      method: "GET",
+      url: path(),
+      headers: owner,
+    });
+    expect(original.statusCode).toBe(200);
+    expect(original.json()).toMatchObject({
+      eventId,
+      eventIsActive: true,
+      version: 0,
+      published: null,
+    });
+    await prisma.event.update({
+      where: { id: eventId },
+      data: { isActive: false, name: "Inactive synthetic reception" },
+    });
+    const inactive = {
+      eventId,
+      eventName: "Inactive synthetic reception",
+      eventIsActive: false,
+      published: null,
+    };
+    const read = await app.inject({
+      method: "GET",
+      url: path(),
+      headers: owner,
+    });
+    expect(read.statusCode).toBe(200);
+    expect(read.json()).toMatchObject({ ...inactive, version: 0 });
+    expect(await prisma.eventContent.count({ where: { eventId } })).toBe(0);
+    const save = await app.inject({
+      method: "PUT",
+      url: path(),
+      headers: owner,
+      payload: { expectedVersion: 0, content: content() },
+    });
+    expect(save.statusCode).toBe(200);
+    expect(save.json()).toMatchObject({
+      ...inactive,
+      version: 1,
+      draft: content(),
+    });
   });
   it("serializes concurrent first saves: one version winner, one conflict and no overwritten draft", async () => {
     const responses = await Promise.all(
@@ -282,6 +338,7 @@ describe("OWNER event content, assets and publication with PostgreSQL", () => {
     expect(response.statusCode).toBe(200);
     const state = response.json<AdminEventContentDto>(),
       asset = state.assets[0]!;
+    expect(state.eventIsActive).toBe(true);
     expect(asset.mimeType).toBe("image/png");
     const bytes = await prisma.eventContentAsset.findUniqueOrThrow({
       where: { id: asset.id },
