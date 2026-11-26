@@ -1,3 +1,4 @@
+import { isSupportedInvitationSessionCount } from "./eligibility-policy.js";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
@@ -928,7 +929,7 @@ export class PublicRsvpService {
       !dietaryOnly &&
       isPublic &&
       status === RSVPStatus.ACCEPTED &&
-      (state.eligibleEventIds.size < 1 || state.eligibleEventIds.size > 2)
+      !isSupportedInvitationSessionCount(state.eligibleEventIds.size)
     ) {
       throwPublicRsvpError("RSVP_SESSION_CONFIGURATION_UNSUPPORTED");
     }

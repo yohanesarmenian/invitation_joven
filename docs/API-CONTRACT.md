@@ -876,7 +876,7 @@ Credential coherence invariant: an Invitation must never become a committed row 
 
 Rules:
 
-- `eventIds` must contain no duplicates, and every referenced `Event` must exist and be selectable (see "Admin Event Endpoints").
+- `eventIds` must contain one or two distinct active Event UUIDs. Every referenced Event must exist. The catalog may contain more than two Events. Invalid, duplicate, unknown, inactive, zero, or more than two entries return `400 VALIDATION_ERROR` without writes.
 - Display/greeting/name text uses the existing project text normalization doctrine.
 - Duplicate invitee names are allowed. There is no uniqueness rule on `Invitee.fullName`.
 - The Invitation, its `InvitationEvent` rows, its invitees, and the initial credential version/hash state all belong to **one** transaction. Failure of any write rolls back the whole create; there is no partially-created household.
@@ -1100,7 +1100,7 @@ Authentication: OWNER.
 
 Phase 8 manages `InvitationEvent` **eligibility only**. There is no `Event` create, update, or delete endpoint, and the event catalog is not silently extended.
 
-Response: the existing `Event` fields needed for selection and display, using the exact schema field names — `id`, `slug`, `name`, `isActive`, `displayOrder`.
+Response: `id`, `slug`, `name`, `isActive`, `displayOrder`, and nullable catalog context `startsAt`, `endsAt`, `venueName`, and `address`. Timestamps are ISO instants. Admin formats them for Asia/Jakarta.
 
 Ordering: `displayOrder ASC`, `id ASC`. Not paginated; the event catalog is a small fixed set.
 
@@ -1123,8 +1123,9 @@ This is one **declarative set-to-value** operation. The body describes the desir
 Rules:
 
 - The Invitation must be `ACTIVE`. An archived invitation returns `409 CONFLICT`.
-- `eventIds` contains no duplicates.
-- Every `Event` id must exist and be selectable. Unknown ids return `400 VALIDATION_ERROR`; an inactive event returns `400 VALIDATION_ERROR`.
+- `eventIds` contains at most two distinct UUIDs. An explicit empty array revokes all eligibility if no removal is blocked. A larger replacement returns `400 VALIDATION_ERROR`.
+- Every `Event` id must exist. An inactive Event can be retained if already linked; adding one or submitting an unknown id returns `400 VALIDATION_ERROR`.
+- Existing invitations with more than two linked sessions remain readable. No relationships change until the OWNER explicitly saves a permitted replacement. An invalid replacement does not change RSVP or credentials.
 - One transaction, following the shared Invitation row lock order.
 
 Removal safety — before removing any `InvitationEvent` row, check for existing `RSVPEventSelection` rows referencing that invitation and event. If **any** selection references an event being removed, reject the **entire** replacement with `409 CONFLICT` and perform **zero** eligibility changes.
@@ -1375,6 +1376,7 @@ One source row is one household and equals one `Invitation`. `includeRowNumbers`
 ### Value normalization
 
 - `allowPlusOne`, `event:<slug>`: boolean. Accepted textual literals are only `true` and `false`, trimmed and case-insensitive; XLSX native boolean cells are also accepted. `yes`/`no`, `y`/`n`, `1`/`0`, and `on`/`off` are rejected. A blank optional eligibility cell means `false`; a blank `allowPlusOne` is a validation error.
+- Every new household must have one or two active Event columns set to true. Zero or more than two selected sessions produce a whole-row `INVALID_VALUE` for `eventIds`. Set the remaining columns to false or blank. Valid rows from the same file can still be selected and imported under the existing rules.
 - `maxAdditionalChildren`: non-negative safe integer. CSV accepts decimal integer text only; XLSX accepts an integer numeric cell or decimal integer text. Negative, fractional, `NaN`-like, and scientific strings are rejected.
 - `rsvpDeadlineLocal`: optional **text** in the exact format `YYYY-MM-DD HH:mm`, interpreted as `Asia/Jakarta` and normalized to a canonical UTC instant. Blank means `null`. The column is deliberately not named `rsvpDeadlineAt`. Ambiguous formats such as `16/01/2027` or `01/16/2027`, and Excel date-serial or date-formatted numeric cells, are rejected; workbook locale and timezone are never guessed.
 - `invitees`: JSON array of objects with exactly `fullName`, `category`, and optional `label`. `category` accepts `ADULT` and `CHILD`, trimmed and case-insensitive, canonicalized to the uppercase literal. `displayOrder` is not accepted; invitee display order is assigned server-side from array order starting at `0`. Duplicate invitee names are allowed and are not by themselves warnings. At least one invitee is required per imported household.
@@ -1505,7 +1507,8 @@ Response:
 Revalidation and transaction:
 
 - Commit revalidates inside the transaction: preview not expired, preview owned by the current OWNER, selected rows still valid, current Event still exists and is active when selected, canonical Invitation and Invitee business validation, and the warning/duplicate state needed for a safe commit.
-- If current state differs materially from preview — a new blocking error, a new unacknowledged warning, or changed event eligibility — commit performs **zero** business writes and returns a stale-preview conflict.
+- The commit revalidates the one-or-two session limit for every selected row, including previously issued pending previews. An unsupported selected row returns `409 IMPORT_PREVIEW_STALE` and creates no records. An exact replay of a previously committed selection still returns its original receipt.
+- If current state differs materially from preview — a new blocking error, a new unacknowledged warning, or changed event eligibility — commit performs **zero** business writes and returns a stale-preview conflict. Each selected event slug must still identify the same active Event UUID as in the preview. Renaming an Event, reusing its slug for another Event, or exchanging slugs between the same Events requires a fresh preview for the affected selected rows.
 - All selected rows commit in one transaction. Invitation creation, invitee creation, event eligibility, and credential version/hash initialization occur in that same transaction. If any selected row fails, all selected rows roll back; there is no partially imported selected set.
 - Exactly one successful `GuestImportBatch` is written per successful commit. Failed attempts create no batch row.
 - Import does not pre-create `RSVP`, `RSVPAttendee`, or `RSVPEventSelection`. An imported invitation follows the same lazy RSVP lifecycle as an invitation created through the admin create endpoint.

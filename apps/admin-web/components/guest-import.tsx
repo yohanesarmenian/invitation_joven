@@ -138,6 +138,7 @@ export function GuestImport({
           One row = one household. Maximum 500 household rows and 5 MiB. Use
           UTF-8 CSV or an XLSX worksheet named Invitations.
         </p>
+        <p>Each household must select one or two active wedding sessions.</p>
         <details>
           <summary>File format and column guidance</summary>
           <p>
@@ -154,9 +155,9 @@ export function GuestImport({
             {'[{"fullName":"Example Adult","category":"ADULT","label":null}]'}
           </code>
           <p>
-            Optional event:&lt;slug&gt; columns use exact event slugs: true
-            selects an event; false or blank does not. Only active events can be
-            selected.
+            Use the exact event:&lt;slug&gt; template headers. Set one or two
+            active event columns to true for each household. Set the rest to
+            false or leave them blank.
           </p>
           {eventSlugs === null ? (
             <p>

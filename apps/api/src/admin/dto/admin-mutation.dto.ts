@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { MAX_INVITATION_SESSIONS } from "../../invitations/eligibility-policy.js";
 import {
   publicRsvpMutationStatuses,
   SubmitPublicRsvpAttendeeDto,
@@ -44,7 +45,14 @@ export class CreateAdminInvitationRequestDto {
   @ApiProperty({ nullable: true, type: String })
   notes: string | null;
 
-  @ApiProperty({ format: "uuid", isArray: true, type: String })
+  @ApiProperty({
+    description: "One or two active wedding sessions.",
+    items: { format: "uuid", type: "string" },
+    minItems: 1,
+    maxItems: MAX_INVITATION_SESSIONS,
+    type: "array",
+    uniqueItems: true,
+  })
   eventIds: string[];
 
   @ApiProperty({ type: () => [CreateAdminInvitationInviteeDto] })
@@ -158,7 +166,15 @@ export class AdminInviteeMutationDto {
 }
 
 export class ReplaceAdminInvitationEventsRequestDto {
-  @ApiProperty({ format: "uuid", isArray: true, type: String })
+  @ApiProperty({
+    description:
+      "Complete eligibility set. An empty set explicitly revokes all eligibility where permitted.",
+    items: { format: "uuid", type: "string" },
+    minItems: 0,
+    maxItems: MAX_INVITATION_SESSIONS,
+    type: "array",
+    uniqueItems: true,
+  })
   eventIds: string[];
 }
 

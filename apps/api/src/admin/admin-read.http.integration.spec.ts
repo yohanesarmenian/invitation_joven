@@ -641,6 +641,12 @@ describe("admin read HTTP integration", () => {
       name: "Reception",
       slug: "reception",
     });
+    const startsAt = "2027-01-02T03:00:00.000Z";
+    const endsAt = "2027-01-02T05:00:00.000Z";
+    await prisma.event.update({
+      where: { id: ceremony.id },
+      data: { startsAt, endsAt },
+    });
     await createInvitation(credentialService, {
       displayName: "No RSVP",
     });
@@ -766,6 +772,7 @@ describe("admin read HTTP integration", () => {
           name: "Reception",
           slug: "reception",
           startsAt: null,
+          endsAt: null,
           venueName: null,
           address: null,
         },
@@ -775,7 +782,8 @@ describe("admin read HTTP integration", () => {
           isActive: true,
           name: "Ceremony",
           slug: "ceremony",
-          startsAt: null,
+          startsAt,
+          endsAt,
           venueName: null,
           address: null,
         },

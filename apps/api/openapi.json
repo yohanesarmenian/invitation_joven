@@ -5250,10 +5250,14 @@
           },
           "eventIds": {
             "type": "array",
+            "description": "One or two active wedding sessions.",
             "items": {
-              "type": "string",
-              "format": "uuid"
-            }
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true
           },
           "invitees": {
             "type": "array",
@@ -5722,10 +5726,14 @@
         "properties": {
           "eventIds": {
             "type": "array",
+            "description": "Complete eligibility set. An empty set explicitly revokes all eligibility where permitted.",
             "items": {
-              "type": "string",
-              "format": "uuid"
-            }
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 0,
+            "maxItems": 2,
+            "uniqueItems": true
           }
         },
         "required": [
@@ -6238,6 +6246,11 @@
             "type": "number"
           },
           "startsAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "endsAt": {
             "type": "string",
             "nullable": true,
             "format": "date-time"

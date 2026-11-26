@@ -29,6 +29,7 @@ export function isEvents(v: unknown): v is AdminEventsResponse {
         typeof event.name === "string" &&
         typeof event.isActive === "boolean" &&
         (event.startsAt === undefined || nullableDate(event.startsAt)) &&
+        (event.endsAt === undefined || nullableDate(event.endsAt)) &&
         (event.venueName === undefined ||
           event.venueName === null ||
           typeof event.venueName === "string") &&

@@ -131,6 +131,10 @@ export class AdminEventDto {
 export class AdminCatalogEventDto extends AdminEventDto {
   @ApiPropertyOptional({ nullable: true, format: "date-time", type: String })
   startsAt?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, format: "date-time", type: String })
+  endsAt?: string | null;
+
   @ApiPropertyOptional({ nullable: true, type: String }) venueName?:
     string | null;
   @ApiPropertyOptional({ nullable: true, type: String }) address?:

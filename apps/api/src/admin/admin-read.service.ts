@@ -329,6 +329,7 @@ export class AdminReadService {
         name: true,
         slug: true,
         startsAt: true,
+        endsAt: true,
         venueName: true,
         address: true,
       },
@@ -338,6 +339,7 @@ export class AdminReadService {
       events: events.map((event) => ({
         ...event,
         startsAt: event.startsAt?.toISOString() ?? null,
+        endsAt: event.endsAt?.toISOString() ?? null,
       })),
     };
   }
