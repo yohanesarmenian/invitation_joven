@@ -22,12 +22,14 @@ No mutation is automatically retried. On timeout/malformed success, admin marks 
 
 OWNER-only, independently enforced through shared admin session/role/CSRF/origin guards:
 
-- `GET /api/admin/event-content/{eventId}`: draft, current snapshot, version, file metadata/reference flags.
+- `GET /api/admin/event-content/{eventId}`: Event ID, name, `eventIsActive`, draft, current publication, content version, and file metadata/reference flags.
 - `PUT /api/admin/event-content/{eventId}`: `{ expectedVersion, content: { parking, rundown } }`.
 - `POST /api/admin/event-content/{eventId}/publish` and `/hide`: `{ expectedVersion }`.
 - `POST /api/admin/event-content/{eventId}/assets?expectedVersion=...`: exactly one multipart `file`.
 - `GET /api/admin/event-content/{eventId}/assets/{assetId}`: authenticated binary preview/download.
 - `DELETE /api/admin/event-content/{eventId}/assets/{assetId}`: `{ expectedVersion }`.
+
+The Admin state read returns Event activation and material state in one Repeatable Read snapshot. Successful mutations return the same state shape under the Event row lock. **Reload saved state** refreshes the selected Event label and guest visibility from that snapshot. If reload fails, the editor retains the draft and marks guest visibility unverified. Event activation and content versions remain independent.
 
 Public read-only endpoints:
 

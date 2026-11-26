@@ -91,9 +91,19 @@ describe("OpenAPI contract", () => {
     const upload =
       document.paths["/api/admin/event-content/{eventId}/assets"]?.post;
     expect(upload?.requestBody).toHaveProperty("content.multipart/form-data");
-    expect(document.components?.schemas?.AdminEventContentDto).toHaveProperty(
-      "properties.version",
+    const adminState = document.components?.schemas?.AdminEventContentDto;
+    expect(adminState).toHaveProperty("properties.version");
+    expect(adminState).toHaveProperty(
+      "properties.eventIsActive.type",
+      "boolean",
     );
+    expect(adminState).toHaveProperty(
+      "required",
+      expect.arrayContaining(["eventIsActive"]),
+    );
+    expect(
+      document.components?.schemas?.PublicEventContentItemDto,
+    ).not.toHaveProperty("properties.eventIsActive");
   });
   let app: NestFastifyApplication;
 

@@ -8582,6 +8582,9 @@
           "eventName": {
             "type": "string"
           },
+          "eventIsActive": {
+            "type": "boolean"
+          },
           "version": {
             "type": "number",
             "minimum": 0
@@ -8613,6 +8616,7 @@
         "required": [
           "eventId",
           "eventName",
+          "eventIsActive",
           "version",
           "draft",
           "published",

@@ -1,17 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auth } from "./fixtures";
-import { hide, read, save, upload } from "../src/event-content/client";
+import {
+  hide,
+  read,
+  save,
+  upload,
+  type State,
+} from "../src/event-content/client";
 const eventId = "22222222-2222-4222-8222-222222222222";
 const draft = { parking: null, rundown: null };
 const state = {
   eventId,
   eventName: "Reception",
+  eventIsActive: true,
   version: 1,
   draft,
   published: null,
   publishedAt: null,
   assets: [],
-};
+} satisfies State;
 const NativeRequest = globalThis.Request;
 beforeEach(() => {
   // Browser Request resolves relative same-origin paths; Node needs an explicit base.
@@ -31,17 +38,38 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe("event-content browser transport", () => {
-  it("uses generated same-origin no-store operations and verifies response shape", async () => {
-    const fetch = vi.fn(async (request: Request) => {
-      expect(request.credentials).toBe("same-origin");
-      expect(request.cache).toBe("no-store");
-      expect(request.redirect).toBe("error");
-      expect(request.url).toContain(`/api/admin/event-content/${eventId}`);
-      return Response.json(state);
-    });
-    vi.stubGlobal("fetch", fetch);
-    expect(await read(eventId)).toEqual({ kind: "ok", data: state });
-  });
+  it.each([true, false])(
+    "uses generated same-origin no-store operations and accepts eventIsActive=%s",
+    async (eventIsActive) => {
+      const stateForEvent = { ...state, eventIsActive };
+      const fetch = vi.fn(async (request: Request) => {
+        expect(request.credentials).toBe("same-origin");
+        expect(request.cache).toBe("no-store");
+        expect(request.redirect).toBe("error");
+        expect(request.url).toContain(`/api/admin/event-content/${eventId}`);
+        return Response.json(stateForEvent);
+      });
+      vi.stubGlobal("fetch", fetch);
+      expect(await read(eventId)).toEqual({ kind: "ok", data: stateForEvent });
+    },
+  );
+  it.each([undefined, "false"])(
+    "rejects non-boolean activation metadata (%s)",
+    async (eventIsActive) => {
+      const fetch = vi.fn(async () =>
+        Response.json({ ...state, eventIsActive }),
+      );
+      vi.stubGlobal("fetch", fetch);
+      expect(await read(eventId)).toEqual({
+        kind: "error",
+        code: "UNAVAILABLE",
+      });
+      expect(await save(eventId, 1, draft, "csrf")).toEqual({
+        kind: "uncertain",
+      });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    },
+  );
   it.each(["network", "malformed", "server-error"])(
     "never replays an uncertain mutation: %s",
     async (mode) => {

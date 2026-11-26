@@ -60,6 +60,7 @@ export function EventContentWorkspace({
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [retryTarget, setRetryTarget] = useState("");
   const [snapshot, setSnapshot] = useState<api.State | null>(null);
+  const [activationVerified, setActivationVerified] = useState(false);
   const [body, setBody] = useState<Draft>(empty);
   const [csrf, setCsrf] = useState(csrfToken);
   const [busy, setBusy] = useState(false),
@@ -86,6 +87,18 @@ export function EventContentWorkspace({
       JSON.stringify(content) !==
         JSON.stringify(serializeDraft(snapshot.draft)));
 
+  function acceptSnapshot(saved: api.State) {
+    setSnapshot(saved);
+    setActivationVerified(true);
+    setCatalog((entries) =>
+      entries.map((entry) =>
+        entry.id === saved.eventId
+          ? { ...entry, name: saved.eventName, isActive: saved.eventIsActive }
+          : entry,
+      ),
+    );
+  }
+
   function loadDraft(saved: api.Body) {
     const draft = structuredClone(saved);
     setBody({
@@ -102,6 +115,7 @@ export function EventContentWorkspace({
 
   function notice(result: api.Result<unknown>) {
     if (result.kind === "uncertain") {
+      setActivationVerified(false);
       setTone("warning");
       setBlocked(true);
       setMessage(
@@ -121,7 +135,10 @@ export function EventContentWorkspace({
       router.replace("/login?session=ended");
       return;
     }
-    if (result.code === "409") setBlocked(true);
+    if (result.code === "409") {
+      setActivationVerified(false);
+      setBlocked(true);
+    }
     setMessage(
       result.code === "409"
         ? "The version changed, an asset is still referenced, or the file limit was reached. Reload saved state to review."
@@ -214,6 +231,7 @@ export function EventContentWorkspace({
     setBusy(true);
     setTone("info");
     setMessage("Loading saved state…");
+    setActivationVerified(false);
     setPreview(null);
     setConfirm(null);
     const current = ++generation.current;
@@ -223,7 +241,7 @@ export function EventContentWorkspace({
         setEventId(target);
         setRetryTarget("");
         replaceEventSelection("/event-content", target);
-        setSnapshot(result.data);
+        acceptSnapshot(result.data);
         loadDraft(result.data.draft);
         setBlocked(false);
         setTone("info");
@@ -298,7 +316,7 @@ export function EventContentWorkspace({
         result.data.eventId === snapshot.eventId &&
         result.data.version === snapshot.version + 1
       ) {
-        setSnapshot(result.data);
+        acceptSnapshot(result.data);
         if (mode === "save") loadDraft(result.data.draft);
         if (mode === "upload") {
           setFile(null);
@@ -326,7 +344,9 @@ export function EventContentWorkspace({
     setConfirm(null);
   }
   const disabled = busy || blocked;
-  const selectedEvent = catalog.find((event) => event.id === eventId);
+  const eventIsActive = activationVerified
+    ? snapshot?.eventIsActive
+    : undefined;
   const selectedPreview =
     preview === "published"
       ? snapshot?.published
@@ -361,7 +381,9 @@ export function EventContentWorkspace({
         {catalog.map((event) => (
           <option key={event.id} value={event.id}>
             {event.name}
-            {event.isActive ? "" : " (inactive)"}
+            {(event.id === eventId ? eventIsActive : event.isActive) === false
+              ? " (inactive)"
+              : ""}
           </option>
         ))}
       </select>
@@ -379,7 +401,7 @@ export function EventContentWorkspace({
       ) : null}
       {eventId && !disabled ? (
         <p>
-          {selectedEvent?.isActive === false ? "Inactive event. " : null}
+          {eventIsActive === false ? "Inactive event. " : null}
           <a href={eventHref("/events", eventId)}>
             Back to event configuration
           </a>
@@ -398,8 +420,15 @@ export function EventContentWorkspace({
             Version {snapshot.version} ·{" "}
             {snapshot.published ? "Published snapshot stored" : "Not published"}
           </p>
-          {snapshot.published && selectedEvent ? (
-            <p>{publishedMaterialVisibility(selectedEvent.isActive)}</p>
+          {eventIsActive === undefined ? (
+            !busy && (
+              <p>
+                Guest visibility could not be verified. Reload saved state to
+                check.
+              </p>
+            )
+          ) : snapshot.published ? (
+            <p>{publishedMaterialVisibility(eventIsActive)}</p>
           ) : null}
           <fieldset disabled={disabled}>
             <legend>Parking</legend>

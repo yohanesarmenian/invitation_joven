@@ -2071,6 +2071,7 @@ export interface components {
             /** Format: uuid */
             eventId: string;
             eventName: string;
+            eventIsActive: boolean;
             version: number;
             draft: components["schemas"]["EventVenueBodyDto"];
             published: components["schemas"]["EventVenueBodyDto"] | null;

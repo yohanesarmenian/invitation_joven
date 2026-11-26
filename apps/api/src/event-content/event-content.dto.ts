@@ -49,6 +49,7 @@ export class EventContentAssetDto {
 export class AdminEventContentDto {
   @ApiProperty({ type: String, format: "uuid" }) eventId: string;
   @ApiProperty({ type: String }) eventName: string;
+  @ApiProperty({ type: Boolean }) eventIsActive: boolean;
   @ApiProperty({ type: Number, minimum: 0 }) version: number;
   @ApiProperty({ type: EventVenueBodyDto }) draft: EventVenueBodyDto;
   @ApiProperty({ type: EventVenueBodyDto, nullable: true })

@@ -585,8 +585,9 @@ test("rejected sign-out keeps the Events draft and successful retry ends the ses
   ).toEqual(before);
 });
 
-test("published materials remain stored but hidden when an event is inactive", async ({
+test("published materials visibility follows authoritative reload after another OWNER activates the Event", async ({
   page,
+  browser,
 }) => {
   const guest = await fixture.household("Synthetic publication household", {
     pending: true,
@@ -647,22 +648,237 @@ test("published materials remain stored but hidden when an event is inactive", a
       exact: false,
     }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Back to event configuration" }).click();
-  await page.getByLabel("Active event", { exact: true }).check();
-  await page.getByRole("button", { name: "Save event", exact: true }).click();
-  await expect(readiness).toContainText(
-    "available to eligible guests with valid invitation access",
+  const picker = page.getByLabel("Event", { exact: true });
+  const selected = picker.locator("option:checked");
+  await expect(selected).toHaveText(fixture.event.name + " (inactive)");
+  const hidden = page.getByText(
+    "Guests cannot view materials for this inactive event.",
+    { exact: false },
   );
-  expect((await publicRead()).items).toMatchObject([
-    { content: { parking, rundown } },
-  ]);
-  const saved = await fixture.prisma.eventContent.findUniqueOrThrow({
+  const available = page.getByText(
+    "Published materials are available to eligible guests with valid invitation access.",
+    { exact: true },
+  );
+  const before = await fixture.prisma.eventContent.findUniqueOrThrow({
     where: { eventId: fixture.event.id },
   });
-  expect(saved.published).toEqual({ parking, rundown });
-  expect(saved.draft).toEqual(draft);
-  expect(saved.version).toBe(1);
+  expect(before).toMatchObject({
+    draft,
+    published: { parking, rundown },
+    version: 1,
+  });
+
+  const otherSession = await browser.newContext();
+  try {
+    const other = await otherSession.newPage();
+    await editor(other);
+    await other.getByLabel("Active event", { exact: true }).check();
+    const update = other.waitForResponse(
+      (response) =>
+        response
+          .url()
+          .endsWith("/api/admin/event-management/" + fixture.event.id) &&
+        response.request().method() === "PUT",
+    );
+    await other
+      .getByRole("button", { name: "Save event", exact: true })
+      .click();
+    expect((await update).status()).toBe(200);
+    await expect(
+      other.getByRole("region", { name: "Configuration readiness" }),
+    ).toContainText(
+      "available to eligible guests with valid invitation access",
+    );
+    expect((await publicRead()).items).toMatchObject([
+      { content: { parking, rundown } },
+    ]);
+    await expect(hidden).toBeVisible();
+
+    const reads: string[] = [];
+    const documentRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/admin/event-content/"))
+        reads.push(request.method());
+      if (request.isNavigationRequest())
+        documentRequests.push(request.method());
+    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const read = page.waitForResponse(
+        (response) =>
+          response
+            .url()
+            .endsWith("/api/admin/event-content/" + fixture.event.id) &&
+          response.request().method() === "GET",
+      );
+      await page
+        .getByRole("button", { name: "Reload saved state", exact: true })
+        .click();
+      const response = await read;
+      expect(response.status()).toBe(200);
+      expect(await response.json()).toMatchObject({
+        eventId: fixture.event.id,
+        eventIsActive: true,
+        version: before.version,
+        draft,
+        published: { parking, rundown },
+      });
+      await expect(
+        page.getByText("Saved state loaded.", { exact: true }),
+      ).toBeVisible();
+      await expect(available).toBeVisible();
+      await expect(hidden).toHaveCount(0);
+      await expect(picker).toHaveValue(fixture.event.id);
+      await expect(selected).toHaveText(fixture.event.name);
+    }
+    expect(reads).toEqual(["GET", "GET"]);
+    expect(documentRequests).toEqual([]);
+    expect(
+      await fixture.prisma.eventContent.findUniqueOrThrow({
+        where: { eventId: fixture.event.id },
+      }),
+    ).toEqual(before);
+  } finally {
+    await otherSession.close();
+  }
 });
+test("failed or delayed material reloads preserve selection and distinguish unverified visibility", async ({
+  page,
+}) => {
+  const second = await fixture.prisma.event.create({
+    data: {
+      slug: `other-materials-${randomUUID()}`,
+      name: "Other synthetic event",
+      displayOrder: 2_000_000_021,
+    },
+  });
+  created.push(second.id);
+  const content = {
+    parking: {
+      title: "Published fixture parking",
+      instructions: ["Take the marked entrance"],
+      mapAssetId: null,
+      mapAlt: "",
+      pdfAssetId: null,
+      googleMapsUrl: null,
+    },
+    rundown: null,
+  };
+  await fixture.prisma.eventContent.create({
+    data: {
+      eventId: fixture.event.id,
+      draft: content,
+      published: content,
+      publishedAt: new Date(),
+    },
+  });
+  await login(page);
+  await page.goto("/event-content?eventId=" + fixture.event.id);
+  const picker = page.getByLabel("Event", { exact: true });
+  const reload = page.getByRole("button", {
+    name: "Reload saved state",
+    exact: true,
+  });
+  const available = page.getByText(
+    "Published materials are available to eligible guests with valid invitation access.",
+    { exact: true },
+  );
+  const unverified = page.getByText(
+    "Guest visibility could not be verified. Reload saved state to check.",
+    { exact: true },
+  );
+  const title = page.getByLabel("Parking title", { exact: true });
+  await expect(available).toBeVisible();
+  await title.fill("Unsaved fixture parking");
+  const confirm = page.getByRole("alertdialog");
+  await reload.click();
+  await confirm.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(title).toHaveValue("Unsaved fixture parking");
+  await expect(available).toBeVisible();
+
+  const path = "**/api/admin/event-content/" + fixture.event.id;
+  for (const failure of [
+    "unavailable",
+    "missing",
+    "malformed",
+    "different-event",
+  ] as const) {
+    await page.route(path, async (route) => {
+      if (failure === "unavailable")
+        return route.fulfill({ status: 503, json: {} });
+      const response = await route.fetch();
+      const data = await response.json();
+      if (failure === "missing") delete data.eventIsActive;
+      else if (failure === "malformed") data.eventIsActive = "false";
+      else data.eventId = second.id;
+      await route.fulfill({ status: response.status(), json: data });
+    });
+    await reload.click();
+    await confirm
+      .getByRole("button", { name: "Confirm action", exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole("region", { name: "Event materials editor", exact: true })
+        .getByRole("alert"),
+    ).toHaveText(
+      "Unable to load or save event materials. Try an explicit reload.",
+    );
+    await expect(unverified).toBeVisible();
+    await expect(available).toHaveCount(0);
+    await expect(
+      page.getByText(/Guests cannot view materials for this inactive event/),
+    ).toHaveCount(0);
+    await expect(picker).toHaveValue(fixture.event.id);
+    await expect(title).toHaveValue("Unsaved fixture parking");
+    await page.unroute(path);
+  }
+
+  const fetched = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  await page.route(path, async (route) => {
+    const response = await route.fetch();
+    fetched.resolve();
+    await release.promise;
+    await route.fulfill({ response });
+  });
+  await reload.click();
+  await confirm
+    .getByRole("button", { name: "Confirm action", exact: true })
+    .click();
+  try {
+    await fetched.promise;
+    await expect(picker).toBeDisabled();
+    await expect(reload).toBeDisabled();
+    await expect(available).toHaveCount(0);
+  } finally {
+    release.resolve();
+  }
+  await expect(available).toBeVisible();
+  await expect(unverified).toHaveCount(0);
+  await expect(title).toHaveValue(content.parking.title);
+  await page.unroute(path);
+  await picker.selectOption(second.id);
+  await expect(
+    page.getByText("Version 0 · Not published", { exact: true }),
+  ).toBeVisible();
+  await expect(available).toHaveCount(0);
+  await expect(picker).toHaveValue(second.id);
+
+  await fixture.prisma.adminSession.updateMany({
+    where: { adminUserId: fixture.owner.id },
+    data: { expiresAt: new Date(0) },
+  });
+  const unauthorized = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/admin/event-content/" + second.id) &&
+      response.request().method() === "GET",
+  );
+  await reload.click();
+  expect((await unauthorized).status()).toBe(401);
+  await expect(page).toHaveURL(/\/login\?session=ended/);
+  await expect(picker).toHaveCount(0);
+});
+
 test("unhydrated and delayed editors cannot submit or switch the requested event", async ({
   page,
 }) => {
