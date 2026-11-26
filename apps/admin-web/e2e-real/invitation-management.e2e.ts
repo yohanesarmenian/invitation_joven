@@ -345,6 +345,10 @@ test("applied eligibility controls follow the real query through delayed navigat
     const apply = page.getByRole("button", {
       name: "Apply search and filters",
     });
+    const form = page.getByRole("form", {
+      name: "Search and filter invitations",
+    });
+    const searchField = form.getByLabel("Search invitations");
     const results = page.getByRole("region", { name: "Invitation results" });
     async function expectApplied({
       mode,
@@ -397,14 +401,22 @@ test("applied eligibility controls follow the real query through delayed navigat
       );
     }
 
+    const isExactNavigation = (url: URL) =>
+      url.pathname === "/invitations" &&
+      url.searchParams.get("eligibility") === "exact";
+    const submittedQueries: URLSearchParams[] = [];
+    const recordSubmission = (request: { url(): string }) => {
+      const url = new URL(request.url());
+      if (isExactNavigation(url)) submittedQueries.push(url.searchParams);
+    };
+    page.on("request", recordSubmission);
     await page.route(
-      (url) =>
-        url.pathname === "/invitations" &&
-        url.searchParams.get("eligibility") === "exact",
+      isExactNavigation,
       async (route) => {
+        const response = await route.fetch();
         delayedRequest.resolve();
         await resumeRequest.promise;
-        await route.continue();
+        await route.fulfill({ response });
       },
       { times: 1 },
     );
@@ -413,16 +425,81 @@ test("applied eligibility controls follow the real query through delayed navigat
     await expect(match).toHaveValue("exact");
     await first.selectOption(eventA);
     await expect(results).toContainText("4 invitations matching");
-    await apply.click();
+    await searchField.press("Enter");
     await delayedRequest.promise;
-    await expect(page.getByRole("button", { name: "Loading…" })).toBeDisabled();
-    await match.selectOption("none");
-    await match.selectOption("legacy");
-    await expect(first).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Loading…" })).toBeDisabled();
+    await expect(
+      form.getByRole("button", { name: /Loading|Applying filters/ }),
+    ).toBeDisabled();
+    for (const control of await form.locator("input, select").all()) {
+      await expect(control).toBeDisabled();
+    }
+    await expect(form.locator("input, select")).toHaveCount(10);
+    await expect(form.getByRole("status")).toContainText("Applying filters");
+    const reset = form.getByRole("link", { name: "Reset all" });
+    await expect(reset).toBeDisabled();
+    expect(await reset.getAttribute("href")).toBeNull();
+    await searchField.evaluate((input) => input.focus());
+    await page.keyboard.type("Search that must not be accepted");
+    await match.evaluate((select) => select.focus());
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await reset.dispatchEvent("click");
+    await form.evaluate((element: HTMLFormElement) => element.requestSubmit());
+    await expect(searchField).toHaveValue(search);
+    await expect(match).toHaveValue("exact");
+    await expect(first).toHaveValue(eventA);
+    await expect(second).toHaveValue("");
+    await expect(page).toHaveURL(`${origins.admin}/invitations?${list}`);
+    expect(
+      submittedQueries.map((query) => [
+        query.get("search"),
+        query.get("eventId"),
+        query.get("secondEventId"),
+      ]),
+    ).toEqual([[search, eventA, null]]);
     resumeRequest.resolve();
     await expectApplied({ mode: "exact", selected: [eventA], rows: [a] });
+    page.off("request", recordSubmission);
+    for (const control of await form.locator("input, select").all()) {
+      await expect(control).toBeEnabled();
+    }
     await expect(page.locator("#invitation-results-heading")).toBeFocused();
+
+    const cancelledRequest = Promise.withResolvers<void>();
+    const releaseCancelled = Promise.withResolvers<void>();
+    const cancelledResponseFinished = Promise.withResolvers<void>();
+    await page.route(
+      (url) =>
+        url.pathname === "/invitations" &&
+        url.searchParams.get("eligibility") === "legacy",
+      async (route) => {
+        const response = await route.fetch();
+        cancelledRequest.resolve();
+        await releaseCancelled.promise;
+        try {
+          await route.fulfill({ response });
+        } catch {
+          // Back can abort the held browser request.
+        } finally {
+          cancelledResponseFinished.resolve();
+        }
+      },
+      { times: 1 },
+    );
+    try {
+      await match.selectOption("legacy");
+      await apply.click();
+      await cancelledRequest.promise;
+      await expect(searchField).toBeDisabled();
+      await page.goBack();
+      await expectApplied({ mode: "", rows: [a, ab, abc, zero] });
+    } finally {
+      releaseCancelled.resolve();
+    }
+    await cancelledResponseFinished.promise;
+    await expectApplied({ mode: "", rows: [a, ab, abc, zero] });
+    await page.goForward();
+    await expectApplied({ mode: "exact", selected: [eventA], rows: [a] });
 
     // Discard an unsent draft on history navigation and recover the applied controls.
     await match.selectOption("none");
@@ -439,12 +516,24 @@ test("applied eligibility controls follow the real query through delayed navigat
     await expectApplied({ mode: "exact", selected: [eventA], rows: [a] });
 
     await second.selectOption(eventB);
-    await apply.click();
+    const pairedRequests: URL[] = [];
+    const recordPairedSubmission = (request: { url(): string }) => {
+      const url = new URL(request.url());
+      if (isExactNavigation(url)) pairedRequests.push(url);
+    };
+    page.on("request", recordPairedSubmission);
+    await apply.evaluate((button: HTMLButtonElement) => {
+      const filterForm = button.form!;
+      filterForm.requestSubmit(button);
+      filterForm.requestSubmit(button);
+    });
     await expectApplied({
       mode: "exact",
       selected: [eventA, eventB],
       rows: [ab],
     });
+    page.off("request", recordPairedSubmission);
+    expect(pairedRequests).toHaveLength(1);
     await match.selectOption("legacy");
     await expect(second).toHaveCount(0);
     await apply.click();

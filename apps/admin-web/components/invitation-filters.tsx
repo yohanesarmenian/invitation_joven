@@ -45,8 +45,10 @@ export function InvitationFilters({
 }) {
   const router = useRouter();
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const submitting = useRef(false);
   const hydrated = useHydrated();
   const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
   // InvitationResults is keyed by its committed query, including pagination.
   const [draft, setDraft] = useState(() => filterDraft(query));
   const applied = filterDraft(query);
@@ -60,8 +62,9 @@ export function InvitationFilters({
       id: name,
       name,
       value: draft[name],
-      disabled: !hydrated,
+      disabled: !hydrated || pending,
       onChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+        if (pending || submitting.current) return;
         const value = event.currentTarget.value;
         setDraft((current) => ({
           ...current,
@@ -88,12 +91,15 @@ export function InvitationFilters({
       ))}
     </>
   );
-  const [pending, startTransition] = useTransition();
+  useEffect(() => {
+    if (!pending) submitting.current = false;
+  }, [pending]);
   useEffect(() => {
     if (error) errorRef.current?.focus();
   }, [error]);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!hydrated || pending || submitting.current) return;
     const form = new FormData(event.currentTarget);
     const next = parseInvitationQuery(
       Object.fromEntries(
@@ -114,6 +120,7 @@ export function InvitationFilters({
       );
       return;
     }
+    submitting.current = true;
     setError("");
     if (queryString(next) === queryString(query)) setDraft(filterDraft(next));
     startTransition(() =>
@@ -233,23 +240,37 @@ export function InvitationFilters({
         {hasUnappliedChanges && !pending && (
           <p className="hint">Apply changes to update the results.</p>
         )}
-        <button disabled={!hydrated || pending}>
-          {pending ? "Loading…" : "Apply search and filters"}
+        <button type="submit" disabled={!hydrated || pending}>
+          {pending ? "Applying filters…" : "Apply search and filters"}
         </button>
-        <Link
-          href="/invitations"
-          prefetch={false}
-          onNavigate={() => {
-            // A reset on the default query may keep this form mounted.
-            if (queryString(query) === queryString(defaultQuery)) {
-              setDraft(filterDraft(defaultQuery));
-              setError("");
-            }
-          }}
-        >
-          Reset all
-        </Link>
+        {pending ? (
+          <span role="link" aria-disabled="true">
+            Reset all
+          </span>
+        ) : (
+          <Link
+            href="/invitations"
+            prefetch={false}
+            onClick={(event) => {
+              if (submitting.current) event.preventDefault();
+            }}
+            onNavigate={() => {
+              // A reset on the default query may keep this form mounted.
+              if (queryString(query) === queryString(defaultQuery)) {
+                setDraft(filterDraft(defaultQuery));
+                setError("");
+              }
+            }}
+          >
+            Reset all
+          </Link>
+        )}
       </div>
+      <p className="hint" role="status">
+        {pending
+          ? "Applying filters. Filter controls are temporarily unavailable."
+          : ""}
+      </p>
     </form>
   );
 }
