@@ -11,6 +11,7 @@ vi.mock("../src/invitations/server-invitations", () => ({
   getInvitationDetail: read,
 }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/invitations",
   useRouter: () => ({ push: vi.fn() }),
   redirect: (path: string) => {
     throw new Error(`redirect:${path}`);

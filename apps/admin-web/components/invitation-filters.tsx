@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "../src/invitations/use-hydrated";
 import {
+  type ChangeEvent,
   useEffect,
   useRef,
   useState,
@@ -12,9 +13,29 @@ import {
 import {
   parseInvitationQuery,
   listHref,
+  queryString,
   type InvitationQuery,
 } from "../src/invitations/query";
 type EventOption = { id: string; name: string; isActive: boolean };
+type FilterDraft = Record<Exclude<keyof InvitationQuery, "page">, string>;
+
+const defaultQuery = parseInvitationQuery({})!;
+
+function filterDraft(query: InvitationQuery): FilterDraft {
+  return {
+    search: query.search ?? "",
+    status: query.status ?? "",
+    rsvpStatus: query.rsvpStatus ?? "",
+    opening: query.opening ?? "",
+    eligibility: query.eligibility ?? "",
+    eventId: query.eventId ?? "",
+    secondEventId: query.secondEventId ?? "",
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+    pageSize: String(query.pageSize),
+  };
+}
+
 export function InvitationFilters({
   query,
   events,
@@ -23,17 +44,37 @@ export function InvitationFilters({
   events: EventOption[];
 }) {
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const hydrated = useHydrated();
-  // Next can restore a previously visited screen. Restore URL defaults when
-  // its effect is reactivated, rather than keeping unsent filter edits.
-  useEffect(() => {
-    formRef.current?.reset();
-  }, [query]);
   const [error, setError] = useState("");
-  const [eligibility, setEligibility] = useState(query.eligibility ?? "");
-  const needsEvents = eligibility === "exact" || eligibility === "includes";
+  // InvitationResults is keyed by its committed query, including pagination.
+  const [draft, setDraft] = useState(() => filterDraft(query));
+  const applied = filterDraft(query);
+  const hasUnappliedChanges = (
+    Object.keys(draft) as (keyof FilterDraft)[]
+  ).some((name) => draft[name] !== applied[name]);
+  const needsEvents =
+    draft.eligibility === "exact" || draft.eligibility === "includes";
+  function field(name: keyof FilterDraft) {
+    return {
+      id: name,
+      name,
+      value: draft[name],
+      disabled: !hydrated,
+      onChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+        const value = event.currentTarget.value;
+        setDraft((current) => ({
+          ...current,
+          [name]: value,
+          ...(name === "eligibility" &&
+          value !== "exact" &&
+          value !== "includes"
+            ? { eventId: "", secondEventId: "" }
+            : {}),
+        }));
+      },
+    };
+  }
   const eventOptions = (selected: string | undefined) => (
     <>
       {selected && !events.some(({ id }) => id === selected) && (
@@ -74,13 +115,13 @@ export function InvitationFilters({
       return;
     }
     setError("");
+    if (queryString(next) === queryString(query)) setDraft(filterDraft(next));
     startTransition(() =>
       router.push(listHref(next, 1) + "#invitation-results-heading"),
     );
   }
   return (
     <form
-      ref={formRef}
       className="invitation-filters"
       onSubmit={submit}
       aria-label="Search and filter invitations"
@@ -88,9 +129,7 @@ export function InvitationFilters({
       <div className="filter-search">
         <label htmlFor="search">Search invitations</label>
         <input
-          id="search"
-          name="search"
-          defaultValue={query.search ?? ""}
+          {...field("search")}
           aria-describedby="search-help search-error"
         />
         <p id="search-help" className="hint">
@@ -99,7 +138,7 @@ export function InvitationFilters({
       </div>
       <div>
         <label htmlFor="status">Invitation status</label>
-        <select id="status" name="status" defaultValue={query.status ?? ""}>
+        <select {...field("status")}>
           <option value="">All statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="ARCHIVED">Archived</option>
@@ -107,11 +146,7 @@ export function InvitationFilters({
       </div>
       <div>
         <label htmlFor="rsvpStatus">RSVP status</label>
-        <select
-          id="rsvpStatus"
-          name="rsvpStatus"
-          defaultValue={query.rsvpStatus ?? ""}
-        >
+        <select {...field("rsvpStatus")}>
           <option value="">All RSVPs</option>
           <option value="PENDING">Pending</option>
           <option value="ACCEPTED">Accepted</option>
@@ -120,7 +155,7 @@ export function InvitationFilters({
       </div>
       <div>
         <label htmlFor="opening">Opening activity</label>
-        <select id="opening" name="opening" defaultValue={query.opening ?? ""}>
+        <select {...field("opening")}>
           <option value="">All opening activity</option>
           <option value="opened">Opened</option>
           <option value="unopened">Not yet opened</option>
@@ -130,12 +165,7 @@ export function InvitationFilters({
         <legend>Eligible sessions</legend>
         <div>
           <label htmlFor="eligibility">Match</label>
-          <select
-            id="eligibility"
-            name="eligibility"
-            value={eligibility}
-            onChange={(event) => setEligibility(event.currentTarget.value)}
-          >
+          <select {...field("eligibility")}>
             <option value="">All eligibility</option>
             <option value="includes">Includes selected sessions</option>
             <option value="exact">Exactly selected sessions</option>
@@ -147,23 +177,14 @@ export function InvitationFilters({
           <>
             <div>
               <label htmlFor="eventId">Session</label>
-              <select
-                id="eventId"
-                name="eventId"
-                required
-                defaultValue={query.eventId ?? ""}
-              >
+              <select {...field("eventId")} required>
                 <option value="">Choose a session</option>
                 {eventOptions(query.eventId)}
               </select>
             </div>
             <div>
               <label htmlFor="secondEventId">Second session (optional)</label>
-              <select
-                id="secondEventId"
-                name="secondEventId"
-                defaultValue={query.secondEventId ?? ""}
-              >
+              <select {...field("secondEventId")}>
                 <option value="">One session only</option>
                 {eventOptions(query.secondEventId)}
               </select>
@@ -173,7 +194,7 @@ export function InvitationFilters({
       </fieldset>
       <div>
         <label htmlFor="sortBy">Sort by</label>
-        <select id="sortBy" name="sortBy" defaultValue={query.sortBy}>
+        <select {...field("sortBy")}>
           <option value="createdAt">Created date</option>
           <option value="updatedAt">Updated date</option>
           <option value="displayName">Display name</option>
@@ -183,7 +204,7 @@ export function InvitationFilters({
       </div>
       <div>
         <label htmlFor="sortOrder">Sort direction</label>
-        <select id="sortOrder" name="sortOrder" defaultValue={query.sortOrder}>
+        <select {...field("sortOrder")}>
           <option value="desc">Descending</option>
           <option value="asc">Ascending</option>
         </select>
@@ -191,14 +212,12 @@ export function InvitationFilters({
       <div>
         <label htmlFor="pageSize">Per page</label>
         <input
-          id="pageSize"
-          name="pageSize"
+          {...field("pageSize")}
           type="number"
           min={1}
           max={100}
           step={1}
           required
-          defaultValue={query.pageSize}
         />
       </div>
       <p
@@ -211,10 +230,23 @@ export function InvitationFilters({
         {error}
       </p>
       <div className="invitation-actions">
+        {hasUnappliedChanges && !pending && (
+          <p className="hint">Apply changes to update the results.</p>
+        )}
         <button disabled={!hydrated || pending}>
           {pending ? "Loading…" : "Apply search and filters"}
         </button>
-        <Link href="/invitations" prefetch={false}>
+        <Link
+          href="/invitations"
+          prefetch={false}
+          onNavigate={() => {
+            // A reset on the default query may keep this form mounted.
+            if (queryString(query) === queryString(defaultQuery)) {
+              setDraft(filterDraft(defaultQuery));
+              setError("");
+            }
+          }}
+        >
           Reset all
         </Link>
       </div>

@@ -9,6 +9,7 @@ import { InvitationActions } from "./invitation-actions";
 import { PersonalInviteMessage } from "./personal-invite-message";
 import { InvitationRowSharing } from "./invitation-row-sharing";
 import { InvitationSessionLabels } from "./invitation-session-labels";
+import { InvitationDetailFragment } from "./invitation-detail-fragment";
 
 type Invitation = AdminInvitationDetailResponse["invitation"];
 type EventOption = AdminEventsResponse["events"][number];
@@ -65,6 +66,7 @@ export function InvitationDetail({
 }) {
   return (
     <div className="invitation-detail">
+      <InvitationDetailFragment invitationId={invitation.id} />
       <nav
         className="invitation-section-nav"
         aria-label="Invitation detail sections"
@@ -269,7 +271,9 @@ export function InvitationDetail({
         className="detail-section"
         aria-labelledby="invitation-sharing-heading"
       >
-        <h2 id="invitation-sharing-heading">Sharing</h2>
+        <h2 id="invitation-sharing-heading" tabIndex={-1}>
+          Sharing
+        </h2>
         {invitation.status === "ACTIVE" ? (
           <>
             {publicInvitationOrigin && (

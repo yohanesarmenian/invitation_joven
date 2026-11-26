@@ -13,6 +13,11 @@ import { ActionFeedback, type FeedbackTone } from "./action-feedback";
 
 // The clipboard is shared across rows. Keep copy operations in user-visible order.
 let copyInFlight: AbortController | null = null;
+let handoffInFlight: AbortController | null = null;
+
+type PreparedLink =
+  | { action: "copy"; link: string }
+  | { action: "whatsapp"; link: string; version: number };
 
 export function InvitationRowSharing({
   invitationId,
@@ -26,10 +31,7 @@ export function InvitationRowSharing({
   const request = useRef<AbortController | null>(null);
   const hydrated = useHydrated();
   const [pending, setPending] = useState(false);
-  const [prepared, setPrepared] = useState<{
-    link: string;
-    action: "copy" | "whatsapp";
-  }>();
+  const [prepared, setPrepared] = useState<PreparedLink>();
   const [feedback, setFeedback] = useState<{
     tone: FeedbackTone;
     message: string;
@@ -50,15 +52,24 @@ export function InvitationRowSharing({
     window.addEventListener("admin:signout", clear);
     document.addEventListener("visibilitychange", hide);
     return () => {
-      request.current?.abort();
+      clear();
       window.removeEventListener("pagehide", clear);
       window.removeEventListener("admin:signout", clear);
       document.removeEventListener("visibilitychange", hide);
     };
   }, []);
 
-  async function share(action: "copy" | "whatsapp") {
+  async function share(action: "copy" | "whatsapp" | "handoff") {
     if (request.current) return;
+    if (action === "handoff" && prepared?.action !== "whatsapp") return;
+    if (action === "handoff" && handoffInFlight) {
+      setFeedback({
+        tone: "info",
+        message:
+          "Another WhatsApp link is being checked. Try again when it finishes.",
+      });
+      return;
+    }
     if (action === "copy" && copyInFlight) {
       setFeedback({
         tone: "info",
@@ -70,13 +81,35 @@ export function InvitationRowSharing({
     const controller = new AbortController();
     request.current = controller;
     if (action === "copy") copyInFlight = controller;
+    if (action === "handoff") handoffInFlight = controller;
     setPending(true);
-    setPrepared(undefined);
+    if (action !== "handoff") setPrepared(undefined);
     setFeedback(undefined);
     try {
-      const result = await loadPublicUrl(invitationId, controller.signal);
-      if (controller.signal.aborted) return;
+      const timeout = window.setTimeout(
+        () => controller.abort("timeout"),
+        20_000,
+      );
+      const result = await loadPublicUrl(
+        invitationId,
+        controller.signal,
+      ).finally(() => window.clearTimeout(timeout));
+      if (controller.signal.aborted) {
+        if (
+          request.current === controller &&
+          controller.signal.reason === "timeout"
+        ) {
+          setPrepared(undefined);
+          setFeedback({
+            tone: "error",
+            message:
+              "Checking the current invitation link timed out. Try again.",
+          });
+        }
+        return;
+      }
       if (result.kind === "session-ended") {
+        setPrepared(undefined);
         window.location.replace(SESSION_ENDED_PATH);
         return;
       }
@@ -85,22 +118,50 @@ export function InvitationRowSharing({
         !safeInvitationUrl(result.data.publicUrl) ||
         new URL(result.data.publicUrl).origin !== publicInvitationOrigin
       ) {
+        setPrepared(undefined);
         const message =
           result.kind === "archived"
             ? "This invitation is now archived. Refresh the list."
-            : result.kind === "rejected"
-              ? result.message
-              : "The current invitation link could not be verified.";
+            : result.kind === "not-found"
+              ? "This invitation could not be found."
+              : result.kind === "rejected"
+                ? result.message
+                : "The current invitation link could not be verified.";
         setFeedback({ tone: "error", message });
         return;
       }
       const link = result.data.publicUrl;
+      const version = result.data.publicTokenVersion;
       if (action === "whatsapp") {
-        setPrepared({ link, action });
+        setPrepared({ link, version, action });
         setFeedback({
           tone: "info",
-          message: "Review the recipient in WhatsApp before sending.",
+          message:
+            "WhatsApp will open in this tab. Review the recipient before sending.",
         });
+        return;
+      }
+      if (action === "handoff") {
+        if (prepared?.action !== "whatsapp") return;
+        if (prepared.link !== link || prepared.version !== version) {
+          setPrepared({ link, version, action: "whatsapp" });
+          setFeedback({
+            tone: "warning",
+            message:
+              "The invitation link changed. Confirm again to open WhatsApp with the updated link.",
+          });
+          return;
+        }
+        const href = whatsappInvitationUrl(link);
+        if (!href) return;
+
+        // Same-tab navigation works after the authorized read without a popup.
+        const handoff = document.createElement("a");
+        handoff.href = href;
+        handoff.target = "_self";
+        handoff.rel = "noopener noreferrer";
+        setPrepared(undefined);
+        handoff.click();
         return;
       }
       try {
@@ -117,6 +178,7 @@ export function InvitationRowSharing({
       }
     } finally {
       if (copyInFlight === controller) copyInFlight = null;
+      if (handoffInFlight === controller) handoffInFlight = null;
       if (request.current === controller) {
         request.current = null;
         setPending(false);
@@ -161,17 +223,19 @@ export function InvitationRowSharing({
         </label>
       )}
       {prepared?.action === "whatsapp" && (
-        <a
-          href={whatsappInvitationUrl(prepared.link)!}
-          rel="noopener noreferrer"
-          target="_blank"
+        <button
+          type="button"
+          disabled={!hydrated}
+          aria-disabled={pending}
+          onClick={() => void share("handoff")}
         >
           Open WhatsApp
-        </a>
+        </button>
       )}
       {prepared && (
         <button
           type="button"
+          disabled={pending}
           onClick={() => {
             setPrepared(undefined);
             setFeedback(undefined);

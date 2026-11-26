@@ -148,16 +148,11 @@ test("sharing keeps delayed responses on their row and uses an honest clipboard 
     await expect(second).toContainText("Another link is being copied");
     expect(calls).toEqual([firstId]);
     await second.getByRole("button", { name: "Prepare WhatsApp" }).click();
-    const handoff = second.getByRole("link", { name: "Open WhatsApp" });
+    const handoff = second.getByRole("button", { name: "Open WhatsApp" });
     await expect(handoff).toBeVisible();
-    expect(
-      new URL((await handoff.getAttribute("href"))!).searchParams
-        .get("text")
-        ?.endsWith(secondLink),
-    ).toBe(true);
     await expect(second).toContainText("Review the recipient");
     await expect(
-      first.getByRole("link", { name: "Open WhatsApp" }),
+      first.getByRole("button", { name: "Open WhatsApp" }),
     ).toHaveCount(0);
     releaseFirst();
     await expect(first.getByLabel("Current link")).toHaveValue(firstLink);
@@ -186,26 +181,171 @@ test("sharing keeps delayed responses on their row and uses an honest clipboard 
       "could not be verified",
     );
     await expect(
-      third.getByRole("link", { name: "Open WhatsApp" }),
+      third.getByRole("button", { name: "Open WhatsApp" }),
     ).toHaveCount(0);
     expect((await page.content()).includes(wrongOriginLink)).toBe(false);
 
-    await page.context().route("https://wa.me/**", (route) =>
-      route.fulfill({
+    await page.context().route("https://wa.me/**", async (route) => {
+      expect(
+        new URL(route.request().url()).searchParams
+          .get("text")
+          ?.endsWith(secondLink),
+      ).toBe(true);
+      expect(route.request().headers().referer).toBeUndefined();
+      await route.fulfill({
         status: 200,
         contentType: "text/plain",
         body: "Synthetic handoff",
-      }),
-    );
-    const [popup] = await Promise.all([
-      page.waitForEvent("popup"),
-      handoff.click(),
+      });
+    });
+    await handoff.click();
+    await expect(page).toHaveURL(/^https:\/\/wa\.me\//);
+    await expect(page.getByText("Synthetic handoff")).toBeVisible();
+    expect(calls).toEqual([
+      firstId,
+      secondId,
+      "aaaaaaaa-aaaa-4aaa-8aaa-000000000005",
+      secondId,
     ]);
-    expect(new URL(popup.url()).origin).toBe("https://wa.me");
-    await expect(popup.getByText("Synthetic handoff")).toBeVisible();
-    await popup.close();
   } finally {
     releaseFirst();
+  }
+});
+
+test("WhatsApp freshness rejects unexpected responses without opening an external page", async ({
+  page,
+  context,
+}) => {
+  await login(page, "sharing-check-owner@example.com");
+  await page.goto("/invitations");
+  const row = page.getByRole("row").filter({ hasText: "Household 01" });
+  const prepare = row.getByRole("button", { name: "Prepare WhatsApp" });
+  const handoff = row.getByRole("button", { name: "Open WhatsApp" });
+  const valid = `http://localhost:3000/i/${"a".repeat(43)}`;
+  const endpoint = "**/api/admin/invitations/*/public-url";
+  let external = 0;
+  await context.route("https://wa.me/**", async (route) => {
+    external += 1;
+    await route.abort();
+  });
+  const failures = [
+    { status: 403, message: "not authorized" },
+    { status: 404, message: "could not be found" },
+    {
+      status: 200,
+      publicUrl: "https://untrusted.example.invalid" + new URL(valid).pathname,
+      message: "could not be verified",
+    },
+    {
+      status: 200,
+      publicUrl: valid + "?unexpected=1",
+      message: "could not be verified",
+    },
+    { status: 500, message: "could not be verified" },
+    { status: null, message: "could not be verified" },
+  ];
+  for (const failure of failures) {
+    await page.route(
+      endpoint,
+      (route) =>
+        route.fulfill({ json: { publicTokenVersion: 1, publicUrl: valid } }),
+      { times: 1 },
+    );
+    await prepare.click();
+    await expect(handoff).toBeEnabled();
+    await page.route(
+      endpoint,
+      (route) =>
+        failure.status === null
+          ? route.abort("timedout")
+          : route.fulfill({
+              status: failure.status,
+              json: { publicTokenVersion: 1, publicUrl: failure.publicUrl },
+            }),
+      { times: 1 },
+    );
+    await handoff.click();
+    await expect(row.getByRole("alert")).toContainText(failure.message);
+    await expect(handoff).toHaveCount(0);
+    expect(external).toBe(0);
+  }
+});
+
+test("pending WhatsApp validation serializes row handoffs and cancels on navigation or sign-out", async ({
+  page,
+  context,
+}) => {
+  await login(page, "sharing-navigation-owner@example.com");
+  await page.goto("/invitations");
+  const first = page.getByRole("row").filter({ hasText: "Household 01" });
+  const second = page.getByRole("row").filter({ hasText: "Household 03" });
+  const firstLink = `http://localhost:3000/i/${"a".repeat(43)}`;
+  const endpoint = "**/api/admin/invitations/*/public-url";
+  let delayed: (() => Promise<void>) | undefined;
+  let currentCalls = 0;
+  let external = 0;
+  await context.route("https://wa.me/**", async (route) => {
+    external += 1;
+    await route.abort();
+  });
+  await page.route(endpoint, async (route) => {
+    currentCalls += 1;
+    await delayed?.();
+    await route
+      .fulfill({
+        json: { publicTokenVersion: 1, publicUrl: firstLink },
+      })
+      .catch(() => undefined);
+  });
+  for (const exit of ["navigate", "sign out"]) {
+    const prepare = (row: typeof first) =>
+      row.getByRole("button", { name: "Prepare WhatsApp" });
+    const open = (row: typeof first) =>
+      row.getByRole("button", { name: "Open WhatsApp" });
+    await prepare(first).click();
+    await expect(open(first)).toBeEnabled();
+    await prepare(second).click();
+    await expect(open(second)).toBeEnabled();
+    const received = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    delayed = () => {
+      received.resolve();
+      return release.promise;
+    };
+    const before = currentCalls;
+    try {
+      await open(first).evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
+      });
+      await received.promise;
+      await expect(open(first)).toBeDisabled();
+      await open(second).click();
+      await expect(second).toContainText(
+        "Another WhatsApp link is being checked",
+      );
+      expect(currentCalls - before).toBe(1);
+      if (exit === "navigate") {
+        await first.getByRole("link", { name: "Household 01" }).click();
+        await expect(
+          page.getByRole("heading", { name: "Invitation detail" }),
+        ).toBeVisible();
+      } else {
+        await page.getByRole("button", { name: "Sign out" }).click();
+        await expect(
+          page.getByLabel("Password", { exact: true }),
+        ).toBeVisible();
+      }
+    } finally {
+      release.resolve();
+      delayed = undefined;
+    }
+    expect(external).toBe(0);
+    if (exit === "navigate") {
+      await page.goBack();
+      await expect(open(first)).toHaveCount(0);
+      await expect(prepare(first)).toBeEnabled();
+    }
   }
 });
 
