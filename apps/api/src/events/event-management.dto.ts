@@ -37,6 +37,31 @@ export class ManagedEventDto extends EventFieldsDto {
   @ApiProperty({ type: "integer" }) version!: number;
   @ApiProperty({ type: EventUsageDto }) usage!: EventUsageDto;
 }
+export const materialStates = [
+  "missing",
+  "draft",
+  "published",
+  "changed",
+  "unavailable",
+] as const;
+export type MaterialState = (typeof materialStates)[number];
+
+export class EventOverviewDto {
+  @ApiProperty({ type: "integer", minimum: 0 })
+  activeEligibleHouseholds!: number;
+  @ApiProperty({ type: "integer", minimum: 0 }) acceptedHouseholds!: number;
+  @ApiProperty({ type: "integer", minimum: 0 }) confirmedPeople!: number;
+  @ApiProperty({ enum: materialStates, enumName: "EventMaterialState" })
+  parking!: MaterialState;
+  @ApiProperty({ enum: materialStates, enumName: "EventMaterialState" })
+  rundown!: MaterialState;
+}
+
+export class ManagedEventOverviewDto extends ManagedEventDto {
+  @ApiProperty({ type: EventOverviewDto }) overview!: EventOverviewDto;
+}
+
 export class ManagedEventsDto {
-  @ApiProperty({ type: [ManagedEventDto] }) items!: ManagedEventDto[];
+  @ApiProperty({ type: [ManagedEventOverviewDto] })
+  items!: ManagedEventOverviewDto[];
 }

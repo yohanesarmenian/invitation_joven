@@ -52,6 +52,17 @@ describe("OpenAPI contract", () => {
     expect(document.components?.schemas?.ManagedEventDto).toHaveProperty(
       "properties.usage",
     );
+    expect(document.components?.schemas?.ManagedEventDto).not.toHaveProperty(
+      "properties.overview",
+    );
+    expect(document.components?.schemas?.ManagedEventsDto).toHaveProperty(
+      "properties.items.items.$ref",
+      "#/components/schemas/ManagedEventOverviewDto",
+    );
+    expect(document.components?.schemas?.EventMaterialState).toHaveProperty(
+      "enum",
+      ["missing", "draft", "published", "changed", "unavailable"],
+    );
   });
   it("documents typed OWNER content, multipart upload and public credential-bound media contracts", () => {
     const document = createOpenApiDocument(app);
