@@ -18,7 +18,7 @@ jobs:
       github.sha == inputs.source_sha &&
       github.run_attempt == '1'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     environment: production
     concurrency:
       group: coolify-production-i1ny5d0qigqbvbybbabmzo7l
@@ -37,6 +37,7 @@ jobs:
           node-version: 22
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Compare production snapshots through the GET-only client
+        timeout-minutes: 17
         run: node ops/deploy/production-preflight-diagnostic.mjs
         env:
           GH_TOKEN: ${{ github.token }}
