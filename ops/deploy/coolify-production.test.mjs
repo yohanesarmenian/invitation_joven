@@ -119,6 +119,7 @@ function fixture(options = {}) {
       application_id: "42",
       status: "finished",
       commit: previous,
+      finished_at: "2026-11-07T00:00:00Z",
       pull_request_id: 0,
       configuration_hash: "4".repeat(64),
     },
@@ -160,11 +161,12 @@ function fixture(options = {}) {
       if (options.postLost) throw Error("Simulated lost POST response");
       return { deployment_uuid: record().deployment_uuid };
     }
-    if (path === "/version") return options.version ?? "4.7.6";
+    if (path === "/version") return options.version ?? "4.7.9";
     if (path.endsWith("/envs")) return structuredClone(envs);
     if (path.endsWith("/storages")) return structuredClone(storages);
     if (path.startsWith("/deployments/applications/"))
       return {
+        count: history.length + (posted && !options.unresolvedPost ? 1 : 0),
         deployments:
           posted && !options.unresolvedPost
             ? [
@@ -243,8 +245,8 @@ test("production plan captures only immutable rollback refs and keyed integrity,
   assert.ok(f.calls.every((call) => !call.method));
 });
 
-test("reviewed Coolify 4.7.6 supports read-only planning with scoped resource fields", async () => {
-  const f = fixture({ version: " \tv4.7.6\r\n" });
+test("reviewed Coolify 4.7.9 supports read-only planning with scoped resource fields", async () => {
+  const f = fixture({ version: " \tv4.7.9\r\n" });
   const reads = [];
   const api = coolifyClient(secret, {
     fetchImpl: async (url, { method }) => {
@@ -272,7 +274,7 @@ test("reviewed Coolify 4.7.6 supports read-only planning with scoped resource fi
     },
     inspect: async () => ({ revision: previous }),
   });
-  assert.equal(target.coolifyVersion, "4.7.6");
+  assert.equal(target.coolifyVersion, "4.7.9");
   assert.equal(approvals, 1);
   assert.deepEqual(plan.previousImages, previousImages);
   const resource = `/applications/${target.applicationUuid}`;
@@ -295,9 +297,11 @@ test("unreviewed Coolify versions stop after the version read before resource ac
     "4.7.3",
     "4.7.4",
     "4.7.5",
+    "4.7.6",
     "4.7.7",
+    "4.7.8",
     "4.8.0",
-    "4.7.60",
+    "4.7.90",
   ]) {
     const f = fixture({ version });
     await assert.rejects(
@@ -310,7 +314,7 @@ test("unreviewed Coolify versions stop after the version read before resource ac
         inspect: async () => ({ revision: previous }),
       }),
       {
-        message: `COOLIFY_VERSION_MISMATCH (expected=4.7.6, observed=${version}).`,
+        message: `COOLIFY_VERSION_MISMATCH (expected=4.7.9, observed=${version}).`,
       },
     );
     assert.deepEqual(f.calls, [{ path: "/version", text: true }]);
@@ -321,12 +325,12 @@ test("malformed version responses block after one HTTP GET", async () => {
   for (const body of [
     "",
     "null",
-    '"4.7.6"',
-    '{"version":"4.7.6"}',
-    "<html>4.7.6</html>",
-    "4.7.6\n4.7.6",
-    "4.7.6-beta.1",
-    `4.7.6+${secret}`,
+    '"4.7.9"',
+    '{"version":"4.7.9"}',
+    "<html>4.7.9</html>",
+    "4.7.9\n4.7.9",
+    "4.7.9-beta.1",
+    `4.7.9+${secret}`,
     `https://example.invalid/?signature=${secret}`,
   ]) {
     const requests = [];
@@ -348,7 +352,7 @@ test("malformed version responses block after one HTTP GET", async () => {
       }),
       {
         message:
-          "COOLIFY_VERSION_MISMATCH (expected=4.7.6, observed=INVALID_RESPONSE).",
+          "COOLIFY_VERSION_MISMATCH (expected=4.7.9, observed=INVALID_RESPONSE).",
       },
     );
     assert.deepEqual(requests, [`GET ${target.coolifyOrigin}/api/v1/version`]);
@@ -460,7 +464,7 @@ test("Coolify starting health is never planning or rollout success", async () =>
   assert.equal(f.calls.filter((call) => call.method === "POST").length, 1);
 });
 
-test("reviewed 4.7.6 HTTP contracts support one approved rollout with exact image updates, migration and applied hashes", async () => {
+test("reviewed 4.7.9 HTTP contracts support one approved rollout with exact image updates, migration and applied hashes", async () => {
   const f = await planned();
   const beforeProtected = structuredClone(
     f.envs.filter((row) => !Object.values(imageKeys).includes(row.key)),
