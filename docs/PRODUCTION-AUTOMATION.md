@@ -126,6 +126,12 @@ The Coolify start endpoint has no reviewed per-request Git-commit pin for a Comp
 The Actions prepare summary shows the verified source, CI/publisher links and artifact SHA. Native **Review deployments → Approve and deploy** is the normal OWNER action. After approval, inspect the plan/outcome artifacts (90-day retention) and final summary. Archive these non-secret receipts outside Actions retention if needed. Do not publish raw Coolify configuration or logs in issue/PR comments.
 
 - `BLOCKED`/preflight: no configuration write was attempted. Fix the stated setup/authority issue, inspect state, then use a fresh workflow run if appropriate.
+  When post-plan comparison fails, `outcome.json` records all failed categories in `preflightFailures`. The summary includes the same fixed codes:
+  - `PROTECTED_CONFIGURATION_MISMATCH`: inspect the protected application settings, Compose, destination, environment and storage privately. A seal mismatch alone does not identify a changed field or establish whether the change was semantic.
+  - `APPLICATION_HEALTH_MISMATCH`: inspect the current container health for the approved resource.
+  - `APPLIED_CONFIGURATION_HASH_MISMATCH`: inspect the applied application and deployment records against the captured plan.
+  - `PREVIOUS_IMAGES_MISMATCH`: compare the three current immutable image values with the plan's previous references.
+    The codes expose no observed configuration values. Keep the original plan and resolve the reported difference before approving another release.
 - `ENV_UPDATE_REQUESTING` without complete readback, or any partial trio: inspect the three values in the existing resource and compare against the captured previous/next references. A timed-out request may still finish. Do not deploy while values are mixed.
 - `ENV_UPDATE_VERIFIED` without deployment: envs changed but deployment was deliberately withheld (for example, master/approval drift). Inspect for in-flight operations before deciding whether to restore the previous trio or approve a newer coordinated release.
 - `DEPLOY_REQUESTING`/`OUTCOME_UNCERTAIN`: inspect that exact application's deployment history and the captured known IDs before doing anything. Do not blindly resend the POST. A queue response may have been lost.

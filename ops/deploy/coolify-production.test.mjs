@@ -381,11 +381,75 @@ test("an unsupported upgrade blocks mutation or requires reconciliation after im
   }
 });
 
-test("reviewed settings remain protected against drift after planning", async () => {
-  const f = await planned();
-  f.app.settings.is_auto_cancel_queued_deployments_enabled = true;
-  await assert.rejects(f.deploy(), /Production changed after planning/);
-  assert.ok(f.calls.every((call) => !call.method));
+test("preflight reports only the failed comparison codes and makes no writes", async (t) => {
+  const changes = [
+    {
+      name: "application settings",
+      code: "PROTECTED_CONFIGURATION_MISMATCH",
+      mutate(f) {
+        f.app.settings.is_auto_cancel_queued_deployments_enabled = true;
+      },
+    },
+    {
+      name: "environment value",
+      code: "PROTECTED_CONFIGURATION_MISMATCH",
+      mutate(f) {
+        f.envs.find((row) => row.key === "DATABASE_URL").value =
+          "synthetic-private-value";
+      },
+    },
+    {
+      name: "storage identity",
+      code: "PROTECTED_CONFIGURATION_MISMATCH",
+      mutate(f) {
+        f.storages.persistent_storages[0].name = "different-volume";
+      },
+    },
+    {
+      name: "application health",
+      code: "APPLICATION_HEALTH_MISMATCH",
+      mutate(f) {
+        f.app.status = "running:unhealthy";
+      },
+    },
+    {
+      name: "applied configuration hash",
+      code: "APPLIED_CONFIGURATION_HASH_MISMATCH",
+      mutate(f) {
+        f.app.config_hash = "2".repeat(64);
+      },
+    },
+    {
+      name: "previous images",
+      code: "PREVIOUS_IMAGES_MISMATCH",
+      mutate(f) {
+        f.envs.find((row) => row.key === imageKeys.api).value = nextImages.api;
+      },
+    },
+  ];
+  const cases = changes.map((change) => [change.name, [change]]);
+  cases.push(["simultaneous mismatches", [changes[1], ...changes.slice(3)]]);
+  for (const [name, mismatches] of cases) {
+    await t.test(name, async () => {
+      const f = await planned();
+      for (const change of mismatches) change.mutate(f);
+
+      const codes = mismatches.map((change) => change.code);
+      const reason = `Production changed after planning. No mutation is safe. Failed checks: ${codes.join(", ")}.`;
+      await assert.rejects(
+        f.deploy(),
+        /Production release stopped at PREFLIGHT/,
+      );
+      assert.equal(f.receipts.length, 1);
+      const [receipt] = f.receipts;
+      assert.equal(receipt.stage, "PREFLIGHT");
+      assert.equal(receipt.status, "BLOCKED");
+      assert.equal(receipt.deploymentUuid, null);
+      assert.deepEqual(receipt.preflightFailures, codes);
+      assert.equal(receipt.reason, reason);
+      assert.ok(f.calls.every((call) => !call.method));
+    });
+  }
 });
 
 test("MCP deployments cannot reconcile an uncertain API start", async () => {
@@ -568,6 +632,18 @@ test("unexpected resource, version, source, webhook, volume or migration setting
         "new_volume:/var/lib/postgresql",
       );
     },
+    (f) => {
+      f.app.docker_compose_domains = JSON.stringify({
+        "admin-web": { domain: "https://unexpected.example.invalid" },
+        "invitation-web": { domain: target.invitationOrigin },
+      });
+    },
+    (f) => {
+      f.app.docker_compose_raw = source.replace(
+        "internal: true",
+        "internal: false",
+      );
+    },
   ]) {
     const f = fixture();
     mutate(f);
@@ -582,6 +658,11 @@ test("unexpected resource, version, source, webhook, volume or migration setting
       }),
     );
     assert.ok(f.calls.every((call) => !call.method));
+
+    const afterPlan = await planned();
+    mutate(afterPlan);
+    await assert.rejects(afterPlan.deploy());
+    assert.ok(afterPlan.calls.every((call) => !call.method));
   }
   const f = fixture({ version: "4.7.0" });
   await assert.rejects(
