@@ -23,7 +23,7 @@ export class DeploymentError extends Error {}
 
 const uuidPattern = /^[a-zA-Z0-9]{8,64}$/;
 const blank = (value) => value === undefined || value === null || value === "";
-function canonical(value) {
+export function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (value !== null && typeof value === "object")
     return Object.fromEntries(
@@ -348,7 +348,7 @@ export async function readSnapshot(api) {
   };
 }
 
-function protectedState(snapshot) {
+export function protectedState(snapshot) {
   const fields = [
     "uuid",
     "environment_id",
@@ -405,7 +405,7 @@ function protectedState(snapshot) {
       ),
   };
 }
-function protectedSeal(snapshot, secret) {
+export function protectedSeal(snapshot, secret) {
   return seal(protectedState(snapshot), secret);
 }
 function noActiveDeployment(snapshot) {

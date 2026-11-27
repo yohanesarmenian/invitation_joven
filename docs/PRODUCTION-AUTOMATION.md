@@ -140,6 +140,18 @@ The Actions prepare summary shows the verified source, CI/publisher links and ar
 
 After reconciliation, manual **Deploy approved production release → Run workflow → master → release_run_id** can select the successful current-master publisher. It receives a fresh approval. It is not a CI override and cannot select a stale SHA. Never change the activation flag or protection rules merely to make a failing gate green.
 
+## Read-only production drift diagnostic
+
+Use **Diagnose production protected configuration drift** when a sealed production plan fails its protected configuration comparison. Dispatch it on `master` with `source_sha` set to the exact current reviewed master SHA. The job requires a fresh attempt and separate OWNER approval for the existing `production` environment. It verifies the recorded approval, master-only policy, and disabled administrator bypass before contacting Coolify. The protected token stays in the environment. If the GitHub API does not expose the bypass flag to the job, it fails closed.
+
+Approve only the diagnostic run for this investigation. Leave any automatically prepared production release unapproved while investigating. Avoid queueing the diagnostic and another production operation at the same time because they share a concurrency group.
+
+The diagnostic issues GET requests to the configured Coolify origin for version, the one approved application, its environment and storage, and its deployment history. It takes two consecutive snapshots, waits two minutes, then takes a second pair. Each snapshot also re-reads the application to detect changes to application settings, destination, Compose, health, and applied hash during that read window. Environment and storage are compared across snapshots. These sequential GETs cannot establish an atomic server snapshot.
+
+Only `diagnostic-receipt/result.json` is published, along with an equivalent Actions summary. Both contain equality flags, a bounded list of fixed field categories and change types, and a delay. There are no API bodies, environment names or values, storage contents, record IDs, digests, or comparison keys. The report distinguishes ordered equality from membership and order changes. Diagnostic alignment uses numeric record IDs where available without changing the deployed fingerprint.
+
+Use the reported category to investigate semantics before changing the fingerprint. An order-only observation requires matching membership and record contents. A computed value, missing field, or timestamp still requires evidence that it cannot affect deployment. Matching samples leave an earlier incident unconfirmed. The diagnostic does not publish images, build a rollback plan, or invoke the deployment entry point.
+
 ## Rollback without data loss
 
 1. Stop further release approvals and coordinate a maintenance window. Preserve the failed run's plan/outcome and exact deployment UUID. Confirm no queued/in-flight operation can overwrite recovery.
