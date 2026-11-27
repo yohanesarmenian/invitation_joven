@@ -349,6 +349,26 @@ export async function readSnapshot(api) {
   };
 }
 
+function protectedStorage(row, kind, applicationUuid) {
+  const storage = Object.fromEntries(
+    Object.entries(row).filter(([key]) => key !== "updated_at"),
+  );
+  if (
+    kind === "file_storages" &&
+    row.resource_type === "App\\Models\\Application" &&
+    Number.isSafeInteger(row.resource_id) &&
+    row.resource_id > 0 &&
+    row.resource?.id === row.resource_id &&
+    row.resource.uuid === applicationUuid
+  ) {
+    // Coolify's heartbeat updates last_online_at and Eloquent touches updated_at.
+    storage.resource = { ...row.resource };
+    delete storage.resource.last_online_at;
+    delete storage.resource.updated_at;
+  }
+  return storage;
+}
+
 export function protectedState(snapshot) {
   const fields = [
     "uuid",
@@ -380,11 +400,7 @@ export function protectedState(snapshot) {
     storages: Object.fromEntries(
       Object.entries(snapshot.storages).map(([kind, rows]) => [
         kind,
-        rows.map((row) =>
-          Object.fromEntries(
-            Object.entries(row).filter(([key]) => key !== "updated_at"),
-          ),
-        ),
+        rows.map((row) => protectedStorage(row, kind, snapshot.app.uuid)),
       ]),
     ),
     envs: snapshot.envs

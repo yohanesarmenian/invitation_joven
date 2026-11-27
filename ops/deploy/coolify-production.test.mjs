@@ -10,6 +10,7 @@ import {
   assertCompose,
   validateResource,
   coolifyClient,
+  protectedSeal,
   planDeployment,
   deployProduction,
   verifyDeploymentRecord,
@@ -920,6 +921,117 @@ test("routine server status and storage timestamps do not masquerade as protecte
   f.app.destination.server.last_online_at = "2026-11-07T01:00:01Z";
   f.storages.persistent_storages[0].updated_at = "2026-11-07T01:00:01Z";
   assert.equal((await f.deploy()).status, "SUCCESS");
+});
+
+function fileStorageApplicationFixture() {
+  const f = fixture();
+  Object.assign(f.storages.file_storages[0], {
+    content: "synthetic init script",
+    resource_type: "App\\Models\\Application",
+    resource_id: 42,
+    resource: {
+      id: 42,
+      uuid: f.app.uuid,
+      environment_id: 7,
+      git_branch: "master",
+      config_hash: f.app.config_hash,
+      last_online_at: "2026-11-07T01:00:00Z",
+      updated_at: "2026-11-07T01:00:00Z",
+      settings: { updated_at: "2026-11-07T01:00:00Z" },
+    },
+  });
+  return f;
+}
+
+test("file storage application heartbeat timestamps preserve the seal during read-only planning", async () => {
+  const f = fileStorageApplicationFixture();
+  const plan = () =>
+    planDeployment({
+      manifest,
+      api: f.api,
+      secret,
+      runId: 789,
+      assertAuthority: async () => {},
+      inspect: async () => ({ revision: previous }),
+    });
+  const { protectedConfiguration } = await plan();
+  const { resource } = f.storages.file_storages[0];
+  const later = "2026-11-07T01:00:01Z";
+
+  for (const field of ["last_online_at", "updated_at"]) {
+    resource[field] = later;
+    assert.equal(
+      (await plan()).protectedConfiguration,
+      protectedConfiguration,
+      field,
+    );
+    assert.equal(resource[field], later);
+  }
+  assert.ok(f.calls.every((call) => !call.method));
+});
+
+test("file storage seal preserves contents, paths, resource ownership, and nested configuration", () => {
+  const { app, storages, envs } = fileStorageApplicationFixture();
+  const snapshot = { app, storages, envs, document: assertCompose(source) };
+  const seal = protectedSeal(snapshot, secret);
+  const changes = {
+    content: (row) => (row.content += " changed"),
+    mount_path: (row) => (row.mount_path += ".changed"),
+    fs_path: (row) => (row.fs_path += ".changed"),
+    resource_type: (row) => (row.resource_type = "App\\Models\\Service"),
+    resource_id: (row) => (row.resource_id += 1),
+    "resource.id": (row) => (row.resource.id += 1),
+    "resource.uuid": (row) => (row.resource.uuid = "different-application"),
+    "resource.environment_id": (row) => (row.resource.environment_id += 1),
+    "resource.git_branch": (row) => (row.resource.git_branch = "other"),
+    "resource.config_hash": (row) =>
+      (row.resource.config_hash = "9".repeat(64)),
+    "resource.settings.updated_at": (row) =>
+      (row.resource.settings.updated_at = "2026-11-07T01:00:01Z"),
+  };
+
+  for (const [field, change] of Object.entries(changes)) {
+    const changed = structuredClone(snapshot);
+    change(changed.storages.file_storages[0]);
+    assert.notEqual(protectedSeal(changed, secret), seal, field);
+  }
+});
+
+test("storage seal keeps heartbeat fields for unverified relationships and other storage kinds", () => {
+  const { app, storages, envs } = fileStorageApplicationFixture();
+  const snapshot = { app, storages, envs, document: assertCompose(source) };
+  const cases = {
+    "other resource type": (current, row) => {
+      row.resource_type = "App\\Models\\Service";
+    },
+    "different resource ID": (current, row) => {
+      row.resource_id += 1;
+    },
+    "different application UUID": (current, row) => {
+      row.resource.uuid = "different-application";
+    },
+    "other storage kind": (current, row) => {
+      current.file_storages = [];
+      current.persistent_storages = [row];
+    },
+  };
+
+  for (const [scope, configure] of Object.entries(cases)) {
+    const before = structuredClone(snapshot);
+    const row = before.storages.file_storages[0];
+    configure(before.storages, row);
+    const seal = protectedSeal(before, secret);
+    for (const field of ["last_online_at", "updated_at"]) {
+      const original = row.resource[field];
+      row.resource[field] = "2026-11-07T01:00:01Z";
+      assert.notEqual(
+        protectedSeal(before, secret),
+        seal,
+        `${scope}: ${field}`,
+      );
+      row.resource[field] = original;
+    }
+  }
 });
 
 test("unexpected transport or library exceptions cannot put secrets into a receipt or public error", async () => {
