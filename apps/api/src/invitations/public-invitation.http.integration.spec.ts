@@ -746,18 +746,26 @@ describe("GET /api/public/invitations/:publicCredential", () => {
   });
 
   it("maps unavailable dedicated RSVP GET credentials to the generic 404 envelope", async () => {
-    const response = await app.getHttpAdapter().getInstance().inject({
-      method: "GET",
-      url: "/api/public/invitations/bad/rsvp",
-    });
+    const requestId = "req-rsvp-get-unavailable";
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { "x-request-id": requestId },
+        method: "GET",
+        url: "/api/public/invitations/bad/rsvp",
+      });
 
     expect(response.statusCode).toBe(404);
+    expect(response.headers["x-request-id"]).toBe(requestId);
     expect(response.json()).toMatchObject({
       error: {
         code: "INVITATION_NOT_AVAILABLE",
         details: null,
         message: "Resource not found",
       },
+      requestId,
+      timestamp: expect.any(String),
     });
     expect(response.body).not.toContain("bad");
   });
@@ -1210,10 +1218,12 @@ describe("GET /api/public/invitations/:publicCredential", () => {
   });
 
   it("treats unavailable RSVP credentials as the same 404 classification", async () => {
+    const requestId = "req-rsvp-put-unavailable";
     const response = await app
       .getHttpAdapter()
       .getInstance()
       .inject({
+        headers: { "x-request-id": requestId },
         method: "PUT",
         payload: {
           attendees: [],
@@ -1225,12 +1235,15 @@ describe("GET /api/public/invitations/:publicCredential", () => {
       });
 
     expect(response.statusCode).toBe(404);
+    expect(response.headers["x-request-id"]).toBe(requestId);
     expect(response.json()).toMatchObject({
       error: {
         code: "INVITATION_NOT_AVAILABLE",
         details: null,
         message: "Resource not found",
       },
+      requestId,
+      timestamp: expect.any(String),
     });
     expect(response.body).not.toContain("bad");
   });
