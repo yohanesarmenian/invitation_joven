@@ -579,15 +579,29 @@ export async function deployProduction({
     await comparePrevious(plan.previousSourceSha, plan.sourceSha);
     const before = await readSnapshot(api);
     noActiveDeployment(before);
-    if (
-      protectedSeal(before, secret) !== plan.protectedConfiguration ||
-      before.app.status !== "running:healthy" ||
-      before.app.config_hash !== plan.previousConfigurationHash ||
-      !isDeepStrictEqual(before.images, plan.previousImages)
-    )
+    const preflightFailures = [
+      [
+        "PROTECTED_CONFIGURATION_MISMATCH",
+        protectedSeal(before, secret) !== plan.protectedConfiguration,
+      ],
+      ["APPLICATION_HEALTH_MISMATCH", before.app.status !== "running:healthy"],
+      [
+        "APPLIED_CONFIGURATION_HASH_MISMATCH",
+        before.app.config_hash !== plan.previousConfigurationHash,
+      ],
+      [
+        "PREVIOUS_IMAGES_MISMATCH",
+        !isDeepStrictEqual(before.images, plan.previousImages),
+      ],
+    ]
+      .filter(([, failed]) => failed)
+      .map(([code]) => code);
+    if (preflightFailures.length) {
+      receipt.preflightFailures = preflightFailures;
       throw new DeploymentError(
-        "Production changed after planning. No mutation is safe.",
+        `Production changed after planning. No mutation is safe. Failed checks: ${preflightFailures.join(", ")}.`,
       );
+    }
     // A second publisher for the same commit must not automatically redeploy a
     // release already proven running. Reconcile the exact snapshot and health.
     if (isDeepStrictEqual(before.images, plan.nextImages)) {
