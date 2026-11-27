@@ -21,9 +21,10 @@ const approvedCompose = parse(
 );
 export class DeploymentError extends Error {}
 
+export const appliedConfigurationHashPattern = /^[a-f0-9]{64}$/;
 const uuidPattern = /^[a-zA-Z0-9]{8,64}$/;
 const blank = (value) => value === undefined || value === null || value === "";
-function canonical(value) {
+export function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (value !== null && typeof value === "object")
     return Object.fromEntries(
@@ -348,7 +349,7 @@ export async function readSnapshot(api) {
   };
 }
 
-function protectedState(snapshot) {
+export function protectedState(snapshot) {
   const fields = [
     "uuid",
     "environment_id",
@@ -405,7 +406,7 @@ function protectedState(snapshot) {
       ),
   };
 }
-function protectedSeal(snapshot, secret) {
+export function protectedSeal(snapshot, secret) {
   return seal(protectedState(snapshot), secret);
 }
 function noActiveDeployment(snapshot) {
@@ -445,7 +446,10 @@ export async function planDeployment({
       item.status === "finished" &&
       item.configuration_hash === snapshot.app.config_hash,
   );
-  if (!/^[a-f0-9]{64}$/.test(snapshot.app.config_hash ?? "") || !applied)
+  if (
+    !appliedConfigurationHashPattern.test(snapshot.app.config_hash ?? "") ||
+    !applied
+  )
     throw new DeploymentError(
       "Existing applied configuration hashes cannot be verified. No write allowed.",
     );
@@ -507,7 +511,8 @@ export function verifyDeploymentRecord(record, plan) {
   // The successful-deployment handler updates this hash and Application.config_hash
   // from the same internal snapshot (which includes every image environment value).
   // Status can become finished immediately before those hash updates: poll reads.
-  if (!/^[a-f0-9]{64}$/.test(record.configuration_hash ?? "")) return false;
+  if (!appliedConfigurationHashPattern.test(record.configuration_hash ?? ""))
+    return false;
   if (
     !isDeepStrictEqual(plan.previousImages, plan.nextImages) &&
     record.configuration_hash === plan.previousConfigurationHash
