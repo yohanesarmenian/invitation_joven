@@ -2724,6 +2724,59 @@
         ]
       }
     },
+    "/api/admin/imports/guest/template": {
+      "get": {
+        "operationId": "GuestImportController_downloadGuestTemplate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download the Excel guest import template",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/admin/imports/guest/validate": {
       "post": {
         "operationId": "GuestImportController_validateGuestImport",
@@ -7717,6 +7770,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "eligibleEventNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -7770,6 +7829,12 @@
       "GuestImportValidateResponseDto": {
         "type": "object",
         "properties": {
+          "templateVersion": {
+            "type": "number",
+            "enum": [
+              2
+            ]
+          },
           "previewId": {
             "type": "string",
             "format": "uuid"

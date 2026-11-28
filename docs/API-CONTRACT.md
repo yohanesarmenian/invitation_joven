@@ -1389,7 +1389,18 @@ Guest message content remains plain text in admin surfaces: no `dangerouslySetIn
 
 **Phase ownership: Phase 9.** The template, parsing, preview, and commit contract is locked by Phase 9 Slice 9A. Import is **create-only**: it creates new `Invitation`, `Invitee`, and `InvitationEvent` rows and never updates, upserts, or merges an existing record. See `TECHNICAL-ARCHITECTURE.md` ("Import Architecture") for parser and validation responsibilities, and `DATABASE-SCHEMA.md` (`GuestImportPreview`, `GuestImportBatch`) for persistence consequences.
 
-### Import template
+### Excel guest-list template (UX02-B)
+
+An authenticated OWNER downloads the workbook from **Invitations → Import CSV/XLSX → Download Excel template**. The read-only `GET /api/admin/imports/guest/template` returns a no-store Excel attachment built from currently active wedding sessions. Activate a session in **Events** if no template is available.
+
+1. Read **Instructions**. Add one row in **Invitations** for each individual, couple, or household. Assign each a unique workbook reference such as `F001`.
+2. Add one row per named guest in **Guests**, using the same `HouseholdRef` for people sharing a link. Guest order follows worksheet order. Select Adult or Child. Keep the **Events** reference sheet and workbook headers intact.
+3. Choose a named session or both in the dropdown, or select Yes in one or two named columns if the catalog has more than two sessions. With one active session the workbook prefills that choice. Optional deadlines are WIB text in `YYYY-MM-DD HH:mm`.
+4. Save as XLSX and select **Validate file**. Review the normalized guest names, selected sessions, deadlines, and worksheet locations of errors. Correct any unmatched guest reference before the workbook can be previewed. Select the valid rows, explicitly acknowledge possible duplicate names, and confirm the import.
+
+Excel v2 accepts at most 500 invitations, 20 named guests per household, 2,000 characters per input cell, and a 5 MiB upload. Download a fresh template if the event catalog changes. An optional `templateVersion: 2` and the canonical session names identify the richer preview. The existing commit still uses only preview ID, selected Invitations row numbers, and warning acknowledgements. It rechecks identity, availability, and the reviewed name, start, and venue for selected sessions before writing.
+
+### Legacy CSV and flat XLSX template
 
 Base columns, in this exact order, followed by zero or more event eligibility columns:
 

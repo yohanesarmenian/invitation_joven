@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SESSION_ENDED_PATH } from "../src/auth/auth-state";
-import { commitImport, validateImport } from "../src/imports/client";
+import {
+  commitImport,
+  downloadGuestWorkbook,
+  validateImport,
+} from "../src/imports/client";
 import {
   commitPayload,
   frozen,
@@ -31,6 +35,8 @@ export function GuestImport({
   const input = useRef<HTMLInputElement>(null);
   const [expired, setExpired] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   useEffect(() => {
     if (!state.preview) return;
     const deadline = Date.parse(state.preview.expiresAt);
@@ -111,36 +117,79 @@ export function GuestImport({
       busy.current = false;
     }
   }
-  function download() {
-    const url = URL.createObjectURL(
-      new Blob([importTemplate(eventSlugs ?? [])], {
-        type: "text/csv;charset=utf-8",
-      }),
-    );
+  function download(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "invitation-import-template.csv";
+    anchor.download = filename;
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  async function downloadExcel() {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const result = await downloadGuestWorkbook();
+      if (result.kind === "workbook") {
+        download(result.blob, "guest-import-template.xlsx");
+      } else if (result.kind === "session-ended") {
+        router.replace(SESSION_ENDED_PATH);
+        router.refresh();
+      } else {
+        setDownloadError(result.message);
+      }
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <div className="guest-import" data-state={state.stage}>
       <section className="import-panel" aria-labelledby="template-title">
         <h2 id="template-title">1. Prepare your file</h2>
-        <button
-          type="button"
-          className="invitation-secondary"
-          onClick={download}
-        >
-          Download CSV template
-        </button>
+        {eventSlugs?.length === 0 ? (
+          <p>
+            Activate at least one wedding session in{" "}
+            <Link href="/events">Events</Link> to download the Excel template.
+          </p>
+        ) : (
+          <button
+            type="button"
+            className="invitation-primary"
+            onClick={downloadExcel}
+            disabled={downloading}
+          >
+            {downloading
+              ? "Preparing Excel template…"
+              : "Download Excel template"}
+          </button>
+        )}
+        <div aria-live="polite">{downloadError}</div>
         <p>
-          One row = one household. Maximum 500 household rows and 5 MiB. Use
-          UTF-8 CSV or an XLSX worksheet named Invitations.
+          Add one row per invitation in Invitations and one row per person in
+          Guests. Match them using the same HouseholdRef, then choose one or two
+          wedding sessions from the Excel dropdowns.
         </p>
-        <p>Each household must select one or two active wedding sessions.</p>
+        <p>
+          Maximum 500 invitations and 5 MiB. Start with the Instructions sheet.
+        </p>
         <details>
-          <summary>File format and column guidance</summary>
+          <summary>Existing CSV and legacy XLSX formats</summary>
+          <button
+            type="button"
+            className="invitation-secondary"
+            onClick={() =>
+              download(
+                new Blob([importTemplate(eventSlugs ?? [])], {
+                  type: "text/csv;charset=utf-8",
+                }),
+                "invitation-import-template.csv",
+              )
+            }
+          >
+            Download CSV template
+          </button>
+
           <p>
             Keep the template headers unchanged. Set allowPlusOne to true or
             false, and maxAdditionalChildren to a non-negative whole number.

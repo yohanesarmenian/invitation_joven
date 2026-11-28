@@ -52,6 +52,12 @@ async function rejection(
     };
   }
   if (status === 403) return { kind: "rejected", message: FORBIDDEN };
+  if (status === 400 && code === "IMPORT_WORKBOOK_INVALID") {
+    const envelope = error as { error?: { message?: unknown } };
+    if (typeof envelope.error?.message === "string") {
+      return { kind: "rejected", message: envelope.error.message };
+    }
+  }
   if (status === 400 && code === "VALIDATION_ERROR")
     return {
       kind: "rejected",
@@ -71,6 +77,32 @@ async function rejection(
       return { kind: "rejected", message: messages[code], newPreview: true };
   }
   return null;
+}
+export async function downloadGuestWorkbook(): Promise<
+  { kind: "workbook"; blob: Blob } | ImportRejection
+> {
+  try {
+    const { response, data, error } = await client().GET(
+      "/api/admin/imports/guest/template",
+      { parseAs: "blob", signal: AbortSignal.timeout(30_000) },
+    );
+    if (
+      response.status === 200 &&
+      data?.type ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ) {
+      return { kind: "workbook", blob: data };
+    }
+    const failure = await rejection(response.status, error);
+    if (failure) return failure;
+  } catch {
+    // Use the same concrete retry instruction for transport and invalid downloads.
+  }
+  return {
+    kind: "rejected",
+    message:
+      "Could not download the Excel template. Try again or check Events.",
+  };
 }
 export async function validateImport(
   file: File,

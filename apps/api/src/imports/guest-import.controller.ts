@@ -1,4 +1,14 @@
-import { Body, Controller, HttpCode, Inject, Post, Req } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Inject,
+  Post,
+  Req,
+  StreamableFile,
+} from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -19,6 +29,10 @@ import {
   GuestImportCommitResponseDto,
   GuestImportValidateResponseDto,
 } from "./dto/guest-import.dto.js";
+import {
+  GUEST_WORKBOOK_MIME,
+  GUEST_WORKBOOK_PATH,
+} from "./guest-import-workbook.js";
 import { GuestImportService } from "./guest-import.service.js";
 
 type MultipartPart = {
@@ -41,6 +55,27 @@ export class GuestImportController {
     @Inject(GuestImportService)
     private readonly guestImportService: GuestImportService,
   ) {}
+
+  @Get("template")
+  @Header("Cache-Control", "no-store")
+  @ApiOperation({ summary: "Download the Excel guest import template" })
+  @ApiOkResponse({
+    content: {
+      [GUEST_WORKBOOK_MIME]: { schema: { format: "binary", type: "string" } },
+    },
+  })
+  @ApiBadRequestResponse({ type: ApiErrorEnvelopeDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorEnvelopeDto })
+  @ApiForbiddenResponse({ type: ApiErrorEnvelopeDto })
+  async downloadGuestTemplate(): Promise<StreamableFile> {
+    return new StreamableFile(
+      await this.guestImportService.downloadTemplate(),
+      {
+        type: GUEST_WORKBOOK_MIME,
+        disposition: 'attachment; filename="' + GUEST_WORKBOOK_PATH + '"',
+      },
+    );
+  }
 
   @Post("validate")
   @ApiOperation({ summary: "Validate guest import preview" })

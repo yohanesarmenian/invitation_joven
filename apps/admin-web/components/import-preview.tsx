@@ -9,6 +9,31 @@ export function ImportPreview({
 }) {
   const preview = state.preview;
   if (!preview) return null;
+  const workbook = preview.templateVersion === 2;
+  const namedGuests = preview.rows.reduce(
+    (count, row) => count + (row.parsed?.invitees.length ?? 0),
+    0,
+  );
+  const sessionCounts = new Map<string, { name: string; count: number }>();
+  let bothSessions = 0;
+  if (workbook) {
+    for (const { parsed } of preview.rows) {
+      if (!parsed) continue;
+      if (parsed.eligibleEventSlugs.length === 2) bothSessions++;
+      for (const [index, slug] of parsed.eligibleEventSlugs.entries()) {
+        const session = sessionCounts.get(slug);
+        if (session) session.count++;
+        else
+          sessionCounts.set(slug, {
+            name: parsed.eligibleEventNames?.[index] ?? slug,
+            count: 1,
+          });
+      }
+    }
+  }
+  const blankDeadline = workbook
+    ? "Uses the RSVP policy deadline"
+    : "No deadline";
   const editable = state.stage === "PREVIEW_READY";
   return (
     <section aria-labelledby="preview-title" className="import-preview">
@@ -19,7 +44,7 @@ export function ImportPreview({
       </p>
       <dl className="import-summary">
         <div>
-          <dt>Total rows</dt>
+          <dt>{workbook ? "Total invitations" : "Total rows"}</dt>
           <dd>{preview.summary.totalRows}</dd>
         </div>
         <div>
@@ -34,11 +59,33 @@ export function ImportPreview({
           <dt>Error rows</dt>
           <dd>{preview.summary.errorRows}</dd>
         </div>
+        {workbook && (
+          <div>
+            <dt>Named guests on valid rows</dt>
+            <dd>{namedGuests}</dd>
+          </div>
+        )}
         <div>
           <dt>Selected households</dt>
           <dd>{state.selected.length}</dd>
         </div>
       </dl>
+      {workbook && sessionCounts.size > 0 && (
+        <>
+          <h3>Sessions on valid rows</h3>
+          <ul>
+            {[...sessionCounts].map(([slug, session]) => (
+              <li key={slug}>
+                {session.name}: {session.count}
+              </li>
+            ))}
+          </ul>
+          <p>
+            {bothSessions} invitations include two sessions. Each is counted
+            under both sessions.
+          </p>
+        </>
+      )}
       <p>
         Preview expires:{" "}
         <time dateTime={preview.expiresAt}>{preview.expiresAt}</time> (UTC).
@@ -52,7 +99,7 @@ export function ImportPreview({
           >
             <header>
               <h3 id={`row-title-${row.rowNumber}`}>
-                Row {row.rowNumber}
+                {workbook ? "Invitations row" : "Row"} {row.rowNumber}
                 {row.parsed ? ` — ${row.parsed.displayName}` : ""}
               </h3>
               <strong className={`import-status import-status-${row.status}`}>
@@ -76,16 +123,23 @@ export function ImportPreview({
                   </div>
                   <div>
                     <dt>RSVP deadline (Asia/Jakarta)</dt>
-                    <dd>{row.parsed.rsvpDeadlineLocal ?? "No deadline"}</dd>
+                    <dd>{row.parsed.rsvpDeadlineLocal ?? blankDeadline}</dd>
                   </div>
                   <div>
                     <dt>RSVP deadline (UTC)</dt>
-                    <dd>{row.parsed.rsvpDeadlineAt ?? "No deadline"}</dd>
+                    <dd>{row.parsed.rsvpDeadlineAt ?? blankDeadline}</dd>
                   </div>
                   <div>
-                    <dt>Eligible event slugs</dt>
+                    <dt>
+                      {workbook
+                        ? "Eligible wedding sessions"
+                        : "Eligible event slugs"}
+                    </dt>
                     <dd>
-                      {row.parsed.eligibleEventSlugs.join(", ") || "None"}
+                      {(
+                        row.parsed.eligibleEventNames ??
+                        row.parsed.eligibleEventSlugs
+                      ).join(", ") || "None"}
                     </dd>
                   </div>
                 </dl>

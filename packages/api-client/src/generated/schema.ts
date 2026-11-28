@@ -569,6 +569,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/imports/guest/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the Excel guest import template */
+        get: operations["GuestImportController_downloadGuestTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/imports/guest/validate": {
         parameters: {
             query?: never;
@@ -1847,6 +1864,7 @@ export interface components {
             rsvpDeadlineAt: string | null;
             invitees: components["schemas"]["GuestImportParsedInviteeDto"][];
             eligibleEventSlugs: string[];
+            eligibleEventNames?: string[];
         };
         GuestImportPreviewRowDto: {
             rowNumber: number;
@@ -1857,6 +1875,8 @@ export interface components {
             parsed?: components["schemas"]["GuestImportParsedRowDto"];
         };
         GuestImportValidateResponseDto: {
+            /** @enum {number} */
+            templateVersion?: 2;
             /** Format: uuid */
             previewId: string;
             /** Format: date-time */
@@ -4320,6 +4340,49 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    GuestImportController_downloadGuestTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorEnvelopeDto"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

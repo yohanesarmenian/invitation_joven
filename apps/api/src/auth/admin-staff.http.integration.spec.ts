@@ -360,6 +360,7 @@ describe("admin staff HTTP integration", () => {
       ["GET", `/api/admin/rsvps/${id}`],
       ["GET", "/api/admin/messages"],
       ["PATCH", `/api/admin/messages/${id}`],
+      ["GET", "/api/admin/imports/guest/template"],
       ["POST", "/api/admin/imports/guest/validate"],
       ["POST", "/api/admin/imports/guest/commit"],
       ["GET", "/api/admin/staff"],

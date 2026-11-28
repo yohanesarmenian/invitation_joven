@@ -348,7 +348,7 @@ describe("admin read HTTP integration", () => {
     const routes = discoverAdminRoutes(app);
     const routeNames = routes.map((route) => `${route.method} ${route.path}`);
 
-    expect(routes).toHaveLength(65);
+    expect(routes).toHaveLength(66);
     expect(routeNames).toEqual(
       expect.arrayContaining([
         "GET /api/admin/reception/search",
@@ -398,6 +398,7 @@ describe("admin read HTTP integration", () => {
       "GET /api/admin/event-content/:eventId/assets/:assetId",
       "GET /api/admin/event-management",
       "GET /api/admin/events",
+      "GET /api/admin/imports/guest/template",
       "GET /api/admin/invitations",
       "GET /api/admin/invitations/:invitationId",
       "GET /api/admin/invitations/:invitationId/messages",
