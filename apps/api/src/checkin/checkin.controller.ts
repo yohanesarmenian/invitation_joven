@@ -2,6 +2,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  UseGuards,
   Get,
   HttpCode,
   Inject,
@@ -49,6 +50,9 @@ import {
   mapValidateAdminCheckinRequest,
 } from "./dto/checkin.dto.js";
 
+import { DigitalAttendanceRetiredGuard } from "../common/digital-attendance-retired.guard.js";
+
+@UseGuards(DigitalAttendanceRetiredGuard)
 @ApiTags("Admin Check-in")
 @AdminRoles(AdminRole.OWNER, AdminRole.CHECKIN_STAFF, AdminRole.GUEST_MANAGER)
 @Controller("api/admin/checkin")

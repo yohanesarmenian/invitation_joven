@@ -524,10 +524,7 @@ describe("admin RSVP HTTP integration", () => {
       attending: true,
       expectedAttendeeCount: 1,
     });
-    expect(body.rsvp.checkinPasses[0]).toMatchObject({
-      credentialVersion: 1,
-      status: "ACTIVE",
-    });
+    expect(body.rsvp.checkinPasses).toEqual([]);
     expect(responseKeys(body)).not.toContain("qrPayload");
     expect(responseKeys(body)).not.toContain("tokenHash");
     expect(responseKeys(body)).not.toContain("publicTokenHash");
@@ -621,7 +618,7 @@ describe("admin RSVP HTTP integration", () => {
     expect(afterOwner.adminOverrideReason).toBe("Guest replied by phone");
     expect(
       afterOwner.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
 
     const stalePublic = await app.inject({
       method: "PUT",
@@ -646,7 +643,7 @@ describe("admin RSVP HTTP integration", () => {
     expect(afterStale.adminOverrideReason).toBe("Guest replied by phone");
     expect(
       afterStale.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
 
     const invalidEligibility = await app.inject({
       method: "PUT",
@@ -668,7 +665,7 @@ describe("admin RSVP HTTP integration", () => {
     expect(afterInvalid.adminOverrideReason).toBe("Guest replied by phone");
     expect(
       afterInvalid.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
 
     const publicUpdate = await app.inject({
       method: "PUT",
@@ -681,9 +678,7 @@ describe("admin RSVP HTTP integration", () => {
     });
     expect(publicUpdate.statusCode).toBe(200);
     expect(publicUpdate.json().rsvp.version).toBe(2);
-    expect(publicUpdate.json().checkinPass.qrPayload).toEqual(
-      expect.any(String),
-    );
+    expect(publicUpdate.json().checkinPass).toBeNull();
 
     const afterPublic = await prisma.rSVP.findUniqueOrThrow({
       include: { checkinPasses: true },
@@ -695,7 +690,7 @@ describe("admin RSVP HTTP integration", () => {
     expect(afterPublic.adminOverrideReason).toBeNull();
     expect(
       afterPublic.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
 
     const clearedDetail = await app.inject({
       headers: { cookie: session.cookie },
@@ -827,10 +822,10 @@ describe("admin RSVP HTTP integration", () => {
     expect(after.guestNote).toBeNull();
     expect(
       after.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
-  it("preserves canonical versioning, guestNote, and CheckinPass transitions", async () => {
+  it("preserves canonical versioning, guestNote, and no check-in credential issuance", async () => {
     const session = await createOwnerAndSession();
     const event = await createEvent(1);
     const { invitation } = await createInvitation(credentialService, {
@@ -890,7 +885,7 @@ describe("admin RSVP HTTP integration", () => {
     ).toHaveLength(0);
     expect(
       declined.checkinPasses.filter((pass) => pass.status === "REVOKED"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
 
     const reaccepted = await app.inject({
       headers: ownerHeaders(session),
@@ -911,10 +906,10 @@ describe("admin RSVP HTTP integration", () => {
     expect(final.guestNote).toBe("Do not overwrite");
     expect(
       final.checkinPasses.filter((pass) => pass.status === "ACTIVE"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       final.checkinPasses.filter((pass) => pass.status === "REVOKED"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
   it("serializes OWNER/public/eligibility/invitee races through the Invitation lock", async () => {

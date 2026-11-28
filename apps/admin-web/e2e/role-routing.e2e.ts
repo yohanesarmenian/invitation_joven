@@ -99,9 +99,13 @@ async function expectCheckinHoldingRoute(
 ) {
   await expect(page).toHaveURL("http://localhost:3001/checkin");
   await expect(
-    page.getByRole("heading", { name: "Check-in", exact: true, level: 1 }),
+    page.getByRole("heading", {
+      name: "Digital attendance is closed",
+      exact: true,
+      level: 1,
+    }),
   ).toBeVisible();
-  await expect(page.getByLabel("Event", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Event", { exact: true })).toHaveCount(0);
   await expect(page.getByText(email, { exact: true })).toBeVisible();
   await expect(page.locator("video, canvas, input[type='file']")).toHaveCount(
     0,
@@ -226,9 +230,9 @@ test("role redirects settle without loops for OWNER, staff, and forced-change se
   await signIn(page, "owner@example.com");
   navigations = 0;
   await gotoAllowingRedirectAbort(page, "/checkin");
-  await expect(page).toHaveURL("http://localhost:3001/checkin");
+  await expect(page).toHaveURL("http://localhost:3001/");
   await expect(
-    page.getByRole("heading", { name: "Check-in", exact: true, level: 1 }),
+    page.getByRole("heading", { name: "Dashboard", exact: true, level: 1 }),
   ).toBeVisible();
   expect(navigations).toBeLessThanOrEqual(3);
 

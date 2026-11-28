@@ -307,48 +307,6 @@ export function RsvpDetail({
           </p>
         </section>
       )}
-      <section className="detail-section">
-        <div className="section-heading">
-          <h2>Check-in pass lifecycle</h2>
-          <p>Safe metadata only. QR credentials are not rendered.</p>
-        </div>
-        {rsvp.checkinPasses.length ? (
-          <div className="detail-table-scroll">
-            <table className="detail-table">
-              <thead>
-                <tr>
-                  <th scope="col">Status</th>
-                  <th scope="col">Credential version</th>
-                  <th scope="col">Issued</th>
-                  <th scope="col">Revoked</th>
-                  <th scope="col">Reason</th>
-                  <th scope="col">Expires</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rsvp.checkinPasses.map((pass, index) => (
-                  <tr key={`${pass.status}-${pass.issuedAt}-${index}`}>
-                    <th scope="row">{pass.status}</th>
-                    <td>{pass.credentialVersion}</td>
-                    <td>
-                      <DateValue value={pass.issuedAt} empty="" />
-                    </td>
-                    <td>
-                      <DateValue value={pass.revokedAt} empty="Not revoked" />
-                    </td>
-                    <td>{pass.revocationReason ?? "None"}</td>
-                    <td>
-                      <DateValue value={pass.expiresAt} empty="No expiry" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>No check-in pass history.</p>
-        )}
-      </section>
       <div className="detail-actions">
         <Link href="/rsvps" prefetch={false}>
           Back to RSVPs

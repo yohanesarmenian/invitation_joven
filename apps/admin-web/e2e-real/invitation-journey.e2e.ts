@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createWorkflowFixture } from "../../api/scripts/admin-workflow-fixture";
 import { runnerOrigins } from "./origins";
-import { installSyntheticCamera } from "./synthetic-camera";
 
 const origins = runnerOrigins();
 const publicOrigin = origins.invitation;
@@ -45,395 +44,16 @@ async function accept(page: Page) {
       exact: true,
     })
     .click();
-  await expect(page.locator(".checkin-code")).toBeVisible();
-}
-async function staffLogin(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("Email", { exact: true }).fill(fixture.staff.email);
-  await page.getByLabel("Password", { exact: true }).fill(fixture.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(new URL("/checkin", origins.admin).href);
-  await page
-    .getByLabel("Event", { exact: true })
-    .selectOption(fixture.event.id);
-}
-test("synthetic camera delivers advancing frames and releases its tracks", async ({
-  page,
-}) => {
-  await installSyntheticCamera(
-    page,
-    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="320" height="320" fill="white"/><rect x="80" y="80" width="160" height="160" fill="black"/></svg>',
+  await expect(
+    page.getByText(
+      "Silakan tunjukkan undangan ini kepada penerima tamu saat tiba di lokasi acara.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.locator(".guest-checkin-pass, .checkin-code")).toHaveCount(
+    0,
   );
-  await page.goto("/login");
-  await page.evaluate(async () => {
-    const animate = window.requestAnimationFrame;
-    // Simulate a stalled animation clock during synthetic camera startup.
-    window.requestAnimationFrame = () => 0;
-    const stream = await navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .finally(() => {
-        window.requestAnimationFrame = animate;
-      });
-    const video = document.createElement("video");
-    video.muted = true;
-    video.playsInline = true;
-    const probe = {
-      times: [] as number[],
-      playError: null as string | null,
-      nonblank: false,
-      dimensions: null as [number, number] | null,
-      stop: () => {
-        stream.getTracks().forEach((track) => track.stop());
-        video.srcObject = null;
-        video.remove();
-        return stream
-          .getTracks()
-          .every((track) => track.readyState === "ended");
-      },
-    };
-    function recordFrame(_now: number, metadata: VideoFrameCallbackMetadata) {
-      probe.times.push(metadata.mediaTime);
-      if (probe.times.length === 1) {
-        const sample = document.createElement("canvas");
-        sample.width = video.videoWidth;
-        sample.height = video.videoHeight;
-        probe.dimensions = [sample.width, sample.height];
-        const context = sample.getContext("2d")!;
-        context.drawImage(video, 0, 0);
-        const white = context.getImageData(10, 10, 1, 1).data[0]!;
-        const black = context.getImageData(160, 160, 1, 1).data[0]!;
-        probe.nonblank = white > 240 && black < 15;
-      }
-      if (stream.active) video.requestVideoFrameCallback(recordFrame);
-    }
-    video.requestVideoFrameCallback(recordFrame);
-    video.srcObject = stream;
-    document.body.append(video);
-    Reflect.set(window, "journeyFrameProbe", probe);
-    void video.play().catch((error: Error) => {
-      probe.playError = error.name;
-    });
-  });
-  try {
-    await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const probe = Reflect.get(window, "journeyFrameProbe");
-          return {
-            advancing:
-              probe.times.length >= 2 && probe.times[1] > probe.times[0],
-            playError: probe.playError,
-            nonblank: probe.nonblank,
-            dimensions: probe.dimensions,
-          };
-        }),
-      )
-      .toEqual({
-        advancing: true,
-        playError: null,
-        nonblank: true,
-        dimensions: [320, 320],
-      });
-  } finally {
-    expect(
-      await page.evaluate(() =>
-        Reflect.get(window, "journeyFrameProbe").stop(),
-      ),
-    ).toBe(true);
-    expect(
-      await page.evaluate(() => Reflect.get(window, "journeyStoppedTracks")),
-    ).toBeGreaterThan(0);
-  }
-});
-
-test("guest RSVP and message issue a real pass; staff camera decodes, recovers a lost confirmation and rejects a duplicate", async ({
-  page,
-  browser,
-}) => {
-  const household = await fixture.household("Journey Household", {
-    pending: true,
-    plusOne: true,
-    children: 1,
-  });
-  expect(
-    await fixture.prisma.checkinPass.count({
-      where: { invitationId: household.id },
-    }),
-  ).toBe(0);
-  expect(
-    await fixture.prisma.rSVP.count({ where: { invitationId: household.id } }),
-  ).toBe(0);
-  const guestContext = await browser.newContext({ reducedMotion: "reduce" });
-  const guest = await guestContext.newPage();
-  try {
-    await open(guest, household.publicCredential);
-    await expect(guest.locator(".checkin-code")).toHaveCount(0);
-    await accept(guest);
-    const firstCode = (await guest.locator(".checkin-code").innerText()).trim();
-    expect(
-      firstCode !== household.publicCredential && /^[\w-]{43}$/.test(firstCode),
-    ).toBe(true);
-    const readRsvp = () =>
-      fixture.prisma.rSVP.findUniqueOrThrow({
-        where: { invitationId: household.id },
-        include: { attendees: true, eventSelections: true },
-      });
-    const accepted = await readRsvp();
-    expect(accepted.status).toBe("ACCEPTED");
-    const firstPass = await fixture.prisma.checkinPass.findFirstOrThrow({
-      where: { invitationId: household.id, status: "ACTIVE" },
-      select: { id: true },
-    });
-    expect(
-      accepted.attendees.reduce((sum, item) => sum + item.quantity, 0),
-    ).toBe(3);
-    expect(
-      accepted.attendees.filter((item) => item.attendeeType === "PLUS_ONE"),
-    ).toHaveLength(1);
-    expect(accepted.eventSelections[0]?.expectedAttendeeCount).toBe(3);
-    expect(accepted.dietaryNotes).toBe("Synthetic no seafood");
-
-    await guest.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
-    // Accepted edits keep the active pass; decline revokes it; reaccept issues a new pass.
-    await guest
-      .getByLabel("Kebutuhan dan preferensi makanan (opsional)")
-      .fill("Updated synthetic note");
-    await guest
-      .getByRole("button", {
-        name: /^(Kirim RSVP|Simpan Perubahan)$/,
-        exact: true,
-      })
-      .click();
-    await expect
-      .poll(async () => (await readRsvp()).dietaryNotes)
-      .toBe("Updated synthetic note");
-    expect(
-      (await guest.locator(".checkin-code").innerText()).trim() === firstCode,
-    ).toBe(true);
-    await guest.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
-    await guest
-      .getByRole("radio", { name: "Mohon maaf, tidak dapat hadir" })
-      .check();
-    // Edit mode already hides the pass before the mutation is sent.
-    await expect(guest.locator(".checkin-code")).toHaveCount(0);
-    await guest
-      .getByRole("button", {
-        name: /^(Kirim RSVP|Simpan Perubahan)$/,
-        exact: true,
-      })
-      .click();
-    const confirmation = guest.getByRole("region", {
-      name: "Konfirmasi RSVP Anda",
-    });
-    await expect(
-      confirmation.getByRole("heading", {
-        name: "Tidak Hadir",
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(
-      guest.getByRole("form", { name: "RSVP Anda", exact: true }),
-    ).toHaveCount(0);
-    await expect(confirmation.getByRole("alert")).toHaveCount(0);
-    await expect(confirmation.locator(".checkin-code")).toHaveCount(0);
-    await expect.poll(async () => (await readRsvp()).status).toBe("DECLINED");
-    expect(
-      await fixture.prisma.checkinPass.count({
-        where: { invitationId: household.id, status: "ACTIVE" },
-      }),
-    ).toBe(0);
-    expect(
-      await fixture.prisma.checkinPass.findUniqueOrThrow({
-        where: { id: firstPass.id },
-        select: { status: true, revokedAt: true, revocationReason: true },
-      }),
-    ).toEqual({
-      status: "REVOKED",
-      revokedAt: expect.any(Date),
-      revocationReason: "RSVP_DECLINED",
-    });
-    await guest.getByRole("button", { name: "Ubah RSVP", exact: true }).click();
-    await accept(guest);
-    const qr = (await guest.locator(".checkin-code").innerText()).trim();
-    expect(qr !== firstCode).toBe(true);
-    expect((await readRsvp()).status).toBe("ACCEPTED");
-    const activePasses = await fixture.prisma.checkinPass.findMany({
-      where: { invitationId: household.id, status: "ACTIVE" },
-      select: { id: true },
-    });
-    expect(activePasses).toHaveLength(1);
-    expect(activePasses[0]?.id).not.toBe(firstPass.id);
-    for (const width of [320, 360, 412, 768, 1440]) {
-      await guest.setViewportSize({ width, height: 900 });
-      const box = await guest
-        .getByRole("img", { name: "Kode QR untuk check-in rombongan Anda" })
-        .boundingBox();
-      expect(box!.width).toBeGreaterThanOrEqual(200);
-      expect(Math.abs(box!.width - box!.height)).toBeLessThan(1);
-      expect(box!.x >= 0 && box!.x + box!.width <= width).toBe(true);
-    }
-    const svg = await guest
-      .getByRole("img", { name: "Kode QR untuk check-in rombongan Anda" })
-      .evaluate((node) => node.outerHTML);
-    const message =
-      "Synthetic congratulations <script>window.journeyXss=1</script>";
-    await guest.getByLabel(/Nama Anda/).fill("Synthetic Journey Guest");
-    await guest.getByLabel(/Ucapan Anda/).fill(message);
-    await guest.getByRole("button", { name: /^Kirim Ucapan$/ }).click();
-    await expect
-      .poll(() =>
-        fixture.prisma.guestMessage.count({
-          where: { invitationId: household.id },
-        }),
-      )
-      .toBe(1);
-    const stored = await fixture.prisma.guestMessage.findFirstOrThrow({
-      where: { invitationId: household.id },
-    });
-    expect(
-      stored.message === message &&
-        stored.authorName === "Synthetic Journey Guest",
-    ).toBe(true);
-    expect(
-      await guest.evaluate(
-        () => Reflect.get(window, "journeyXss") === undefined,
-      ),
-    ).toBe(true);
-
-    await installSyntheticCamera(page, svg);
-    await staffLogin(page);
-    // Keep an unrelated live alert present: Next's route announcer must never
-    // satisfy (or make ambiguous) an assertion about the check-in result.
-    await page.evaluate(() => {
-      const announcer = document.createElement("div");
-      announcer.setAttribute("role", "alert");
-      announcer.textContent = "Journey navigation announcement";
-      document.body.append(announcer);
-    });
-    for (const [invalid, code, message] of [
-      [
-        household.publicCredential,
-        "QR_INVALID",
-        "This QR is invalid or no longer available. Check the code or search the household.",
-      ],
-      [
-        firstCode,
-        "QR_REVOKED",
-        "This QR has been revoked. Ask the guest for their current pass.",
-      ],
-    ] as const) {
-      await page.getByLabel("QR code", { exact: true }).fill(invalid);
-      const rejected = page.waitForResponse(
-        (response) =>
-          new URL(response.url()).pathname === "/api/admin/checkin/validate" &&
-          response.request().method() === "POST",
-      );
-      await page
-        .getByRole("button", { name: "Validate QR", exact: true })
-        .click();
-      const response = await rejected;
-      expect(response.status()).toBe(422);
-      expect((await response.json()).error.code).toBe(code);
-      await expect(
-        page.getByRole("button", { name: "Confirm check-in", exact: true }),
-      ).toHaveCount(0);
-      const alert = page
-        .getByRole("region", { name: "Check-in result", exact: true })
-        .getByRole("alert");
-      await expect(alert).toBeVisible();
-      await expect(alert).toHaveText(message);
-    }
-    let validations = 0,
-      writes = 0;
-    page.on("request", (request) => {
-      const pathname = new URL(request.url()).pathname;
-      if (pathname.endsWith("/checkin/validate")) validations++;
-      if (pathname.endsWith("/checkin/confirm")) writes++;
-    });
-    await page
-      .getByRole("button", { name: "Start camera", exact: true })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: household.name, exact: true }),
-    ).toBeVisible();
-    expect(validations).toBe(1);
-    expect(writes).toBe(0);
-    expect(
-      await fixture.prisma.checkinRecord.count({
-        where: { invitationId: household.id },
-      }),
-    ).toBe(0);
-    await expect
-      .poll(() =>
-        page.evaluate(() => Reflect.get(window, "journeyStoppedTracks")),
-      )
-      .toBeGreaterThan(0);
-    await expect(page.locator("video")).toHaveCount(0);
-    // Only two of the three expected attendees arrive. Actual must remain distinct.
-    await page.getByLabel("People arriving now").fill("2");
-    await page.route("**/api/admin/checkin/confirm", async (route) => {
-      const response = await route.fetch();
-      expect(response.status()).toBe(201);
-      await route.abort("failed");
-    });
-    await page
-      .getByRole("button", { name: "Confirm check-in", exact: true })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Check the server before continuing" }),
-    ).toBeVisible();
-    await page
-      .getByRole("button", {
-        name: "Recheck exact household and event",
-        exact: true,
-      })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Already confirmed", exact: true }),
-    ).toBeVisible();
-    expect(writes).toBe(1);
-    const records = await fixture.prisma.checkinRecord.findMany({
-      where: { invitationId: household.id },
-    });
-    expect(records).toHaveLength(1);
-    expect(records[0]).toMatchObject({
-      eventId: fixture.event.id,
-      checkinPassId: activePasses[0]?.id,
-      attendeeCount: 2,
-      method: "QR",
-      confirmedByAdminUserId: fixture.staff.id,
-    });
-    expect(records[0]!.checkedInAt instanceof Date).toBe(true);
-    await page.reload();
-    await page
-      .getByLabel("Event", { exact: true })
-      .selectOption(fixture.event.id);
-    await page
-      .getByRole("button", { name: "Start camera", exact: true })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Already confirmed", exact: true }),
-    ).toBeVisible();
-    expect(
-      await fixture.prisma.checkinRecord.count({
-        where: { invitationId: household.id },
-      }),
-    ).toBe(1);
-    for (const path of [
-      "dashboard",
-      "invitations",
-      "rsvps",
-      "messages",
-      "reports/summary",
-      "staff",
-    ]) {
-      expect((await page.request.get(`/api/admin/${path}`)).status()).toBe(403);
-    }
-  } finally {
-    await guestContext.close();
-  }
-});
-
+}
 test("OWNER create form persists one invitation and its WIB deadline, then the mobile guest RSVP survives reload", async ({
   page,
   browser,
@@ -583,7 +203,15 @@ test("OWNER create form persists one invitation and its WIB deadline, then the m
       }),
     ).toBeVisible();
     await expect(guest.getByRole("form", { name: "RSVP Anda" })).toHaveCount(0);
-    await expect(guest.locator(".checkin-code")).toBeVisible();
+    await expect(
+      guest.getByText(
+        "Silakan tunjukkan undangan ini kepada penerima tamu saat tiba di lokasi acara.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      guest.locator(".guest-checkin-pass, .checkin-code"),
+    ).toHaveCount(0);
     expect(
       await fixture.prisma.rSVP.findUniqueOrThrow({
         where: { invitationId: invitation.id },
@@ -635,8 +263,7 @@ test("OWNER create form persists one invitation and its WIB deadline, then the m
   }
 });
 
-test("same-name households keep distinct personal links, greetings, RSVP and guest-issued QR passes", async ({
-  page,
+test("same-name households keep distinct personal links, greetings and RSVPs without passes", async ({
   browser,
 }) => {
   const first = await fixture.household("Synthetic Same Name Household", {
@@ -660,7 +287,6 @@ test("same-name households keep distinct personal links, greetings, RSVP and gue
   // Compare bearer values as booleans so assertion diagnostics do not print them.
   expect(first.publicCredential !== second.publicCredential).toBe(true);
   const guestContext = await browser.newContext({ reducedMotion: "reduce" });
-  const codes: string[] = [];
   try {
     const firstGuest = await guestContext.newPage();
     await open(firstGuest, first.publicCredential);
@@ -669,7 +295,6 @@ test("same-name households keep distinct personal links, greetings, RSVP and gue
     );
     await expect(firstGuest.locator(".checkin-code")).toHaveCount(0);
     await accept(firstGuest);
-    codes.push((await firstGuest.locator(".checkin-code").innerText()).trim());
     const firstRsvp = await fixture.prisma.rSVP.findUniqueOrThrow({
       where: { invitationId: first.id },
     });
@@ -689,42 +314,28 @@ test("same-name households keep distinct personal links, greetings, RSVP and gue
     );
     await expect(secondGuest.locator(".checkin-code")).toHaveCount(0);
     await accept(secondGuest);
-    codes.push((await secondGuest.locator(".checkin-code").innerText()).trim());
-    expect(codes[0] !== codes[1]).toBe(true);
-    expect(
-      codes.every(
-        (code) =>
-          /^[\w-]{43}$/.test(code) &&
-          households.every((household) => code !== household.publicCredential),
-      ),
-    ).toBe(true);
     expect(
       await fixture.prisma.rSVP.findUniqueOrThrow({
         where: { invitationId: first.id },
       }),
     ).toEqual(firstRsvp);
     await open(firstGuest, first.publicCredential);
-    await expect(firstGuest.locator(".checkin-code")).toBeVisible();
+    await expect(
+      firstGuest.getByText(
+        "Silakan tunjukkan undangan ini kepada penerima tamu saat tiba di lokasi acara.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      firstGuest.locator(".guest-checkin-pass, .checkin-code"),
+    ).toHaveCount(0);
     expect(
-      (await firstGuest.locator(".checkin-code").innerText()).trim() ===
-        codes[0],
-    ).toBe(true);
-
-    await staffLogin(page);
-    const session = await (await page.request.get("/api/admin/auth/me")).json();
-    for (const [index, household] of households.entries()) {
-      const response = await page.request.post("/api/admin/checkin/validate", {
-        headers: {
-          Origin: new URL(page.url()).origin,
-          "X-CSRF-Token": session.csrfToken,
+      await fixture.prisma.checkinPass.count({
+        where: {
+          invitationId: { in: households.map((household) => household.id) },
         },
-        data: { eventId: fixture.event.id, qrPayload: codes[index] },
-      });
-      expect(response.status()).toBe(200);
-      const result = await response.json();
-      expect(result.status).toBe("VALID");
-      expect(result.invitation.id === household.id).toBe(true);
-    }
+      }),
+    ).toBe(0);
     expect(
       await fixture.prisma.checkinRecord.count({
         where: {

@@ -44,7 +44,7 @@ describe("PublicRsvpForm rendering", () => {
     expect(html).toContain("Dengan senang hati hadir");
     expect(html).toContain("Mohon maaf, tidak dapat hadir");
   });
-  it("renders accepted confirmation and canonical pass without editable inputs", () => {
+  it("renders accepted confirmation and physical arrival instructions without editable inputs", () => {
     const html = render({
       initialResult: {
         status: "success",
@@ -71,8 +71,11 @@ describe("PublicRsvpForm rendering", () => {
     expect(html).not.toContain("<textarea");
     expect(html).toContain("Ubah RSVP");
     expect(html).toContain("Kehadiran Terkonfirmasi");
-    expect(html).toContain("QR Check-in Anda");
-    expect(html.includes(activePass.qrPayload)).toBe(true);
+    expect(html).toContain(
+      "Silakan tunjukkan undangan ini kepada penerima tamu saat tiba di lokasi acara.",
+    );
+    expect(html).not.toContain("QR Check-in");
+    expect(html.includes(activePass.qrPayload)).toBe(false);
     expect(html).not.toMatch(
       /guestNote|qrPayload|checkinPass|issuedAt|PENDING/,
     );

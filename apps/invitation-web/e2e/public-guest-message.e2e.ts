@@ -318,7 +318,7 @@ for (const mode of ["dropResponse", "malformed"]) {
 }
 
 for (const mode of ["accepted", "declined", "deadline"]) {
-  test(`message submission is independent of ${mode} RSVP and pass state`, async ({
+  test(`message submission is independent of ${mode} RSVP state`, async ({
     page,
     request,
   }) => {
@@ -350,15 +350,19 @@ for (const mode of ["accepted", "declined", "deadline"]) {
     });
     await open(page);
     const rsvp = page.locator(".public-rsvp-form");
-    const pass = rsvp.locator(".guest-checkin-pass");
+    const arrival = rsvp.getByText(
+      "Silakan tunjukkan undangan ini kepada penerima tamu saat tiba di lokasi acara.",
+      { exact: true },
+    );
+    await expect(rsvp.locator(".guest-checkin-pass")).toHaveCount(0);
     const draft = rsvp.getByRole("textbox");
     if (mode === "accepted") {
-      await expect(pass).toBeVisible();
+      await expect(arrival).toBeVisible();
       await rsvp
         .getByRole("button", { name: "Ubah RSVP", exact: true })
         .click();
       await draft.fill("Unsaved RSVP draft");
-      await expect(pass).toHaveCount(0);
+      await expect(arrival).toHaveCount(0);
     }
     if (mode === "deadline") {
       await expect(
@@ -391,13 +395,13 @@ for (const mode of ["accepted", "declined", "deadline"]) {
     );
     if (mode === "accepted") {
       await expect(draft).toHaveValue("Unsaved RSVP draft");
-      await expect(pass).toHaveCount(0);
+      await expect(arrival).toHaveCount(0);
       await rsvp.getByRole("button", { name: "Batal", exact: true }).click();
-      await expect(pass).toBeVisible();
+      await expect(arrival).toBeVisible();
     } else if (mode === "declined") {
-      await expect(pass).toHaveCount(0);
+      await expect(arrival).toHaveCount(0);
     } else {
-      await expect(pass).toBeVisible();
+      await expect(arrival).toBeVisible();
     }
   });
 }

@@ -678,9 +678,8 @@ function OverrideEditor({
                 the override reason with current admin attribution.
               </p>
               <p>
-                Check-in pass lifecycle may change. The guest deadline may be
-                bypassed, but eligibility, capacity, active invitation, and
-                concurrency safeguards still apply.
+                The guest deadline may be bypassed, but eligibility, capacity,
+                active invitation, and concurrency safeguards still apply.
               </p>
               <p>Current status: {statusLabel(rsvp.status)}.</p>
             </div>

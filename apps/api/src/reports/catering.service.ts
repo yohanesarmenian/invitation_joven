@@ -117,7 +117,8 @@ function totals(
   for (const row of rows) {
     const event = byEvent.get(row.eventId)!;
     event.expected += expected(row);
-    event.rsvpExpected += row.rsvpExpected;
+    // Keep the historical adjusted total comparable to existing frozen snapshots.
+    if (!row.walkin) event.rsvpExpected += row.rsvpExpected;
     event.capacityAdjustment += row.capacityAdjustment;
     event.actual += row.actual;
     if (row.actual > 0 && row.actual < expected(row)) event.partialHouseholds++;

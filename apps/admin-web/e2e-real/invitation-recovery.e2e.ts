@@ -203,7 +203,13 @@ test("real OWNER creates one invitation, copies/shares its link, guest opens and
         exact: true,
       })
       .click();
-    await expect(guest.locator(".checkin-code")).toBeVisible();
+    await expect(
+      guest.getByText(
+        "Silakan tunjukkan undangan ini kepada penerima tamu saat tiba di lokasi acara.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(guest.locator(".checkin-code")).toHaveCount(0);
     const stored = await fixture.prisma.rSVP.findUniqueOrThrow({
       where: { invitationId: rows[0]!.id },
       include: { attendees: true, eventSelections: true },

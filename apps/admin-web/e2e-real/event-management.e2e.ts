@@ -262,7 +262,7 @@ test("lost save response is not replayed; canonical reload recovers exactly one 
   );
   expect(requests).toBe(1);
 });
-test("staff cannot open the OWNER editor or its API; schedule locks after staff check-in", async ({
+test("staff cannot open the OWNER editor or record attendance; historical attendance still locks the schedule", async ({
   page,
   browser,
 }) => {
@@ -281,7 +281,16 @@ test("staff cannot open the OWNER editor or its API; schedule locks after staff 
       attendeeCount: 1,
     },
   });
-  expect(confirm.status()).toBe(201);
+  expect(confirm.status()).toBe(410);
+  await fixture.prisma.checkinRecord.create({
+    data: {
+      invitationId: household.id,
+      eventId: fixture.event.id,
+      confirmedByAdminUserId: fixture.staff.id,
+      attendeeCount: 1,
+      method: "MANUAL",
+    },
+  });
   expect((await page.request.get("/api/admin/event-management")).status()).toBe(
     403,
   );

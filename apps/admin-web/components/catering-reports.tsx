@@ -254,7 +254,8 @@ export function CateringReports({ csrfToken }: { csrfToken: string }) {
                 <p>
                   Generated {stamp(live.generatedAt)} ·{" "}
                   {archived ? "Archived included" : "Active households only"} ·
-                  Walk-ins included within scope.
+                  Catering estimates use expected RSVP quantities. Historical
+                  digital attendance excludes the physical guestbook.
                 </p>
                 <HouseholdTotals data={live.totals} />
                 <div className="report-table-scroll">
@@ -264,11 +265,11 @@ export function CateringReports({ csrfToken }: { csrfToken: string }) {
                       <tr>
                         <th scope="col">Session</th>
                         <th scope="col">RSVP expected people</th>
-                        <th scope="col">Added capacity</th>
-                        <th scope="col">Total expected people</th>
-                        <th scope="col">Actual people</th>
-                        <th scope="col">Partial households</th>
-                        <th scope="col">Walk-in people arrived</th>
+                        <th scope="col">Historical capacity adjustments</th>
+                        <th scope="col">Adjusted total</th>
+                        <th scope="col">Historical actual</th>
+                        <th scope="col">Historical partial arrivals</th>
+                        <th scope="col">Historical walk-ins</th>
                       </tr>
                     </thead>
                     <tbody>

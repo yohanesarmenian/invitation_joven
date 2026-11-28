@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  UseGuards,
   Get,
   HttpCode,
   HttpException,
@@ -51,6 +52,9 @@ import {
   walkinRequest,
   actionRequest,
 } from "./reception-actions.dto.js";
+import { DigitalAttendanceRetiredGuard } from "../common/digital-attendance-retired.guard.js";
+
+@UseGuards(DigitalAttendanceRetiredGuard)
 @ApiTags("Reception")
 @AdminRoles(AdminRole.OWNER, AdminRole.GUEST_MANAGER)
 @Controller("api/admin/reception")

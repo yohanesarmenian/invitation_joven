@@ -4,7 +4,9 @@ Personal wedding invitation platform for a 2027 wedding.
 
 ## Status
 
-Implemented source includes personalized invitations, household RSVP and QR passes, guest messages, OWNER management, CSV/XLSX import, staff authentication/RBAC, transactional check-in, scanner UI, reporting, and public enhancements. OWNER **Event materials** (`/event-content`) now manages persisted parking/rundown drafts, supporting-file uploads, preview, publish and hide. See `docs/PARKING-RUNDOWN-CONTENT.md` for use and the required additive migration; implementation applied it only to QA. Local packaging and all evidence/remaining gates are tracked in `docs/IMPLEMENTATION-PROGRESS.md`. This is local development; production and venue readiness have not been established.
+Implemented source includes personalized invitations, household RSVP, guest messages, OWNER management, CSV/XLSX import, staff authentication/RBAC, RSVP reporting and catering estimates, and public enhancements. OWNER **Event materials** (`/event-content`) now manages persisted parking/rundown drafts, supporting-file uploads, preview, publish and hide. See `docs/PARKING-RUNDOWN-CONTENT.md` for use and the required additive migration; implementation applied it only to QA. Local packaging and all evidence/remaining gates are tracked in `docs/IMPLEMENTATION-PROGRESS.md`. This is local development; production and venue readiness have not been established.
+
+Venue arrivals use the physical guestbook. Accepted guests show their personalized invitation. Public RSVP responses keep the legacy `checkinPass` key as `null`, and the authenticated check-in and reception routes return `410 DIGITAL_ATTENDANCE_RETIRED`. Historical attendance remains available for reporting and is separate from current RSVP estimates. Historical scanner and walk-in rehearsals exercise the retired flow and are no longer acceptance checks.
 
 ## Applications
 

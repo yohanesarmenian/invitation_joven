@@ -23,9 +23,7 @@ import {
   type RsvpNotice,
 } from "../../src/rsvp/notice";
 import { RsvpResultNotice } from "./rsvp-result-notice";
-import { GuestCheckinPass } from "./guest-checkin-pass";
 import {
-  CHECKIN_PASS_HEADING_ID,
   RsvpHeroActionUpdate,
   RSVP_RESPONSE_HEADING_ID,
   type RsvpHeroAction,
@@ -88,20 +86,14 @@ export function PublicRsvpForm({
   const [editing, setEditing] = useState(false);
   const [preserveAttendance, setPreserveAttendance] = useState(false);
   const [replacing, setReplacing] = useState(false);
-  // Keep a stale pass suspended even if a later failed reload changes the notice.
-  const [passNeedsReload, setPassNeedsReload] = useState(false);
   const [draft, setDraft] = useState(() => createRsvpDraft(canonical));
   const [loaded, setLoaded] = useState(initialResult.status === "success");
-  const [operation, setOperation] = useState<
-    "submit" | "reload" | "verify-pass" | null
-  >(null);
-  const [feedback, setFeedback] = useState<
-    "saved" | "reloaded" | "pass-checked" | null
-  >(null);
+  const [operation, setOperation] = useState<"submit" | "reload" | null>(null);
+  const [feedback, setFeedback] = useState<"saved" | "reloaded" | null>(null);
   const [validation, setValidation] = useState<string | null>(null);
   const [failure, setFailure] = useState<{
     error: RsvpFailure;
-    source: "submit" | "reload" | "pass-unavailable";
+    source: "submit" | "reload";
   } | null>(
     initialResult.status === "error"
       ? { error: initialResult.error, source: "reload" }
@@ -114,7 +106,6 @@ export function PublicRsvpForm({
   const inFlight = useRef(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
-  const passStatusRef = useRef<HTMLParagraphElement>(null);
   const attendanceRef = useRef<HTMLFieldSetElement>(null);
   const attendeesRef = useRef<HTMLFieldSetElement>(null);
   const eventsRef = useRef<HTMLFieldSetElement>(null);
@@ -125,33 +116,16 @@ export function PublicRsvpForm({
   const sessionReady = accepted && session !== undefined;
   const partyReady = sessionReady && !partyIssue(draft, invitation);
   const savedDraft = canonical && restoreSavedDraft(invitation, canonical);
-  const invitationUnavailable = failure?.source === "pass-unavailable";
   const pending = operation !== null;
-  const checkingPass = operation === "verify-pass";
   const terminal =
     lock === "closed" ||
     lock === "unavailable" ||
     canonicalResponse?.canEdit === false;
   const viewingSavedResponse = loaded && !editing && !pending;
   const confirmedView = viewingSavedResponse && !failure && !lock;
-  const deadlineRejected =
-    lock === "closed" &&
-    failure?.source === "submit" &&
-    isDeadlineRejection(failure.error);
-  const pass = canonicalResponse?.checkinPass;
-  const activePass =
-    viewingSavedResponse &&
-    (confirmedView || deadlineRejected) &&
-    canonical?.status === "ACCEPTED" &&
-    !passNeedsReload &&
-    pass?.status === "ACTIVE"
-      ? pass
-      : null;
   const updateHeroAction = useContext(RsvpHeroActionUpdate);
   let heroAction: RsvpHeroAction = "rsvp";
-  if (activePass) heroAction = "qr";
-  else if (confirmedView && canonical?.status === "DECLINED")
-    heroAction = "response";
+  if (confirmedView && responded) heroAction = "response";
   else if (confirmedView && !responded && !terminal) heroAction = "confirm";
   useLayoutEffect(() => {
     updateHeroAction?.(heroAction);
@@ -168,8 +142,6 @@ export function PublicRsvpForm({
         ? rsvpLoadFailureNotice(failure.error, loaded)
         : rsvpFailureNotice(failure.error)
       : null;
-  const passUnverified = passNeedsReload || notice?.recovery === "reload";
-  const canVerifyPass = deadlineRejected && passNeedsReload;
   const submitBlocked =
     pending ||
     terminal ||
@@ -183,14 +155,7 @@ export function PublicRsvpForm({
       : null;
 
   useEffect(() => {
-    if (feedback === "pass-checked") {
-      (
-        document.getElementById(CHECKIN_PASS_HEADING_ID) ??
-        passStatusRef.current ??
-        document.getElementById(RSVP_RESPONSE_HEADING_ID) ??
-        errorRef.current
-      )?.focus();
-    } else if (failure || validation) errorRef.current?.focus();
+    if (failure || validation) errorRef.current?.focus();
     else if (feedback === "reloaded" || feedback === "saved")
       statusRef.current?.focus();
   }, [failure, validation, feedback]);
@@ -206,17 +171,9 @@ export function PublicRsvpForm({
   function recordFailure(error: RsvpFailure, source: "submit" | "reload") {
     setFailure({ error, source });
     if (source === "submit" && rsvpFailureNotice(error).recovery === "reload") {
-      setPassNeedsReload(true);
       setLock("uncertain");
     }
     if (error.kind !== "api") return;
-    if (
-      (error.httpStatus === 409 &&
-        (error.code === "RSVP_VERSION_CONFLICT" ||
-          error.code === "RSVP_LOCKED_AFTER_CHECKIN")) ||
-      isInvitationUnavailable(error)
-    )
-      setPassNeedsReload(true);
     if (error.httpStatus === 409 && error.code === "RSVP_VERSION_CONFLICT")
       setLock("conflict");
     if (
@@ -245,7 +202,6 @@ export function PublicRsvpForm({
           Boolean(forEditing && saved?.status === "ACCEPTED" && !restored),
         );
         setReplacing(false);
-        setPassNeedsReload(false);
         setDraft(restored ?? createRsvpDraft(saved));
         setLoaded(true);
         setLock(null);
@@ -257,37 +213,6 @@ export function PublicRsvpForm({
         { kind: "network", httpStatus: null, code: null },
         "reload",
       );
-    } finally {
-      inFlight.current = false;
-      setOperation(null);
-    }
-  }
-
-  async function revalidatePass() {
-    const latest = await reloadAction().catch(() => null);
-    if (latest?.status === "success") {
-      setCanonical(latest.data);
-      setPassNeedsReload(false);
-      return true;
-    }
-    if (latest?.status === "error" && isInvitationUnavailable(latest.error)) {
-      // The invitation itself is unavailable. Keep the deadline lock and
-      // use the domain notice without offering generic RSVP reload.
-      setCanonical(null);
-      setEditing(false);
-      setPassNeedsReload(false);
-      setFailure({ error: latest.error, source: "pass-unavailable" });
-    }
-    return false;
-  }
-
-  async function verifyPass() {
-    if (inFlight.current || !canVerifyPass) return;
-    inFlight.current = true;
-    setOperation("verify-pass");
-    try {
-      // Keep the rejected edit and its lock, even if the read advertises canEdit.
-      if (await revalidatePass()) setFeedback("pass-checked");
     } finally {
       inFlight.current = false;
       setOperation(null);
@@ -336,16 +261,6 @@ export function PublicRsvpForm({
       );
       if (result.status === "error") {
         recordFailure(result.error, "submit");
-        if (
-          isDeadlineRejection(result.error) &&
-          canonical?.status === "ACCEPTED" &&
-          pass?.status === "ACTIVE"
-        ) {
-          // Deadline rejection can precede the version check. Refresh the pass
-          // without reopening editing or discarding the rejected draft.
-          setPassNeedsReload(true);
-          await revalidatePass();
-        }
       } else {
         setCanonical((current) =>
           current ? { ...current, ...result.data } : null,
@@ -395,7 +310,7 @@ export function PublicRsvpForm({
           <h3>{savedNotice.title}</h3>
           <p>{savedNotice.message}</p>
         </>
-      ) : pending && !checkingPass ? (
+      ) : pending ? (
         operation === "reload" ? (
           "Memuat jawaban RSVP terbaru…"
         ) : (
@@ -407,7 +322,7 @@ export function PublicRsvpForm({
     </div>
   );
 
-  if (!loaded || invitationUnavailable) {
+  if (!loaded) {
     return (
       <div className="public-rsvp-form" aria-busy={pending}>
         {errorNotice}
@@ -418,7 +333,7 @@ export function PublicRsvpForm({
 
   const restriction =
     canonicalResponse?.editBlockedReason === "CHECKED_IN"
-      ? "Rombongan Anda sudah check-in. Jawaban RSVP tidak dapat diubah. Petugas penerima tamu dapat membantu Anda."
+      ? "Jawaban RSVP tidak dapat diubah. Hubungi kedua mempelai jika Anda memerlukan bantuan."
       : canonicalResponse?.editBlockedReason === "DEADLINE_PASSED"
         ? responded
           ? "Waktu untuk mengubah RSVP sudah berakhir. Anda masih bisa melihat jawaban yang tersimpan."
@@ -430,7 +345,7 @@ export function PublicRsvpForm({
       <section
         className="public-rsvp-form rsvp-confirmation"
         aria-label="Konfirmasi RSVP Anda"
-        aria-busy={pending && !checkingPass}
+        aria-busy={pending}
       >
         {errorNotice}
         {statusNotice}
@@ -446,35 +361,10 @@ export function PublicRsvpForm({
         {canonical.status === "ACCEPTED" ? (
           <>
             <SavedAttendance invitation={invitation} rsvp={canonical} />
-            {activePass ? (
-              <GuestCheckinPass pass={activePass} />
-            ) : !pending || checkingPass ? (
-              <>
-                <p
-                  id={`${id}-pass-status`}
-                  role="status"
-                  ref={passStatusRef}
-                  tabIndex={-1}
-                >
-                  {checkingPass
-                    ? "Memeriksa status QR check-in…"
-                    : passUnverified
-                      ? "Status QR check-in belum terverifikasi. Silakan periksa kembali."
-                      : "QR check-in saat ini tidak tersedia. Petugas penerima tamu dapat membantu Anda."}
-                </p>
-                {canVerifyPass ? (
-                  <button
-                    type="button"
-                    className="rsvp-notice-action"
-                    aria-describedby={`${id}-pass-status`}
-                    aria-disabled={checkingPass}
-                    onClick={() => void verifyPass()}
-                  >
-                    Periksa Ulang QR
-                  </button>
-                ) : null}
-              </>
-            ) : null}
+            <p>
+              Silakan tunjukkan undangan ini kepada penerima tamu saat tiba di
+              lokasi acara.
+            </p>
           </>
         ) : (
           <p>Jawaban Anda telah tersimpan sebagai tidak hadir.</p>
@@ -553,10 +443,7 @@ export function PublicRsvpForm({
       {errorNotice}
       {statusNotice}
       {restriction ? <p role="status">{restriction}</p> : null}
-      {!responded ? (
-        <p>Konfirmasikan kehadiran Anda untuk mendapatkan QR check-in.</p>
-      ) : null}
-      <p>Jika QR tidak terbaca, petugas penerima tamu dapat membantu Anda.</p>
+      {!responded ? <p>Silakan konfirmasikan kehadiran Anda.</p> : null}
       {preserveAttendance && canonical ? (
         <>
           <SavedAttendance invitation={invitation} rsvp={canonical} />

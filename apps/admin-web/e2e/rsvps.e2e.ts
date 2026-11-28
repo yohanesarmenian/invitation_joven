@@ -87,7 +87,7 @@ test("RSVP empty, no matches, beyond last and invalid URL are distinct", async (
   ).toBeVisible();
 });
 
-test("RSVP detail renders snapshots and safe pass metadata only", async ({
+test("RSVP detail renders saved responses without legacy check-in metadata", async ({
   page,
 }) => {
   await login(page);
@@ -106,7 +106,10 @@ test("RSVP detail renders snapshots and safe pass metadata only", async ({
     page.getByText("owner@example.com", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Guest replied by phone")).toBeVisible();
-  await expect(page.getByText("RSVP_DECLINED")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Check-in pass lifecycle" }),
+  ).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText("RSVP_DECLINED");
   await expect(page.locator("body")).not.toContainText("qrPayload");
   await expect(page.locator("body")).not.toContainText("tokenHash");
   await expect(page.locator("body")).not.toContainText("publicTokenHash");

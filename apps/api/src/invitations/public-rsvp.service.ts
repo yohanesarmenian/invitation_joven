@@ -1,9 +1,7 @@
 import { isSupportedInvitationSessionCount } from "./eligibility-policy.js";
-import { randomUUID, timingSafeEqual } from "node:crypto";
 import { Inject, Injectable, Optional } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
 import {
-  CheckinPassStatus,
   InvitationStatus,
   InviteeCategory,
   RSVPAttendeeType,
@@ -12,14 +10,8 @@ import {
 } from "../generated/prisma/client.js";
 import { conflict, notFound } from "../auth/auth-errors.js";
 import { PrismaService } from "../database/prisma.service.js";
-import {
-  CREDENTIAL_LOOKUP_HASH_PATTERN,
-  CredentialService,
-} from "../security/credential.service.js";
-import type {
-  CredentialLookupHash,
-  DerivedCredential,
-} from "../security/credential.types.js";
+import { CredentialService } from "../security/credential.service.js";
+import type { CredentialLookupHash } from "../security/credential.types.js";
 import { InvitationNotAvailableError } from "./invitation-not-available.error.js";
 import { validatePublicCredential } from "./public-invitation.service.js";
 import {
@@ -43,7 +35,6 @@ import {
 export const PUBLIC_RSVP_CLOCK = Symbol("PUBLIC_RSVP_CLOCK");
 export type PublicRsvpClock = () => Date;
 
-const CHECKIN_PASS_CREDENTIAL_VERSION = 1;
 const DIETARY_NOTES_MAX_LENGTH = 500;
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -109,11 +100,8 @@ export type PublicRsvpMutationResult = {
       quantity: number;
     }>;
   };
-  checkinPass: {
-    status: typeof CheckinPassStatus.ACTIVE;
-    issuedAt: string;
-    qrPayload: DerivedCredential;
-  } | null;
+  // Retain the legacy response key without issuing or projecting credentials.
+  checkinPass: null;
 };
 
 export type PublicRsvpReadResult = {
@@ -166,24 +154,8 @@ type ExistingRsvpState = {
 
 type InvitationMutationState = {
   readonly eligibleEventIds: ReadonlySet<string>;
-  readonly hasCheckinRecord: boolean;
   readonly inviteeCategories: ReadonlyMap<string, InviteeCategory>;
   readonly rsvp: ExistingRsvpState;
-  readonly activePass: {
-    credentialVersion: number;
-    id: string;
-    issuedAt: Date;
-    status: CheckinPassStatus;
-    tokenHash: string;
-  } | null;
-};
-
-type ActiveCheckinPassForPublicResponse = {
-  credentialVersion: number;
-  id: string;
-  issuedAt: Date;
-  status: CheckinPassStatus;
-  tokenHash: string;
 };
 
 type AcceptedValidation = {
@@ -200,13 +172,6 @@ type AcceptedValidation = {
 
 function throwPublicRsvpError(code: PublicRsvpErrorCode): never {
   throw new PublicRsvpDomainError(code);
-}
-
-class CheckinPassCredentialVerificationError extends Error {
-  constructor() {
-    super("Check-in pass credential verification failed.");
-    this.name = "CheckinPassCredentialVerificationError";
-  }
 }
 
 function isUuid(value: string | null | undefined): value is string {
@@ -239,45 +204,6 @@ function normalizeDietaryNotes(
   }
 
   return normalized;
-}
-
-function credentialLookupHashesMatch(
-  actual: CredentialLookupHash,
-  expected: string,
-): boolean {
-  if (!CREDENTIAL_LOOKUP_HASH_PATTERN.test(expected)) {
-    return false;
-  }
-
-  const actualBuffer = Buffer.from(actual, "utf8");
-  const expectedBuffer = Buffer.from(expected, "utf8");
-
-  return (
-    actualBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(actualBuffer, expectedBuffer)
-  );
-}
-
-function mapPublicCheckinPass(
-  pass: ActiveCheckinPassForPublicResponse,
-  credentialService: CredentialService,
-): NonNullable<PublicRsvpMutationResult["checkinPass"]> {
-  const qrPayload = credentialService.deriveCredential({
-    namespace: "check-in",
-    stableId: pass.id,
-    version: pass.credentialVersion,
-  });
-  const tokenHash = credentialService.hashCredential(qrPayload);
-
-  if (!credentialLookupHashesMatch(tokenHash, pass.tokenHash)) {
-    throw new CheckinPassCredentialVerificationError();
-  }
-
-  return {
-    issuedAt: pass.issuedAt.toISOString(),
-    qrPayload,
-    status: CheckinPassStatus.ACTIVE,
-  };
 }
 
 function validateExpectedVersion(
@@ -567,48 +493,29 @@ async function readMutationState(
   tx: Prisma.TransactionClient,
   invitationId: string,
 ): Promise<InvitationMutationState> {
-  const [rsvp, invitationEvents, invitees, checkinRecordCount] =
-    await Promise.all([
-      tx.rSVP.findUnique({
-        where: { invitationId },
-        select: {
-          id: true,
-          status: true,
-          version: true,
-          checkinPasses: {
-            where: {
-              status: CheckinPassStatus.ACTIVE,
-            },
-            select: {
-              credentialVersion: true,
-              id: true,
-              issuedAt: true,
-              status: true,
-              tokenHash: true,
-            },
-            take: 1,
-          },
-        },
-      }),
-      tx.invitationEvent.findMany({
-        where: { invitationId },
-        select: { eventId: true },
-      }),
-      tx.invitee.findMany({
-        where: { invitationId },
-        select: { id: true, category: true },
-      }),
-      tx.checkinRecord.count({
-        where: { invitationId },
-      }),
-    ]);
+  const [rsvp, invitationEvents, invitees] = await Promise.all([
+    tx.rSVP.findUnique({
+      where: { invitationId },
+      select: {
+        id: true,
+        status: true,
+        version: true,
+      },
+    }),
+    tx.invitationEvent.findMany({
+      where: { invitationId },
+      select: { eventId: true },
+    }),
+    tx.invitee.findMany({
+      where: { invitationId },
+      select: { id: true, category: true },
+    }),
+  ]);
 
   return {
-    activePass: rsvp?.checkinPasses[0] ?? null,
     eligibleEventIds: new Set(
       invitationEvents.map((invitationEvent) => invitationEvent.eventId),
     ),
-    hasCheckinRecord: checkinRecordCount > 0,
     inviteeCategories: new Map(
       invitees.map(({ id, category }) => [id, category]),
     ),
@@ -635,7 +542,6 @@ function toPublicMutationResult(
 async function readPublicRsvpState(
   tx: Prisma.TransactionClient,
   invitationId: string,
-  credentialService: CredentialService,
 ): Promise<Pick<PublicRsvpReadResult, "rsvp" | "checkinPass">> {
   const rsvp = await tx.rSVP.findUnique({
     where: { invitationId },
@@ -647,22 +553,6 @@ async function readPublicRsvpState(
           inviteeId: true,
           quantity: true,
         },
-      },
-      checkinPasses: {
-        where: {
-          status: CheckinPassStatus.ACTIVE,
-        },
-        orderBy: {
-          issuedAt: "asc",
-        },
-        select: {
-          credentialVersion: true,
-          id: true,
-          issuedAt: true,
-          status: true,
-          tokenHash: true,
-        },
-        take: 1,
       },
       dietaryNotes: true,
       id: true,
@@ -687,7 +577,6 @@ async function readPublicRsvpState(
     };
   }
 
-  const activePass = rsvp.checkinPasses[0] ?? null;
   const partyMode =
     rsvp.status === RSVPStatus.ACCEPTED
       ? await readConfirmedPartyMode(
@@ -699,10 +588,7 @@ async function readPublicRsvpState(
       : undefined;
 
   return {
-    checkinPass:
-      activePass === null
-        ? null
-        : mapPublicCheckinPass(activePass, credentialService),
+    checkinPass: null,
     rsvp: {
       attendeeQuantityTotal: rsvp.attendees.reduce(
         (total, attendee) => total + attendee.quantity,
@@ -822,21 +708,21 @@ export class PublicRsvpService {
     return this.prisma.$transaction(async (tx) => {
       const invitation = await lockInvitationForRsvp(tx, lookupHash);
 
-      const state = await readPublicRsvpState(
-        tx,
-        invitation.id,
-        this.credentialService,
-      );
-      const checkedIn = await tx.checkinRecord.count({
-        where: { invitationId: invitation.id },
-      });
+      const state = await readPublicRsvpState(tx, invitation.id);
+      // Walk-in RSVPs describe a historical registration rather than a guest reply.
+      if (
+        await tx.walkinRegistration.count({
+          where: { invitationId: invitation.id },
+        })
+      ) {
+        return { ...state, canEdit: false, editBlockedReason: "CHECKED_IN" };
+      }
       const settings = await readRsvpPolicy(tx, true);
       const editBlockedReason = rsvpEditBlockedReason(
         this.currentTime(),
         invitation.rsvpDeadlineAt,
         settings,
         state.rsvp?.status,
-        checkedIn > 0,
       );
       return {
         ...state,
@@ -868,6 +754,13 @@ export class PublicRsvpService {
       enforceDeadline: boolean;
     },
   ): Promise<RsvpLifecycleMutationResult> {
+    if (
+      await tx.walkinRegistration.count({
+        where: { invitationId: invitation.id },
+      })
+    ) {
+      throwPublicRsvpError("RSVP_LOCKED_AFTER_CHECKIN");
+    }
     const state = await readMutationState(tx, invitation.id);
     const settings = policy.enforceDeadline
       ? await readRsvpPolicy(tx, true)
@@ -880,17 +773,10 @@ export class PublicRsvpService {
         invitation.rsvpDeadlineAt,
         settings,
         state.rsvp?.status,
-        state.hasCheckinRecord,
       );
     if (blocked === "DEADLINE_PASSED")
       throwPublicRsvpError("RSVP_DEADLINE_PASSED");
-    if (blocked === "CHECKED_IN")
-      throwPublicRsvpError("RSVP_LOCKED_AFTER_CHECKIN");
     validateExpectedVersion(command.expectedVersion, state.rsvp);
-
-    if (state.hasCheckinRecord) {
-      throwPublicRsvpError("RSVP_LOCKED_AFTER_CHECKIN");
-    }
 
     const before = await readRsvpHistoryValues(tx, invitation.id);
     if (
@@ -972,16 +858,9 @@ export class PublicRsvpService {
       desired.partyMode = before.values.partyMode;
       accepted.partyMode = before.values.partyMode;
     }
-    // Version, deadline and check-in checks precede even a genuine no-op.
-    const passMatchesStatus =
-      dietaryOnly ||
-      (accepted ? state.activePass !== null : state.activePass === null);
-    if (before && passMatchesStatus && sameRsvpValues(before.values, desired)) {
-      const current = await readPublicRsvpState(
-        tx,
-        invitation.id,
-        this.credentialService,
-      );
+    // Stale versions and closed deadlines are rejected before no-op detection.
+    if (before && sameRsvpValues(before.values, desired)) {
+      const current = await readPublicRsvpState(tx, invitation.id);
       if (!current.rsvp)
         throw new Error("RSVP disappeared inside its locked transaction.");
       return { ...current, rsvp: current.rsvp, rsvpId: before.id };
@@ -1025,13 +904,6 @@ export class PublicRsvpService {
         })
       : null;
     const changes = rsvpHistoryDiff(before?.values ?? null, after.values);
-    if (before && !passMatchesStatus)
-      changes.push({
-        field: "checkinPassAvailability",
-        label: "Check-in pass availability",
-        before: state.activePass ? "Active" : "Not available",
-        after: result?.checkinPass ? "Active" : "Not available",
-      });
     await tx.rsvpChangeEvent.create({
       data: {
         rsvpId: after.id,
@@ -1061,11 +933,7 @@ export class PublicRsvpService {
       },
     });
     if (result) return result;
-    const current = await readPublicRsvpState(
-      tx,
-      invitation.id,
-      this.credentialService,
-    );
+    const current = await readPublicRsvpState(tx, invitation.id);
     if (!current.rsvp)
       throw new Error("RSVP disappeared inside its locked transaction.");
     return { ...current, rsvp: current.rsvp, rsvpId: after.id };
@@ -1116,12 +984,8 @@ export class PublicRsvpService {
       });
     }
 
-    const activePass =
-      state.activePass ??
-      (await this.issueActiveCheckinPass(tx, invitationId, rsvp.id));
-
     return {
-      checkinPass: mapPublicCheckinPass(activePass, this.credentialService),
+      checkinPass: null,
       rsvp: {
         attendeeQuantityTotal: accepted.attendeeQuantityTotal,
         attendees: accepted.attendees,
@@ -1154,17 +1018,6 @@ export class PublicRsvpService {
     await Promise.all([
       tx.rSVPEventSelection.deleteMany({ where: { rsvpId: rsvp.id } }),
       tx.rSVPAttendee.deleteMany({ where: { rsvpId: rsvp.id } }),
-      tx.checkinPass.updateMany({
-        data: {
-          revokedAt: mutationTime,
-          revocationReason: "RSVP_DECLINED",
-          status: CheckinPassStatus.REVOKED,
-        },
-        where: {
-          invitationId,
-          status: CheckinPassStatus.ACTIVE,
-        },
-      }),
     ]);
 
     return {
@@ -1240,38 +1093,6 @@ export class PublicRsvpService {
       select: {
         id: true,
         version: true,
-      },
-    });
-  }
-
-  private async issueActiveCheckinPass(
-    tx: Prisma.TransactionClient,
-    invitationId: string,
-    rsvpId: string,
-  ): Promise<ActiveCheckinPassForPublicResponse> {
-    const id = randomUUID();
-    const credential = this.credentialService.deriveCredential({
-      namespace: "check-in",
-      stableId: id,
-      version: CHECKIN_PASS_CREDENTIAL_VERSION,
-    });
-    const tokenHash = this.credentialService.hashCredential(credential);
-
-    return tx.checkinPass.create({
-      data: {
-        credentialVersion: CHECKIN_PASS_CREDENTIAL_VERSION,
-        id,
-        invitationId,
-        rsvpId,
-        status: CheckinPassStatus.ACTIVE,
-        tokenHash,
-      },
-      select: {
-        credentialVersion: true,
-        id: true,
-        issuedAt: true,
-        status: true,
-        tokenHash: true,
       },
     });
   }

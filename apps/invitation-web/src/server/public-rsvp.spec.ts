@@ -32,12 +32,12 @@ describe("generated public RSVP networking", () => {
     });
     expect(await submitPublicRsvp(credential, body, { env, fetch })).toEqual({
       status: "success",
-      data: { rsvp, checkinPass: activePass },
+      data: { rsvp, checkinPass: null },
     });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it.each(["GET", "PUT"])(
-    "retains the complete canonical active pass from %s",
+    "strips legacy credentials from %s",
     async (method) => {
       const data = {
         canEdit: true,
@@ -52,39 +52,11 @@ describe("generated public RSVP networking", () => {
           : await submitPublicRsvp(credential, request, options);
       expect(result.status).toBe("success");
       if (result.status === "success") {
-        expect(
-          result.data.checkinPass?.qrPayload === activePass.qrPayload,
-        ).toBe(true);
+        expect(result.data.checkinPass).toBeNull();
         expect(result.data.rsvp?.version).toBe(acceptedRsvp.version);
       }
     },
   );
-  it.each([
-    undefined,
-    null,
-    42,
-    "",
-    "x".repeat(42),
-    "x".repeat(44),
-    "x".repeat(42) + "=",
-    "x".repeat(42) + "/",
-    "x".repeat(42) + " ",
-    "x".repeat(43) + "\n",
-    "x".repeat(43) + "\r\n",
-  ])("rejects an absent or malformed pass payload", async (qrPayload) => {
-    const result = await retrievePublicRsvp(credential, {
-      env,
-      fetch: async () =>
-        Response.json({
-          rsvp: acceptedRsvp,
-          checkinPass: { ...activePass, qrPayload },
-        }),
-    });
-    expect(result).toEqual({
-      status: "error",
-      error: { kind: "invalid-response", httpStatus: 200, code: null },
-    });
-  });
   it("loads detailed state using the generated GET with no caching", async () => {
     const fetch = vi.fn(async (input: Request) => {
       expect(input.url).toBe(
