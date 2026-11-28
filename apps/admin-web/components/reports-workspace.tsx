@@ -163,10 +163,12 @@ export function ReportsWorkspace() {
             (Jakarta). Separate exports may include newer confirmations.
           </p>
           <section className="import-panel">
-            <h2>Expected and actual attendance</h2>
+            <h2>RSVP expectations and historical attendance</h2>
             <p>
               People are counted per event. Totals across events are not unique
-              people. Actual attendee composition is not recorded.
+              people. Expected counts come from RSVPs. Actual counts are
+              historical digital records and do not include the physical
+              guestbook.
             </p>
             <div className="report-table-scroll">
               <table>
@@ -176,10 +178,10 @@ export function ReportsWorkspace() {
                     {[
                       "Event",
                       "Expected people",
-                      "Actual people",
+                      "Historically recorded attendees",
                       "Expected households",
-                      "Checked-in households",
-                      "Not-arrived households",
+                      "Historically checked-in households",
+                      "Without a digital record",
                     ].map((label) => (
                       <th key={label} scope="col">
                         {label}
@@ -224,8 +226,8 @@ export function ReportsWorkspace() {
                 }}
               >
                 <option value="RSVP">RSVP and dietary</option>
-                <option value="CHECKIN">Confirmed check-ins</option>
-                <option value="NOT_ARRIVED">Not arrived</option>
+                <option value="CHECKIN">Historical check-ins</option>
+                <option value="NOT_ARRIVED">Without a digital record</option>
               </select>
             </label>
             {rows.items.length === 0 ? (
@@ -247,7 +249,7 @@ export function ReportsWorkspace() {
                         "Dietary notes",
                         "Event",
                         "Expected",
-                        "Actual",
+                        "Historical actual",
                         "Confirmed at (Jakarta)",
                         "Method / operator",
                       ].map((label) => (

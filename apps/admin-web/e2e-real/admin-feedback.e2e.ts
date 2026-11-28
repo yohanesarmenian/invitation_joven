@@ -131,7 +131,7 @@ test("changed event time saves the selected minute and a rejected server write p
     }),
   ).toBe(0);
 });
-test("six viewport navigation and scrollable correction dialog use the real persisted reception and public page", async ({
+test("six viewport navigation uses the real invitation and hides retired attendance", async ({
   page,
   browser,
 }, info) => {
@@ -162,69 +162,10 @@ test("six viewport navigation and scrollable correction dialog use the real pers
         });
       }
       await page.goto("/reception");
-      await page.getByLabel("Wedding event").selectOption(fixture.event.id);
-      await page
-        .getByLabel("Guest name or invitation reference")
-        .fill(household.name);
-      await page
-        .getByRole("button", { name: "Find registered guests" })
-        .click();
-      await page
-        .getByRole("button", { name: new RegExp(household.name) })
-        .click();
-      const detail = page.getByRole("region", {
-        name: "Household reception detail",
-      });
+      await expect(page).toHaveURL(new URL("/", origins.admin).href);
       await expect(
-        detail.getByRole("heading", { name: household.name, exact: true }),
-      ).toBeVisible();
-      if (width === 320) {
-        await detail
-          .getByRole("button", { name: "Check-in", exact: true })
-          .click();
-        await page
-          .getByRole("dialog", { name: "Confirm reception arrival" })
-          .getByRole("button", { name: "Confirm arrival", exact: true })
-          .click();
-        await expect(detail).toContainText("Fully checked in");
-      }
-      const adjustments = page.getByRole("region", {
-        name: "Attendance adjustments",
-      });
-      await adjustments.getByLabel("Correct total attendance").fill("0");
-      await adjustments
-        .getByLabel("Correction / exception reason")
-        .fill("Responsive dialog review only, confirmation will be cancelled");
-      await adjustments
-        .getByRole("button", { name: "Review attendance change" })
-        .click();
-      const dialog = page.getByRole("dialog", {
-        name: "Confirm reception change",
-      });
-      await expect(dialog).toBeVisible();
-      expect(
-        await dialog.evaluate((node) => {
-          const box = node.getBoundingClientRect();
-          return (
-            box.width <= innerWidth &&
-            box.height <= innerHeight &&
-            getComputedStyle(node).overflowY === "auto"
-          );
-        }),
-      ).toBe(true);
-      await dialog.screenshot({
-        path: info.outputPath(`correction-dialog-${width}.png`),
-      });
-      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
-      ).toBe(true);
-      await page.screenshot({
-        path: info.outputPath(`reception-${width}.png`),
-        fullPage: true,
-      });
+        page.getByRole("link", { name: "Guest reception" }),
+      ).toHaveCount(0);
       await guest.setViewportSize({ width, height: 900 });
       await guest.goto(`${origins.invitation}/i/${household.publicCredential}`);
       await guest
@@ -245,35 +186,23 @@ test("six viewport navigation and scrollable correction dialog use the real pers
           () => document.documentElement.scrollWidth <= innerWidth,
         ),
       ).toBe(true);
+      await expect(
+        guest.getByText(
+          "Silakan tunjukkan undangan ini kepada penerima tamu saat tiba di lokasi acara.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(guest.locator(".guest-checkin-pass")).toHaveCount(0);
       await guest.screenshot({
         path: info.outputPath(`public-${width}.png`),
         fullPage: true,
-        mask: [
-          guest.locator(".checkin-code"),
-          guest.getByRole("img", {
-            name: "Kode QR untuk check-in rombongan Anda",
-          }),
-        ],
       });
     }
     expect(
-      (
-        await fixture.prisma.checkinRecord.findFirstOrThrow({
-          where: { invitationId: household.id },
-        })
-      ).attendeeCount,
-    ).toBe(1);
-    expect(
-      await fixture.prisma.receptionAction.count({
-        where: { invitationId: household.id, kind: "CORRECTION" },
+      await fixture.prisma.checkinRecord.count({
+        where: { invitationId: household.id },
       }),
     ).toBe(0);
-    await page.goto("/events");
-    await page.getByLabel("Event to edit").selectOption(fixture.event.id);
-    for (const field of ["Start (WIB)", "End (WIB)"])
-      await expect(page.getByLabel(field, { exact: true })).toBeDisabled();
-    for (const label of ["Clear start time", "Clear end time"])
-      await expect(page.getByRole("button", { name: label })).toBeDisabled();
   } finally {
     await guestContext.close();
   }

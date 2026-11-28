@@ -27,9 +27,7 @@ export function rsvpEditBlockedReason(
   invitationDeadline: Date | null,
   policy: Deadlines,
   status: string | undefined,
-  checkedIn: boolean,
 ): RsvpEditBlockedReason {
-  if (checkedIn) return "CHECKED_IN";
   const initial = invitationDeadline ?? policy.initialDeadlineAt;
   if (initial === null || now <= initial) return null;
   const hasResponse = status === "ACCEPTED" || status === "DECLINED";

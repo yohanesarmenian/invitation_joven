@@ -121,20 +121,18 @@ it("public login renders without a session", async () => {
 it("check-in route renders the restricted staff workspace without OWNER navigation", async () => {
   session.mockResolvedValue({ kind: "authenticated", auth: staffAuth });
   const html = renderToStaticMarkup(await CheckinPage());
-  expect(html).toContain("Check-in");
-  expect(html).toContain("Select an event");
-  expect(html).toContain("Validate QR");
+  expect(html).toContain("Digital attendance is closed");
+  expect(html).not.toContain("Select an event");
+  expect(html).not.toContain("Validate QR");
   expect(html).toContain("staff@example.com");
   expect(html).toContain("Sign out");
   expect(html).not.toContain("Wedding Invitation");
   expect(html).not.toContain("Dashboard");
   expect(html).not.toContain("Invitations");
 });
-it("check-in route allows OWNER and provides a dashboard return link", async () => {
+it("retired check-in route sends OWNER to the dashboard", async () => {
   session.mockResolvedValue({ kind: "authenticated", auth });
-  const html = renderToStaticMarkup(await CheckinPage());
-  expect(html).toContain("Select an event");
-  expect(html).toContain("Back to dashboard");
+  await expect(CheckinPage()).rejects.toThrow("redirect:/");
 });
 it("check-in route does not bypass forced password change", async () => {
   session.mockResolvedValue({

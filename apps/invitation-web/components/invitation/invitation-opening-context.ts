@@ -5,7 +5,7 @@ import { createContext } from "react";
 // Standalone gallery previews retain their normal image behavior.
 export const InvitationContentVisible = createContext(true);
 
-export type RsvpHeroAction = "rsvp" | "confirm" | "response" | "qr";
+export type RsvpHeroAction = "rsvp" | "confirm" | "response";
 
 export const RsvpHeroActionUpdate = createContext<
   ((action: RsvpHeroAction) => void) | null

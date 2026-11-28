@@ -54,7 +54,7 @@ describe("Reception role and projection boundaries", () => {
         },
       },
     });
-    await expect(ReceptionPage()).rejects.toThrow("redirect:/checkin");
+    await expect(ReceptionPage()).resolves.not.toBeNull();
     session.mockResolvedValue({
       kind: "authenticated",
       auth: {

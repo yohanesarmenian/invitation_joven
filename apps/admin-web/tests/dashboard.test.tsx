@@ -76,8 +76,7 @@ it("links dashboard tasks and operational access to existing routes", () => {
     ["Manage invitations", "/invitations"],
     ["RSVP overview", "/rsvps"],
     ["Guest messages", "/messages"],
-    ["Open check-in", "/checkin"],
-    ["View actual attendance and export reports", "/reports"],
+    ["View RSVP and catering reports", "/reports"],
     ["Event materials", "/event-content"],
     ["Team access", "/settings/staff"],
   ]) {

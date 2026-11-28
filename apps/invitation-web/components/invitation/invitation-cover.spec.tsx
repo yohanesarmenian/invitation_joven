@@ -74,7 +74,6 @@ describe("invitation cover markup", () => {
   it.each([
     ["confirm", "rsvp-title", "Konfirmasi Kehadiran"],
     ["response", "rsvp-response-title", "Lihat Jawaban RSVP"],
-    ["qr", "checkin-pass-title", "Lihat QR Check-in"],
   ] as const)(
     "renders the %s action with a fixed fragment",
     (rsvpAction, target, label) => {

@@ -12,17 +12,6 @@ async function login(page: Page) {
   await expect(page).toHaveURL("http://localhost:3001/");
 }
 
-async function singleEvent(page: Page) {
-  await page.route("**/api/admin/checkin/events", async (route) => {
-    const response = await route.fetch();
-    const data = await response.json();
-    await route.fulfill({
-      response,
-      json: { events: data.events.slice(0, 1) },
-    });
-  });
-}
-
 async function noOverflow(page: Page) {
   expect(
     await page.evaluate(
@@ -41,7 +30,7 @@ async function noOverflow(page: Page) {
 }
 
 for (const width of [320, 375, 412, 768, 1024, 1280, 1440]) {
-  test(`create and staff workspace remain reachable at ${width}px`, async ({
+  test(`create stays usable and the retired route returns to Dashboard at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -71,43 +60,9 @@ for (const width of [320, 375, 412, 768, 1024, 1280, 1440]) {
     await expect(submit).toBeInViewport();
     await noOverflow(page);
 
-    await singleEvent(page);
     await page.goto("/checkin");
-    await expect(page.getByLabel("Event", { exact: true })).toHaveValue(
-      "11111111-1111-4111-8111-111111111111",
-    );
-    await expect(
-      page.getByText("Your only eligible event is selected automatically."),
-    ).toBeVisible();
-    await expect(page.locator("main.admin-shell")).toHaveCount(0);
-    await expect(
-      page.getByRole("navigation", { name: "Operator account" }),
-    ).toBeVisible();
-    await expect(
-      page.getByText(/Partial arrivals and corrections are not supported/),
-    ).toBeVisible();
-    let confirms = 0;
-    page.on("request", (request) => {
-      if (request.url().endsWith("/checkin/confirm")) confirms++;
-    });
-    await page.getByLabel("Household name", { exact: true }).fill("Scanner");
-    await page
-      .getByRole("button", { name: "Search households", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: /Scanner Household · expected 3/ })
-      .click();
-    const result = page.getByRole("region", { name: "Check-in result" });
-    await expect(result).toBeFocused();
-    await expect(page.getByLabel("People arriving now")).toHaveValue("3");
-    const confirm = page.getByRole("button", {
-      name: "Confirm check-in",
-      exact: true,
-    });
-    await confirm.scrollIntoViewIfNeeded();
-    await expect(confirm).toBeInViewport();
-    expect(confirms).toBe(0);
-    await noOverflow(page);
+    await expect(page).toHaveURL("http://localhost:3001/");
+    await expect(page.getByLabel("Event", { exact: true })).toHaveCount(0);
   });
 }
 
@@ -170,7 +125,7 @@ test("deadline requires both fields, supports keyboard focus and sends exact Jak
 });
 
 for (const zoom of [1.25, 2]) {
-  test(`create and check-in reflow under ${zoom * 100}% CSS zoom`, async ({
+  test(`create and dashboard reflow under ${zoom * 100}% CSS zoom`, async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -191,7 +146,9 @@ for (const zoom of [1.25, 2]) {
           .getByLabel("Deadline time (WIB)", { exact: true })
           .scrollIntoViewIfNeeded();
       } else
-        await expect(page.getByLabel("Event", { exact: true })).toBeVisible();
+        await expect(
+          page.getByRole("heading", { name: "Dashboard", exact: true }),
+        ).toBeVisible();
       await noOverflow(page);
     }
   });

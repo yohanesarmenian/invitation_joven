@@ -43,7 +43,7 @@ export async function submitPublicRsvp(
   };
 }
 
-async function requestRsvp<T>(
+async function requestRsvp<T extends { checkinPass: unknown }>(
   publicCredential: string,
   body: SubmitPublicRsvpRequest | EditRsvpDietary | undefined,
   options: RetrievePublicInvitationOptions,
@@ -82,7 +82,7 @@ async function requestRsvp<T>(
       };
     }
     if (!validate(result.data)) return invalidResponse(result.response.status);
-    return { status: "success", data: result.data };
+    return { status: "success", data: { ...result.data, checkinPass: null } };
   } catch {
     return {
       status: "error",
@@ -118,19 +118,7 @@ function isRsvpResponse(
   value: unknown,
 ): value is Pick<PublicRsvpReadResponse, "rsvp" | "checkinPass"> {
   if (!isRecord(value)) return false;
-  const { rsvp, checkinPass } = value;
-  if (
-    checkinPass !== null &&
-    !(
-      isRecord(checkinPass) &&
-      checkinPass.status === "ACTIVE" &&
-      typeof checkinPass.issuedAt === "string" &&
-      typeof checkinPass.qrPayload === "string" &&
-      checkinPass.qrPayload.length === 43 &&
-      /^[A-Za-z0-9_-]{43}$/.test(checkinPass.qrPayload)
-    )
-  )
-    return false;
+  const { rsvp } = value;
   if (rsvp === null) return true;
   return (
     isRecord(rsvp) &&

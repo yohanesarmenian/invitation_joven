@@ -131,18 +131,13 @@ export function Dashboard({ data }: { data: AdminDashboardResponse }) {
         aria-labelledby="dashboard-operations-heading"
       >
         <div className="section-heading">
-          <h2 id="dashboard-operations-heading">Wedding day &amp; access</h2>
-          <p>Check-in, attendance reports and the tools for your team.</p>
+          <h2 id="dashboard-operations-heading">Planning &amp; access</h2>
+          <p>RSVP reports, event materials and the tools for your team.</p>
         </div>
         <ul className="dashboard-task-links">
           <li>
-            <Link href="/checkin" prefetch={false}>
-              Open check-in
-            </Link>
-          </li>
-          <li>
             <Link href="/reports" prefetch={false}>
-              View actual attendance and export reports
+              View RSVP and catering reports
             </Link>
           </li>
           <li>

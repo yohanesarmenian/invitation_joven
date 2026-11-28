@@ -79,7 +79,9 @@ async function postGuestMessage(
   };
 }
 
-async function fetchRsvp(publicCredential: string): Promise<Record<string, unknown>> {
+async function fetchRsvp(
+  publicCredential: string,
+): Promise<Record<string, unknown>> {
   const response = await fetch(
     `${REAL_API_BASE_URL}/api/public/invitations/${publicCredential}/rsvp`,
   );
@@ -365,41 +367,26 @@ test("real api: availability ignores RSVP state, RSVP version, and the RSVP dead
 
   expectMinimalResponse(withoutRsvp);
 
-  // Accepted RSVP with an active check-in pass.
+  // Accepted RSVP without a digital attendance credential.
   const accepted = await putRsvp(state.publicCredential, {
     attendees: [{ inviteeId, quantity: 1, type: "NAMED_INVITEE" }],
     dietaryNotes: "Smoke smoke-free household",
-    eventSelections: [
-      { attending: true, eventId, expectedAttendeeCount: 1 },
-    ],
+    eventSelections: [{ attending: true, eventId, expectedAttendeeCount: 1 }],
     expectedVersion: null,
     status: "ACCEPTED",
   });
   const acceptedRsvp = accepted.rsvp as Record<string, unknown>;
-  const acceptedPass = accepted.checkinPass as Record<string, unknown>;
-
   expect(acceptedRsvp.status).toBe("ACCEPTED");
   expect(acceptedRsvp.version).toBe(1);
-  expect(acceptedPass.status).toBe("ACTIVE");
-
+  expect(accepted.checkinPass).toBeNull();
   const afterAccept = await postGuestMessage(state.publicCredential, {
     message: MESSAGE_NORMALIZED,
   });
-
   expectMinimalResponse(afterAccept);
-
   const canonicalAfterAccept = await fetchRsvp(state.publicCredential);
-  const passAfterAccept = canonicalAfterAccept.checkinPass as Record<
-    string,
-    unknown
-  >;
-
-  // The RSVP and its pass are untouched by the message write.
   expect(canonicalAfterAccept.rsvp).toEqual(accepted.rsvp);
-  expect(passAfterAccept.qrPayload).toBe(acceptedPass.qrPayload);
-  expect(passAfterAccept.issuedAt).toBe(acceptedPass.issuedAt);
+  expect(canonicalAfterAccept.checkinPass).toBeNull();
 
-  // Declined RSVP: the message path stays open and the RSVP stays declined.
   const declined = await putRsvp(state.publicCredential, {
     attendees: [],
     dietaryNotes: null,
@@ -441,16 +428,13 @@ test("real api: availability ignores RSVP state, RSVP version, and the RSVP dead
         method: "PUT",
       },
     );
-    const closedBody = (await closedResponse.json()) as Record<
-      string,
-      unknown
-    >;
+    const closedBody = (await closedResponse.json()) as Record<string, unknown>;
 
     // The RSVP cutoff still closes RSVP mutation...
     expect(closedResponse.status).toBe(422);
-    expect(
-      (closedBody.error as Record<string, unknown>).code,
-    ).toBe("RSVP_DEADLINE_PASSED");
+    expect((closedBody.error as Record<string, unknown>).code).toBe(
+      "RSVP_DEADLINE_PASSED",
+    );
 
     const afterDeadline = await postGuestMessage(state.publicCredential, {
       message: MESSAGE_NORMALIZED,

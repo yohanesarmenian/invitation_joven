@@ -377,13 +377,14 @@ export class AdminReadService {
           )::int AS "declined"
         FROM "invitations" "i"
         LEFT JOIN "rsvps" "r" ON "r"."invitation_id" = "i"."id"
+        WHERE NOT EXISTS (SELECT 1 FROM walkin_registrations w WHERE w.invitation_id = "i"."id")
       `;
         const expectedRows = await tx.$queryRaw<ExpectedByEventRow[]>`
         SELECT
           "e"."id"::text AS "eventId",
           "e"."slug",
           "e"."name",
-          COALESCE(SUM("s"."expected_attendee_count" + coalesce((SELECT sum(a.capacity_delta) FROM reception_actions a WHERE a.invitation_id="i"."id" AND a.event_id="e"."id"),0)), 0)::int AS "expectedAttendeeCount"
+          COALESCE(SUM("s"."expected_attendee_count"), 0)::int AS "expectedAttendeeCount"
         FROM "rsvp_event_selections" "s"
         INNER JOIN "rsvps" "r" ON "r"."id" = "s"."rsvp_id"
         INNER JOIN "invitations" "i" ON "i"."id" = "r"."invitation_id"
@@ -391,6 +392,7 @@ export class AdminReadService {
         WHERE "i"."status" = 'ACTIVE'
           AND "r"."status" = 'ACCEPTED'
           AND "s"."attending" = true
+          AND NOT EXISTS (SELECT 1 FROM walkin_registrations w WHERE w.invitation_id = "i"."id")
         GROUP BY "e"."id", "e"."slug", "e"."name", "e"."display_order"
         ORDER BY "e"."display_order" ASC, "e"."id" ASC
       `;

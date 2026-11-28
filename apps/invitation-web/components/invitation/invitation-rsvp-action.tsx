@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type MouseEvent, type RefObject } from "react";
 import {
-  CHECKIN_PASS_HEADING_ID,
   RSVP_RESPONSE_HEADING_ID,
   type RsvpHeroAction,
 } from "./invitation-opening-context";
@@ -11,7 +10,6 @@ const rsvpActions = {
   rsvp: { label: "Lihat RSVP", target: "rsvp-title" },
   confirm: { label: "Konfirmasi Kehadiran", target: "rsvp-title" },
   response: { label: "Lihat Jawaban RSVP", target: RSVP_RESPONSE_HEADING_ID },
-  qr: { label: "Lihat QR Check-in", target: CHECKIN_PASS_HEADING_ID },
 } satisfies Record<RsvpHeroAction, { label: string; target: string }>;
 
 export function InvitationRsvpAction({

@@ -718,9 +718,9 @@ describe("OWNER event management with real PostgreSQL", () => {
       await pending;
     }
   });
-  it("staff confirmation waits for event mutation, then schedule becomes immutable", async () => {
+  it("retired staff confirmation stops before acquiring the event lock", async () => {
     const guest = await invite(true),
-      { client, pid } = await blocker();
+      { client } = await blocker();
     let pending;
     try {
       await client.query("SELECT id FROM events WHERE id=$1 FOR UPDATE", [
@@ -734,17 +734,13 @@ describe("OWNER event management with real PostgreSQL", () => {
           payload: { invitationId: guest.id, eventId, attendeeCount: 1 },
         })
         .then((r) => r);
-      await blockedBy(pid);
+      expect((await pending).statusCode).toBe(410);
       await client.query("COMMIT");
-      expect((await pending).statusCode).toBe(201);
-      expect(
-        (await save({ endsAt: "2028-01-10T11:00:00+07:00" })).json().error.code,
-      ).toBe("EVENT_SCHEDULE_LOCKED");
       expect(
         await prisma.checkinRecord.count({
           where: { invitationId: guest.id, eventId },
         }),
-      ).toBe(1);
+      ).toBe(0);
     } finally {
       await client.query("ROLLBACK");
       await client.end();

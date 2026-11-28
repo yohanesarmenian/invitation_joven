@@ -261,7 +261,6 @@ it("maps detail fields and excludes sensitive values", () => {
     "Save event eligibility",
     "accepted",
     "2 total, 1 hidden",
-    "ACTIVE",
     "Public token version",
   ])
     expect(html).toContain(value);

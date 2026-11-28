@@ -96,7 +96,7 @@ it("renders RSVP filter event labels from backend catalog", () => {
   expect(html).toContain("Ceremony");
 });
 
-it("maps RSVP detail snapshots, selections, notes, attribution and pass metadata", () => {
+it("maps RSVP detail snapshots, selections, notes, and attribution", () => {
   const html = renderToStaticMarkup(<RsvpDetail rsvp={rsvpDetail.rsvp} />);
   for (const value of [
     "Sample household",
@@ -113,12 +113,10 @@ it("maps RSVP detail snapshots, selections, notes, attribution and pass metadata
     "Please seat us near family",
     "owner@example.com",
     "Guest replied by phone",
-    "ACTIVE",
-    "REVOKED",
-    "RSVP_DECLINED",
   ])
     expect(html).toContain(value);
   expect(html).not.toContain("Current Guest Name");
+  expect(html).not.toContain("Check-in pass lifecycle");
   for (const value of ["qrPayload", "tokenHash", "publicTokenHash", "csrf"])
     expect(html).not.toContain(value);
 });

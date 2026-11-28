@@ -575,6 +575,90 @@ describe("OWNER reporting with PostgreSQL", () => {
       notArrivedHouseholds: 1,
     });
   });
+  it("excludes historical walk-in RSVPs and capacity overrides from RSVP estimates", async () => {
+    const invite = await prisma.invitation.findFirstOrThrow({
+      where: { displayName: "Accepted A" },
+    });
+    await household("Historical walk-in", "ACTIVE", "ACCEPTED", 2, 1);
+    const id = ids.at(-1)!;
+    const action = {
+      eventId,
+      operatorId: ownerId,
+      actorRole: "OWNER",
+      payloadHash: "synthetic",
+      reason: "Historical attendance",
+      verificationMethod: "PHYSICAL_INVITATION",
+      receipt: {},
+    };
+    try {
+      await prisma.receptionAction.create({
+        data: {
+          ...action,
+          operationId: randomUUID(),
+          invitationId: invite.id,
+          kind: "EXCEPTION",
+          capacityDelta: 2,
+        },
+      });
+      const registration = await prisma.receptionAction.create({
+        data: {
+          ...action,
+          operationId: randomUUID(),
+          invitationId: id,
+          kind: "WALKIN",
+        },
+      });
+      await prisma.walkinRegistration.create({
+        data: {
+          invitationId: id,
+          operationId: registration.operationId,
+          leadName: "Historical walk-in",
+          companionCount: 1,
+          expectedCount: 2,
+          arrivingCount: 1,
+          affiliation: "Synthetic",
+          reviewedMatchIds: [],
+        },
+      });
+
+      const dashboard = (await get("/api/admin/dashboard")).json();
+      expect(
+        dashboard.expectedByEvent.find(
+          (row: { event: { id: string } }) => row.event.id === eventId,
+        ),
+      ).toMatchObject({ expectedAttendeeCount: 7 });
+      const report = (
+        await get("/api/admin/reports/summary?eventId=" + eventId)
+      ).json();
+      expect(report.events[0]).toMatchObject({
+        expectedAttendeeCount: 7,
+        actualAttendeeCount: 3,
+      });
+      const catering = await get(
+        "/api/admin/reports/catering/live?eventId=" + eventId,
+      );
+      expect(catering.statusCode).toBe(200);
+      expect(catering.json().totals.events[0]).toMatchObject({
+        expected: 11,
+        rsvpExpected: 7,
+        capacityAdjustment: 2,
+        actual: 3,
+        walkinActual: 1,
+        partialHouseholds: 2,
+      });
+    } finally {
+      await prisma.walkinRegistration.deleteMany({
+        where: { invitationId: id },
+      });
+      await prisma.receptionAction.deleteMany({
+        where: { invitationId: { in: [id, invite.id] } },
+      });
+      await prisma.checkinRecord.deleteMany({ where: { invitationId: id } });
+      await prisma.rSVP.deleteMany({ where: { invitationId: id } });
+      await prisma.invitationEvent.deleteMany({ where: { invitationId: id } });
+      await prisma.invitation.delete({ where: { id } });
+    }
+  });
   it("projects pending, dietary and missing households with stable pagination and no bearer fields", async () => {
     const list = await get(
       `/api/admin/reports/households?eventId=${eventId}&pageSize=2`,

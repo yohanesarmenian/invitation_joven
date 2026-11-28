@@ -94,8 +94,7 @@ export function rsvpFailureNotice(failure: RsvpFailure): RsvpNotice {
       return {
         tone: "closed",
         title: "RSVP sudah ditutup",
-        message:
-          "Rombongan Anda sudah check-in. Petugas penerima tamu dapat membantu Anda.",
+        message: "Hubungi kedua mempelai jika Anda memerlukan bantuan.",
         recovery: "none",
       };
     const domain =

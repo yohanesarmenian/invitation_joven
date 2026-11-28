@@ -77,7 +77,6 @@ for (const width of [320, 375, 412, 768, 1280]) {
         "Invitations",
         "RSVPs",
         "Messages",
-        "Check-in",
         "Reports",
         "Events",
         "Event materials",

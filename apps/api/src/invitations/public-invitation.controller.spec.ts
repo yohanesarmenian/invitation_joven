@@ -163,11 +163,7 @@ describe("PublicInvitationController", () => {
 
   it("passes validated RSVP submissions to the public RSVP service", async () => {
     rsvpService.submitPublicRsvp.mockResolvedValueOnce({
-      checkinPass: {
-        issuedAt: "2026-09-17T00:00:00.000Z",
-        qrPayload: "B".repeat(43),
-        status: "ACTIVE",
-      },
+      checkinPass: null,
       rsvp: {
         attendeeQuantityTotal: 1,
         attendees: [
@@ -219,9 +215,7 @@ describe("PublicInvitationController", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
-      checkinPass: {
-        status: "ACTIVE",
-      },
+      checkinPass: null,
       rsvp: {
         status: "ACCEPTED",
         version: 1,

@@ -225,7 +225,7 @@ test("conditional public RSVP round-trips identities, session counts, family, an
       await fixture.prisma.checkinPass.count({
         where: { invitationId: household.id },
       }),
-    ).toBe(1);
+    ).toBe(0);
 
     await fixture.prisma.invitee.update({
       where: { id: household.first.id },
@@ -414,7 +414,7 @@ test("conditional public RSVP round-trips identities, session counts, family, an
       await fixture.prisma.checkinPass.count({
         where: { invitationId: household.id, status: "REVOKED" },
       }),
-    ).toBe(1);
+    ).toBe(0);
     expect(
       await fixture.prisma.checkinRecord.count({
         where: { invitationId: household.id },
@@ -530,9 +530,7 @@ test("unsupported session catalogs block acceptance while preserving existing RS
     await save(page).click();
     await waitSaved(page, false);
     expect((await persisted()).status).toBe("DECLINED");
-    expect(await passes()).toMatchObject([
-      { status: "REVOKED", revocationReason: "RSVP_DECLINED" },
-    ]);
+    expect(await passes()).toEqual(originalPasses);
   } finally {
     await fixture.prisma.invitationEvent.deleteMany({
       where: { eventId: third.id },
@@ -658,13 +656,13 @@ test("legacy counts and unnamed companions remain intact on diet edits until del
       },
     });
     const afterCheckin = await request.patch(legacy.url, {
-      data: { expectedVersion: 3, dietaryNotes: "blocked" },
+      data: {
+        expectedVersion: 3,
+        dietaryNotes: "Edited after historical attendance",
+      },
     });
-    expect(afterCheckin.status()).toBe(409);
-    expect((await afterCheckin.json()).error.code).toBe(
-      "RSVP_LOCKED_AFTER_CHECKIN",
-    );
-    expect((await persisted()).version).toBe(3);
+    expect(afterCheckin.status()).toBe(200);
+    expect((await persisted()).version).toBe(4);
   } finally {
     await fixture.remove();
   }
