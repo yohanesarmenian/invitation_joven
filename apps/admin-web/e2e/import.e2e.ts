@@ -88,6 +88,7 @@ test("complete workflow, actual download and multipart wire request, exact selec
     "Invitations",
   );
   const download = page.waitForEvent("download");
+  await page.getByText("Existing CSV and legacy XLSX formats", { exact: true }).click();
   await page.getByRole("button", { name: "Download CSV template" }).click();
   const result = await download;
   expect(result.suggestedFilename()).toBe("invitation-import-template.csv");
@@ -444,7 +445,7 @@ for (const width of [320, 375, 412, 768, 1280])
       caret: "initial",
     });
     await page
-      .getByText("File format and column guidance", { exact: true })
+      .getByText("Existing CSV and legacy XLSX formats", { exact: true })
       .click();
     await noOverflow(page);
     await validate(page);

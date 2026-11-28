@@ -7,6 +7,7 @@ import {
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import ExcelJS from "exceljs";
+import { GuestImportService } from "./guest-import.service.js";
 import { Client } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppModule } from "../app.module.js";
@@ -441,6 +442,444 @@ describe("POST /api/admin/imports/guest/validate", () => {
     await app.close();
     await prisma.$disconnect();
   });
+
+  it("downloads an OWNER-only Excel template and commits individual, couple and household rows once", async () => {
+    const reception = await createEvent({ displayOrder: 2, slug: "reception" });
+    await createEvent({ displayOrder: 3, slug: "inactive", isActive: false });
+    const session = await createOwnerAndSession();
+    const server = app.getHttpAdapter().getInstance();
+    const url = "/api/admin/imports/guest/template";
+    expect((await server.inject({ method: "GET", url })).statusCode).toBe(401);
+    const download = await server.inject({
+      headers: { cookie: session.cookie },
+      method: "GET",
+      url,
+    });
+    expect(download.statusCode).toBe(200);
+    expect(download.headers["content-disposition"]).toContain(
+      "guest-import-template.xlsx",
+    );
+    expect(download.headers["cache-control"]).toBe("no-store");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(
+      download.rawPayload as unknown as Parameters<
+        typeof workbook.xlsx.load
+      >[0],
+    );
+    expect(workbook.worksheets.map(({ name }) => name)).toEqual([
+      "Instructions",
+      "Invitations",
+      "Guests",
+      "Events",
+    ]);
+    const events = workbook.getWorksheet("Events")!;
+    expect(events.getColumn("B").values.slice(1)).toEqual([
+      "EventSlug",
+      "ceremony",
+      "reception",
+    ]);
+    const invitations = workbook.getWorksheet("Invitations")!;
+    expect(invitations.getCell("H2").dataValidation.formulae).toEqual([
+      "WeddingSessionChoices",
+    ]);
+    const guests = workbook.getWorksheet("Guests")!;
+    const choices = [
+      events.getCell("F2").value,
+      events.getCell("F3").value,
+      events.getCell("F4").value,
+    ];
+    invitations.getRow(2).values = [
+      "I01",
+      "Synthetic Individual",
+      null,
+      "No",
+      0,
+      null,
+      null,
+      choices[0],
+    ];
+    invitations.getRow(4).values = [
+      "C01",
+      "Synthetic Couple",
+      null,
+      "No",
+      0,
+      null,
+      null,
+      choices[1],
+    ];
+    invitations.getRow(6).values = [
+      "F01",
+      "Synthetic Household",
+      "Synthetic family",
+      "Yes",
+      2,
+      "2027-01-16 18:30",
+      null,
+      choices[2],
+    ];
+    guests.addRows([
+      ["i01", "Individual Adult", "Adult"],
+      ["c01", "Couple Adult 1", "Adult"],
+      ["C01", "Couple Adult 2", "Adult"],
+      ["F01", "Household Adult", "Adult", "Parent"],
+      ["F01", "Household Child", "Child"],
+      ["f01", "Household Adult 2", "Adult"],
+    ]);
+    const before = await counts();
+    const response = await upload(
+      app,
+      session,
+      Buffer.from(await workbook.xlsx.writeBuffer()),
+      "guests.xlsx",
+    );
+    expect(response.statusCode, response.body).toBe(201);
+    const preview = response.json();
+    expect(preview.templateVersion).toBe(2);
+    expect(
+      preview.rows.map((row: { rowNumber: number }) => row.rowNumber),
+    ).toEqual([2, 4, 6]);
+    expect(preview.rows[2].parsed).toMatchObject({
+      eligibleEventNames: ["Import ceremony", "Import reception"],
+      eligibleEventSlugs: ["ceremony", "reception"],
+      rsvpDeadlineAt: "2027-01-16T11:30:00.000Z",
+      invitees: [
+        { fullName: "Household Adult", category: "ADULT", label: "Parent" },
+        { fullName: "Household Child", category: "CHILD", label: null },
+        { fullName: "Household Adult 2", category: "ADULT", label: null },
+      ],
+    });
+    expect(await counts()).toEqual({
+      ...before,
+      guestImportPreviews: before.guestImportPreviews + 1,
+    });
+    const body = {
+      previewId: preview.previewId,
+      includeRowNumbers: [2, 4, 6],
+      acknowledgedWarningRowNumbers: [],
+    };
+
+    await prisma.event.update({
+      where: { id: reception.id },
+      data: { venueName: "Changed venue" },
+    });
+    await expectStaleCommit(app, session, body);
+    const refreshed = await upload(
+      app,
+      session,
+      Buffer.from(await workbook.xlsx.writeBuffer()),
+      "guests.xlsx",
+    );
+    expect(refreshed.statusCode).toBe(400);
+    expect(refreshed.json().error.code).toBe("IMPORT_WORKBOOK_INVALID");
+    await prisma.event.update({
+      where: { id: reception.id },
+      data: { venueName: reception.venueName },
+    });
+
+    const commit = await commitImport(app, session, body);
+    expect(commit.statusCode).toBe(200);
+    expect(commit.json().importBatch).toMatchObject({
+      createdInvitationCount: 3,
+      createdInviteeCount: 6,
+    });
+    expect((await commitImport(app, session, body)).json()).toEqual(
+      commit.json(),
+    );
+    expect(await counts()).toEqual({
+      ...before,
+      guestImportPreviews: before.guestImportPreviews + 1,
+      guestImportBatches: before.guestImportBatches + 1,
+      invitations: before.invitations + 3,
+      invitees: before.invitees + 6,
+      invitationEvents: before.invitationEvents + 4,
+    });
+  });
+
+  it("prefills a single active session and pinpoints duplicate references, missing guests, invalid category and text dates", async () => {
+    const session = await createOwnerAndSession();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(
+      (await app
+        .get(GuestImportService)
+        .downloadTemplate()) as unknown as Parameters<
+        typeof workbook.xlsx.load
+      >[0],
+    );
+    const invitations = workbook.getWorksheet("Invitations")!;
+    const guests = workbook.getWorksheet("Guests")!;
+    const sessionChoice = invitations.getCell("H501").value;
+    expect(sessionChoice).toBe("A • Import ceremony");
+    invitations.getRow(2).values = [
+      "D1",
+      "Duplicate one",
+      null,
+      null,
+      null,
+      null,
+      null,
+      sessionChoice,
+    ];
+    invitations.getRow(3).values = [
+      "d1",
+      "Duplicate two",
+      null,
+      null,
+      null,
+      null,
+      null,
+      sessionChoice,
+    ];
+    invitations.getRow(4).values = [
+      "G1",
+      "Invalid guest",
+      null,
+      null,
+      null,
+      46000,
+      null,
+      sessionChoice,
+    ];
+    invitations.getRow(5).values = ["G2", "Missing session"];
+    invitations.getRow(6).values = [
+      "G3",
+      "Missing named guests",
+      null,
+      null,
+      null,
+      null,
+      null,
+      sessionChoice,
+    ];
+    guests.addRows([
+      ["D1", "Ambiguous Adult", "Adult"],
+      ["G1", "Typo Category", "Other"],
+      ["G2", "Named Adult", "Adult"],
+    ]);
+    const uploadWorkbook = async () =>
+      upload(
+        app,
+        session,
+        Buffer.from(await workbook.xlsx.writeBuffer()),
+        "guests.xlsx",
+      );
+    const response = await uploadWorkbook();
+    expect(response.statusCode, response.body).toBe(201);
+    const errors = response.json().rows;
+    expect(errors.map((row: { status: string }) => row.status)).toEqual(
+      Array(5).fill("ERROR"),
+    );
+    expect(errors[0].errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          column: "HouseholdRef",
+          message: expect.stringContaining("Duplicate reference"),
+        }),
+      ]),
+    );
+    expect(errors[1].errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          column: "HouseholdRef",
+          message: expect.stringContaining("Duplicate reference"),
+        }),
+      ]),
+    );
+    expect(errors[2].errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          column: "Category",
+          message: expect.stringContaining("Guests row 3"),
+        }),
+        expect.objectContaining({
+          column: "RSVPDeadlineWIB",
+          code: "INVALID_DATE",
+        }),
+      ]),
+    );
+    expect(errors[3].errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ column: "SessionSelection" }),
+      ]),
+    );
+    expect(errors[4].errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining("matching named guest"),
+        }),
+      ]),
+    );
+
+    guests.addRow(["typo", "Orphaned Adult", "Adult"]);
+    const orphan = await uploadWorkbook();
+    expect(orphan.statusCode).toBe(400);
+    expect(orphan.json().error).toMatchObject({
+      code: "IMPORT_WORKBOOK_INVALID",
+      message: expect.stringContaining("Guests row 5, HouseholdRef"),
+    });
+    guests.getRow(5).values = [];
+    guests.getCell("B2").value = { formula: "1+1", result: 2 };
+    const formula = await uploadWorkbook();
+    expect(formula.statusCode).toBe(400);
+    expect(formula.json().error.message).toContain("Guests cell B2");
+  });
+
+  it("uses named Yes/No columns when more than two sessions are active", async () => {
+    await createEvent({ displayOrder: 2, slug: "reception" });
+    await createEvent({ displayOrder: 3, slug: "third-session" });
+    const session = await createOwnerAndSession();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(
+      (await app
+        .get(GuestImportService)
+        .downloadTemplate()) as unknown as Parameters<
+        typeof workbook.xlsx.load
+      >[0],
+    );
+    const invitations = workbook.getWorksheet("Invitations")!;
+    expect(invitations.getCell("H1").value).toBe("[A] Import ceremony");
+    expect(invitations.getCell("J1").value).toBe("[C] Import third-session");
+    invitations.addRows([
+      ["V01", "Choose two", null, null, null, null, null, "Yes", "No", "Yes"],
+      [
+        "V02",
+        "Choose three",
+        null,
+        null,
+        null,
+        null,
+        null,
+        "Yes",
+        "Yes",
+        "Yes",
+      ],
+    ]);
+    workbook.getWorksheet("Guests")!.addRows([
+      ["V01", "Adult one", "Adult"],
+      ["V02", "Adult two", "Adult"],
+    ]);
+    const response = await upload(
+      app,
+      session,
+      Buffer.from(await workbook.xlsx.writeBuffer()),
+      "guests.xlsx",
+    );
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.json().rows).toMatchObject([
+      {
+        status: "VALID",
+        parsed: { eligibleEventSlugs: ["ceremony", "third-session"] },
+      },
+      {
+        status: "ERROR",
+        errors: [expect.objectContaining({ field: "eventIds" })],
+      },
+    ]);
+
+    workbook.getWorksheet("Instructions")!.getCell("B2").value = 3;
+    const unknownVersion = await upload(
+      app,
+      session,
+      Buffer.from(await workbook.xlsx.writeBuffer()),
+      "guests.xlsx",
+    );
+    expect(unknownVersion.statusCode).toBe(400);
+  });
+
+
+  it("counts only real invitation rows after a single-session Excel row insertion", async () => {
+    const session = await createOwnerAndSession();
+    const workbook = new ExcelJS.Workbook();
+    const template = await app.get(GuestImportService).downloadTemplate();
+    await workbook.xlsx.load(
+      template as unknown as Parameters<typeof workbook.xlsx.load>[0],
+    );
+    const invitations = workbook.getWorksheet("Invitations")!;
+    const choice = invitations.getCell("H2").value;
+    invitations.spliceRows(2, 0, ["N01", "Inserted Household", null, null, null, null, null, choice]);
+    expect(invitations.getCell("H502").value).toBe(choice);
+    workbook.getWorksheet("Guests")!.addRow(["N01", "Named Guest", "Adult"]);
+    const preview = await upload(app, session, Buffer.from(await workbook.xlsx.writeBuffer()), "guests.xlsx");
+    expect(preview.statusCode, preview.body).toBe(201);
+    expect(preview.json().summary).toMatchObject({ totalRows: 1, validRows: 1 });
+  });
+
+  it("binds downloaded choices to exact event identity and distinguishes duplicate session names", async () => {
+    const session = await createOwnerAndSession();
+    const reception = await createEvent({ displayOrder: 2, slug: "reception" });
+    const startsAt = new Date("2027-01-16T11:00:01Z");
+    const original = await prisma.event.update({
+      where: { id: reception.id },
+      data: { name: "Import ceremony", startsAt },
+    });
+    const workbook = new ExcelJS.Workbook();
+    const template = await app.get(GuestImportService).downloadTemplate();
+    await workbook.xlsx.load(
+      template as unknown as Parameters<typeof workbook.xlsx.load>[0],
+    );
+    const choice = workbook.getWorksheet("Events")!.getCell("F4").value;
+    workbook.getWorksheet("Invitations")!.addRow(["N01", "Two distinct sessions", null, null, null, null, null, choice]);
+    workbook.getWorksheet("Guests")!.addRow(["N01", "Named Guest", "Adult"]);
+    const file = Buffer.from(await workbook.xlsx.writeBuffer());
+    const initial = await upload(app, session, file, "guests.xlsx");
+    expect(initial.statusCode, initial.body).toBe(201);
+    expect(initial.json().rows[0].parsed.eligibleEventNames).toEqual([
+      "Import ceremony (ceremony)",
+      "Import ceremony (reception)",
+    ]);
+
+    await prisma.event.update({
+      where: { id: reception.id },
+      data: { startsAt: new Date("2027-01-16T11:00:02Z") },
+    });
+    const changedTime = await upload(app, session, file, "guests.xlsx");
+    expect(changedTime.json().error.code).toBe("IMPORT_WORKBOOK_INVALID");
+
+    await prisma.event.update({
+      where: { id: reception.id },
+      data: { slug: "old-reception", isActive: false },
+    });
+    await prisma.event.create({
+      data: { name: original.name, slug: original.slug, startsAt, displayOrder: 3, isActive: true },
+    });
+    const replaced = await upload(app, session, file, "guests.xlsx");
+    expect(replaced.statusCode).toBe(400);
+    expect(replaced.json().error.code).toBe("IMPORT_WORKBOOK_INVALID");
+  });
+
+  it("enforces decoded text and workbook dimensions before storing a preview", async () => {
+    const session = await createOwnerAndSession();
+    const workbook = new ExcelJS.Workbook();
+    const template = await app.get(GuestImportService).downloadTemplate();
+    await workbook.xlsx.load(
+      template as unknown as Parameters<typeof workbook.xlsx.load>[0],
+    );
+    const invitations = workbook.getWorksheet("Invitations")!;
+    invitations.getCell("A2").value = "N01";
+    invitations.getCell("B2").value = "Text limit check";
+    const guests = workbook.getWorksheet("Guests")!;
+    guests.addRow(["N01", "x".repeat(2_001), "Adult"]);
+    const file = async () => Buffer.from(await workbook.xlsx.writeBuffer());
+    const before = await counts();
+    const oversizedCell = await upload(app, session, await file(), "guests.xlsx");
+    expect(oversizedCell.statusCode).toBe(400);
+    expect(oversizedCell.json().error.message).toContain("Guests cell B2");
+
+    for (let row = 2; row < 1_070; row++) {
+      guests.getRow(row).values = ["N01", "x".repeat(1_900), "Adult"];
+    }
+    const oversizedText = await upload(app, session, await file(), "guests.xlsx");
+    expect(oversizedText.statusCode).toBe(400);
+    expect(oversizedText.json().error.message).toContain("workbook text limit");
+
+    const other = workbook.addWorksheet("Extra");
+    other.getCell(1, 257).value = "Outside the supported workbook width";
+    const oversizedColumn = await upload(app, session, await file(), "guests.xlsx");
+    expect(oversizedColumn.statusCode).toBe(400);
+    expect(oversizedColumn.json().error.code).toBe("VALIDATION_ERROR");
+    expect(await counts()).toEqual(before);
+  });
+
 
   it("requires OWNER auth, Origin, and CSRF for multipart upload", async () => {
     const session = await createOwnerAndSession();

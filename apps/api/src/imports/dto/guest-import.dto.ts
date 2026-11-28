@@ -72,6 +72,9 @@ export class GuestImportParsedRowDto {
 
   @ApiProperty({ isArray: true, type: String })
   eligibleEventSlugs: string[];
+
+  @ApiPropertyOptional({ isArray: true, type: String })
+  eligibleEventNames?: string[];
 }
 
 export class GuestImportPreviewRowDto {
@@ -106,6 +109,9 @@ export class GuestImportPreviewSummaryDto {
 }
 
 export class GuestImportValidateResponseDto {
+  @ApiPropertyOptional({ enum: [2], type: Number })
+  templateVersion?: 2;
+
   @ApiProperty({ format: "uuid", type: String })
   previewId: string;
 

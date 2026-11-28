@@ -202,6 +202,9 @@ test.describe.serial("real guest import integration", () => {
     const databasesBefore = await page.evaluate(async () =>
       (await indexedDB.databases()).map((db) => db.name),
     );
+    await page
+      .getByText("Existing CSV and legacy XLSX formats", { exact: true })
+      .click();
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download CSV template" }).click();
     const template = await download;
@@ -436,5 +439,64 @@ test.describe.serial("real guest import integration", () => {
     expect(xlsxHousehold?.events.map((event) => event.slug)).toEqual([
       fixture.receptionSlug,
     ]);
+  });
+
+  test("Excel download, linked guests and named sessions round-trip through the real preview", async ({
+    page,
+  }, testInfo) => {
+    await openImport(page);
+    const pendingDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download Excel template" }).click();
+    const downloaded = await pendingDownload;
+    expect(downloaded.suggestedFilename()).toBe("guest-import-template.xlsx");
+    const path = testInfo.outputPath("guests.xlsx");
+    await downloaded.saveAs(path);
+    helper("fill-template", fixture.runId, path);
+
+    const before = helper<Snapshot>("snapshot", fixture.runId);
+    await page.locator("#import-file").setInputFiles(path);
+    await page.getByRole("button", { name: "Validate file" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Household preview" }),
+    ).toBeVisible();
+    const row = page
+      .getByRole("listitem")
+      .filter({
+        has: page.getByRole("heading", {
+          name: /Invitations row 2.*Excel Household/,
+        }),
+      });
+    await expect(row.getByText("VALID", { exact: true })).toBeVisible();
+    await expect(row.getByText(/Ceremony, .*Reception/)).toBeVisible();
+    await row.getByText(/Invitees \(2\)/).click();
+    await expect(row.getByText("Excel Adult · ADULT")).toBeVisible();
+    await expect(row.getByText("Excel Child · CHILD")).toBeVisible();
+    const preview = helper<Snapshot>("snapshot", fixture.runId);
+    expect(delta(preview, before, "invitations")).toBe(0);
+    expect(delta(preview, before, "invitees")).toBe(0);
+
+    await row.getByRole("checkbox", { name: "Select row 2" }).check();
+    await confirmImport(page);
+    await expect(
+      page.getByRole("heading", { name: "Import complete" }),
+    ).toBeVisible();
+    const committed = helper<Snapshot>("snapshot", fixture.runId);
+    expect(delta(committed, before, "guestImportBatches")).toBe(1);
+    expect(delta(committed, before, "invitations")).toBe(1);
+    expect(delta(committed, before, "rsvps")).toBe(0);
+    const household = committed.scopedInvitations.find((entry) =>
+      entry.displayName.endsWith("Excel Household"),
+    );
+    expect(
+      household?.invitees.map(({ fullName, category }) => [fullName, category]),
+    ).toEqual([
+      ["Excel Adult", "ADULT"],
+      ["Excel Child", "CHILD"],
+    ]);
+    expect(household?.events.map(({ slug }) => slug)).toEqual(
+      expect.arrayContaining([fixture.ceremonySlug, fixture.receptionSlug]),
+    );
+    expect(household?.events).toHaveLength(2);
+    expect(household?.rsvpDeadlineAt).toBe("2027-01-16T11:30:00.000Z");
   });
 });

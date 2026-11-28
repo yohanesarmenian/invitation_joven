@@ -38,8 +38,26 @@ import type {
   GuestImportValidateResponseDto,
 } from "./dto/guest-import.dto.js";
 
+import { checkWorkbookArchive } from "./guest-import-archive.js";
+import {
+  createGuestWorkbook,
+  eventReviewSnapshot,
+  isGuestWorkbookV2,
+  MAX_IMPORT_ROWS,
+  readGuestWorkbook,
+  workbookError,
+  type WorkbookEvent,
+} from "./guest-import-workbook.js";
+
+const workbookEventSelect = {
+  id: true,
+  slug: true,
+  name: true,
+  startsAt: true,
+  venueName: true,
+} as const;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const MAX_IMPORT_ROWS = 500;
+
 const PREVIEW_TTL_MS = 30 * 60 * 1000;
 const BASE_HEADERS = [
   "displayName",
@@ -51,10 +69,21 @@ const BASE_HEADERS = [
   "invitees",
 ] as const;
 
+const workbookColumns = new Map([
+  ["displayName", "DisplayName"],
+  ["greetingName", "GreetingName"],
+  ["allowPlusOne", "PlusOneAllowed"],
+  ["maxAdditionalChildren", "AdditionalChildren"],
+  ["rsvpDeadlineLocal", "RSVPDeadlineWIB"],
+  ["notes", "Notes"],
+]);
+
 type SourceFormat = GuestImportSourceFormat;
 
 type RawRow = {
   cells: unknown[];
+  errors?: GuestImportIssueDto[];
+  invitees?: NonNullable<GuestImportPreviewRowDto["parsed"]>["invitees"];
   rowNumber: number;
 };
 
@@ -70,6 +99,7 @@ type ParsedDeadline = {
 
 type InternalRow = GuestImportPreviewRowDto & {
   normalized?: ParsedImportRow;
+  eventSnapshots?: string[];
 };
 
 type UploadSource = {
@@ -97,6 +127,7 @@ type StoredPreviewRow = {
   errors: GuestImportIssueDto[];
   eventSlugs: string[];
   input: StoredCreateInput | null;
+  eventSnapshots?: string[];
   parsed: GuestImportPreviewRowDto["parsed"] | null;
   rowNumber: number;
   status: GuestImportPreviewRowDto["status"];
@@ -368,20 +399,33 @@ function xlsxCellValue(cell: ExcelJS.Cell): unknown {
   return value;
 }
 
-async function parseXlsx(buffer: Buffer): Promise<RawRow[]> {
+async function loadXlsx(buffer: Buffer): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
 
   try {
+    await checkWorkbookArchive(buffer);
     await workbook.xlsx.load(
       buffer as unknown as Parameters<typeof workbook.xlsx.load>[0],
+      {
+        ignoreNodes: [
+          "cols",
+          "dataValidations",
+          "conditionalFormatting",
+          "extLst",
+        ],
+      },
     );
   } catch {
     fileIssue();
   }
 
+  return workbook;
+}
+
+function parseLegacyXlsx(workbook: ExcelJS.Workbook): RawRow[] {
   const worksheet = workbook.getWorksheet("Invitations");
 
-  if (worksheet === undefined || worksheet.state === "hidden") {
+  if (worksheet === undefined || worksheet.state !== "visible") {
     fileIssue();
   }
 
@@ -392,6 +436,15 @@ async function parseXlsx(buffer: Buffer): Promise<RawRow[]> {
     fileIssue();
   }
 
+  let decodedText = 0;
+  function readCell(cell: ExcelJS.Cell) {
+    const value = xlsxCellValue(cell);
+    if (typeof value === "string") {
+      decodedText += value.length;
+      if (decodedText > 8_000_000) fileIssue();
+    }
+    return value;
+  }
   const headerRow = worksheet.getRow(1);
   let headerWidth = 0;
   headerRow.eachCell({ includeEmpty: false }, (_cell, columnNumber) => {
@@ -401,7 +454,7 @@ async function parseXlsx(buffer: Buffer): Promise<RawRow[]> {
   const rows: RawRow[] = [
     {
       cells: Array.from({ length: headerWidth }, (_value, index) =>
-        xlsxCellValue(headerRow.getCell(index + 1)),
+        readCell(headerRow.getCell(index + 1)),
       ),
       rowNumber: 1,
     },
@@ -418,7 +471,7 @@ async function parseXlsx(buffer: Buffer): Promise<RawRow[]> {
     });
 
     const cells = Array.from({ length: width }, (_value, index) =>
-      xlsxCellValue(row.getCell(index + 1)),
+      readCell(row.getCell(index + 1)),
     );
 
     if (!isBlankRecord(cells)) {
@@ -806,6 +859,18 @@ export class GuestImportService {
     private readonly credentialService: CredentialService,
   ) {}
 
+  private getWorkbookEvents(): Promise<WorkbookEvent[]> {
+    return this.prisma.event.findMany({
+      where: { isActive: true },
+      orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
+      select: workbookEventSelect,
+    });
+  }
+
+  async downloadTemplate(): Promise<Buffer> {
+    return createGuestWorkbook(await this.getWorkbookEvents());
+  }
+
   async validatePreview(
     input: ValidatePreviewInput,
   ): Promise<GuestImportValidateResponseDto> {
@@ -816,10 +881,19 @@ export class GuestImportService {
     }
 
     const sourceFormat = detectFormat(filename, input.source.buffer);
-    const parsedRows =
-      sourceFormat === GuestImportSourceFormat.CSV
-        ? parseCsv(input.source.buffer)
-        : await parseXlsx(input.source.buffer);
+    const workbook =
+      sourceFormat === GuestImportSourceFormat.XLSX
+        ? await loadXlsx(input.source.buffer)
+        : null;
+    const workbookEvents =
+      workbook && isGuestWorkbookV2(workbook)
+        ? await this.getWorkbookEvents()
+        : null;
+    const parsedRows = workbook
+      ? workbookEvents
+        ? readGuestWorkbook(workbook, workbookEvents, BASE_HEADERS)
+        : parseLegacyXlsx(workbook)
+      : parseCsv(input.source.buffer);
 
     if (parsedRows.length === 0 || isBlankRecord(parsedRows[0]!.cells)) {
       fileIssue();
@@ -834,23 +908,59 @@ export class GuestImportService {
       fileIssue();
     }
 
-    const events = await this.prisma.event.findMany({
-      select: { id: true, isActive: true, slug: true },
-      where: { slug: { in: headerPlan.eventSlugs } },
-    });
+    const events =
+      workbookEvents?.map((event) => ({ ...event, isActive: true })) ??
+      (await this.prisma.event.findMany({
+        select: { id: true, isActive: true, slug: true },
+        where: { slug: { in: headerPlan.eventSlugs } },
+      }));
     const eventsBySlug = new Map(events.map((event) => [event.slug, event]));
 
-    const rows = dataRows.map((rawRow) =>
-      this.parseRow(rawRow, headerPlan, eventsBySlug),
+    if (workbookEvents && dataRows.length === 0) {
+      workbookError(
+        "Add at least one household on the Invitations worksheet before previewing.",
+      );
+    }
+    const workbookEventsBySlug = new Map(
+      workbookEvents?.map((event) => [event.slug, event]),
     );
+    const nameCounts = new Map<string, number>();
+    for (const event of workbookEvents ?? []) {
+      const key = duplicateKey(event.name);
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    }
+    const rows = dataRows.map((rawRow) => {
+      const row = this.parseRow(rawRow, headerPlan, eventsBySlug);
+      if (workbookEvents && row.parsed) {
+        const selected = row.parsed.eligibleEventSlugs.map((slug) =>
+          workbookEventsBySlug.get(slug)!,
+        );
+        row.parsed.eligibleEventNames = selected.map((event) =>
+          (nameCounts.get(duplicateKey(event.name)) ?? 0) > 1
+            ? event.name + " (" + event.slug + ")"
+            : event.name,
+        );
+        row.eventSnapshots = selected.map(eventReviewSnapshot);
+      }
+      return row;
+    });
 
     await this.addDuplicateWarnings(rows);
+    if (workbookEvents) {
+      for (const row of rows) {
+        for (const item of [...row.errors, ...row.warnings]) {
+          if (item.column)
+            item.column = workbookColumns.get(item.column) ?? item.column;
+        }
+      }
+    }
 
     const previewSummary = summary(rows);
     const expiresAt = new Date(Date.now() + PREVIEW_TTL_MS);
     const storedRows = rows.map((row) => ({
       errors: row.errors,
       eventSlugs: row.normalized?.eventSlugs ?? [],
+      ...(row.eventSnapshots ? { eventSnapshots: row.eventSnapshots } : {}),
       input: row.normalized?.input
         ? {
             ...row.normalized.input,
@@ -879,6 +989,7 @@ export class GuestImportService {
     });
 
     return {
+      ...(workbookEvents ? { templateVersion: 2 } : {}),
       expiresAt: preview.expiresAt.toISOString(),
       previewId: preview.id,
       rows: rows.map((row) => ({
@@ -1077,6 +1188,7 @@ export class GuestImportService {
     const errors = value.errors;
     const warnings = value.warnings;
     const eventSlugs = value.eventSlugs;
+    const eventSnapshots = value.eventSnapshots;
     const input = value.input;
 
     if (
@@ -1089,7 +1201,11 @@ export class GuestImportService {
       !Array.isArray(errors) ||
       !Array.isArray(warnings) ||
       !Array.isArray(eventSlugs) ||
-      !eventSlugs.every((slug) => typeof slug === "string")
+      !eventSlugs.every((slug) => typeof slug === "string") ||
+      (eventSnapshots !== undefined &&
+        (!Array.isArray(eventSnapshots) ||
+          eventSnapshots.length !== eventSlugs.length ||
+          !eventSnapshots.every((snapshot) => typeof snapshot === "string")))
     ) {
       stalePreview();
     }
@@ -1097,6 +1213,7 @@ export class GuestImportService {
     return {
       errors: errors as unknown as GuestImportIssueDto[],
       eventSlugs,
+      ...(eventSnapshots ? { eventSnapshots } : {}),
       input: input === null ? null : this.parseStoredCreateInput(input),
       parsed:
         value.parsed === null || value.parsed === undefined
@@ -1179,7 +1296,7 @@ export class GuestImportService {
     ];
     await lockEvents(tx, selectedEventIds);
     const events = await tx.event.findMany({
-      select: { id: true, isActive: true, slug: true },
+      select: { ...workbookEventSelect, isActive: true },
       where: { id: { in: selectedEventIds } },
     });
     const eventsById = new Map(events.map((event) => [event.id, event]));
@@ -1210,7 +1327,12 @@ export class GuestImportService {
       // but swapping slugs between the same UUIDs changes the approved selection.
       for (const [index, eventId] of row.input.eventIds.entries()) {
         const event = eventsById.get(eventId);
-        if (!event?.isActive || event.slug !== row.eventSlugs[index]) {
+        if (
+          !event?.isActive ||
+          event.slug !== row.eventSlugs[index] ||
+          (row.eventSnapshots &&
+            row.eventSnapshots[index] !== eventReviewSnapshot(event))
+        ) {
           stalePreview();
         }
       }
@@ -1268,7 +1390,7 @@ export class GuestImportService {
     >,
   ): InternalRow {
     const row: InternalRow = {
-      errors: [],
+      errors: [...(rawRow.errors ?? [])],
       parsed: undefined,
       rowNumber: rawRow.rowNumber,
       status: "VALID",
@@ -1287,7 +1409,7 @@ export class GuestImportService {
     const maxAdditionalChildren = parseInteger(row, cells[3]);
     const rsvpDeadline = parseJakartaDeadline(row, cells[4]);
     const notes = parseText(row, cells, 5, "notes", false);
-    const invitees = parseInvitees(row, cells[6]);
+    const invitees = rawRow.invitees ?? parseInvitees(row, cells[6]);
     const eventIds: string[] = [];
     const selectedEventSlugs: string[] = [];
 

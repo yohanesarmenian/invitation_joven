@@ -46,7 +46,11 @@ function parsed(v: unknown) {
         nullableText(i.label),
     ) &&
     Array.isArray(v.eligibleEventSlugs) &&
-    v.eligibleEventSlugs.every(text)
+    v.eligibleEventSlugs.every(text) &&
+    (v.eligibleEventNames === undefined ||
+      (Array.isArray(v.eligibleEventNames) &&
+        v.eligibleEventNames.length === v.eligibleEventSlugs.length &&
+        v.eligibleEventNames.every(text)))
   );
 }
 export function isPreview(v: unknown): v is GuestImportValidateResponse {
@@ -54,6 +58,7 @@ export function isPreview(v: unknown): v is GuestImportValidateResponse {
     !object(v) ||
     !uuid(v.previewId) ||
     !instant(v.expiresAt) ||
+    (v.templateVersion !== undefined && v.templateVersion !== 2) ||
     !object(v.summary) ||
     !Array.isArray(v.rows) ||
     v.rows.length > 500

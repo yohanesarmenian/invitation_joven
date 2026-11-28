@@ -408,11 +408,51 @@ async function xlsx(runId, outputPath) {
   return { outputPath };
 }
 
+async function fillTemplate(runId, outputPath) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(outputPath);
+  const events = workbook.getWorksheet("Events");
+  const invites = workbook.getWorksheet("Invitations");
+  const guests = workbook.getWorksheet("Guests");
+  const selectedSlugs = new Set([
+    slug(runId, "ceremony"),
+    slug(runId, "reception"),
+  ]);
+  const row = [
+    "V2-01",
+    displayPrefix(runId) + " Excel Household",
+    null,
+    "Yes",
+    1,
+    "2027-01-16 18:30",
+  ];
+  if (
+    workbook.getWorksheet("Instructions").getCell("B3").value === "dropdown"
+  ) {
+    invites.getRow(2).values = [...row, null, events.getCell("F4").value];
+  } else {
+    const selections = [];
+    events.eachRow((event, rowNumber) => {
+      if (rowNumber > 1)
+        selections.push(
+          selectedSlugs.has(event.getCell(2).value) ? "Yes" : "No",
+        );
+    });
+    invites.getRow(2).values = [...row, null, ...selections];
+  }
+  guests.addRows([
+    ["V2-01", "Excel Adult", "Adult"],
+    ["v2-01", "Excel Child", "Child"],
+  ]);
+  await workbook.xlsx.writeFile(outputPath);
+  return { outputPath };
+}
+
 async function main() {
   const [command, runId, outputPath] = process.argv.slice(2);
   if (!command || !runId) {
     throw new Error(
-      "Usage: live-import-db.cjs <setup|snapshot|cleanup|xlsx> <runId> [outputPath]",
+      "Usage: live-import-db.cjs <setup|snapshot|cleanup|xlsx|fill-template> <runId> [outputPath]",
     );
   }
   const result =
@@ -427,7 +467,9 @@ async function main() {
             })
           : command === "xlsx"
             ? await xlsx(runId, outputPath)
-            : null;
+            : command === "fill-template"
+              ? await fillTemplate(runId, outputPath)
+              : null;
   if (result === null) {
     throw new Error(`Unknown command: ${command}`);
   }
